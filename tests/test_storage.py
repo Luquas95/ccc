@@ -71,6 +71,40 @@ def test_insert_and_list_runs(storage):
     assert runs[0].cost_usd == 0.01
 
 
+def test_total_tokens_by_model(storage):
+    q = storage.create_queue("demo", "/tmp/demo", "session-abc")
+    run_id = storage.insert_prompt_run(
+        PromptRun(
+            id=0,
+            queue_id=q.id,
+            queue_item_id=None,
+            prompt_text="hi",
+            started_at=datetime.now(),
+            finished_at=datetime.now(),
+            status=RunStatus.SUCCESS,
+        )
+    )
+    storage.insert_run_model_usage(run_id, "claude-sonnet-5", input_tokens=10, output_tokens=5, cache_read_tokens=100)
+    storage.insert_run_model_usage(run_id, "claude-opus-5", input_tokens=2, output_tokens=1)
+
+    run_id2 = storage.insert_prompt_run(
+        PromptRun(
+            id=0,
+            queue_id=q.id,
+            queue_item_id=None,
+            prompt_text="hi again",
+            started_at=datetime.now(),
+            finished_at=datetime.now(),
+            status=RunStatus.SUCCESS,
+        )
+    )
+    storage.insert_run_model_usage(run_id2, "claude-sonnet-5", input_tokens=20, output_tokens=10)
+
+    totals = storage.total_tokens_by_model()
+    assert totals[0] == ("claude-sonnet-5", 10 + 5 + 100 + 20 + 10)
+    assert totals[1] == ("claude-opus-5", 3)
+
+
 def test_daily_token_totals_sums_all_token_fields(storage):
     q = storage.create_queue("demo", "/tmp/demo", "session-abc")
     storage.insert_prompt_run(

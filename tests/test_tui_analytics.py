@@ -6,7 +6,12 @@ from textual.widgets import ProgressBar
 
 from cc_continue.models import PromptRun, RunStatus
 from cc_continue.storage import Storage
-from cc_continue.tui.analytics import UNAVAILABLE_TEXT, AnalyticsScreen, build_usage_gauges
+from cc_continue.tui.analytics import (
+    UNAVAILABLE_TEXT,
+    AnalyticsScreen,
+    build_model_token_bars,
+    build_usage_gauges,
+)
 from cc_continue.usage_api import ModelUsage, ProUsage, WindowUsage
 
 
@@ -95,6 +100,55 @@ async def test_analytics_pro_usage_unavailable(tmp_path, monkeypatch):
         assert len(app.screen.query(ProgressBar)) == 0
         texts = [str(s.render()) for s in app.screen.query("#pro-usage-gauges Static")]
         assert any(UNAVAILABLE_TEXT in t for t in texts)
+
+
+@pytest.mark.asyncio
+async def test_analytics_shows_model_usage_bars(tmp_path, monkeypatch):
+    monkeypatch.setattr("cc_continue.tui.analytics.get_pro_usage", lambda: None)
+
+    storage = Storage(tmp_path / "history.db")
+    queue = storage.create_queue("proj-e", "/tmp/proj-e", "sess-1")
+    run_id = storage.insert_prompt_run(
+        PromptRun(
+            id=0,
+            queue_id=queue.id,
+            queue_item_id=None,
+            prompt_text="x",
+            started_at=datetime.now(),
+            finished_at=datetime.now(),
+            status=RunStatus.SUCCESS,
+        )
+    )
+    storage.insert_run_model_usage(run_id, "claude-sonnet-5", input_tokens=100, output_tokens=100)
+    storage.insert_run_model_usage(run_id, "claude-opus-5", input_tokens=10, output_tokens=10)
+
+    screen = AnalyticsScreen(storage)
+
+    class _HostApp(App):
+        async def on_mount(self):
+            await self.push_screen(screen)
+
+    app = _HostApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        bars = app.screen.query("#model-usage-gauges ProgressBar")
+        assert len(bars) == 2
+        percentages = sorted(round(b.percentage * 100) for b in bars)
+        assert percentages == [10, 100]  # opus scaled relative to busier sonnet
+
+        labels = [str(s.render()) for s in app.screen.query("#model-usage-gauges .usage-gauge-label")]
+        assert any("claude-sonnet-5" in label and "200" in label for label in labels)
+        assert any("claude-opus-5" in label and "20" in label for label in labels)
+
+
+def test_build_model_token_bars_empty():
+    assert build_model_token_bars([]) == []
+
+
+def test_build_model_token_bars_scales_relative_to_busiest():
+    bars = build_model_token_bars([("claude-sonnet-5", 200), ("claude-opus-5", 20)])
+    assert bars[0].relative_pct == 100.0
+    assert bars[1].relative_pct == 10.0
 
 
 def test_build_usage_gauges_none_returns_empty():

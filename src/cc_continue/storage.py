@@ -47,6 +47,16 @@ CREATE TABLE IF NOT EXISTS prompt_runs (
     result_text TEXT,
     error_text TEXT
 );
+
+CREATE TABLE IF NOT EXISTS run_model_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    prompt_run_id INTEGER NOT NULL REFERENCES prompt_runs(id),
+    model TEXT NOT NULL,
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_creation_tokens INTEGER NOT NULL DEFAULT 0
+);
 """
 
 
@@ -215,6 +225,36 @@ class Storage:
             )
             conn.commit()
             return cur.lastrowid
+
+    def insert_run_model_usage(
+        self,
+        prompt_run_id: int,
+        model: str,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+        cache_read_tokens: int = 0,
+        cache_creation_tokens: int = 0,
+    ) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute(
+                "INSERT INTO run_model_usage (prompt_run_id, model, input_tokens, output_tokens, "
+                "cache_read_tokens, cache_creation_tokens) VALUES (?, ?, ?, ?, ?, ?)",
+                (prompt_run_id, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens),
+            )
+            conn.commit()
+
+    def total_tokens_by_model(self) -> list[tuple[str, int]]:
+        """All-time total tokens (input+output+cache_read+cache_creation)
+        per model actually used, across every run CC-continue has
+        executed — descending by volume. This is CC-continue's own
+        recorded history, not an account-wide limit from Anthropic (which
+        doesn't expose a per-model breakdown on every plan)."""
+        with closing(self._connect()) as conn:
+            rows = conn.execute(
+                "SELECT model, SUM(input_tokens + output_tokens + cache_read_tokens + cache_creation_tokens) "
+                "AS total FROM run_model_usage GROUP BY model ORDER BY total DESC"
+            ).fetchall()
+            return [(r[0], r[1] or 0) for r in rows]
 
     def runs_for_queue(self, queue_id: int) -> list[PromptRun]:
         with closing(self._connect()) as conn:

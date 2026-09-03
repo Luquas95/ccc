@@ -82,7 +82,7 @@ class QueueRuntime:
             result = await self.run_fn(queue.project_path, queue.session_id, item.prompt_text, resume)
             finished_at = datetime.now()
 
-            self.storage.insert_prompt_run(
+            run_id = self.storage.insert_prompt_run(
                 PromptRun(
                     id=0,
                     queue_id=queue.id,
@@ -102,6 +102,15 @@ class QueueRuntime:
                     error_text=result.error_text,
                 )
             )
+            for model_name, tokens in result.model_usage.items():
+                self.storage.insert_run_model_usage(
+                    run_id,
+                    model_name,
+                    input_tokens=tokens.get("input_tokens", 0),
+                    output_tokens=tokens.get("output_tokens", 0),
+                    cache_read_tokens=tokens.get("cache_read_tokens", 0),
+                    cache_creation_tokens=tokens.get("cache_creation_tokens", 0),
+                )
 
             if result.status == RunStatus.SUCCESS:
                 self.storage.set_item_status(item.id, ItemStatus.DONE)

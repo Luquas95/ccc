@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from cc_continue.models import RunStatus
 
@@ -35,6 +35,10 @@ class RunResult:
     result_text: str | None = None
     error_text: str | None = None
     session_id: str | None = None
+    # {canonical_model_name: {input_tokens, output_tokens, cache_read_tokens,
+    # cache_creation_tokens}}, from Claude Code's "modelUsage" field — lets a
+    # run be attributed to the specific model(s) it actually used.
+    model_usage: dict[str, dict[str, int]] = field(default_factory=dict)
 
 
 def _is_rate_limited(data: dict | None, combined_lower: str) -> bool:
@@ -68,6 +72,16 @@ def classify_output(stdout: str, stderr: str, exit_code: int) -> RunResult:
             )
 
         usage = data.get("usage", {})
+        model_usage = {
+            model_name: {
+                "input_tokens": mu.get("inputTokens", 0),
+                "output_tokens": mu.get("outputTokens", 0),
+                "cache_read_tokens": mu.get("cacheReadInputTokens", 0),
+                "cache_creation_tokens": mu.get("cacheCreationInputTokens", 0),
+            }
+            for model_name, mu in (data.get("modelUsage") or {}).items()
+            if isinstance(mu, dict)
+        }
         return RunResult(
             status=RunStatus.SUCCESS,
             cost_usd=data.get("total_cost_usd", 0.0),
@@ -79,6 +93,7 @@ def classify_output(stdout: str, stderr: str, exit_code: int) -> RunResult:
             num_turns=data.get("num_turns", 0),
             result_text=data.get("result"),
             session_id=data.get("session_id"),
+            model_usage=model_usage,
         )
 
     if _is_rate_limited(None, combined):

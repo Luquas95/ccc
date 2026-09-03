@@ -38,6 +38,27 @@ async def test_add_prompt_runs_and_marks_done(storage):
     assert runs[0].status == RunStatus.SUCCESS
 
 
+async def test_persists_per_model_usage(storage):
+    async def fake_run(project_path, session_id, prompt, resume):
+        return RunResult(
+            status=RunStatus.SUCCESS,
+            model_usage={"claude-sonnet-5": {"input_tokens": 2, "output_tokens": 4}},
+        )
+
+    orch = Orchestrator(storage, run_fn=fake_run)
+    await orch.start_all()
+    orch.add_prompt("/tmp/proj", "first prompt")
+
+    for _ in range(50):
+        await asyncio.sleep(0.01)
+        if storage.total_tokens_by_model():
+            break
+
+    await orch.stop_all()
+
+    assert storage.total_tokens_by_model() == [("claude-sonnet-5", 6)]
+
+
 async def test_second_prompt_resumes_session(storage):
     calls = []
 

@@ -20,6 +20,29 @@ def test_classify_success():
     assert result.input_tokens == 2
     assert result.output_tokens == 4
     assert result.session_id == "c972e605-eb63-410b-aa20-30c2e539337c"
+    assert result.model_usage == {}  # no modelUsage field in this fixture
+
+
+SUCCESS_JSON_WITH_MODEL_USAGE = (
+    '{"session_id":"abc","total_cost_usd":0.088394,'
+    '"usage":{"input_tokens":2,"output_tokens":4},'
+    '"is_error":false,"num_turns":1,"result":"OK",'
+    '"modelUsage":{"claude-sonnet-5":{"inputTokens":2,"outputTokens":4,'
+    '"cacheReadInputTokens":16690,"cacheCreationInputTokens":21253,'
+    '"costUSD":0.088394}}}'
+)
+
+
+def test_classify_success_captures_per_model_usage():
+    result = classify_output(SUCCESS_JSON_WITH_MODEL_USAGE, "", 0)
+    assert result.model_usage == {
+        "claude-sonnet-5": {
+            "input_tokens": 2,
+            "output_tokens": 4,
+            "cache_read_tokens": 16690,
+            "cache_creation_tokens": 21253,
+        }
+    }
 
 
 def test_classify_invalid_session_is_hard_error():

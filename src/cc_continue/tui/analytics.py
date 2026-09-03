@@ -46,6 +46,25 @@ def build_usage_gauges(usage: ProUsage | None) -> list[UsageGauge]:
     return gauges
 
 
+@dataclass
+class ModelTokenBar:
+    model: str
+    tokens: int
+    relative_pct: float  # 0-100, scaled against the busiest model
+
+
+def build_model_token_bars(totals: list[tuple[str, int]]) -> list[ModelTokenBar]:
+    """Bars comparing token volume across models CC-continue has actually
+    run — its own recorded history, not an Anthropic account limit (which
+    doesn't break down by model on every plan; see build_usage_gauges).
+    The busiest model is scaled to 100% so bars stay comparable to each
+    other even though there's no fixed ceiling like a usage-limit window."""
+    if not totals:
+        return []
+    max_tokens = max(tokens for _, tokens in totals) or 1
+    return [ModelTokenBar(model, tokens, (tokens / max_tokens) * 100) for model, tokens in totals]
+
+
 class AnalyticsScreen(Screen):
     BINDINGS = [("escape", "back", "Back")]
 
@@ -63,6 +82,9 @@ class AnalyticsScreen(Screen):
     AnalyticsScreen .usage-gauge-row ProgressBar {
         width: 1fr;
     }
+    AnalyticsScreen #model-usage-gauges {
+        height: auto;
+    }
     """
 
     def __init__(self, storage: Storage):
@@ -72,8 +94,10 @@ class AnalyticsScreen(Screen):
     def compose(self):
         yield Header()
         yield Container(
-            Static("Claude Pro usage"),
+            Static("Claude Pro usage (account limits)"),
             Container(id="pro-usage-gauges"),
+            Static("Tokens used by model (this tool's own history)"),
+            Container(id="model-usage-gauges"),
             Static("Tokens per day (last 30 days)"),
             Sparkline([], id="tokens-sparkline"),
             Static("Tokens per project", id="project-tokens-label"),
@@ -82,9 +106,11 @@ class AnalyticsScreen(Screen):
         )
         yield Footer()
 
-    def on_mount(self) -> None:
+    async def on_mount(self) -> None:
         self.run_worker(self.refresh_pro_usage(), exclusive=True)
         self.set_interval(30.0, lambda: self.run_worker(self.refresh_pro_usage(), exclusive=True))
+
+        await self._mount_model_usage_bars()
 
         daily = self.storage.daily_token_totals()
         sparkline = self.query_one("#tokens-sparkline", Sparkline)
@@ -118,14 +144,26 @@ class AnalyticsScreen(Screen):
             return
 
         for gauge in gauges:
-            bar = ProgressBar(total=100, show_eta=False)
-            row = Horizontal(
-                Static(f"{gauge.label} (resets {gauge.reset_text})", classes="usage-gauge-label"),
-                bar,
-                classes="usage-gauge-row",
-            )
-            await container.mount(row)
-            bar.update(progress=gauge.percentage)
+            await self._mount_gauge_row(container, gauge.label, gauge.percentage, f"resets {gauge.reset_text}")
+
+    async def _mount_model_usage_bars(self) -> None:
+        container = self.query_one("#model-usage-gauges", Container)
+        bars = build_model_token_bars(self.storage.total_tokens_by_model())
+        if not bars:
+            await container.mount(Static("No runs recorded yet."))
+            return
+        for bar in bars:
+            await self._mount_gauge_row(container, bar.model, bar.relative_pct, f"{bar.tokens:,} tokens")
+
+    async def _mount_gauge_row(self, container: Container, label: str, percentage: float, suffix: str) -> None:
+        progress_bar = ProgressBar(total=100, show_eta=False)
+        row = Horizontal(
+            Static(f"{label} ({suffix})", classes="usage-gauge-label"),
+            progress_bar,
+            classes="usage-gauge-row",
+        )
+        await container.mount(row)
+        progress_bar.update(progress=percentage)
 
     def action_back(self) -> None:
         self.app.pop_screen()
