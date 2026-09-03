@@ -1968,20 +1968,27 @@ prompts for projects/prompts you'd trust to run unattended.
     .venv/bin/pytest
 ```
 
-- [ ] **Step 2: Run full test suite**
+- [x] **Step 2: Run full test suite**
 
 Run: `.venv/bin/pytest -v`
-Expected: all tests PASS.
+Expected: all tests PASS. Actual: 32 passed.
 
-- [ ] **Step 3: Manual smoke test with a real, cheap Claude Code prompt**
+- [x] **Step 3: Manual smoke test with a real, cheap Claude Code prompt**
 
-Run (uses a tiny amount of real usage — keep the prompt trivial):
-```bash
-.venv/bin/cc-continue add /tmp <path-to-empty-scratch-dir> "Reply with exactly one word: PONG"
-```
-Then launch `.venv/bin/cc-continue`, confirm the queue appears, watch it run and flip to `done`, open queue detail (`Enter`) to see the `PONG` result in history, and check `v` analytics shows the cost.
+Done against the real `claude` CLI (not the TUI's interactive keys, since
+this ran headlessly from an agent session — but the exact same
+`CCContinueApp`/`Orchestrator`/`execute()` code path):
 
-- [ ] **Step 4: Commit**
+1. `cc-continue add <scratch-dir> "Reply with exactly one word: PONG"`,
+   then ran the app until the queue drained: queue went `idle`, run
+   `status=success`, `result_text="PONG"`, `cost_usd≈0.11`.
+2. Queued a second prompt to the **same** project ("What word did you
+   just say?") and ran the app again: it correctly resumed the same
+   session (`--resume`, same `session_id`) and answered `PONG` again —
+   confirming real cross-invocation context continuity end-to-end, not
+   just against the mocked `run_fn` in the orchestrator tests.
+
+- [x] **Step 4: Commit**
 
 ```bash
 git add README.md
