@@ -31,7 +31,7 @@ class DashboardScreen(Screen):
     def on_mount(self) -> None:
         table = self.query_one("#dashboard-table", DataTable)
         table.cursor_type = "row"
-        table.add_columns("Project", "Status", "Pending", "Today's cost")
+        table.add_columns("Project", "Status", "Pending", "Today's tokens")
         self.refresh_table()
         self.set_interval(2.0, self.refresh_table)
 
@@ -40,12 +40,12 @@ class DashboardScreen(Screen):
         table.clear()
         for queue in self.storage.list_queues():
             pending = self.storage.count_pending_items(queue.id)
-            today_cost = sum(
-                r.cost_usd
+            today_tokens = sum(
+                r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_creation_tokens
                 for r in self.storage.runs_for_queue(queue.id)
                 if r.started_at.date() == date.today()
             )
-            table.add_row(queue.name, queue.status.value, str(pending), f"${today_cost:.4f}")
+            table.add_row(queue.name, queue.status.value, str(pending), f"{today_tokens:,}")
 
     def action_add_prompt(self) -> None:
         from cc_continue.tui.queue_detail import AddPromptModal

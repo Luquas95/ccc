@@ -22,7 +22,8 @@ async def test_analytics_shows_totals(tmp_path):
             started_at=datetime.now(),
             finished_at=datetime.now(),
             status=RunStatus.SUCCESS,
-            cost_usd=1.23,
+            input_tokens=100,
+            output_tokens=50,
         )
     )
 
@@ -36,4 +37,4 @@ async def test_analytics_shows_totals(tmp_path):
         table = app.screen.query_one("#analytics-project-table")
         rows = [str(cell) for row_key in table.rows for cell in table.get_row(row_key)]
         assert any("proj-d" in cell for cell in rows)
-        assert any("1.2300" in cell for cell in rows)
+        assert any("150" in cell for cell in rows)

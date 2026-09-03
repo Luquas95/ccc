@@ -232,6 +232,20 @@ class Storage:
             ).fetchall()
             return [(r[0], r[1]) for r in rows]
 
+    def daily_token_totals(self, days: int = 30) -> list[tuple[str, int]]:
+        """Total tokens (input+output+cache_read+cache_creation) per day —
+        a more honest usage indicator than cost_usd for a subscription
+        plan, since it reflects the same pool the account's usage limit
+        actually draws from, not a notional per-token dollar price."""
+        with closing(self._connect()) as conn:
+            rows = conn.execute(
+                "SELECT substr(started_at, 1, 10) AS day, "
+                "SUM(input_tokens + output_tokens + cache_read_tokens + cache_creation_tokens) "
+                "FROM prompt_runs WHERE started_at >= date('now', ?) GROUP BY day ORDER BY day",
+                (f"-{days} days",),
+            ).fetchall()
+            return [(r[0], r[1] or 0) for r in rows]
+
     def blocked_seconds_total(self) -> float:
         with closing(self._connect()) as conn:
             row = conn.execute(

@@ -71,6 +71,29 @@ def test_insert_and_list_runs(storage):
     assert runs[0].cost_usd == 0.01
 
 
+def test_daily_token_totals_sums_all_token_fields(storage):
+    q = storage.create_queue("demo", "/tmp/demo", "session-abc")
+    storage.insert_prompt_run(
+        PromptRun(
+            id=0,
+            queue_id=q.id,
+            queue_item_id=None,
+            prompt_text="hi",
+            started_at=datetime.now(),
+            finished_at=datetime.now(),
+            status=RunStatus.SUCCESS,
+            input_tokens=2,
+            output_tokens=4,
+            cache_read_tokens=100,
+            cache_creation_tokens=50,
+        )
+    )
+    totals = storage.daily_token_totals()
+    assert len(totals) == 1
+    day, total = totals[0]
+    assert total == 156
+
+
 def test_claim_next_pending_item_marks_running_and_returns_it(storage):
     q = storage.create_queue("demo", "/tmp/demo", "session-abc")
     storage.add_queue_item(q.id, "first")

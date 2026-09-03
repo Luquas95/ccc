@@ -18,28 +18,31 @@ class AnalyticsScreen(Screen):
     def compose(self):
         yield Header()
         yield Container(
-            Static("Cost per day (last 30 days)"),
-            Sparkline([], id="cost-sparkline"),
-            Static("Cost per project", id="project-cost-label"),
+            Static("Tokens per day (last 30 days)"),
+            Sparkline([], id="tokens-sparkline"),
+            Static("Tokens per project", id="project-tokens-label"),
             DataTable(id="analytics-project-table"),
             Static(id="analytics-summary"),
         )
         yield Footer()
 
     def on_mount(self) -> None:
-        daily = self.storage.daily_cost_totals()
-        sparkline = self.query_one("#cost-sparkline", Sparkline)
+        daily = self.storage.daily_token_totals()
+        sparkline = self.query_one("#tokens-sparkline", Sparkline)
         sparkline.data = [v for _, v in daily] or [0]
 
         table = self.query_one("#analytics-project-table", DataTable)
-        table.add_columns("Project", "Total cost", "Success", "Errors", "Rate-limited")
+        table.add_columns("Project", "Total tokens", "Success", "Errors", "Rate-limited")
         for queue in self.storage.list_queues():
             runs = self.storage.runs_for_queue(queue.id)
-            total_cost = sum(r.cost_usd for r in runs)
+            total_tokens = sum(
+                r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_creation_tokens
+                for r in runs
+            )
             success = sum(1 for r in runs if r.status == RunStatus.SUCCESS)
             errors = sum(1 for r in runs if r.status == RunStatus.ERROR)
             limited = sum(1 for r in runs if r.status == RunStatus.RATE_LIMITED)
-            table.add_row(queue.name, f"${total_cost:.4f}", str(success), str(errors), str(limited))
+            table.add_row(queue.name, f"{total_tokens:,}", str(success), str(errors), str(limited))
 
         blocked_seconds = self.storage.blocked_seconds_total()
         summary = self.query_one("#analytics-summary", Static)

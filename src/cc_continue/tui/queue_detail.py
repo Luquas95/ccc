@@ -53,12 +53,13 @@ class QueueDetailScreen(Screen):
 
     def on_mount(self) -> None:
         table = self.query_one("#queue-history-table", DataTable)
-        table.add_columns("Started", "Status", "Cost", "Result")
+        table.add_columns("Started", "Status", "Tokens", "Result")
         for run in self.storage.runs_for_queue(self.queue_id):
+            tokens = run.input_tokens + run.output_tokens + run.cache_read_tokens + run.cache_creation_tokens
             table.add_row(
                 run.started_at.strftime("%Y-%m-%d %H:%M"),
                 run.status.value,
-                f"${run.cost_usd:.4f}",
+                f"{tokens:,}",
                 (run.result_text or run.error_text or "")[:60],
             )
 
