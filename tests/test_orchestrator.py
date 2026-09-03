@@ -117,6 +117,34 @@ async def test_rate_limited_reschedules_with_short_backoff(storage, monkeypatch)
     assert RunStatus.SUCCESS in statuses
 
 
+async def test_discovers_queue_created_after_start_all(storage, monkeypatch):
+    monkeypatch.setattr("cc_continue.orchestrator.POLL_INTERVAL_SECONDS", 0.02)
+    calls = []
+
+    async def fake_run(project_path, session_id, prompt, resume):
+        calls.append(prompt)
+        return RunResult(status=RunStatus.SUCCESS)
+
+    orch = Orchestrator(storage, run_fn=fake_run)
+    await orch.start_all()  # no queues exist yet
+
+    # simulate another process (e.g. `cc-continue add`) creating a queue
+    # directly via storage, the way enqueue_prompt() does, without going
+    # through this orchestrator at all
+    from cc_continue.orchestrator import enqueue_prompt
+
+    enqueue_prompt(storage, "/tmp/late-proj", "discovered later")
+
+    for _ in range(100):
+        await asyncio.sleep(0.01)
+        if calls:
+            break
+
+    await orch.stop_all()
+
+    assert calls == ["discovered later"]
+
+
 async def test_two_orchestrators_never_double_execute_same_item(tmp_path):
     """Simulates the daemon + a second process (e.g. someone else's
     Orchestrator against the same DB file) racing for the same queue."""

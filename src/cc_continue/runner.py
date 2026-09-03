@@ -8,11 +8,18 @@ from cc_continue.models import RunStatus
 
 RATE_LIMIT_PATTERNS = (
     "usage limit",
+    "session limit",
     "limit reached",
-    "resets at",
+    "resets ",
     "rate limit",
     "quota",
 )
+
+# HTTP 429 (Too Many Requests) is Claude Code's own signal for a rate/usage
+# limit — far more reliable than matching the human-readable message text,
+# which has changed wording before ("usage limit reached" vs "session
+# limit ... resets 8:30pm" observed in production on 2026-09-03).
+RATE_LIMIT_API_ERROR_STATUS = 429
 
 
 @dataclass
@@ -30,24 +37,32 @@ class RunResult:
     session_id: str | None = None
 
 
+def _is_rate_limited(data: dict | None, combined_lower: str) -> bool:
+    if data is not None and data.get("api_error_status") == RATE_LIMIT_API_ERROR_STATUS:
+        return True
+    return any(p in combined_lower for p in RATE_LIMIT_PATTERNS)
+
+
 def classify_output(stdout: str, stderr: str, exit_code: int) -> RunResult:
     combined = f"{stdout}\n{stderr}".lower()
 
-    if exit_code == 0 and stdout.strip():
+    # Claude Code prints a JSON result envelope on stdout even when it's
+    # reporting an error (rate limit, API error, ...) with a non-zero exit
+    # code — parse it whenever stdout looks like JSON, regardless of
+    # exit_code, so fields like api_error_status/result/session_id are
+    # available for classification instead of falling back to raw text.
+    data: dict | None = None
+    if stdout.strip():
         try:
             data = json.loads(stdout)
         except json.JSONDecodeError:
-            return RunResult(status=RunStatus.ERROR, error_text=f"unparseable stdout: {stdout[:500]}")
+            data = None
 
+    if data is not None:
         if data.get("is_error"):
-            if any(p in combined for p in RATE_LIMIT_PATTERNS):
-                return RunResult(
-                    status=RunStatus.RATE_LIMITED,
-                    error_text=data.get("result") or stderr,
-                    session_id=data.get("session_id"),
-                )
+            status = RunStatus.RATE_LIMITED if _is_rate_limited(data, combined) else RunStatus.ERROR
             return RunResult(
-                status=RunStatus.ERROR,
+                status=status,
                 error_text=data.get("result") or stderr,
                 session_id=data.get("session_id"),
             )
@@ -66,8 +81,11 @@ def classify_output(stdout: str, stderr: str, exit_code: int) -> RunResult:
             session_id=data.get("session_id"),
         )
 
-    if any(p in combined for p in RATE_LIMIT_PATTERNS):
+    if _is_rate_limited(None, combined):
         return RunResult(status=RunStatus.RATE_LIMITED, error_text=stderr.strip() or stdout.strip())
+
+    if exit_code == 0 and stdout.strip():
+        return RunResult(status=RunStatus.ERROR, error_text=f"unparseable stdout: {stdout[:500]}")
 
     return RunResult(
         status=RunStatus.ERROR,

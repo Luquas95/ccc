@@ -142,17 +142,28 @@ class Orchestrator:
         self.storage = storage
         self.run_fn = run_fn
         self.runtimes: dict[int, QueueRuntime] = {}
+        self._discovery_task: asyncio.Task | None = None
 
     async def start_all(self) -> None:
-        """Start executing every queue. Only ONE process (the daemon) should
-        ever call this: it resets any item left 'running' back to 'pending'
-        as crash recovery, which would wrongly steal an item that's
-        legitimately mid-execution in an already-running daemon. Other
-        processes (the TUI, `cc-continue add`) must only use
+        """Start executing every existing queue, then keep discovering new
+        ones (created later by `cc-continue add` or the TUI, in this or
+        another process) in the background. Only ONE process (the daemon)
+        should ever call this: it resets any item left 'running' back to
+        'pending' as crash recovery, which would wrongly steal an item
+        that's legitimately mid-execution in an already-running daemon.
+        Other processes (the TUI, `cc-continue add`) must only use
         enqueue_prompt() — never construct an Orchestrator and call this."""
         self.storage.reset_running_items_to_pending()
         for queue in self.storage.list_queues():
             self._start_runtime(queue)
+        self._discovery_task = asyncio.create_task(self._discover_new_queues_loop())
+
+    async def _discover_new_queues_loop(self) -> None:
+        while True:
+            await asyncio.sleep(POLL_INTERVAL_SECONDS)
+            for queue in self.storage.list_queues():
+                if queue.id not in self.runtimes:
+                    self._start_runtime(queue)
 
     def _start_runtime(self, queue: Queue) -> QueueRuntime:
         runtime = QueueRuntime(self.storage, queue, self.run_fn)
@@ -180,4 +191,10 @@ class Orchestrator:
         self.runtimes[queue.id].notify()
 
     async def stop_all(self) -> None:
+        if self._discovery_task:
+            self._discovery_task.cancel()
+            try:
+                await self._discovery_task
+            except asyncio.CancelledError:
+                pass
         await asyncio.gather(*(rt.stop() for rt in self.runtimes.values()))

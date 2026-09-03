@@ -58,3 +58,33 @@ def test_classify_unparseable_stdout_is_error():
 def test_classify_generic_failure():
     result = classify_output("", "some tool crashed unexpectedly", 1)
     assert result.status == RunStatus.ERROR
+
+
+# Captured verbatim from a real usage-limit hit in production on
+# 2026-09-03 while running the CC-continue daemon (JSON on stdout,
+# non-zero exit). Wording ("session limit", "resets 8:30pm" — no "at")
+# did not match the original RATE_LIMIT_PATTERNS and was misclassified as
+# a hard ERROR, incorrectly blocking the queue instead of scheduling a
+# retry — this fixture locks in the fix (api_error_status 429 as the
+# primary signal).
+REAL_RATE_LIMIT_JSON = (
+    '{"duration_api_ms":0,"stop_reason":"stop_sequence",'
+    '"session_id":"19605e30-da93-4ce2-bcf9-cfd72ff918f5","total_cost_usd":0,'
+    '"usage":{"input_tokens":0,"output_tokens":0},'
+    '"is_error":true,"num_turns":1,"subtype":"success","api_error_status":429,'
+    '"result":"You\'ve hit your session limit · resets 8:30pm (Europe/Prague)",'
+    '"type":"result","duration_ms":683}'
+)
+
+
+def test_classify_real_rate_limit_payload_via_api_error_status():
+    result = classify_output(REAL_RATE_LIMIT_JSON, "", 1)
+    assert result.status == RunStatus.RATE_LIMITED
+    assert "session limit" in result.error_text
+    assert result.session_id == "19605e30-da93-4ce2-bcf9-cfd72ff918f5"
+
+
+def test_classify_session_limit_wording_without_json():
+    # same wording, but as if it only showed up on stderr with no JSON envelope
+    result = classify_output("", "You've hit your session limit, resets 8:30pm", 1)
+    assert result.status == RunStatus.RATE_LIMITED

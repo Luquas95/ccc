@@ -30,6 +30,13 @@ def test_parse_reset_time_no_match_returns_none():
     assert parse_reset_time("No conversation found with session ID: xyz") is None
 
 
+def test_parse_reset_time_real_message_no_at_no_space_before_meridiem():
+    # Real production wording, 2026-09-03: no "at", no space before "pm".
+    now = datetime(2026, 9, 3, 15, 49, 0)
+    result = parse_reset_time("You've hit your session limit · resets 8:30pm (Europe/Prague)", now=now)
+    assert result == datetime(2026, 9, 3, 20, 30, 0)
+
+
 def test_backoff_progression():
     assert next_backoff_seconds(None) == MIN_BACKOFF_SECONDS
     step2 = next_backoff_seconds(MIN_BACKOFF_SECONDS)
