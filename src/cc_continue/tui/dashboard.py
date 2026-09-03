@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from datetime import date
+
 from textual.containers import Container
 from textual.screen import Screen
 from textual.widgets import DataTable, Footer, Header
 
+from cc_continue.models import QueueStatus
 from cc_continue.storage import Storage
 
 
@@ -36,10 +39,7 @@ class DashboardScreen(Screen):
         table = self.query_one("#dashboard-table", DataTable)
         table.clear()
         for queue in self.storage.list_queues():
-            item = self.storage.next_pending_item(queue.id)
-            pending = 1 if item is not None else 0
-            from datetime import date
-
+            pending = self.storage.count_pending_items(queue.id)
             today_cost = sum(
                 r.cost_usd
                 for r in self.storage.runs_for_queue(queue.id)
@@ -50,7 +50,7 @@ class DashboardScreen(Screen):
     def action_add_prompt(self) -> None:
         from cc_continue.tui.queue_detail import AddPromptModal
 
-        self.app.push_screen(AddPromptModal(self.app.orchestrator))
+        self.app.push_screen(AddPromptModal(self.storage))
 
     def action_open_detail(self) -> None:
         from cc_continue.tui.queue_detail import QueueDetailScreen
@@ -70,8 +70,6 @@ class DashboardScreen(Screen):
         self.app.push_screen(AnalyticsScreen(self.storage))
 
     def action_retry_queue(self) -> None:
-        from cc_continue.models import QueueStatus
-
         table = self.query_one("#dashboard-table", DataTable)
         if table.cursor_row is None:
             return
@@ -80,8 +78,10 @@ class DashboardScreen(Screen):
             return
         queue = queues[table.cursor_row]
         if queue.status == QueueStatus.BLOCKED_ERROR:
+            # No in-process runtime to notify (the TUI never executes) —
+            # flipping the status is enough, the daemon picks it up on its
+            # next poll (at most POLL_INTERVAL_SECONDS later).
             self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
-            self.app.orchestrator.runtimes[queue.id].notify()
 
     def action_quit(self) -> None:
         self.app.exit()

@@ -163,6 +163,14 @@ class Storage:
             conn.commit()
             return self._row_to_item(row) if row else None
 
+    def count_pending_items(self, queue_id: int) -> int:
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM queue_items WHERE queue_id = ? AND status = ?",
+                (queue_id, ItemStatus.PENDING.value),
+            ).fetchone()
+            return row[0]
+
     def set_item_status(self, item_id: int, status: ItemStatus) -> None:
         with closing(self._connect()) as conn:
             conn.execute("UPDATE queue_items SET status = ? WHERE id = ?", (status.value, item_id))

@@ -1,20 +1,14 @@
 import pytest
 
-from cc_continue.models import RunStatus
-from cc_continue.runner import RunResult
 from cc_continue.storage import Storage
 from cc_continue.tui.app import CCContinueApp
 from cc_continue.tui.queue_detail import QueueDetailScreen
 
 
-async def fake_run(project_path, session_id, prompt, resume):
-    return RunResult(status=RunStatus.SUCCESS, result_text="ok")
-
-
 @pytest.mark.asyncio
 async def test_add_prompt_modal_queues_item(tmp_path):
     db_path = str(tmp_path / "history.db")
-    app = CCContinueApp(db_path, run_fn=fake_run)
+    app = CCContinueApp(db_path)
 
     async with app.run_test() as pilot:
         await pilot.pause()
@@ -29,8 +23,8 @@ async def test_add_prompt_modal_queues_item(tmp_path):
 
         queue = app.storage.get_queue_by_path("/tmp/proj-b")
         assert queue is not None
-
-    await app.orchestrator.stop_all()
+        item = app.storage.next_pending_item(queue.id)
+        assert item.prompt_text == "queued via modal"
 
 
 @pytest.mark.asyncio

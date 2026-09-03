@@ -4,14 +4,14 @@ from textual.containers import Container, Horizontal
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, DataTable, Footer, Header, Input, Static, TextArea
 
-from cc_continue.orchestrator import Orchestrator
+from cc_continue.orchestrator import enqueue_prompt
 from cc_continue.storage import Storage
 
 
 class AddPromptModal(ModalScreen):
-    def __init__(self, orchestrator: Orchestrator, default_path: str = ""):
+    def __init__(self, storage: Storage, default_path: str = ""):
         super().__init__()
-        self.orchestrator = orchestrator
+        self.storage = storage
         self.default_path = default_path
 
     def compose(self):
@@ -30,7 +30,7 @@ class AddPromptModal(ModalScreen):
             path = self.query_one("#add-prompt-path", Input).value.strip()
             prompt = self.query_one("#add-prompt-text", TextArea).text.strip()
             if path and prompt:
-                self.orchestrator.add_prompt(path, prompt)
+                enqueue_prompt(self.storage, path, prompt)
             self.dismiss()
         elif event.button.id == "add-prompt-cancel":
             self.dismiss()

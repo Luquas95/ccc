@@ -15,6 +15,7 @@ dev = [
 
 [project.scripts]
 cc-continue = "cc_continue.cli:main"
+cc-continue-daemon = "cc_continue.daemon:main"
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -102,6 +102,19 @@ def test_claim_next_pending_item_empty_queue_returns_none(storage):
     assert storage.claim_next_pending_item(q.id) is None
 
 
+def test_count_pending_items(storage):
+    q = storage.create_queue("demo", "/tmp/demo", "session-abc")
+    assert storage.count_pending_items(q.id) == 0
+    storage.add_queue_item(q.id, "a")
+    storage.add_queue_item(q.id, "b")
+    storage.add_queue_item(q.id, "c")
+    assert storage.count_pending_items(q.id) == 3
+    claimed = storage.claim_next_pending_item(q.id)
+    assert storage.count_pending_items(q.id) == 2
+    storage.set_item_status(claimed.id, ItemStatus.DONE)
+    assert storage.count_pending_items(q.id) == 2
+
+
 def test_blocked_seconds_total(storage):
     q = storage.create_queue("demo", "/tmp/demo", "session-abc")
     started = datetime(2026, 9, 3, 10, 0, 0)

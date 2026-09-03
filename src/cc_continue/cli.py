@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import argparse
 import sys
-import uuid
 from pathlib import Path
 
+from cc_continue.orchestrator import enqueue_prompt
 from cc_continue.storage import Storage
 
 
@@ -16,19 +16,18 @@ def default_db_path() -> Path:
 
 def add_command(db_path: str, project_path: str, prompt: str) -> None:
     storage = Storage(db_path)
-    queue = storage.get_queue_by_path(project_path)
-    if queue is None:
-        queue = storage.create_queue(
-            Path(project_path).name or project_path, project_path, str(uuid.uuid4())
-        )
-    storage.add_queue_item(queue.id, prompt)
+    enqueue_prompt(storage, project_path, prompt)
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="cc-continue")
     subparsers = parser.add_subparsers(dest="command")
 
-    add_parser = subparsers.add_parser("add", help="Queue a prompt for a project without opening the TUI")
+    add_parser = subparsers.add_parser(
+        "add",
+        help="Queue a prompt for a project without opening the TUI "
+        "(needs cc-continue-daemon running to actually execute it)",
+    )
     add_parser.add_argument("project_path")
     add_parser.add_argument("prompt")
 
