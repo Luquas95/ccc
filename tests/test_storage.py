@@ -71,6 +71,37 @@ def test_insert_and_list_runs(storage):
     assert runs[0].cost_usd == 0.01
 
 
+def test_claim_next_pending_item_marks_running_and_returns_it(storage):
+    q = storage.create_queue("demo", "/tmp/demo", "session-abc")
+    storage.add_queue_item(q.id, "first")
+    storage.add_queue_item(q.id, "second")
+
+    claimed = storage.claim_next_pending_item(q.id)
+    assert claimed.prompt_text == "first"
+    assert claimed.status == ItemStatus.RUNNING
+
+    # peeking with next_pending_item now sees "second", "first" is gone from pending
+    assert storage.next_pending_item(q.id).prompt_text == "second"
+
+
+def test_claim_next_pending_item_is_exclusive_across_storage_instances(storage, tmp_path):
+    q = storage.create_queue("demo", "/tmp/demo", "session-abc")
+    storage.add_queue_item(q.id, "only item")
+
+    other = Storage(tmp_path / "test.db")  # separate connection, same file
+
+    first_claim = storage.claim_next_pending_item(q.id)
+    second_claim = other.claim_next_pending_item(q.id)
+
+    assert first_claim is not None
+    assert second_claim is None  # already claimed by `storage`, nothing left to take
+
+
+def test_claim_next_pending_item_empty_queue_returns_none(storage):
+    q = storage.create_queue("demo", "/tmp/demo", "session-abc")
+    assert storage.claim_next_pending_item(q.id) is None
+
+
 def test_blocked_seconds_total(storage):
     q = storage.create_queue("demo", "/tmp/demo", "session-abc")
     started = datetime(2026, 9, 3, 10, 0, 0)

@@ -117,6 +117,45 @@ async def test_rate_limited_reschedules_with_short_backoff(storage, monkeypatch)
     assert RunStatus.SUCCESS in statuses
 
 
+async def test_two_orchestrators_never_double_execute_same_item(tmp_path):
+    """Simulates the daemon + a second process (e.g. someone else's
+    Orchestrator against the same DB file) racing for the same queue."""
+    db_path = tmp_path / "shared.db"
+    storage_a = Storage(db_path)
+    storage_b = Storage(db_path)
+
+    calls_a = []
+    calls_b = []
+
+    async def fake_run_a(project_path, session_id, prompt, resume):
+        calls_a.append(prompt)
+        return RunResult(status=RunStatus.SUCCESS)
+
+    async def fake_run_b(project_path, session_id, prompt, resume):
+        calls_b.append(prompt)
+        return RunResult(status=RunStatus.SUCCESS)
+
+    queue = storage_a.create_queue("shared-proj", "/tmp/shared-proj", "sess-1")
+    storage_a.add_queue_item(queue.id, "only prompt")
+
+    orch_a = Orchestrator(storage_a, run_fn=fake_run_a)
+    orch_b = Orchestrator(storage_b, run_fn=fake_run_b)
+    await orch_a.start_all()
+    await orch_b.start_all()
+
+    for _ in range(50):
+        await asyncio.sleep(0.01)
+        if calls_a or calls_b:
+            break
+
+    await orch_a.stop_all()
+    await orch_b.stop_all()
+
+    assert calls_a + calls_b == ["only prompt"]
+    runs = storage_a.runs_for_queue(queue.id)
+    assert len(runs) == 1
+
+
 async def test_crash_recovery_requeues_running_items(storage):
     queue = storage.create_queue("proj", "/tmp/proj", "sess-1")
     storage.add_queue_item(queue.id, "interrupted prompt")

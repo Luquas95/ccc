@@ -58,7 +58,10 @@ class Storage:
             conn.commit()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
+        # timeout: wait for another process's write lock instead of raising
+        # "database is locked" immediately — needed once the daemon and a
+        # TUI instance can both be writing to the same file concurrently.
+        conn = sqlite3.connect(self.db_path, timeout=10.0)
         conn.row_factory = sqlite3.Row
         return conn
 
@@ -126,11 +129,38 @@ class Storage:
             return self._row_to_item(row)
 
     def next_pending_item(self, queue_id: int) -> QueueItem | None:
+        """Read-only peek at the next pending item (for display). Does not
+        claim it — two callers can see the same item. Use
+        claim_next_pending_item() to actually take ownership of one."""
         with closing(self._connect()) as conn:
             row = conn.execute(
                 "SELECT * FROM queue_items WHERE queue_id = ? AND status = ? ORDER BY position LIMIT 1",
                 (queue_id, ItemStatus.PENDING.value),
             ).fetchone()
+            return self._row_to_item(row) if row else None
+
+    def claim_next_pending_item(self, queue_id: int) -> QueueItem | None:
+        """Atomically transition the oldest pending item to 'running' and
+        return it. Safe to call from multiple processes against the same
+        SQLite file at once — SQLite's write lock makes the UPDATE...WHERE
+        a single atomic claim, so at most one caller ever gets a given item
+        (everyone else's UPDATE matches zero rows and gets None back)."""
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "UPDATE queue_items SET status = ? "
+                "WHERE id = ("
+                "  SELECT id FROM queue_items WHERE queue_id = ? AND status = ? "
+                "  ORDER BY position LIMIT 1"
+                ") AND status = ? "
+                "RETURNING *",
+                (
+                    ItemStatus.RUNNING.value,
+                    queue_id,
+                    ItemStatus.PENDING.value,
+                    ItemStatus.PENDING.value,
+                ),
+            ).fetchone()
+            conn.commit()
             return self._row_to_item(row) if row else None
 
     def set_item_status(self, item_id: int, status: ItemStatus) -> None:

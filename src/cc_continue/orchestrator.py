@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import Awaitable, Callable
 
 from cc_continue.models import ItemStatus, PromptRun, Queue, QueueStatus, RunStatus
@@ -11,6 +12,29 @@ from cc_continue.runner import RunResult, execute
 from cc_continue.storage import Storage
 
 RunFn = Callable[[str, str, str, bool], Awaitable[RunResult]]
+
+# How often an idle/blocked queue re-checks storage even without an
+# in-process notify(). This is what makes it safe for another process (the
+# TUI, or `cc-continue add`) to enqueue a prompt or clear a blocked queue
+# without the daemon needing any cross-process signaling mechanism.
+POLL_INTERVAL_SECONDS = 5.0
+
+
+def enqueue_prompt(storage: Storage, project_path: str, prompt_text: str, name: str | None = None) -> Queue:
+    """Add a prompt to a project's queue, creating the queue if needed.
+    Pure storage operation — does not start or notify any execution
+    engine. Safe to call from a process that never runs an Orchestrator
+    (the TUI, the `cc-continue add` CLI) alongside a daemon process that
+    does; the daemon picks the new row up on its next poll."""
+    queue = storage.get_queue_by_path(project_path)
+    if queue is None:
+        queue = storage.create_queue(
+            name or Path(project_path).name or project_path,
+            project_path,
+            str(uuid.uuid4()),
+        )
+    storage.add_queue_item(queue.id, prompt_text)
+    return queue
 
 
 class QueueRuntime:
@@ -42,18 +66,15 @@ class QueueRuntime:
             self.queue = queue
 
             if queue.status == QueueStatus.BLOCKED_ERROR:
-                await self._wake.wait()
-                self._wake.clear()
+                await self._wait_for_wake_or_poll(POLL_INTERVAL_SECONDS)
                 continue
 
-            item = self.storage.next_pending_item(queue.id)
+            item = self.storage.claim_next_pending_item(queue.id)
             if item is None:
                 self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
-                await self._wake.wait()
-                self._wake.clear()
+                await self._wait_for_wake_or_poll(POLL_INTERVAL_SECONDS)
                 continue
 
-            self.storage.set_item_status(item.id, ItemStatus.RUNNING)
             self.storage.update_queue_status(queue.id, QueueStatus.RUNNING)
 
             resume = self._has_run_before()
@@ -97,11 +118,7 @@ class QueueRuntime:
                     queue.id, QueueStatus.WAITING_RETRY, next_retry_at=retry_at
                 )
                 delay = max((retry_at - datetime.now()).total_seconds(), 0)
-                try:
-                    await asyncio.wait_for(self._wake.wait(), timeout=delay)
-                    self._wake.clear()
-                except asyncio.TimeoutError:
-                    pass
+                await self._wait_for_wake_or_poll(delay)
                 continue
 
             self.storage.set_item_status(item.id, ItemStatus.FAILED)
@@ -112,6 +129,13 @@ class QueueRuntime:
     def _has_run_before(self) -> bool:
         return len(self.storage.runs_for_queue(self.queue.id)) > 0
 
+    async def _wait_for_wake_or_poll(self, timeout: float) -> None:
+        try:
+            await asyncio.wait_for(self._wake.wait(), timeout=timeout)
+            self._wake.clear()
+        except asyncio.TimeoutError:
+            pass
+
 
 class Orchestrator:
     def __init__(self, storage: Storage, run_fn: RunFn = execute):
@@ -120,6 +144,12 @@ class Orchestrator:
         self.runtimes: dict[int, QueueRuntime] = {}
 
     async def start_all(self) -> None:
+        """Start executing every queue. Only ONE process (the daemon) should
+        ever call this: it resets any item left 'running' back to 'pending'
+        as crash recovery, which would wrongly steal an item that's
+        legitimately mid-execution in an already-running daemon. Other
+        processes (the TUI, `cc-continue add`) must only use
+        enqueue_prompt() — never construct an Orchestrator and call this."""
         self.storage.reset_running_items_to_pending()
         for queue in self.storage.list_queues():
             self._start_runtime(queue)
