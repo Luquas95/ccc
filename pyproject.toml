@@ -1,0 +1,27 @@
+[project]
+name = "cc-continue"
+version = "0.1.0"
+description = "Prompt queue + auto-continue TUI for Claude Code"
+requires-python = ">=3.12"
+dependencies = [
+    "textual>=0.60",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[project.scripts]
+cc-continue = "cc_continue.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
