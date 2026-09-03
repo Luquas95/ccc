@@ -48,6 +48,24 @@ def enqueue_prompt(storage: Storage, project_path: str, prompt_text: str, name: 
     return queue
 
 
+def attach_to_session(
+    storage: Storage, session_id: str, cwd: str, name: str, prompt_text: str
+) -> Queue:
+    """Queue a prompt against a Claude Code session that already exists —
+    typically one found via session_discovery.discover_sessions() (a live
+    interactive or background session on this machine). Unlike
+    enqueue_prompt(), this never generates a fresh session_id and always
+    marks the queue always_resume=True, since the very first prompt sent
+    through it must use --resume (the session already has history;
+    --session-id would try to create a new one with a colliding ID).
+    Pure storage operation, same process-safety notes as enqueue_prompt()."""
+    queue = storage.get_queue_by_session_id(session_id)
+    if queue is None:
+        queue = storage.create_queue(name, cwd, session_id, always_resume=True)
+    storage.add_queue_item(queue.id, prompt_text)
+    return queue
+
+
 class QueueRuntime:
     def __init__(self, storage: Storage, queue: Queue, run_fn: RunFn = execute):
         self.storage = storage
@@ -128,7 +146,7 @@ class QueueRuntime:
                 self._fail_item(queue, item, error_text)
 
     async def _process_item(self, queue: Queue, item: QueueItem) -> None:
-        resume = self._has_run_before()
+        resume = queue.always_resume or self._has_run_before()
         started_at = datetime.now()
         result = await self.run_fn(queue.project_path, queue.session_id, item.prompt_text, resume)
         finished_at = datetime.now()

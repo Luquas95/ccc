@@ -37,6 +37,10 @@ class Queue:
     last_error: str | None = None
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
+    # True for a queue attached to a session that already existed before
+    # CC-continue touched it (discovered via `claude agents`) — its first
+    # prompt must use --resume, never --session-id, since the ID isn't new.
+    always_resume: bool = False
 
 
 @dataclass

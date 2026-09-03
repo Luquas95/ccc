@@ -173,6 +173,35 @@ async def test_unhandled_exception_is_caught_and_blocks_queue_visibly(storage, p
     assert "FileNotFoundError" in runs[0].error_text
 
 
+async def test_attach_to_session_always_resumes_from_the_first_prompt(storage, project_dir):
+    """The whole point of attaching to a discovered live session: even the
+    very FIRST prompt sent through CC-continue must use --resume (since the
+    session already has real history from being used interactively), never
+    --session-id (which would try to create a new session with a colliding
+    ID)."""
+    calls = []
+
+    async def fake_run(project_path, session_id, prompt, resume):
+        calls.append(resume)
+        return RunResult(status=RunStatus.SUCCESS)
+
+    from cc_continue.orchestrator import attach_to_session
+
+    attach_to_session(storage, "live-session-id", project_dir, "dev-75", "ahoj")
+
+    orch = Orchestrator(storage, run_fn=fake_run)
+    await orch.start_all()
+
+    for _ in range(50):
+        await asyncio.sleep(0.01)
+        if calls:
+            break
+
+    await orch.stop_all()
+
+    assert calls == [True]  # resume=True even though this is the first CC-continue run
+
+
 async def test_discovers_queue_created_after_start_all(storage, tmp_path, monkeypatch):
     monkeypatch.setattr("cc_continue.orchestrator.POLL_INTERVAL_SECONDS", 0.02)
     calls = []

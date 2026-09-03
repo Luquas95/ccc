@@ -11,13 +11,14 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS queues (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    project_path TEXT NOT NULL UNIQUE,
-    session_id TEXT NOT NULL,
+    project_path TEXT NOT NULL,
+    session_id TEXT NOT NULL UNIQUE,
     status TEXT NOT NULL DEFAULT 'idle',
     next_retry_at TEXT,
     last_error TEXT,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    always_resume INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS queue_items (
@@ -66,6 +67,47 @@ class Storage:
         with closing(self._connect()) as conn:
             conn.executescript(SCHEMA)
             conn.commit()
+            self._migrate_queues_unique_key(conn)
+            self._migrate_add_always_resume_column(conn)
+
+    def _migrate_queues_unique_key(self, conn: sqlite3.Connection) -> None:
+        """One-time migration: older databases had UNIQUE on project_path
+        (one queue per directory). Multiple live Claude Code sessions can
+        share a cwd, so the real identity is session_id — move the UNIQUE
+        constraint there. SQLite can't drop a column constraint in place,
+        so this rebuilds the table (id values, and therefore every
+        queue_items/prompt_runs foreign key, are preserved exactly)."""
+        row = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='queues'"
+        ).fetchone()
+        if row is None or "project_path TEXT NOT NULL UNIQUE" not in row[0]:
+            return  # already migrated (or a brand-new DB, already correct)
+        conn.executescript(
+            """
+            BEGIN;
+            ALTER TABLE queues RENAME TO queues_old_migration;
+            CREATE TABLE queues (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                project_path TEXT NOT NULL,
+                session_id TEXT NOT NULL UNIQUE,
+                status TEXT NOT NULL DEFAULT 'idle',
+                next_retry_at TEXT,
+                last_error TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            INSERT INTO queues SELECT * FROM queues_old_migration;
+            DROP TABLE queues_old_migration;
+            COMMIT;
+            """
+        )
+
+    def _migrate_add_always_resume_column(self, conn: sqlite3.Connection) -> None:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(queues)").fetchall()}
+        if "always_resume" not in columns:
+            conn.execute("ALTER TABLE queues ADD COLUMN always_resume INTEGER NOT NULL DEFAULT 0")
+            conn.commit()
 
     def _connect(self) -> sqlite3.Connection:
         # timeout: wait for another process's write lock instead of raising
@@ -75,21 +117,35 @@ class Storage:
         conn.row_factory = sqlite3.Row
         return conn
 
-    def create_queue(self, name: str, project_path: str, session_id: str) -> Queue:
+    def create_queue(
+        self, name: str, project_path: str, session_id: str, always_resume: bool = False
+    ) -> Queue:
         now = datetime.now().isoformat()
         with closing(self._connect()) as conn:
             cur = conn.execute(
-                "INSERT INTO queues (name, project_path, session_id, status, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (name, project_path, session_id, QueueStatus.IDLE.value, now, now),
+                "INSERT INTO queues (name, project_path, session_id, status, created_at, updated_at, "
+                "always_resume) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (name, project_path, session_id, QueueStatus.IDLE.value, now, now, int(always_resume)),
             )
             conn.commit()
             queue_id = cur.lastrowid
         return self.get_queue(queue_id)
 
     def get_queue_by_path(self, project_path: str) -> Queue | None:
+        """The single queue for a bare directory (the plain `cc-continue
+        add <path>` flow). Multiple queues CAN share a project_path now
+        (one per attached live session — see get_queue_by_session_id), so
+        this returns the oldest one for that path; use
+        get_queue_by_session_id for anything discovery-related."""
         with closing(self._connect()) as conn:
-            row = conn.execute("SELECT * FROM queues WHERE project_path = ?", (project_path,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM queues WHERE project_path = ? ORDER BY id LIMIT 1", (project_path,)
+            ).fetchone()
+            return self._row_to_queue(row) if row else None
+
+    def get_queue_by_session_id(self, session_id: str) -> Queue | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT * FROM queues WHERE session_id = ?", (session_id,)).fetchone()
             return self._row_to_queue(row) if row else None
 
     def get_queue(self, queue_id: int) -> Queue:
@@ -307,6 +363,7 @@ class Storage:
             last_error=row["last_error"],
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
+            always_resume=bool(row["always_resume"]),
         )
 
     @staticmethod

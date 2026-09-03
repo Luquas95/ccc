@@ -13,7 +13,7 @@ from cc_continue.storage import Storage
 class DashboardScreen(Screen):
     BINDINGS = [
         ("a", "add_prompt", "Add prompt"),
-        ("enter", "open_detail", "Open"),
+        ("s", "pick_session", "Live sessions"),
         ("v", "view_analytics", "Analytics"),
         ("r", "retry_queue", "Retry blocked"),
         ("q", "quit", "Quit"),
@@ -52,17 +52,21 @@ class DashboardScreen(Screen):
 
         self.app.push_screen(AddPromptModal(self.storage))
 
-    def action_open_detail(self) -> None:
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        # DataTable owns the "enter" key itself (action select_cursor),
+        # so listen for its message instead of a screen-level binding.
         from cc_continue.tui.queue_detail import QueueDetailScreen
 
-        table = self.query_one("#dashboard-table", DataTable)
-        if table.cursor_row is None:
-            return
         queues = self.storage.list_queues()
-        if table.cursor_row >= len(queues):
+        if event.cursor_row >= len(queues):
             return
-        queue = queues[table.cursor_row]
+        queue = queues[event.cursor_row]
         self.app.push_screen(QueueDetailScreen(self.storage, queue.id))
+
+    def action_pick_session(self) -> None:
+        from cc_continue.tui.session_picker import SessionPickerScreen
+
+        self.app.push_screen(SessionPickerScreen(self.storage))
 
     def action_view_analytics(self) -> None:
         from cc_continue.tui.analytics import AnalyticsScreen

@@ -1,3 +1,4 @@
+import sqlite3
 from datetime import datetime
 
 import pytest
@@ -16,6 +17,68 @@ def test_create_and_fetch_queue(storage):
     assert q.id is not None
     assert storage.get_queue_by_path("/tmp/demo").id == q.id
     assert storage.get_queue_by_path("/nope") is None
+
+
+def test_multiple_queues_can_share_a_project_path(storage):
+    q1 = storage.create_queue("session-one", "/tmp/shared", "session-aaa")
+    q2 = storage.create_queue("session-two", "/tmp/shared", "session-bbb")
+    assert q1.id != q2.id
+    assert storage.get_queue_by_session_id("session-aaa").id == q1.id
+    assert storage.get_queue_by_session_id("session-bbb").id == q2.id
+    # get_queue_by_path is only meaningful for the plain single-queue-per-path
+    # flow; with two sharing a path it deterministically returns the oldest.
+    assert storage.get_queue_by_path("/tmp/shared").id == q1.id
+
+
+def test_migrates_old_schema_with_unique_project_path(tmp_path):
+    db_path = tmp_path / "old.db"
+    conn = sqlite3.connect(db_path)
+    conn.executescript(
+        """
+        CREATE TABLE queues (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            project_path TEXT NOT NULL UNIQUE,
+            session_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'idle',
+            next_retry_at TEXT,
+            last_error TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE queue_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            queue_id INTEGER NOT NULL REFERENCES queues(id),
+            prompt_text TEXT NOT NULL,
+            position INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            added_at TEXT NOT NULL
+        );
+        """
+    )
+    conn.execute(
+        "INSERT INTO queues (id, name, project_path, session_id, status, created_at, updated_at) "
+        "VALUES (1, 'old-queue', '/tmp/old-path', 'old-session', 'idle', '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+    )
+    conn.execute(
+        "INSERT INTO queue_items (id, queue_id, prompt_text, position, status, added_at) "
+        "VALUES (1, 1, 'still here', 0, 'pending', '2026-01-01T00:00:00')"
+    )
+    conn.commit()
+    conn.close()
+
+    storage = Storage(db_path)  # triggers the migration on open
+
+    queue = storage.get_queue_by_session_id("old-session")
+    assert queue is not None
+    assert queue.id == 1  # id preserved, so queue_items FK still resolves
+    assert queue.project_path == "/tmp/old-path"
+    item = storage.next_pending_item(queue.id)
+    assert item.prompt_text == "still here"
+
+    # a second queue can now share that same old path (the whole point)
+    storage.create_queue("new-queue", "/tmp/old-path", "new-session")
+    assert storage.get_queue_by_session_id("new-session") is not None
 
 
 def test_add_item_and_pop_next_pending(storage):
