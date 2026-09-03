@@ -1222,6 +1222,7 @@ class QueueRuntime:
                 continue
 
             if result.status == RunStatus.RATE_LIMITED:
+                self.storage.set_item_status(item.id, ItemStatus.PENDING)
                 retry_at = parse_reset_time(result.error_text or "")
                 if retry_at is None:
                     self._backoff_seconds = next_backoff_seconds(self._backoff_seconds)
