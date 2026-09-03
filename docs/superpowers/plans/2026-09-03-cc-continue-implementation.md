@@ -1900,17 +1900,20 @@ Modify `src/cc_continue/tui/dashboard.py`: add binding `("v", "view_analytics", 
         self.app.push_screen(AnalyticsScreen(self.storage))
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `.venv/bin/pytest tests/test_tui_analytics.py -v`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
-git add src/cc_continue/tui/analytics.py src/cc_continue/tui/dashboard.py tests/test_tui_analytics.py
+git add src/cc_continue/tui/analytics.py tests/test_tui_analytics.py
 git commit -m "feat: add analytics screen"
 ```
+
+**Implementer note:** `dashboard.py`'s `action_view_analytics` binding was
+already wired in Task 8; nothing to modify there for this task.
 
 ---
 
