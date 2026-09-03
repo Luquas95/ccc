@@ -14,6 +14,11 @@ set -euo pipefail
 SESSION="cc-continue"
 PROJECT_DIR="/home/lukas/DEV/CC-continue"
 
+# Run cc-continue, then drop to a shell instead of exiting — so quitting
+# the TUI (q, crash, whatever) leaves the pane/session alive instead of
+# silently closing out from under you.
+RUN_CMD="$PROJECT_DIR/.venv/bin/cc-continue; exec \$SHELL"
+
 if tmux has-session -t "$SESSION" 2>/dev/null; then
     if [ -n "${TMUX:-}" ]; then
         exec tmux switch-client -t "$SESSION"
@@ -22,9 +27,9 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
     fi
 else
     if [ -n "${TMUX:-}" ]; then
-        tmux new-session -d -s "$SESSION" -c "$PROJECT_DIR" "$PROJECT_DIR/.venv/bin/cc-continue"
+        tmux new-session -d -s "$SESSION" -c "$PROJECT_DIR" "$RUN_CMD"
         exec tmux switch-client -t "$SESSION"
     else
-        exec tmux new-session -s "$SESSION" -c "$PROJECT_DIR" "$PROJECT_DIR/.venv/bin/cc-continue"
+        exec tmux new-session -s "$SESSION" -c "$PROJECT_DIR" "$RUN_CMD"
     fi
 fi
