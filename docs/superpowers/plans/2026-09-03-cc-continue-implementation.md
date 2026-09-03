@@ -1758,19 +1758,24 @@ Also add a row-selection binding to open `QueueDetailScreen` on `Enter`. Add to 
         self.app.push_screen(QueueDetailScreen(self.storage, queue.id))
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `.venv/bin/pytest tests/test_tui_queue_detail.py -v`
-Expected: PASS.
+Expected: PASS. Note: `Static` in this Textual version has no public `.renderable`
+attribute — read its text back via `.render()`, e.g.
+`str(header.render())`, not `str(header.renderable)`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/cc_continue/tui/queue_detail.py src/cc_continue/tui/dashboard.py tests/test_tui_queue_detail.py
 git commit -m "feat: add prompt modal and queue detail screen"
 ```
 
-**Implementer note:** the `action_retry_queue` draft above has a stray no-op loop (`for run in ...: pass`) left from drafting — delete that loop; the working version only needs `update_queue_status(queue.id, QueueStatus.IDLE)` followed by `self.app.orchestrator.runtimes[queue.id].notify()`. Write it clean, don't copy the stray loop.
+**Implementer note:** `action_add_prompt`/`action_open_detail`/`action_view_analytics`/
+`action_retry_queue` were already wired directly (with lazy imports to avoid
+circular imports) when `dashboard.py` was first written in Task 8 — nothing
+left to modify there for this task.
 
 ---
 
