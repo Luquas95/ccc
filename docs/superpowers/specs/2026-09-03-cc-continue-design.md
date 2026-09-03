@@ -139,6 +139,33 @@ Doplňující pravidla k nejednoznačným případům:
   TUI, ověřit že běh proběhne, objeví se v historii a v analytice —
   se stejně levnými prompty jako při dnešním ověřování.
 
+## Dodatek (2026-09-03, večer): daemon/TUI split
+
+Po dohodě s uživatelem ("chci plnohodnotný, spolehlivý program", ne MVP) a
+po zjištění, že Textual TUI potřebuje TTY a nejde spustit jako systemd
+službu, se architektura rozdělila:
+
+- **`cc-continue-daemon`** — headless proces, jediný, kdo kdy volá
+  `Orchestrator.start_all()`/spouští prompty. Běží jako `systemd --user`
+  služba (auto-restart, `loginctl enable-linger` pro přežití odhlášení
+  SSH).
+- **`cc-continue` (TUI)** — čistě prohlížeč/editor SQLite databáze, nikdy
+  nic nespouští. Lze otevřít/zavřít kdykoliv (`bin/cc-continue-tmux.sh`
+  pro pohodlné otevření v tmuxu přes SSH) bez vlivu na to, jestli fronty
+  běží.
+- Aby bylo bezpečné mít oba (nebo i víc daemonů) najednou nad stejným
+  souborem, `Storage.claim_next_pending_item()` zabírá položku atomicky
+  (`UPDATE ... RETURNING`), a čekání ve frontě už nejsou nekonečná, ale
+  s pravidelným pollingem (`POLL_INTERVAL_SECONDS = 5`), aby si daemon
+  všiml změn udělaných jiným procesem (nový prompt, ruční "retry" v TUI).
+- Ověřeno naživo přes noc: daemon jako systemd služba přežil skutečné
+  vyčerpání limitu a po resetu (v čase, který si sám vyparsoval z reálné
+  hlášky) automaticky dokončil čekající prompty bez zásahu.
+
+Tím pádem: `claude -p` headless běhy jedou přes stejné OAuth přihlášení
+jako interaktivní session (Pro předplatné), ne přes samostatné placené
+API — sdílí stejný 5h/týdenní limit se všemi ostatními tvými session.
+
 ## Vědomé zjednodušení pro MVP (YAGNI)
 
 - Žádné per-frontu nastavení oprávnění — vždy plný `--dangerously-skip-
