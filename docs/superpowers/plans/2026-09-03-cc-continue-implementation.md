@@ -1417,6 +1417,17 @@ git commit -m "feat: add CLI entry point with add subcommand"
 
 ### Task 8: TUI dashboard + app wiring
 
+**Implementer note (discovered while running this task):** `CCContinueApp`
+must accept an injectable `run_fn: RunFn = execute` and pass it through to
+`Orchestrator`, exactly like the orchestrator tests do — otherwise every TUI
+test starts the *real* `claude` subprocess against whatever queue rows
+already exist in the test's temp DB, which is both slow/costly and breaks
+outright when the project path doesn't exist. Always construct
+`CCContinueApp(db_path, run_fn=<fake>)` in tests. Also: in the installed
+Textual version, `App.query_one(...)` only searches the **default** screen,
+not the actively pushed one — tests must query through the active screen,
+e.g. `app.screen.query_one(...)`, not `app.query_one(...)`.
+
 **Files:**
 - Create: `src/cc_continue/tui/__init__.py`
 - Create: `src/cc_continue/tui/app.py`

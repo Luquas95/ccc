@@ -1,0 +1,87 @@
+from __future__ import annotations
+
+from textual.containers import Container
+from textual.screen import Screen
+from textual.widgets import DataTable, Footer, Header
+
+from cc_continue.storage import Storage
+
+
+class DashboardScreen(Screen):
+    BINDINGS = [
+        ("a", "add_prompt", "Add prompt"),
+        ("enter", "open_detail", "Open"),
+        ("v", "view_analytics", "Analytics"),
+        ("r", "retry_queue", "Retry blocked"),
+        ("q", "quit", "Quit"),
+    ]
+
+    def __init__(self, storage: Storage):
+        super().__init__()
+        self.storage = storage
+
+    def compose(self):
+        yield Header()
+        yield Container(DataTable(id="dashboard-table"))
+        yield Footer()
+
+    def on_mount(self) -> None:
+        table = self.query_one("#dashboard-table", DataTable)
+        table.cursor_type = "row"
+        table.add_columns("Project", "Status", "Pending", "Today's cost")
+        self.refresh_table()
+        self.set_interval(2.0, self.refresh_table)
+
+    def refresh_table(self) -> None:
+        table = self.query_one("#dashboard-table", DataTable)
+        table.clear()
+        for queue in self.storage.list_queues():
+            item = self.storage.next_pending_item(queue.id)
+            pending = 1 if item is not None else 0
+            from datetime import date
+
+            today_cost = sum(
+                r.cost_usd
+                for r in self.storage.runs_for_queue(queue.id)
+                if r.started_at.date() == date.today()
+            )
+            table.add_row(queue.name, queue.status.value, str(pending), f"${today_cost:.4f}")
+
+    def action_add_prompt(self) -> None:
+        from cc_continue.tui.queue_detail import AddPromptModal
+
+        self.app.push_screen(AddPromptModal(self.app.orchestrator))
+
+    def action_open_detail(self) -> None:
+        from cc_continue.tui.queue_detail import QueueDetailScreen
+
+        table = self.query_one("#dashboard-table", DataTable)
+        if table.cursor_row is None:
+            return
+        queues = self.storage.list_queues()
+        if table.cursor_row >= len(queues):
+            return
+        queue = queues[table.cursor_row]
+        self.app.push_screen(QueueDetailScreen(self.storage, queue.id))
+
+    def action_view_analytics(self) -> None:
+        from cc_continue.tui.analytics import AnalyticsScreen
+
+        self.app.push_screen(AnalyticsScreen(self.storage))
+
+    def action_retry_queue(self) -> None:
+        from cc_continue.models import QueueStatus
+
+        table = self.query_one("#dashboard-table", DataTable)
+        if table.cursor_row is None:
+            return
+        queues = self.storage.list_queues()
+        if table.cursor_row >= len(queues):
+            return
+        queue = queues[table.cursor_row]
+        if queue.status == QueueStatus.BLOCKED_ERROR:
+            self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
+            self.app.orchestrator.runtimes[queue.id].notify()
+
+    def action_quit(self) -> None:
+        self.app.exit()
