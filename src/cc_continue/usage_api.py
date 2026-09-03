@@ -20,9 +20,25 @@ class WindowUsage:
 
 
 @dataclass
+class ModelUsage:
+    model: str
+    utilization_pct: float
+    resets_at: datetime
+
+
+@dataclass
 class ProUsage:
     five_hour: WindowUsage | None
     seven_day: WindowUsage | None
+    per_model: list[ModelUsage]
+
+
+# Anthropic's plan or account may additionally expose a weekly limit scoped
+# to one specific model (seen as top-level "seven_day_<model>" keys, and/or
+# "weekly_scoped" entries in the "limits" array). Only some plans populate
+# this — on a plain Pro plan these are typically all null, and only the
+# combined five_hour/seven_day windows are meaningful.
+KNOWN_MODEL_KEYS = ("opus", "sonnet", "haiku", "fable")
 
 
 def _read_oauth_token() -> str | None:
@@ -46,6 +62,39 @@ def parse_window(data: dict | None) -> WindowUsage | None:
     except ValueError:
         return None
     return WindowUsage(utilization_pct=pct, resets_at=dt)
+
+
+def _parse_model_usage_from_named_fields(data: dict) -> list[ModelUsage]:
+    found = []
+    for model in KNOWN_MODEL_KEYS:
+        window = parse_window(data.get(f"seven_day_{model}"))
+        if window is not None:
+            found.append(ModelUsage(model=model.capitalize(), utilization_pct=window.utilization_pct, resets_at=window.resets_at))
+    return found
+
+
+def _parse_model_usage_from_limits(data: dict) -> list[ModelUsage]:
+    found = []
+    for entry in data.get("limits") or []:
+        if not isinstance(entry, dict) or entry.get("kind") != "weekly_scoped":
+            continue
+        scope = entry.get("scope") or {}
+        model_name = (scope.get("model") or {}).get("display_name")
+        percent = entry.get("percent")
+        resets_at = entry.get("resets_at")
+        if not model_name or percent is None or not resets_at:
+            continue
+        window = parse_window({"utilization": percent, "resets_at": resets_at})
+        if window is not None:
+            found.append(ModelUsage(model=model_name, utilization_pct=window.utilization_pct, resets_at=window.resets_at))
+    return found
+
+
+def _parse_per_model(data: dict) -> list[ModelUsage]:
+    by_limits = _parse_model_usage_from_limits(data)
+    if by_limits:
+        return by_limits
+    return _parse_model_usage_from_named_fields(data)
 
 
 def fetch_live_usage(token: str) -> ProUsage | None:
@@ -83,6 +132,7 @@ def fetch_live_usage(token: str) -> ProUsage | None:
     return ProUsage(
         five_hour=parse_window(data.get("five_hour")),
         seven_day=parse_window(data.get("seven_day")),
+        per_model=_parse_per_model(data),
     )
 
 
@@ -93,11 +143,29 @@ def _window_to_cache(window: WindowUsage | None) -> dict | None:
 
 
 def _usage_to_cache(usage: ProUsage) -> dict:
-    return {"five_hour": _window_to_cache(usage.five_hour), "seven_day": _window_to_cache(usage.seven_day)}
+    return {
+        "five_hour": _window_to_cache(usage.five_hour),
+        "seven_day": _window_to_cache(usage.seven_day),
+        "per_model": [
+            {"model": m.model, "utilization": m.utilization_pct, "resets_at": m.resets_at.isoformat()}
+            for m in usage.per_model
+        ],
+    }
 
 
 def _cache_to_usage(data: dict) -> ProUsage:
-    return ProUsage(five_hour=parse_window(data.get("five_hour")), seven_day=parse_window(data.get("seven_day")))
+    return ProUsage(
+        five_hour=parse_window(data.get("five_hour")),
+        seven_day=parse_window(data.get("seven_day")),
+        per_model=[
+            ModelUsage(
+                model=m["model"],
+                utilization_pct=m["utilization"],
+                resets_at=datetime.fromisoformat(m["resets_at"]),
+            )
+            for m in data.get("per_model", [])
+        ],
+    )
 
 
 def get_pro_usage(force_refresh: bool = False) -> ProUsage | None:

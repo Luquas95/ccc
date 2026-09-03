@@ -1,8 +1,16 @@
 import json
 import time
+from datetime import datetime
 
 from cc_continue import usage_api
-from cc_continue.usage_api import ProUsage, WindowUsage, get_pro_usage, parse_window
+from cc_continue.usage_api import (
+    ModelUsage,
+    ProUsage,
+    WindowUsage,
+    _parse_per_model,
+    get_pro_usage,
+    parse_window,
+)
 
 
 def test_parse_window_valid():
@@ -15,6 +23,42 @@ def test_parse_window_missing_fields_returns_none():
     assert parse_window(None) is None
     assert parse_window({}) is None
     assert parse_window({"utilization": 30.0}) is None  # no resets_at
+
+
+def test_parse_per_model_from_limits_array():
+    data = {
+        "limits": [
+            {"kind": "session", "group": "session", "percent": 30, "scope": None, "resets_at": "2026-09-03T23:29:59+00:00"},
+            {
+                "kind": "weekly_scoped",
+                "group": "weekly",
+                "percent": 62,
+                "scope": {"model": {"display_name": "Opus"}},
+                "resets_at": "2026-09-04T12:59:59+00:00",
+            },
+        ]
+    }
+    models = _parse_per_model(data)
+    assert len(models) == 1
+    assert models[0].model == "Opus"
+    assert models[0].utilization_pct == 62
+
+
+def test_parse_per_model_falls_back_to_named_fields_when_no_scoped_limits():
+    data = {
+        "limits": [{"kind": "weekly_all", "percent": 48, "scope": None, "resets_at": "2026-09-04T12:59:59+00:00"}],
+        "seven_day_opus": {"utilization": 10.0, "resets_at": "2026-09-04T12:59:59+00:00"},
+        "seven_day_sonnet": None,
+    }
+    models = _parse_per_model(data)
+    assert len(models) == 1
+    assert models[0].model == "Opus"
+    assert models[0].utilization_pct == 10.0
+
+
+def test_parse_per_model_empty_when_nothing_populated():
+    data = {"limits": [{"kind": "weekly_all", "percent": 48, "scope": None, "resets_at": "x"}]}
+    assert _parse_per_model(data) == []
 
 
 def test_get_pro_usage_no_token_returns_none(monkeypatch, tmp_path):
@@ -33,20 +77,23 @@ def test_get_pro_usage_fetches_and_caches(monkeypatch, tmp_path):
     def fake_fetch(token):
         calls["n"] += 1
         return ProUsage(
-            five_hour=WindowUsage(30.0, __import__("datetime").datetime(2026, 9, 3, 23, 29)),
-            seven_day=WindowUsage(47.0, __import__("datetime").datetime(2026, 9, 4, 12, 59)),
+            five_hour=WindowUsage(30.0, datetime(2026, 9, 3, 23, 29)),
+            seven_day=WindowUsage(47.0, datetime(2026, 9, 4, 12, 59)),
+            per_model=[ModelUsage("Opus", 62.0, datetime(2026, 9, 4, 12, 59))],
         )
 
     monkeypatch.setattr(usage_api, "fetch_live_usage", fake_fetch)
 
     usage = get_pro_usage()
     assert usage.five_hour.utilization_pct == 30.0
+    assert usage.per_model[0].model == "Opus"
     assert calls["n"] == 1
     assert cache_path.exists()
 
     # second call within TTL should hit the cache, not fetch again
     usage2 = get_pro_usage()
     assert usage2.five_hour.utilization_pct == 30.0
+    assert usage2.per_model[0].model == "Opus"
     assert calls["n"] == 1
 
 
@@ -61,6 +108,7 @@ def test_get_pro_usage_expired_cache_refetches(monkeypatch, tmp_path):
                 "data": {
                     "five_hour": {"utilization": 1.0, "resets_at": "2026-09-03T23:29:59+00:00"},
                     "seven_day": None,
+                    "per_model": [],
                 },
             }
         )
@@ -70,7 +118,7 @@ def test_get_pro_usage_expired_cache_refetches(monkeypatch, tmp_path):
 
     def fake_fetch(token):
         calls["n"] += 1
-        return ProUsage(five_hour=WindowUsage(99.0, __import__("datetime").datetime(2026, 9, 3, 23, 29)), seven_day=None)
+        return ProUsage(five_hour=WindowUsage(99.0, datetime(2026, 9, 3, 23, 29)), seven_day=None, per_model=[])
 
     monkeypatch.setattr(usage_api, "fetch_live_usage", fake_fetch)
 
@@ -90,13 +138,14 @@ def test_get_pro_usage_force_refresh_bypasses_cache(monkeypatch, tmp_path):
                 "data": {
                     "five_hour": {"utilization": 1.0, "resets_at": "2026-09-03T23:29:59+00:00"},
                     "seven_day": None,
+                    "per_model": [],
                 },
             }
         )
     )
 
     def fake_fetch(token):
-        return ProUsage(five_hour=WindowUsage(77.0, __import__("datetime").datetime(2026, 9, 3, 23, 29)), seven_day=None)
+        return ProUsage(five_hour=WindowUsage(77.0, datetime(2026, 9, 3, 23, 29)), seven_day=None, per_model=[])
 
     monkeypatch.setattr(usage_api, "fetch_live_usage", fake_fetch)
 

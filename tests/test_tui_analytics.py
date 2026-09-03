@@ -2,11 +2,12 @@ from datetime import datetime
 
 import pytest
 from textual.app import App
+from textual.widgets import ProgressBar
 
 from cc_continue.models import PromptRun, RunStatus
 from cc_continue.storage import Storage
-from cc_continue.tui.analytics import AnalyticsScreen, format_pro_usage_line
-from cc_continue.usage_api import ProUsage, WindowUsage
+from cc_continue.tui.analytics import UNAVAILABLE_TEXT, AnalyticsScreen, build_usage_gauges
+from cc_continue.usage_api import ModelUsage, ProUsage, WindowUsage
 
 
 @pytest.mark.asyncio
@@ -46,10 +47,11 @@ async def test_analytics_shows_totals(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_analytics_shows_pro_usage_line(tmp_path, monkeypatch):
+async def test_analytics_shows_pro_usage_gauges(tmp_path, monkeypatch):
     fake_usage = ProUsage(
         five_hour=WindowUsage(30.0, datetime(2026, 9, 3, 23, 29).astimezone()),
         seven_day=WindowUsage(47.0, datetime(2026, 9, 4, 12, 59).astimezone()),
+        per_model=[ModelUsage("Opus", 62.0, datetime(2026, 9, 4, 12, 59).astimezone())],
     )
     monkeypatch.setattr("cc_continue.tui.analytics.get_pro_usage", lambda: fake_usage)
 
@@ -64,20 +66,47 @@ async def test_analytics_shows_pro_usage_line(tmp_path, monkeypatch):
     async with app.run_test() as pilot:
         await pilot.pause()
         await screen.refresh_pro_usage()
-        line = str(app.screen.query_one("#pro-usage-line").render())
-        assert "30%" in line
-        assert "47%" in line
+        bars = app.screen.query(ProgressBar)
+        assert len(bars) == 3  # 5-hour, weekly, Opus
+        percentages = sorted(round(b.percentage * 100) for b in bars)
+        assert percentages == [30, 47, 62]
+
+        labels = [str(s.render()) for s in app.screen.query(".usage-gauge-label")]
+        assert any("5-hour" in label for label in labels)
+        assert any("Weekly (all models)" in label for label in labels)
+        assert any("Opus" in label for label in labels)
 
 
-def test_format_pro_usage_line_unavailable():
-    assert "unavailable" in format_pro_usage_line(None)
+@pytest.mark.asyncio
+async def test_analytics_pro_usage_unavailable(tmp_path, monkeypatch):
+    monkeypatch.setattr("cc_continue.tui.analytics.get_pro_usage", lambda: None)
+
+    storage = Storage(tmp_path / "history.db")
+    screen = AnalyticsScreen(storage)
+
+    class _HostApp(App):
+        async def on_mount(self):
+            await self.push_screen(screen)
+
+    app = _HostApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await screen.refresh_pro_usage()
+        assert len(app.screen.query(ProgressBar)) == 0
+        texts = [str(s.render()) for s in app.screen.query("#pro-usage-gauges Static")]
+        assert any(UNAVAILABLE_TEXT in t for t in texts)
 
 
-def test_format_pro_usage_line_with_data():
+def test_build_usage_gauges_none_returns_empty():
+    assert build_usage_gauges(None) == []
+
+
+def test_build_usage_gauges_with_data():
     usage = ProUsage(
         five_hour=WindowUsage(30.0, datetime(2026, 9, 3, 23, 29).astimezone()),
         seven_day=WindowUsage(47.0, datetime(2026, 9, 4, 12, 59).astimezone()),
+        per_model=[ModelUsage("Opus", 62.0, datetime(2026, 9, 4, 12, 59).astimezone())],
     )
-    line = format_pro_usage_line(usage)
-    assert "5-hour: 30% used" in line
-    assert "weekly: 47% used" in line
+    gauges = build_usage_gauges(usage)
+    assert [g.label for g in gauges] == ["5-hour", "Weekly (all models)", "Weekly · Opus"]
+    assert [g.percentage for g in gauges] == [30.0, 47.0, 62.0]

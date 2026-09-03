@@ -1,30 +1,49 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from datetime import datetime
 
-from textual.containers import Container
+from textual.containers import Container, Horizontal
 from textual.screen import Screen
-from textual.widgets import DataTable, Footer, Header, Sparkline, Static
+from textual.widgets import DataTable, Footer, Header, ProgressBar, Sparkline, Static
 
 from cc_continue.models import RunStatus
 from cc_continue.storage import Storage
-from cc_continue.usage_api import ProUsage, WindowUsage, get_pro_usage
+from cc_continue.usage_api import ProUsage, get_pro_usage
+
+UNAVAILABLE_TEXT = "Claude Pro usage: unavailable (offline, or not logged in via claude.ai OAuth)"
 
 
-def _format_window(label: str, window: WindowUsage | None) -> str:
-    if window is None:
-        return f"{label}: n/a"
-    local_reset = window.resets_at.astimezone()
+@dataclass
+class UsageGauge:
+    label: str
+    percentage: float  # 0-100
+    reset_text: str
+
+
+def _format_reset(dt: datetime) -> str:
+    local_reset = dt.astimezone()
     now = datetime.now().astimezone()
     fmt = "%H:%M" if local_reset.date() == now.date() else "%a %H:%M"
-    return f"{label}: {window.utilization_pct:.0f}% used, resets {local_reset.strftime(fmt)}"
+    return local_reset.strftime(fmt)
 
 
-def format_pro_usage_line(usage: ProUsage | None) -> str:
+def build_usage_gauges(usage: ProUsage | None) -> list[UsageGauge]:
+    """One gauge per limit window the account actually exposes: always
+    5-hour + weekly (combined across models), plus one more per model IF
+    the plan populates model-scoped weekly limits (most Pro accounts
+    don't — see usage_api.KNOWN_MODEL_KEYS)."""
     if usage is None:
-        return "Claude Pro usage: unavailable (offline, or not logged in via claude.ai OAuth)"
-    return f"Claude Pro usage — {_format_window('5-hour', usage.five_hour)} · {_format_window('weekly', usage.seven_day)}"
+        return []
+    gauges = []
+    if usage.five_hour:
+        gauges.append(UsageGauge("5-hour", usage.five_hour.utilization_pct, _format_reset(usage.five_hour.resets_at)))
+    if usage.seven_day:
+        gauges.append(UsageGauge("Weekly (all models)", usage.seven_day.utilization_pct, _format_reset(usage.seven_day.resets_at)))
+    for m in usage.per_model:
+        gauges.append(UsageGauge(f"Weekly · {m.model}", m.utilization_pct, _format_reset(m.resets_at)))
+    return gauges
 
 
 class AnalyticsScreen(Screen):
@@ -37,7 +56,8 @@ class AnalyticsScreen(Screen):
     def compose(self):
         yield Header()
         yield Container(
-            Static(id="pro-usage-line"),
+            Static("Claude Pro usage"),
+            Container(id="pro-usage-gauges"),
             Static("Tokens per day (last 30 days)"),
             Sparkline([], id="tokens-sparkline"),
             Static("Tokens per project", id="project-tokens-label"),
@@ -73,7 +93,23 @@ class AnalyticsScreen(Screen):
 
     async def refresh_pro_usage(self) -> None:
         usage = await asyncio.to_thread(get_pro_usage)
-        self.query_one("#pro-usage-line", Static).update(format_pro_usage_line(usage))
+        container = self.query_one("#pro-usage-gauges", Container)
+        await container.remove_children()
+
+        gauges = build_usage_gauges(usage)
+        if not gauges:
+            await container.mount(Static(UNAVAILABLE_TEXT))
+            return
+
+        for gauge in gauges:
+            bar = ProgressBar(total=100, show_eta=False)
+            row = Horizontal(
+                Static(f"{gauge.label} (resets {gauge.reset_text})", classes="usage-gauge-label"),
+                bar,
+                classes="usage-gauge-row",
+            )
+            await container.mount(row)
+            bar.update(progress=gauge.percentage)
 
     def action_back(self) -> None:
         self.app.pop_screen()
