@@ -34,7 +34,11 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     if args.command == "add":
-        add_command(str(default_db_path()), str(Path(args.project_path).resolve()), args.prompt)
+        try:
+            add_command(str(default_db_path()), str(Path(args.project_path).resolve()), args.prompt)
+        except ValueError as exc:
+            print(f"cc-continue add: {exc}", file=sys.stderr)
+            sys.exit(1)
         return
 
     from cc_continue.tui.app import run_app

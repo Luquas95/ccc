@@ -19,6 +19,7 @@ class AddPromptModal(ModalScreen):
             Static("New prompt"),
             Input(value=self.default_path, placeholder="project path", id="add-prompt-path"),
             TextArea(id="add-prompt-text"),
+            Static("", id="add-prompt-error"),
             Horizontal(
                 Button("Add", id="add-prompt-submit", variant="primary"),
                 Button("Cancel", id="add-prompt-cancel"),
@@ -29,8 +30,14 @@ class AddPromptModal(ModalScreen):
         if event.button.id == "add-prompt-submit":
             path = self.query_one("#add-prompt-path", Input).value.strip()
             prompt = self.query_one("#add-prompt-text", TextArea).text.strip()
-            if path and prompt:
+            if not path or not prompt:
+                self.query_one("#add-prompt-error", Static).update("Both path and prompt are required.")
+                return
+            try:
                 enqueue_prompt(self.storage, path, prompt)
+            except ValueError as exc:
+                self.query_one("#add-prompt-error", Static).update(str(exc))
+                return
             self.dismiss()
         elif event.button.id == "add-prompt-cancel":
             self.dismiss()

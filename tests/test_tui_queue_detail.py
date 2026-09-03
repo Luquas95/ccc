@@ -8,6 +8,8 @@ from cc_continue.tui.queue_detail import QueueDetailScreen
 @pytest.mark.asyncio
 async def test_add_prompt_modal_queues_item(tmp_path):
     db_path = str(tmp_path / "history.db")
+    project_dir = tmp_path / "proj-b"
+    project_dir.mkdir()
     app = CCContinueApp(db_path)
 
     async with app.run_test() as pilot:
@@ -16,15 +18,37 @@ async def test_add_prompt_modal_queues_item(tmp_path):
         await pilot.pause()
         path_input = app.screen.query_one("#add-prompt-path")
         text_area = app.screen.query_one("#add-prompt-text")
-        path_input.value = "/tmp/proj-b"
+        path_input.value = str(project_dir)
         text_area.text = "queued via modal"
         await pilot.click("#add-prompt-submit")
         await pilot.pause()
 
-        queue = app.storage.get_queue_by_path("/tmp/proj-b")
+        queue = app.storage.get_queue_by_path(str(project_dir))
         assert queue is not None
         item = app.storage.next_pending_item(queue.id)
         assert item.prompt_text == "queued via modal"
+
+
+@pytest.mark.asyncio
+async def test_add_prompt_modal_shows_error_for_missing_directory(tmp_path):
+    db_path = str(tmp_path / "history.db")
+    app = CCContinueApp(db_path)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("a")
+        await pilot.pause()
+        path_input = app.screen.query_one("#add-prompt-path")
+        text_area = app.screen.query_one("#add-prompt-text")
+        path_input.value = str(tmp_path / "does-not-exist")
+        text_area.text = "ahoj"
+        await pilot.click("#add-prompt-submit")
+        await pilot.pause()
+
+        # modal stays open with an error, nothing got queued
+        error = app.screen.query_one("#add-prompt-error")
+        assert "not an existing directory" in str(error.render())
+        assert app.storage.get_queue_by_path(str(tmp_path / "does-not-exist")) is None
 
 
 @pytest.mark.asyncio

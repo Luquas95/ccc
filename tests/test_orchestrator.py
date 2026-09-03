@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from cc_continue.models import ItemStatus, QueueStatus, RunStatus
-from cc_continue.orchestrator import Orchestrator
+from cc_continue.orchestrator import Orchestrator, enqueue_prompt
 from cc_continue.runner import RunResult
 from cc_continue.storage import Storage
 
@@ -13,7 +13,14 @@ def storage(tmp_path):
     return Storage(tmp_path / "test.db")
 
 
-async def test_add_prompt_runs_and_marks_done(storage):
+@pytest.fixture
+def project_dir(tmp_path):
+    d = tmp_path / "proj"
+    d.mkdir()
+    return str(d)
+
+
+async def test_add_prompt_runs_and_marks_done(storage, project_dir):
     calls = []
 
     async def fake_run(project_path, session_id, prompt, resume):
@@ -22,23 +29,23 @@ async def test_add_prompt_runs_and_marks_done(storage):
 
     orch = Orchestrator(storage, run_fn=fake_run)
     await orch.start_all()
-    orch.add_prompt("/tmp/proj", "first prompt")
+    orch.add_prompt(project_dir, "first prompt")
 
     for _ in range(50):
         await asyncio.sleep(0.01)
-        queue = storage.get_queue_by_path("/tmp/proj")
+        queue = storage.get_queue_by_path(project_dir)
         if queue.status == QueueStatus.IDLE and calls:
             break
 
     await orch.stop_all()
 
     assert calls == [("first prompt", False)]
-    runs = storage.runs_for_queue(storage.get_queue_by_path("/tmp/proj").id)
+    runs = storage.runs_for_queue(storage.get_queue_by_path(project_dir).id)
     assert len(runs) == 1
     assert runs[0].status == RunStatus.SUCCESS
 
 
-async def test_persists_per_model_usage(storage):
+async def test_persists_per_model_usage(storage, project_dir):
     async def fake_run(project_path, session_id, prompt, resume):
         return RunResult(
             status=RunStatus.SUCCESS,
@@ -47,7 +54,7 @@ async def test_persists_per_model_usage(storage):
 
     orch = Orchestrator(storage, run_fn=fake_run)
     await orch.start_all()
-    orch.add_prompt("/tmp/proj", "first prompt")
+    orch.add_prompt(project_dir, "first prompt")
 
     for _ in range(50):
         await asyncio.sleep(0.01)
@@ -59,7 +66,7 @@ async def test_persists_per_model_usage(storage):
     assert storage.total_tokens_by_model() == [("claude-sonnet-5", 6)]
 
 
-async def test_second_prompt_resumes_session(storage):
+async def test_second_prompt_resumes_session(storage, project_dir):
     calls = []
 
     async def fake_run(project_path, session_id, prompt, resume):
@@ -68,14 +75,14 @@ async def test_second_prompt_resumes_session(storage):
 
     orch = Orchestrator(storage, run_fn=fake_run)
     await orch.start_all()
-    orch.add_prompt("/tmp/proj", "one")
+    orch.add_prompt(project_dir, "one")
 
     for _ in range(50):
         await asyncio.sleep(0.01)
         if len(calls) >= 1:
             break
 
-    orch.add_prompt("/tmp/proj", "two")
+    orch.add_prompt(project_dir, "two")
 
     for _ in range(50):
         await asyncio.sleep(0.01)
@@ -87,30 +94,30 @@ async def test_second_prompt_resumes_session(storage):
     assert calls == [False, True]
 
 
-async def test_hard_error_blocks_queue(storage):
+async def test_hard_error_blocks_queue(storage, project_dir):
     async def fake_run(project_path, session_id, prompt, resume):
         return RunResult(status=RunStatus.ERROR, error_text="tool crashed")
 
     orch = Orchestrator(storage, run_fn=fake_run)
     await orch.start_all()
-    orch.add_prompt("/tmp/proj", "bad prompt")
+    orch.add_prompt(project_dir, "bad prompt")
 
     for _ in range(50):
         await asyncio.sleep(0.01)
-        queue = storage.get_queue_by_path("/tmp/proj")
+        queue = storage.get_queue_by_path(project_dir)
         if queue.status == QueueStatus.BLOCKED_ERROR:
             break
 
     await orch.stop_all()
 
-    queue = storage.get_queue_by_path("/tmp/proj")
+    queue = storage.get_queue_by_path(project_dir)
     assert queue.status == QueueStatus.BLOCKED_ERROR
     assert queue.last_error == "tool crashed"
     run = storage.runs_for_queue(queue.id)[0]
     assert run.status == RunStatus.ERROR
 
 
-async def test_rate_limited_reschedules_with_short_backoff(storage, monkeypatch):
+async def test_rate_limited_reschedules_with_short_backoff(storage, project_dir, monkeypatch):
     monkeypatch.setattr("cc_continue.orchestrator.next_backoff_seconds", lambda prev: 0)
     call_count = {"n": 0}
 
@@ -122,7 +129,7 @@ async def test_rate_limited_reschedules_with_short_backoff(storage, monkeypatch)
 
     orch = Orchestrator(storage, run_fn=fake_run)
     await orch.start_all()
-    orch.add_prompt("/tmp/proj", "retry me")
+    orch.add_prompt(project_dir, "retry me")
 
     for _ in range(100):
         await asyncio.sleep(0.01)
@@ -132,13 +139,41 @@ async def test_rate_limited_reschedules_with_short_backoff(storage, monkeypatch)
     await orch.stop_all()
 
     assert call_count["n"] == 2
-    runs = storage.runs_for_queue(storage.get_queue_by_path("/tmp/proj").id)
+    runs = storage.runs_for_queue(storage.get_queue_by_path(project_dir).id)
     statuses = sorted(r.status for r in runs)
     assert RunStatus.RATE_LIMITED in statuses
     assert RunStatus.SUCCESS in statuses
 
 
-async def test_discovers_queue_created_after_start_all(storage, monkeypatch):
+async def test_unhandled_exception_is_caught_and_blocks_queue_visibly(storage, project_dir):
+    """A run_fn that raises (e.g. a bad cwd raising FileNotFoundError)
+    must never leave the queue silently stuck at 'running' forever."""
+
+    async def raising_run(project_path, session_id, prompt, resume):
+        raise FileNotFoundError("[Errno 2] No such file or directory: 'nope'")
+
+    orch = Orchestrator(storage, run_fn=raising_run)
+    await orch.start_all()
+    orch.add_prompt(project_dir, "boom")
+
+    for _ in range(50):
+        await asyncio.sleep(0.01)
+        queue = storage.get_queue_by_path(project_dir)
+        if queue.status == QueueStatus.BLOCKED_ERROR:
+            break
+
+    await orch.stop_all()
+
+    queue = storage.get_queue_by_path(project_dir)
+    assert queue.status == QueueStatus.BLOCKED_ERROR
+    assert "FileNotFoundError" in queue.last_error
+    runs = storage.runs_for_queue(queue.id)
+    assert len(runs) == 1
+    assert runs[0].status == RunStatus.ERROR
+    assert "FileNotFoundError" in runs[0].error_text
+
+
+async def test_discovers_queue_created_after_start_all(storage, tmp_path, monkeypatch):
     monkeypatch.setattr("cc_continue.orchestrator.POLL_INTERVAL_SECONDS", 0.02)
     calls = []
 
@@ -152,9 +187,9 @@ async def test_discovers_queue_created_after_start_all(storage, monkeypatch):
     # simulate another process (e.g. `cc-continue add`) creating a queue
     # directly via storage, the way enqueue_prompt() does, without going
     # through this orchestrator at all
-    from cc_continue.orchestrator import enqueue_prompt
-
-    enqueue_prompt(storage, "/tmp/late-proj", "discovered later")
+    late_dir = tmp_path / "late-proj"
+    late_dir.mkdir()
+    enqueue_prompt(storage, str(late_dir), "discovered later")
 
     for _ in range(100):
         await asyncio.sleep(0.01)
@@ -172,6 +207,8 @@ async def test_two_orchestrators_never_double_execute_same_item(tmp_path):
     db_path = tmp_path / "shared.db"
     storage_a = Storage(db_path)
     storage_b = Storage(db_path)
+    project_dir = tmp_path / "shared-proj"
+    project_dir.mkdir()
 
     calls_a = []
     calls_b = []
@@ -184,7 +221,7 @@ async def test_two_orchestrators_never_double_execute_same_item(tmp_path):
         calls_b.append(prompt)
         return RunResult(status=RunStatus.SUCCESS)
 
-    queue = storage_a.create_queue("shared-proj", "/tmp/shared-proj", "sess-1")
+    queue = storage_a.create_queue("shared-proj", str(project_dir), "sess-1")
     storage_a.add_queue_item(queue.id, "only prompt")
 
     orch_a = Orchestrator(storage_a, run_fn=fake_run_a)
@@ -205,8 +242,8 @@ async def test_two_orchestrators_never_double_execute_same_item(tmp_path):
     assert len(runs) == 1
 
 
-async def test_crash_recovery_requeues_running_items(storage):
-    queue = storage.create_queue("proj", "/tmp/proj", "sess-1")
+async def test_crash_recovery_requeues_running_items(storage, project_dir):
+    queue = storage.create_queue("proj", project_dir, "sess-1")
     storage.add_queue_item(queue.id, "interrupted prompt")
     item = storage.next_pending_item(queue.id)
     storage.set_item_status(item.id, ItemStatus.RUNNING)
@@ -220,7 +257,7 @@ async def test_crash_recovery_requeues_running_items(storage):
 
     for _ in range(50):
         await asyncio.sleep(0.01)
-        reloaded = storage.get_queue_by_path("/tmp/proj")
+        reloaded = storage.get_queue_by_path(project_dir)
         if reloaded.status == QueueStatus.IDLE:
             break
 

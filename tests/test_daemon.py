@@ -14,8 +14,10 @@ from cc_continue.storage import Storage
 @pytest.mark.asyncio
 async def test_daemon_processes_prequeued_prompt_and_stops_on_sigterm(tmp_path):
     db_path = str(tmp_path / "daemon.db")
+    project_dir = tmp_path / "daemon-proj"
+    project_dir.mkdir()
     storage = Storage(db_path)
-    enqueue_prompt(storage, "/tmp/daemon-proj", "hello")
+    enqueue_prompt(storage, str(project_dir), "hello")
 
     calls = []
 
@@ -36,7 +38,7 @@ async def test_daemon_processes_prequeued_prompt_and_stops_on_sigterm(tmp_path):
     )
 
     assert calls == ["hello"]
-    queue = storage.get_queue_by_path("/tmp/daemon-proj")
+    queue = storage.get_queue_by_path(str(project_dir))
     runs = storage.runs_for_queue(queue.id)
     assert len(runs) == 1
     assert runs[0].status == RunStatus.SUCCESS

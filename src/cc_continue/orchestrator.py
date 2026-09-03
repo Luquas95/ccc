@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Awaitable, Callable
 
-from cc_continue.models import ItemStatus, PromptRun, Queue, QueueStatus, RunStatus
+from cc_continue.models import ItemStatus, PromptRun, Queue, QueueItem, QueueStatus, RunStatus
 from cc_continue.retry import next_backoff_seconds, parse_reset_time
 from cc_continue.runner import RunResult, execute
 from cc_continue.storage import Storage
+
+logger = logging.getLogger(__name__)
 
 RunFn = Callable[[str, str, str, bool], Awaitable[RunResult]]
 
@@ -25,9 +28,17 @@ def enqueue_prompt(storage: Storage, project_path: str, prompt_text: str, name: 
     Pure storage operation — does not start or notify any execution
     engine. Safe to call from a process that never runs an Orchestrator
     (the TUI, the `cc-continue add` CLI) alongside a daemon process that
-    does; the daemon picks the new row up on its next poll."""
+    does; the daemon picks the new row up on its next poll.
+
+    Raises ValueError if project_path isn't an existing directory when
+    creating a *new* queue — a typo'd path (e.g. a transposed letter)
+    would otherwise sit "running" forever with no visible error once the
+    daemon tries to use it as a subprocess cwd. Adding to an
+    already-existing queue never re-checks the path."""
     queue = storage.get_queue_by_path(project_path)
     if queue is None:
+        if not Path(project_path).is_dir():
+            raise ValueError(f"'{project_path}' is not an existing directory")
         queue = storage.create_queue(
             name or Path(project_path).name or project_path,
             project_path,
@@ -48,6 +59,18 @@ class QueueRuntime:
 
     def start(self) -> None:
         self._task = asyncio.create_task(self._loop())
+        self._task.add_done_callback(self._on_task_done)
+
+    def _on_task_done(self, task: asyncio.Task) -> None:
+        # Last-resort safety net: _loop() already catches everything it
+        # can attribute to a specific item, but if something still
+        # escapes (a bug outside that try/except), log it instead of the
+        # queue silently going stuck forever with no trace anywhere.
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            logger.error("Queue runtime for %s crashed and stopped: %r", self.queue.project_path, exc)
 
     def notify(self) -> None:
         self._wake.set()
@@ -77,63 +100,92 @@ class QueueRuntime:
 
             self.storage.update_queue_status(queue.id, QueueStatus.RUNNING)
 
-            resume = self._has_run_before()
-            started_at = datetime.now()
-            result = await self.run_fn(queue.project_path, queue.session_id, item.prompt_text, resume)
-            finished_at = datetime.now()
-
-            run_id = self.storage.insert_prompt_run(
-                PromptRun(
-                    id=0,
-                    queue_id=queue.id,
-                    queue_item_id=item.id,
-                    prompt_text=item.prompt_text,
-                    started_at=started_at,
-                    finished_at=finished_at,
-                    status=result.status,
-                    cost_usd=result.cost_usd,
-                    input_tokens=result.input_tokens,
-                    output_tokens=result.output_tokens,
-                    cache_read_tokens=result.cache_read_tokens,
-                    cache_creation_tokens=result.cache_creation_tokens,
-                    duration_ms=result.duration_ms,
-                    num_turns=result.num_turns,
-                    result_text=result.result_text,
-                    error_text=result.error_text,
+            try:
+                await self._process_item(queue, item)
+            except Exception as exc:
+                # Anything unexpected here (bad cwd, a bug in run_fn, a
+                # storage hiccup) must never leave the queue silently
+                # stuck at "running" forever with no trace — surface it
+                # the same way a normal hard error would, including in
+                # the queue's own run history (not just last_error).
+                logger.exception(
+                    "Unhandled error running queue '%s' (%s)", queue.name, queue.project_path
                 )
+                error_text = f"{type(exc).__name__}: {exc}"
+                now = datetime.now()
+                self.storage.insert_prompt_run(
+                    PromptRun(
+                        id=0,
+                        queue_id=queue.id,
+                        queue_item_id=item.id,
+                        prompt_text=item.prompt_text,
+                        started_at=now,
+                        finished_at=now,
+                        status=RunStatus.ERROR,
+                        error_text=error_text,
+                    )
+                )
+                self._fail_item(queue, item, error_text)
+
+    async def _process_item(self, queue: Queue, item: QueueItem) -> None:
+        resume = self._has_run_before()
+        started_at = datetime.now()
+        result = await self.run_fn(queue.project_path, queue.session_id, item.prompt_text, resume)
+        finished_at = datetime.now()
+
+        run_id = self.storage.insert_prompt_run(
+            PromptRun(
+                id=0,
+                queue_id=queue.id,
+                queue_item_id=item.id,
+                prompt_text=item.prompt_text,
+                started_at=started_at,
+                finished_at=finished_at,
+                status=result.status,
+                cost_usd=result.cost_usd,
+                input_tokens=result.input_tokens,
+                output_tokens=result.output_tokens,
+                cache_read_tokens=result.cache_read_tokens,
+                cache_creation_tokens=result.cache_creation_tokens,
+                duration_ms=result.duration_ms,
+                num_turns=result.num_turns,
+                result_text=result.result_text,
+                error_text=result.error_text,
             )
-            for model_name, tokens in result.model_usage.items():
-                self.storage.insert_run_model_usage(
-                    run_id,
-                    model_name,
-                    input_tokens=tokens.get("input_tokens", 0),
-                    output_tokens=tokens.get("output_tokens", 0),
-                    cache_read_tokens=tokens.get("cache_read_tokens", 0),
-                    cache_creation_tokens=tokens.get("cache_creation_tokens", 0),
-                )
+        )
+        for model_name, tokens in result.model_usage.items():
+            self.storage.insert_run_model_usage(
+                run_id,
+                model_name,
+                input_tokens=tokens.get("input_tokens", 0),
+                output_tokens=tokens.get("output_tokens", 0),
+                cache_read_tokens=tokens.get("cache_read_tokens", 0),
+                cache_creation_tokens=tokens.get("cache_creation_tokens", 0),
+            )
 
-            if result.status == RunStatus.SUCCESS:
-                self.storage.set_item_status(item.id, ItemStatus.DONE)
-                self._backoff_seconds = None
-                continue
+        if result.status == RunStatus.SUCCESS:
+            self.storage.set_item_status(item.id, ItemStatus.DONE)
+            self._backoff_seconds = None
+            return
 
-            if result.status == RunStatus.RATE_LIMITED:
-                self.storage.set_item_status(item.id, ItemStatus.PENDING)
-                retry_at = parse_reset_time(result.error_text or "")
-                if retry_at is None:
-                    self._backoff_seconds = next_backoff_seconds(self._backoff_seconds)
-                    retry_at = datetime.fromtimestamp(datetime.now().timestamp() + self._backoff_seconds)
-                self.storage.update_queue_status(
-                    queue.id, QueueStatus.WAITING_RETRY, next_retry_at=retry_at
-                )
-                delay = max((retry_at - datetime.now()).total_seconds(), 0)
-                await self._wait_for_wake_or_poll(delay)
-                continue
-
-            self.storage.set_item_status(item.id, ItemStatus.FAILED)
+        if result.status == RunStatus.RATE_LIMITED:
+            self.storage.set_item_status(item.id, ItemStatus.PENDING)
+            retry_at = parse_reset_time(result.error_text or "")
+            if retry_at is None:
+                self._backoff_seconds = next_backoff_seconds(self._backoff_seconds)
+                retry_at = datetime.fromtimestamp(datetime.now().timestamp() + self._backoff_seconds)
             self.storage.update_queue_status(
-                queue.id, QueueStatus.BLOCKED_ERROR, last_error=result.error_text
+                queue.id, QueueStatus.WAITING_RETRY, next_retry_at=retry_at
             )
+            delay = max((retry_at - datetime.now()).total_seconds(), 0)
+            await self._wait_for_wake_or_poll(delay)
+            return
+
+        self._fail_item(queue, item, result.error_text)
+
+    def _fail_item(self, queue: Queue, item: QueueItem, error_text: str | None) -> None:
+        self.storage.set_item_status(item.id, ItemStatus.FAILED)
+        self.storage.update_queue_status(queue.id, QueueStatus.BLOCKED_ERROR, last_error=error_text)
 
     def _has_run_before(self) -> bool:
         return len(self.storage.runs_for_queue(self.queue.id)) > 0
@@ -181,11 +233,15 @@ class Orchestrator:
         return runtime
 
     def get_or_create_queue(self, project_path: str, name: str | None = None) -> Queue:
+        """Same path-existence check as enqueue_prompt() — a queue must
+        never be created for a directory that doesn't exist."""
         existing = self.storage.get_queue_by_path(project_path)
         if existing:
             if existing.id not in self.runtimes:
                 self._start_runtime(existing)
             return existing
+        if not Path(project_path).is_dir():
+            raise ValueError(f"'{project_path}' is not an existing directory")
         queue = self.storage.create_queue(
             name or project_path.rstrip("/").split("/")[-1],
             project_path,

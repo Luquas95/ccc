@@ -7,7 +7,9 @@ from cc_continue.tui.app import CCContinueApp
 @pytest.mark.asyncio
 async def test_dashboard_lists_queues(tmp_path):
     db_path = str(tmp_path / "history.db")
-    add_command(db_path, "/tmp/proj-a", "do a thing")
+    project_dir = tmp_path / "proj-a"
+    project_dir.mkdir()
+    add_command(db_path, str(project_dir), "do a thing")
 
     app = CCContinueApp(db_path)
     async with app.run_test() as pilot:
