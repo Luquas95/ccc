@@ -49,6 +49,22 @@ def build_usage_gauges(usage: ProUsage | None) -> list[UsageGauge]:
 class AnalyticsScreen(Screen):
     BINDINGS = [("escape", "back", "Back")]
 
+    DEFAULT_CSS = """
+    AnalyticsScreen #pro-usage-gauges {
+        height: auto;
+    }
+    AnalyticsScreen .usage-gauge-row {
+        height: 1;
+        margin-bottom: 1;
+    }
+    AnalyticsScreen .usage-gauge-label {
+        width: 42;
+    }
+    AnalyticsScreen .usage-gauge-row ProgressBar {
+        width: 1fr;
+    }
+    """
+
     def __init__(self, storage: Storage):
         super().__init__()
         self.storage = storage
