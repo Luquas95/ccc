@@ -7,9 +7,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Awaitable, Callable
 
-from cc_continue.models import ItemStatus, PromptRun, Queue, QueueItem, QueueStatus, RunStatus
+from cc_continue.live_delivery import deliver_to_live_session
+from cc_continue.models import DeliveryMode, ItemStatus, PromptRun, Queue, QueueItem, QueueStatus, RunStatus
 from cc_continue.retry import next_backoff_seconds, parse_reset_time
 from cc_continue.runner import RunResult, execute
+from cc_continue.session_discovery import discover_sessions, session_ready_for_input
 from cc_continue.storage import Storage
 
 logger = logging.getLogger(__name__)
@@ -61,7 +63,9 @@ def attach_to_session(
     Pure storage operation, same process-safety notes as enqueue_prompt()."""
     queue = storage.get_queue_by_session_id(session_id)
     if queue is None:
-        queue = storage.create_queue(name, cwd, session_id, always_resume=True)
+        queue = storage.create_queue(
+            name, cwd, session_id, always_resume=True, delivery_mode=DeliveryMode.LIVE_TERMINAL
+        )
     storage.add_queue_item(queue.id, prompt_text)
     return queue
 
@@ -129,23 +133,13 @@ class QueueRuntime:
                 logger.exception(
                     "Unhandled error running queue '%s' (%s)", queue.name, queue.project_path
                 )
-                error_text = f"{type(exc).__name__}: {exc}"
-                now = datetime.now()
-                self.storage.insert_prompt_run(
-                    PromptRun(
-                        id=0,
-                        queue_id=queue.id,
-                        queue_item_id=item.id,
-                        prompt_text=item.prompt_text,
-                        started_at=now,
-                        finished_at=now,
-                        status=RunStatus.ERROR,
-                        error_text=error_text,
-                    )
-                )
-                self._fail_item(queue, item, error_text)
+                self._record_error_run(queue, item, f"{type(exc).__name__}: {exc}")
 
     async def _process_item(self, queue: Queue, item: QueueItem) -> None:
+        if queue.delivery_mode == DeliveryMode.LIVE_TERMINAL:
+            await self._process_live_terminal_item(queue, item)
+            return
+
         resume = queue.always_resume or self._has_run_before()
         started_at = datetime.now()
         result = await self.run_fn(queue.project_path, queue.session_id, item.prompt_text, resume)
@@ -200,6 +194,61 @@ class QueueRuntime:
             return
 
         self._fail_item(queue, item, result.error_text)
+
+    async def _process_live_terminal_item(self, queue: Queue, item: QueueItem) -> None:
+        """Deliver a prompt directly into a live interactive session's tmux
+        pane, so it visibly continues that terminal's own conversation
+        (see live_delivery module for the mechanism and its risks — this
+        is the mode the user explicitly chose over the safer headless
+        default). Waits, polling like a rate-limited retry, until the
+        target session reports itself idle and not blocked before
+        attempting delivery — but a session that's genuinely gone, or a
+        tmux send-keys failure, is a real (non-retryable) error."""
+        while True:
+            sessions = discover_sessions()
+            session = next((s for s in sessions if s.session_id == queue.session_id), None)
+            if session is None:
+                self._record_error_run(queue, item, "session is no longer running (closed or crashed)")
+                return
+            if session_ready_for_input(session):
+                break
+            await self._wait_for_wake_or_poll(POLL_INTERVAL_SECONDS)
+
+        result = deliver_to_live_session(queue.session_id, item.prompt_text)
+        if not result.delivered:
+            self._record_error_run(queue, item, result.error or "delivery to live terminal failed")
+            return
+
+        now = datetime.now()
+        self.storage.insert_prompt_run(
+            PromptRun(
+                id=0,
+                queue_id=queue.id,
+                queue_item_id=item.id,
+                prompt_text=item.prompt_text,
+                started_at=now,
+                finished_at=now,
+                status=RunStatus.SUCCESS,
+                result_text="Delivered to the live terminal — response appears there, not in cc-continue.",
+            )
+        )
+        self.storage.set_item_status(item.id, ItemStatus.DONE)
+
+    def _record_error_run(self, queue: Queue, item: QueueItem, error_text: str) -> None:
+        now = datetime.now()
+        self.storage.insert_prompt_run(
+            PromptRun(
+                id=0,
+                queue_id=queue.id,
+                queue_item_id=item.id,
+                prompt_text=item.prompt_text,
+                started_at=now,
+                finished_at=now,
+                status=RunStatus.ERROR,
+                error_text=error_text,
+            )
+        )
+        self._fail_item(queue, item, error_text)
 
     def _fail_item(self, queue: Queue, item: QueueItem, error_text: str | None) -> None:
         self.storage.set_item_status(item.id, ItemStatus.FAILED)

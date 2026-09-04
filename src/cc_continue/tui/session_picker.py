@@ -62,6 +62,26 @@ class SessionPickerScreen(Screen):
 
 
 class AttachSessionModal(ModalScreen):
+    DEFAULT_CSS = """
+    AttachSessionModal {
+        align: center middle;
+    }
+    AttachSessionModal > Container {
+        width: 80;
+        height: auto;
+        border: round $primary;
+        padding: 1 2;
+    }
+    AttachSessionModal .attach-prompt-warning {
+        color: $warning;
+        margin-bottom: 1;
+    }
+    AttachSessionModal TextArea {
+        height: 5;
+        margin-bottom: 1;
+    }
+    """
+
     def __init__(self, storage: Storage, session: DiscoveredSession):
         super().__init__()
         self.storage = storage
@@ -70,6 +90,13 @@ class AttachSessionModal(ModalScreen):
     def compose(self):
         yield Container(
             Static(f"Send prompt to: {self.session.name}  ({self.session.cwd})"),
+            Static(
+                "Delivered by typing into that session's own terminal once it's idle "
+                "and not rate-limited — the response appears there, not in cc-continue. "
+                "If you're mid-typing something else in that terminal at the exact "
+                "moment this fires, the two can interleave.",
+                classes="attach-prompt-warning",
+            ),
             TextArea(id="attach-prompt-text"),
             Static("", id="attach-prompt-error"),
             Horizontal(

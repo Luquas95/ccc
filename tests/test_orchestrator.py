@@ -173,33 +173,87 @@ async def test_unhandled_exception_is_caught_and_blocks_queue_visibly(storage, p
     assert "FileNotFoundError" in runs[0].error_text
 
 
-async def test_attach_to_session_always_resumes_from_the_first_prompt(storage, project_dir):
-    """The whole point of attaching to a discovered live session: even the
-    very FIRST prompt sent through CC-continue must use --resume (since the
-    session already has real history from being used interactively), never
-    --session-id (which would try to create a new session with a colliding
-    ID)."""
-    calls = []
-
-    async def fake_run(project_path, session_id, prompt, resume):
-        calls.append(resume)
-        return RunResult(status=RunStatus.SUCCESS)
-
+async def test_attach_to_session_creates_live_terminal_queue(storage, project_dir):
+    """attach_to_session() is for a session found via discovery — it must
+    default to live_terminal delivery (typing into that session's own
+    tmux pane) rather than the headless resume path, since that's the
+    whole point of attaching to something already live."""
+    from cc_continue.models import DeliveryMode
     from cc_continue.orchestrator import attach_to_session
 
     attach_to_session(storage, "live-session-id", project_dir, "dev-75", "ahoj")
 
-    orch = Orchestrator(storage, run_fn=fake_run)
+    queue = storage.get_queue_by_session_id("live-session-id")
+    assert queue.delivery_mode == DeliveryMode.LIVE_TERMINAL
+    assert queue.always_resume is True
+
+
+async def test_live_terminal_item_waits_until_session_ready_then_delivers(storage, project_dir, monkeypatch):
+    monkeypatch.setattr("cc_continue.orchestrator.POLL_INTERVAL_SECONDS", 0.02)
+
+    from cc_continue.live_delivery import DeliveryResult
+    from cc_continue.orchestrator import attach_to_session
+    from cc_continue.session_discovery import DiscoveredSession
+
+    attach_to_session(storage, "live-session-id", project_dir, "dev-75", "ahoj")
+
+    call_count = {"n": 0}
+
+    def fake_discover_sessions():
+        call_count["n"] += 1
+        # busy on the first two polls, then idle and ready
+        status = "busy" if call_count["n"] < 3 else "idle"
+        return [DiscoveredSession(session_id="live-session-id", name="dev-75", cwd=project_dir, kind="interactive", status=status)]
+
+    delivered = []
+
+    def fake_deliver(session_id, prompt_text):
+        delivered.append((session_id, prompt_text))
+        return DeliveryResult(delivered=True)
+
+    monkeypatch.setattr("cc_continue.orchestrator.discover_sessions", fake_discover_sessions)
+    monkeypatch.setattr("cc_continue.orchestrator.deliver_to_live_session", fake_deliver)
+
+    orch = Orchestrator(storage)
     await orch.start_all()
 
-    for _ in range(50):
+    for _ in range(100):
         await asyncio.sleep(0.01)
-        if calls:
+        if delivered:
             break
 
     await orch.stop_all()
 
-    assert calls == [True]  # resume=True even though this is the first CC-continue run
+    assert delivered == [("live-session-id", "ahoj")]
+    assert call_count["n"] >= 3  # actually waited through the busy polls
+
+    queue = storage.get_queue_by_session_id("live-session-id")
+    assert queue.status == QueueStatus.IDLE
+    runs = storage.runs_for_queue(queue.id)
+    assert runs[0].status == RunStatus.SUCCESS
+
+
+async def test_live_terminal_item_fails_when_session_gone(storage, project_dir, monkeypatch):
+    from cc_continue.orchestrator import attach_to_session
+
+    attach_to_session(storage, "live-session-id", project_dir, "dev-75", "ahoj")
+
+    monkeypatch.setattr("cc_continue.orchestrator.discover_sessions", lambda: [])
+
+    orch = Orchestrator(storage)
+    await orch.start_all()
+
+    for _ in range(50):
+        await asyncio.sleep(0.01)
+        queue = storage.get_queue_by_session_id("live-session-id")
+        if queue.status == QueueStatus.BLOCKED_ERROR:
+            break
+
+    await orch.stop_all()
+
+    queue = storage.get_queue_by_session_id("live-session-id")
+    assert queue.status == QueueStatus.BLOCKED_ERROR
+    assert "no longer running" in queue.last_error
 
 
 async def test_discovers_queue_created_after_start_all(storage, tmp_path, monkeypatch):

@@ -66,9 +66,28 @@ re-attaches to) a dedicated tmux session running it, handy over SSH:
 
     ./bin/cc-continue-tmux.sh
 
-TUI keys: `a` add prompt, `Enter` open queue detail, `v` analytics,
-`r` retry a blocked queue (daemon picks it back up within ~5s), `q` quit
-(just closes the viewer — queued work is unaffected).
+TUI keys: `a` add prompt, `s` live sessions, `Enter` open queue detail /
+attach to a session, `v` analytics, `r` retry a blocked queue (daemon
+picks it back up within ~5s), `q` quit (just closes the viewer — queued
+work is unaffected).
+
+### Two delivery modes
+
+- **Headless** (default for `add`/`a`) — the daemon runs
+  `claude -p --resume` as a separate subprocess. Safe, gives real
+  structured results (tokens, cost, success/failure), but the response
+  only ever shows up in cc-continue's own history — never in a terminal.
+- **Live terminal** (`s` → pick a session → send) — for continuing a
+  session you're actively watching in a tmux pane. The daemon waits until
+  `claude agents --json` reports that session idle and not blocked on a
+  usage limit, then types the prompt directly into its tmux pane via
+  `tmux send-keys`, so it visibly continues that conversation. **This is
+  the riskier mode**: there's no reliable way to detect "a human is
+  mid-typing something else in that pane right now" — only "Claude itself
+  is idle" — so a delivery can in principle interleave with something you
+  were about to type. No structured result comes back either (only
+  "delivered" or "failed"); the actual response appears in that terminal,
+  not in cc-continue.
 
 ## Reliability notes
 

@@ -5,7 +5,7 @@ from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 
-from cc_continue.models import ItemStatus, PromptRun, Queue, QueueItem, QueueStatus, RunStatus
+from cc_continue.models import DeliveryMode, ItemStatus, PromptRun, Queue, QueueItem, QueueStatus, RunStatus
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS queues (
@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS queues (
     last_error TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    always_resume INTEGER NOT NULL DEFAULT 0
+    always_resume INTEGER NOT NULL DEFAULT 0,
+    delivery_mode TEXT NOT NULL DEFAULT 'headless'
 );
 
 CREATE TABLE IF NOT EXISTS queue_items (
@@ -108,6 +109,9 @@ class Storage:
         if "always_resume" not in columns:
             conn.execute("ALTER TABLE queues ADD COLUMN always_resume INTEGER NOT NULL DEFAULT 0")
             conn.commit()
+        if "delivery_mode" not in columns:
+            conn.execute("ALTER TABLE queues ADD COLUMN delivery_mode TEXT NOT NULL DEFAULT 'headless'")
+            conn.commit()
 
     def _connect(self) -> sqlite3.Connection:
         # timeout: wait for another process's write lock instead of raising
@@ -118,14 +122,28 @@ class Storage:
         return conn
 
     def create_queue(
-        self, name: str, project_path: str, session_id: str, always_resume: bool = False
+        self,
+        name: str,
+        project_path: str,
+        session_id: str,
+        always_resume: bool = False,
+        delivery_mode: DeliveryMode = DeliveryMode.HEADLESS,
     ) -> Queue:
         now = datetime.now().isoformat()
         with closing(self._connect()) as conn:
             cur = conn.execute(
                 "INSERT INTO queues (name, project_path, session_id, status, created_at, updated_at, "
-                "always_resume) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (name, project_path, session_id, QueueStatus.IDLE.value, now, now, int(always_resume)),
+                "always_resume, delivery_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    name,
+                    project_path,
+                    session_id,
+                    QueueStatus.IDLE.value,
+                    now,
+                    now,
+                    int(always_resume),
+                    delivery_mode.value,
+                ),
             )
             conn.commit()
             queue_id = cur.lastrowid
@@ -364,6 +382,7 @@ class Storage:
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
             always_resume=bool(row["always_resume"]),
+            delivery_mode=DeliveryMode(row["delivery_mode"]),
         )
 
     @staticmethod

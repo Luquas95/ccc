@@ -26,6 +26,19 @@ class RunStatus(str, Enum):
     ERROR = "error"
 
 
+class DeliveryMode(str, Enum):
+    # Runs `claude -p --resume` as a separate headless subprocess. Safe,
+    # gives real structured results (tokens/cost/success), but its
+    # response never appears in any interactive terminal — only in
+    # CC-continue's own history.
+    HEADLESS = "headless"
+    # Types the prompt directly into a live interactive session's own
+    # tmux pane via `tmux send-keys`, so it visibly continues that
+    # terminal's conversation. Riskier (see live_delivery module) and
+    # gives no structured result — only "delivered" or "failed".
+    LIVE_TERMINAL = "live_terminal"
+
+
 @dataclass
 class Queue:
     id: int
@@ -41,6 +54,7 @@ class Queue:
     # CC-continue touched it (discovered via `claude agents`) — its first
     # prompt must use --resume, never --session-id, since the ID isn't new.
     always_resume: bool = False
+    delivery_mode: DeliveryMode = DeliveryMode.HEADLESS
 
 
 @dataclass
