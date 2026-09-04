@@ -316,11 +316,18 @@ def test_incomplete_trailing_line_not_consumed():
         # once the line is completed (e.g. by the live process finishing its write), a
         # re-parse from the same offset picks it up
         with open(path, "a") as f:
-            f.write('", "not": "cut off anymore"}}\n')
+            f.write(' resumed"}, "timestamp": "2026-09-04T10:02:00.000Z"}\n')
         events2, offset2 = parse_transcript_events(path, since_byte_offset=offset)
         assert len(events2) == 1
+        assert events2[0].text == "cut off resumed"
         assert offset2 == path.stat().st_size
 ```
+
+**Implementer note (found running this task's test):** the original
+completion string above (`'", "not": ...'`) closed the JSON object without
+a `timestamp` field, which `_events_from_line` requires (returns `[]`
+when missing) — `events2` would have been `[]`, not length 1. Fixed to
+complete the object with a valid `timestamp` field, as shown.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
