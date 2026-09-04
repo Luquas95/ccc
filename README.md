@@ -66,10 +66,10 @@ re-attaches to) a dedicated tmux session running it, handy over SSH:
 
     ./bin/cc-continue-tmux.sh
 
-TUI keys: `a` add prompt, `s` live sessions, `Enter` open queue detail /
-attach to a session, `v` analytics, `r` retry a blocked queue (daemon
-picks it back up within ~5s), `q` quit (just closes the viewer — queued
-work is unaffected).
+TUI keys: `a` add prompt, `s` live sessions, `c` conversations, `Enter`
+open queue detail / attach to a session, `v` analytics, `r` retry a
+blocked queue (daemon picks it back up within ~5s), `q` quit (just closes
+the viewer — queued work is unaffected).
 
 ### Two delivery modes
 
@@ -88,6 +88,18 @@ work is unaffected).
   were about to type. No structured result comes back either (only
   "delivered" or "failed"); the actual response appears in that terminal,
   not in cc-continue.
+
+### Conversations view
+
+Press `c` on the dashboard to see a queue's full conversation — not just
+the last result. Arrow keys in the left-hand queue list immediately
+switch which queue's transcript is shown on the right. This reads Claude
+Code's own JSONL session transcript
+(`~/.claude/projects/**/<session_id>.jsonl`) directly, so it works
+identically for headless and live-terminal queues, and stays live: while
+the screen is open, the currently-shown queue's transcript is re-checked
+every ~2s for new messages (e.g. from a live-terminal session someone is
+actively typing in).
 
 ## Reliability notes
 
