@@ -118,3 +118,43 @@ async def test_picks_up_new_transcript_lines_on_periodic_refresh(tmp_path, monke
         right_panel_text = "\n".join(str(s.render()) for s in app.screen.query("#conversation-transcript Static"))
         assert "first" in right_panel_text
         assert "second" in right_panel_text
+
+
+@pytest.mark.asyncio
+async def test_message_text_containing_markup_like_syntax_renders_literally(tmp_path, monkeypatch):
+    # Regression test for a real markup-injection bug: conversation text
+    # interpolated unescaped into a Rich markup string had text like
+    # "[red]URGENT[/red]" silently interpreted as a style tag instead of
+    # shown as the literal characters the human/model actually
+    # wrote/said — confirmed with rich.console.Console before the fix.
+    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    project_dir = tmp_path / "projects" / "-tmp-proj-a"
+    project_dir.mkdir(parents=True)
+
+    storage = Storage(tmp_path / "history.db")
+    storage.create_queue("proj-a", "/tmp/proj-a", "session-aaa")
+
+    transcript_a = project_dir / "session-aaa.jsonl"
+    transcript_a.write_text(
+        json.dumps(
+            {
+                "type": "user",
+                "message": {"role": "user", "content": "My note says: [red]URGENT[/red] fix this"},
+                "timestamp": "2026-09-04T10:00:00.000Z",
+            }
+        )
+        + "\n"
+    )
+
+    screen = ConversationsScreen(storage)
+
+    class _HostApp(App):
+        async def on_mount(self):
+            await self.push_screen(screen)
+
+    app = _HostApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        right_panel_text = "\n".join(str(s.render()) for s in app.screen.query("#conversation-transcript Static"))
+        assert "[red]URGENT[/red]" in right_panel_text

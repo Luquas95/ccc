@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from rich.markup import escape
 from textual.containers import Horizontal, VerticalScroll
 from textual.screen import Screen
 from textual.widgets import DataTable, Footer, Header, Static
@@ -104,12 +105,20 @@ class ConversationsScreen(Screen):
             await container.mount(self._render_event(event))
 
     def _render_event(self, event: TranscriptEvent) -> Static:
+        # event.text is arbitrary conversation content (human-typed or a
+        # model's tool input/reply) interpolated into a Rich markup
+        # string — it must be escaped, or text that happens to contain
+        # something like "[red]..." gets interpreted as a style tag
+        # instead of shown literally (confirmed: it silently vanishes
+        # from the rendered output). Only the fixed label/timestamp
+        # around it are intentional markup.
+        safe_text = escape(event.text)
         if event.kind == "tool_call":
-            return Static(f"⚙ {event.text}", classes="tool-call-line")
+            return Static(f"⚙ {safe_text}", classes="tool-call-line")
         label = "You" if event.kind == "human" else "Claude"
         box_class = "message-box-human" if event.kind == "human" else "message-box-assistant"
         time_str = event.timestamp.strftime("%H:%M")
-        return Static(f"[b]{label}[/b]  [dim]{time_str}[/dim]\n{event.text}", classes=f"message-box {box_class}")
+        return Static(f"[b]{label}[/b]  [dim]{time_str}[/dim]\n{safe_text}", classes=f"message-box {box_class}")
 
     async def _refresh_current(self) -> None:
         if self._current_queue_id is None:
