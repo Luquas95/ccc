@@ -14,6 +14,7 @@ class DashboardScreen(Screen):
     BINDINGS = [
         ("a", "add_prompt", "Add prompt"),
         ("s", "pick_session", "Live sessions"),
+        ("c", "view_conversations", "Conversations"),
         ("v", "view_analytics", "Analytics"),
         ("r", "retry_queue", "Retry blocked"),
         ("q", "quit", "Quit"),
@@ -67,6 +68,11 @@ class DashboardScreen(Screen):
         from cc_continue.tui.session_picker import SessionPickerScreen
 
         self.app.push_screen(SessionPickerScreen(self.storage))
+
+    def action_view_conversations(self) -> None:
+        from cc_continue.tui.conversations import ConversationsScreen
+
+        self.app.push_screen(ConversationsScreen(self.storage))
 
     def action_view_analytics(self) -> None:
         from cc_continue.tui.analytics import AnalyticsScreen

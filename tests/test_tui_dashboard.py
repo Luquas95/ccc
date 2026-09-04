@@ -41,3 +41,21 @@ async def test_pressing_enter_opens_queue_detail(tmp_path):
         from cc_continue.tui.queue_detail import QueueDetailScreen
 
         assert isinstance(app.screen, QueueDetailScreen)
+
+
+@pytest.mark.asyncio
+async def test_pressing_c_opens_conversations_screen(tmp_path):
+    db_path = str(tmp_path / "history.db")
+    project_dir = tmp_path / "proj-a"
+    project_dir.mkdir()
+    add_command(db_path, str(project_dir), "do a thing")
+
+    app = CCContinueApp(db_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("c")
+        await pilot.pause()
+
+        from cc_continue.tui.conversations import ConversationsScreen
+
+        assert isinstance(app.screen, ConversationsScreen)
