@@ -88,24 +88,40 @@ def test_session_ready_for_input_false_when_blocked_even_if_status_idle():
     assert session_ready_for_input(_session(status="idle", state="blocked")) is False
 
 
-def test_find_tmux_pane_for_pid_matches_by_ppid():
-    ppid_result = MagicMock(returncode=0, stdout="1282101\n")
+def test_find_tmux_pane_for_pid_direct_match():
+    # tmux launched claude directly as the pane's command — pane_pid IS
+    # the target pid, no ancestry walk needed. (Confirmed live: `tmux
+    # new-session ... claude` produces exactly this shape.)
+    panes_result = MagicMock(
+        returncode=0,
+        stdout="1:0.0 1280281\ncc-live-test:0.0 2485968\n",
+    )
+    with patch("subprocess.run", return_value=panes_result):
+        assert find_tmux_pane_for_pid(2485968) == "cc-live-test:0.0"
+
+
+def test_find_tmux_pane_for_pid_matches_via_parent_shell():
+    # claude was typed by hand into an already-running shell pane —
+    # pane_pid is claude's PARENT. (Confirmed live: tmux session "1",
+    # where panes run bash and claude was launched manually inside them.)
     panes_result = MagicMock(
         returncode=0,
         stdout="1:0.0 1280281\n1:0.1 1381393\n1:0.2 1282101\n1:0.3 1289216\n",
     )
-    with patch("subprocess.run", side_effect=[ppid_result, panes_result]):
+    ppid_result = MagicMock(returncode=0, stdout="1282101\n")
+    with patch("subprocess.run", side_effect=[panes_result, ppid_result]):
         assert find_tmux_pane_for_pid(1611743) == "1:0.2"
 
 
 def test_find_tmux_pane_for_pid_no_match_returns_none():
-    ppid_result = MagicMock(returncode=0, stdout="99999\n")
     panes_result = MagicMock(returncode=0, stdout="1:0.0 1280281\n")
-    with patch("subprocess.run", side_effect=[ppid_result, panes_result]):
+    ppid_result = MagicMock(returncode=0, stdout="1\n")  # walks up to init, stops
+    with patch("subprocess.run", side_effect=[panes_result, ppid_result]):
         assert find_tmux_pane_for_pid(1611743) is None
 
 
 def test_find_tmux_pane_for_pid_process_gone_returns_none():
+    panes_result = MagicMock(returncode=0, stdout="1:0.0 1280281\n")
     ppid_result = MagicMock(returncode=1, stdout="")
-    with patch("subprocess.run", return_value=ppid_result):
+    with patch("subprocess.run", side_effect=[panes_result, ppid_result]):
         assert find_tmux_pane_for_pid(999999) is None
