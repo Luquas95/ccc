@@ -171,3 +171,66 @@ def test_incomplete_trailing_line_not_consumed(tmp_path):
     assert len(events2) == 1
     assert events2[0].text == "cut off resumed"
     assert offset2 == path.stat().st_size
+
+
+REAL_TRANSCRIPT_JSONL = "\n".join(
+    [
+        json.dumps(
+            {
+                "parentUuid": "ed53ba40-7450-472a-8afa-78574ee6d7a5",
+                "isSidechain": False,
+                "promptId": "3550a5ca-3778-49d6-973b-bed1e5eb4fc9",
+                "type": "user",
+                "message": {"role": "user", "content": "Reply with exactly one word: LIVEDELIVERY"},
+                "uuid": "b705e8a4-a01e-4f31-8fea-122ed9d1cb1c",
+                "timestamp": "2026-09-04T07:52:10.929Z",
+                "cwd": "/home/lukas/DEV/CC-continue",
+                "sessionId": "9219c2bb-c393-4aed-ab94-fdab69a93891",
+            }
+        ),
+        json.dumps(
+            {
+                "parentUuid": "b11cb09d-dd40-4e2e-857f-678e807a3f09",
+                "isSidechain": False,
+                "message": {
+                    "model": "claude-sonnet-5",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "thinking", "thinking": "", "signature": "abc"}],
+                },
+                "type": "assistant",
+                "uuid": "9271aa1c-dcd0-4e6f-87a9-c907c12fd19c",
+                "timestamp": "2026-09-04T07:52:15.000Z",
+            }
+        ),
+        json.dumps(
+            {
+                "parentUuid": "9271aa1c-dcd0-4e6f-87a9-c907c12fd19c",
+                "isSidechain": False,
+                "message": {
+                    "model": "claude-sonnet-5",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "LIVEDELIVERY"}],
+                    "stop_reason": "end_turn",
+                },
+                "type": "assistant",
+                "uuid": "1e677807-4ce1-4254-98d4-dc6e9e426551",
+                "timestamp": "2026-09-04T07:52:21.000Z",
+            }
+        ),
+    ]
+) + "\n"
+
+
+def test_parses_real_captured_transcript_shape(tmp_path):
+    path = tmp_path / "real.jsonl"
+    path.write_text(REAL_TRANSCRIPT_JSONL)
+
+    events, offset = parse_transcript_events(path)
+
+    assert offset == path.stat().st_size
+    assert [(e.kind, e.text) for e in events] == [
+        ("human", "Reply with exactly one word: LIVEDELIVERY"),
+        ("assistant_text", "LIVEDELIVERY"),
+    ]
