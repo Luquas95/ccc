@@ -55,16 +55,38 @@ Stop/disable it:
 
     systemctl --user disable --now cc-continue
 
+## Running the TUI (systemd + tmux, always attachable)
+
+The TUI can run the same way: a `cc-continue-tui` systemd unit boots a
+persistent tmux session named `cc-continue` at startup, with `ccc` running
+inside it in a restart loop — so it's always alive and ready. Quitting the
+TUI (`q`) just makes it reappear a second later in the same pane; the
+session is never left dead. Attach any time with `bin/cc-continue-tmux.sh`
+(or plain `tmux attach -t cc-continue`) and detach (`Ctrl+B D`) or just
+close the terminal/SSH connection whenever — it keeps running either way.
+
+```bash
+cp deploy/systemd/cc-continue-tui.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now cc-continue-tui
+```
+
+(Needs `loginctl enable-linger "$USER"` too, same as the daemon above, so
+it survives SSH logout — skip if you already ran that for the daemon.)
+
+Attach to it:
+
+    ./bin/cc-continue-tmux.sh
+
+Stop/disable it (kills the tmux session too):
+
+    systemctl --user disable --now cc-continue-tui
+
 ## Queueing prompts
 
 Without opening anything:
 
     .venv/bin/cc-continue add /path/to/project "do the thing"
-
-Or interactively, via the TUI — `bin/cc-continue-tmux.sh` opens (or
-re-attaches to) a dedicated tmux session running it, handy over SSH:
-
-    ./bin/cc-continue-tmux.sh
 
 TUI keys: `a` add prompt, `s` live sessions, `c` conversations, `Enter`
 open queue detail / attach to a session, `v` analytics, `r` retry a

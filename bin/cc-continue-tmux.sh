@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
-# Opens (or attaches to) a tmux session running the CC-continue TUI.
+# Attaches to the persistent "cc-continue" tmux session running the TUI.
+#
+# Normally this session already exists — the cc-continue-tui systemd unit
+# creates it at boot, running cc-continue in a restart loop, so the app
+# is always live and ready to attach to. Quitting the TUI (q) just makes
+# it reappear a second later; the session itself is never left dead. This
+# script's fallback branch (session missing) recreates it the same way,
+# in case the systemd unit isn't installed/running for some reason.
 #
 # This is purely a convenience viewer/editor — with cc-continue-daemon
-# running as a systemd service, queued prompts execute regardless of
-# whether this tmux session exists. Use this only when you want to look
-# at the dashboard or add a prompt interactively over SSH.
+# running as its own systemd service, queued prompts execute regardless
+# of whether this TUI or its tmux session exists at all.
 #
 # Safe to run whether you're already inside a tmux session (e.g. your own
 # SSH-persistence session) or not — nesting tmux inside tmux would
@@ -13,11 +19,7 @@ set -euo pipefail
 
 SESSION="cc-continue"
 PROJECT_DIR="/home/lukas/DEV/CC-continue"
-
-# Run cc-continue, then drop to a shell instead of exiting — so quitting
-# the TUI (q, crash, whatever) leaves the pane/session alive instead of
-# silently closing out from under you.
-RUN_CMD="$PROJECT_DIR/.venv/bin/cc-continue; exec \$SHELL"
+RUN_CMD="while true; do $PROJECT_DIR/.venv/bin/cc-continue; sleep 1; done"
 
 if tmux has-session -t "$SESSION" 2>/dev/null; then
     if [ -n "${TMUX:-}" ]; then

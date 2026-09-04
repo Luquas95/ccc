@@ -1,0 +1,17 @@
+[Unit]
+Description=CC-continue TUI, always alive in a persistent tmux session
+After=cc-continue.service
+
+[Service]
+# tmux new-session -d forks its own detached server/session and returns
+# immediately — that's a genuine one-shot action, not a long-running
+# foreground process, so Type=oneshot + RemainAfterExit=yes is correct
+# here (not Type=simple, which would treat the immediate exit as a crash
+# and loop-restart the unit itself).
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/tmux new-session -d -s cc-continue -c /home/lukas/DEV/CC-continue "while true; do /home/lukas/DEV/CC-continue/.venv/bin/cc-continue; sleep 1; done"
+ExecStop=/usr/bin/tmux kill-session -t cc-continue
+
+[Install]
+WantedBy=default.target
