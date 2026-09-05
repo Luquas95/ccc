@@ -2,7 +2,7 @@ import json
 
 import pytest
 from textual.app import App
-from textual.widgets import DataTable
+from textual.widgets import Button, DataTable
 
 from cc_continue.storage import Storage
 from cc_continue.tui.conversations import ConversationsScreen
@@ -158,3 +158,29 @@ async def test_message_text_containing_markup_like_syntax_renders_literally(tmp_
 
         right_panel_text = "\n".join(str(s.render()) for s in app.screen.query("#conversation-transcript Static"))
         assert "[red]URGENT[/red]" in right_panel_text
+
+
+@pytest.mark.asyncio
+async def test_sidebar_buttons_show_full_label_text(tmp_path, monkeypatch):
+    # Regression test for the same markup-injection class of bug as
+    # message text: Button labels are also parsed as Rich markup, so an
+    # earlier draft using "Add prompt [a]" silently lost the "[a]" —
+    # square brackets look like a (invalid, silently-dropped) style tag.
+    # Fixed by using parentheses instead; this locks that in.
+    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    (tmp_path / "projects").mkdir()
+    storage = Storage(tmp_path / "history.db")
+
+    screen = ConversationsScreen(storage)
+
+    class _HostApp(App):
+        async def on_mount(self):
+            await self.push_screen(screen)
+
+    app = _HostApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        labels = {str(b.label) for b in app.screen.query(Button)}
+        assert "Add prompt (a)" in labels
+        assert "Live sessions (s)" in labels
+        assert "Retry blocked (r)" in labels

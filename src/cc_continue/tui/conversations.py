@@ -1,20 +1,65 @@
 from __future__ import annotations
 
 from rich.markup import escape
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import Screen
-from textual.widgets import DataTable, Footer, Header, Static
+from textual.widgets import Button, DataTable, Footer, Header, Rule, Static
 
+from cc_continue.models import QueueStatus
 from cc_continue.storage import Storage
 from cc_continue.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
 
 
 class ConversationsScreen(Screen):
-    BINDINGS = [("escape", "back", "Back")]
+    BINDINGS = [
+        ("escape", "back", "Back"),
+        ("a", "add_prompt", "Add prompt"),
+        ("s", "pick_session", "Live sessions"),
+        ("r", "retry_queue", "Retry blocked"),
+    ]
 
     DEFAULT_CSS = """
-    ConversationsScreen #conversation-queue-list {
+    ConversationsScreen #conversation-sidebar {
         width: 32;
+        background: $surface;
+    }
+    ConversationsScreen .sidebar-title {
+        padding: 1 1 0 1;
+        text-style: bold;
+        color: green;
+    }
+    ConversationsScreen .sidebar-rule {
+        color: yellow;
+    }
+    ConversationsScreen .sidebar-label {
+        padding: 0 1 1 1;
+        text-style: bold;
+    }
+    ConversationsScreen #conversation-queue-list {
+        height: 1fr;
+    }
+    ConversationsScreen #conversation-queue-list > .datatable--cursor {
+        background: blue;
+        color: white;
+        text-style: bold;
+    }
+    ConversationsScreen .sidebar-button {
+        width: 100%;
+        height: 3;
+        border: none;
+        text-style: bold;
+    }
+    ConversationsScreen #sidebar-add-prompt {
+        background: green;
+        color: black;
+    }
+    ConversationsScreen #sidebar-live-sessions {
+        background: blue;
+        color: white;
+    }
+    ConversationsScreen #sidebar-retry {
+        background: red;
+        color: white;
     }
     ConversationsScreen #conversation-transcript {
         width: 1fr;
@@ -50,7 +95,16 @@ class ConversationsScreen(Screen):
     def compose(self):
         yield Header()
         yield Horizontal(
-            DataTable(id="conversation-queue-list"),
+            Vertical(
+                Static("cc-continue", classes="sidebar-title"),
+                Rule(classes="sidebar-rule"),
+                Static("Queues", classes="sidebar-label"),
+                DataTable(id="conversation-queue-list"),
+                Button("Add prompt (a)", id="sidebar-add-prompt", classes="sidebar-button"),
+                Button("Live sessions (s)", id="sidebar-live-sessions", classes="sidebar-button"),
+                Button("Retry blocked (r)", id="sidebar-retry", classes="sidebar-button"),
+                id="conversation-sidebar",
+            ),
             VerticalScroll(id="conversation-transcript"),
         )
         yield Footer()
@@ -58,6 +112,7 @@ class ConversationsScreen(Screen):
     async def on_mount(self) -> None:
         table = self.query_one("#conversation-queue-list", DataTable)
         table.cursor_type = "row"
+        table.show_header = False
         table.add_column("Queue")
         queues = self.storage.list_queues()
         for queue in queues:
@@ -132,6 +187,34 @@ class ConversationsScreen(Screen):
             cached["events"].extend(new_events)
             cached["offset"] = new_offset
             await self._render_transcript(queue_id)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "sidebar-add-prompt":
+            self.action_add_prompt()
+        elif event.button.id == "sidebar-live-sessions":
+            self.action_pick_session()
+        elif event.button.id == "sidebar-retry":
+            self.action_retry_queue()
+
+    def action_add_prompt(self) -> None:
+        from cc_continue.tui.queue_detail import AddPromptModal
+
+        self.app.push_screen(AddPromptModal(self.storage))
+
+    def action_pick_session(self) -> None:
+        from cc_continue.tui.session_picker import SessionPickerScreen
+
+        self.app.push_screen(SessionPickerScreen(self.storage))
+
+    def action_retry_queue(self) -> None:
+        if self._current_queue_id is None:
+            return
+        queue = self.storage.get_queue(self._current_queue_id)
+        if queue.status == QueueStatus.BLOCKED_ERROR:
+            # No in-process runtime to notify (this screen never executes
+            # anything) — flipping the status is enough, the daemon picks
+            # it up on its next poll.
+            self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
 
     def action_back(self) -> None:
         self.app.pop_screen()
