@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from rich.markup import escape
 from textual.containers import VerticalScroll
+from textual.content import Content
 from textual.widgets import DataTable, Input, Static
 
 from cc_continue.launch_options import describe_flags
@@ -115,7 +115,7 @@ class ConversationsScreen(SidebarScreen):
         queues = self.storage.list_queues()
         self._queue_ids = [q.id for q in queues]
         for queue in queues:
-            table.add_row(escape(queue.name))
+            table.add_row(Content(queue.name))
 
     def _move_cursor_to_current(self) -> None:
         if self._current_queue_id in self._queue_ids:
@@ -170,7 +170,7 @@ class ConversationsScreen(SidebarScreen):
         for item in pending:
             await container.mount(
                 Static(
-                    f"[b]You[/b]  [dim]queued[/dim]\n{escape(item.prompt_text)}",
+                    Content.assemble(("You", "bold"), "  ", ("queued", "dim"), "\n", item.prompt_text),
                     classes="message-box message-box-queued",
                 )
             )
@@ -178,40 +178,39 @@ class ConversationsScreen(SidebarScreen):
 
     def _render_event(self, event: TranscriptEvent) -> Static:
         # event.text is arbitrary conversation content (human-typed or a
-        # model's tool input/reply) interpolated into a Rich markup
-        # string — it must be escaped, or text that happens to contain
-        # something like "[red]..." gets interpreted as a style tag
-        # instead of shown literally (confirmed: it silently vanishes
-        # from the rendered output). Only the fixed label/timestamp
-        # around it are intentional markup.
-        safe_text = escape(event.text)
+        # model's tool input/reply). It must never go through markup
+        # parsing: escaping isn't enough — a tool preview cut mid-way
+        # through something like `[data-section=\"quick…` crashed
+        # Textual's markup parser even after escape(). Content.assemble
+        # keeps it as plain text; only the label/timestamp get styles.
         if event.kind == "tool_call":
-            return Static(f"⚙ {safe_text}", classes="tool-call-line")
+            return Static(Content.assemble("⚙ ", event.text), classes="tool-call-line")
         label = "You" if event.kind == "human" else "Claude"
         box_class = "message-box-human" if event.kind == "human" else "message-box-assistant"
         time_str = event.timestamp.strftime("%H:%M")
-        return Static(f"[b]{label}[/b]  [dim]{time_str}[/dim]\n{safe_text}", classes=f"message-box {box_class}")
+        return Static(
+            Content.assemble((label, "bold"), "  ", (time_str, "dim"), "\n", event.text),
+            classes=f"message-box {box_class}",
+        )
 
     def _update_header(self, queue: Queue) -> None:
-        text = (
-            f"[b]{escape(queue.name)}[/b]  [dim]{escape(queue.project_path)}[/dim]"
-            f"  ·  {escape(describe_flags(queue.launch_flags))}"
-        )
+        parts = [(queue.name, "bold"), "  ", (queue.project_path, "dim"), "  ·  ", describe_flags(queue.launch_flags)]
         if queue.first_run_flags:
-            text += f"  ·  [yellow]first run: {escape(' '.join(queue.first_run_flags))}[/]"
-        self.query_one("#conversation-header", Static).update(text)
+            parts += ["  ·  ", ("first run: " + " ".join(queue.first_run_flags), "yellow")]
+        self.query_one("#conversation-header", Static).update(Content.assemble(*parts))
 
     @staticmethod
-    def _status_text(queue: Queue, pending: int) -> str:
+    def _status_text(queue: Queue, pending: int) -> Content:
         if queue.status == QueueStatus.RUNNING:
-            text = "[bold green]● Claude is working…[/]"
+            status = ("● Claude is working…", "bold green")
         elif queue.status == QueueStatus.WAITING_RETRY and queue.next_retry_at:
-            text = f"[bold yellow]⏸ Waiting for usage limit reset until {queue.next_retry_at:%H:%M}[/]"
+            status = (f"⏸ Waiting for usage limit reset until {queue.next_retry_at:%H:%M}", "bold yellow")
         elif queue.status == QueueStatus.BLOCKED_ERROR:
-            text = f"[bold red]✖ Blocked: {escape((queue.last_error or '')[:120])} — press r to retry[/]"
+            line = (queue.last_error or "").replace("\n", " ")[:120]
+            status = (f"✖ Blocked: {line} — press r to retry", "bold red")
         else:
-            text = "[dim]Ready[/dim]"
-        return f"{text}  ·  {pending} queued" if pending else text
+            status = ("Ready", "dim")
+        return Content.assemble(status, f"  ·  {pending} queued" if pending else "")
 
     async def _refresh_current(self) -> None:
         if [q.id for q in self.storage.list_queues()] != self._queue_ids:

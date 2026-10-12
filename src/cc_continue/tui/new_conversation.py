@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from rich.markup import escape
 from textual.containers import Container, Horizontal, Vertical, VerticalScroll
+from textual.content import Content
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, DirectoryTree, Input, OptionList, Static
 from textual.widgets.option_list import Option
@@ -108,7 +108,7 @@ class NewConversationModal(ModalScreen):
                     right.append(OptionList(id="resume-sessions"))
                 elif option.key == SESSION_FROM_PR:
                     right.append(Input(placeholder="PR number or URL", id="from-pr-input"))
-        recent = [Option(escape(p), id=p) for p in self.storage.recent_project_paths()]
+        recent = [Option(Content(p), id=p) for p in self.storage.recent_project_paths()]
         box = Container(
             Horizontal(
                 Vertical(
@@ -180,7 +180,7 @@ class NewConversationModal(ModalScreen):
             found = list_sessions_for_directory(path) if path and Path(path).is_dir() else []
             self._session_ids = [s.session_id for s in found]
             sessions.add_options([
-                Option(f"{s.modified:%Y-%m-%d %H:%M} · {s.message_count} msgs · {escape(s.first_prompt)}")
+                Option(Content(f"{s.modified:%Y-%m-%d %H:%M} · {s.message_count} msgs · {s.first_prompt}"))
                 for s in found
             ])
             if found:
@@ -213,7 +213,7 @@ class NewConversationModal(ModalScreen):
                 pr=self.query_one("#from-pr-input", Input).value,
             )
         except ValueError as exc:
-            error.update(escape(str(exc)))
+            error.update(Content(str(exc)))
             return
         self.dismiss(queue.id)
 

@@ -4,8 +4,8 @@ import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 
-from rich.markup import escape
 from textual.containers import Container, Horizontal, VerticalScroll
+from textual.content import Content
 from textual.widgets import DataTable, ProgressBar, Sparkline, Static
 
 from cc_continue.models import RunStatus
@@ -138,7 +138,7 @@ class AnalyticsScreen(SidebarScreen):
             success = sum(1 for r in runs if r.status == RunStatus.SUCCESS)
             errors = sum(1 for r in runs if r.status == RunStatus.ERROR)
             limited = sum(1 for r in runs if r.status == RunStatus.RATE_LIMITED)
-            table.add_row(escape(queue.name), f"{total_tokens:,}", str(success), str(errors), str(limited))
+            table.add_row(Content(queue.name), f"{total_tokens:,}", str(success), str(errors), str(limited))
 
         blocked_seconds = self.storage.blocked_seconds_total()
         summary = self.query_one("#analytics-summary", Static)

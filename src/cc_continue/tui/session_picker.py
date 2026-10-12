@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from rich.markup import escape
 from textual.containers import Container, Horizontal
+from textual.content import Content
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Static, TextArea
 
@@ -61,8 +61,8 @@ class SessionPickerScreen(SidebarScreen):
         for session in self.sessions:
             status = session.state if session.state == "blocked" else (session.status or "")
             style = SESSION_STATUS_STYLES.get(status)
-            status_cell = f"[{style}]{escape(status)}[/]" if style else escape(status)
-            table.add_row(escape(session.name), session.kind, status_cell, f"[dim]{escape(session.cwd)}[/dim]")
+            status_cell = Content.assemble((status, style)) if style else Content(status)
+            table.add_row(Content(session.name), session.kind, status_cell, Content.assemble((session.cwd, "dim")))
 
     def action_refresh(self) -> None:
         self.refresh_sessions()
@@ -93,7 +93,7 @@ class AttachSessionModal(ModalScreen):
 
     def compose(self):
         box = Container(
-            Static(f"[b]{escape(self.session.name)}[/b]  [dim]{escape(self.session.cwd)}[/dim]"),
+            Static(Content.assemble((self.session.name, "bold"), "  ", (self.session.cwd, "dim"))),
             Static(
                 "Delivered by typing into that session's own terminal once it's idle "
                 "and not rate-limited — the response appears there, not in cc-continue. "

@@ -250,3 +250,32 @@ async def test_status_line_shows_waiting_for_reset(tmp_path, monkeypatch):
     async with app.run_test() as pilot:
         await pilot.pause()
         assert "15:00" in str(app.screen.query_one("#conversation-status").render())
+
+
+@pytest.mark.asyncio
+async def test_truncated_tool_preview_with_bracket_does_not_crash(tmp_path, monkeypatch):
+    # Regression: a tool-call preview is cut at 80 chars, which can leave
+    # an unclosed `[data-section=\"quick…` — Textual's markup parser raised
+    # MarkupError on it even after rich's escape(), crashing the screen.
+    # Real text from a captured transcript.
+    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    project_dir = tmp_path / "projects" / "-tmp-proj-a"
+    project_dir.mkdir(parents=True)
+    storage = Storage(tmp_path / "history.db")
+    storage.create_queue("proj-a", "/tmp/proj-a", "session-aaa")
+    script = "(() => {\n  const el = document.querySelector('[data-section=\"quick-actions\"]'); return el; })()"
+    (project_dir / "session-aaa.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {"content": [{"type": "tool_use", "name": "browser_eval", "input": {"script": script}}]},
+                "timestamp": "2026-09-04T10:00:00.000Z",
+            }
+        )
+        + "\n"
+    )
+    app = await _open(storage)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        text = "\n".join(str(s.render()) for s in app.screen.query("#conversation-transcript Static"))
+        assert "data-section" in text

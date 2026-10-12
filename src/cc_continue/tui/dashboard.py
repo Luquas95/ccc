@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from rich.markup import escape
+from textual.content import Content
 from textual.widgets import DataTable, Static
 
 from cc_continue.models import QueueStatus
@@ -71,11 +71,11 @@ class DashboardScreen(SidebarScreen):
             blocked += queue.status == QueueStatus.BLOCKED_ERROR
             running += queue.status == QueueStatus.RUNNING
             table.add_row(
-                escape(queue.name),
+                Content(queue.name),
                 styled_status(queue.status),
                 str(pending),
                 f"{today_tokens:,}",
-                f"[dim]{escape(_shorten_path(queue.project_path))}[/dim]",
+                Content.assemble((_shorten_path(queue.project_path), "dim")),
             )
         if queues and cursor_row is not None:
             table.move_cursor(row=min(cursor_row, len(queues) - 1))

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from rich.markup import escape
 from textual.containers import Container, Horizontal
+from textual.content import Content
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Input, Static, TextArea
 
@@ -68,7 +68,7 @@ class AddPromptModal(ModalScreen):
             try:
                 enqueue_prompt(self.storage, path, prompt)
             except ValueError as exc:
-                self.query_one("#add-prompt-error", Static).update(escape(str(exc)))
+                self.query_one("#add-prompt-error", Static).update(Content(str(exc)))
                 return
             self.dismiss()
         elif event.button.id == "add-prompt-cancel":
@@ -101,7 +101,7 @@ class QueueDetailScreen(SidebarScreen):
     def compose_main(self):
         queue = self.storage.get_queue(self.queue_id)
         yield panel(
-            Static(f"[b]{escape(queue.name)}[/b]  [dim]{escape(queue.project_path)}[/dim]", id="queue-detail-title"),
+            Static(Content.assemble((queue.name, "bold"), "  ", (queue.project_path, "dim")), id="queue-detail-title"),
             Static(id="queue-detail-info"),
             title="Queue",
         )
@@ -120,24 +120,28 @@ class QueueDetailScreen(SidebarScreen):
                 run.started_at.strftime("%Y-%m-%d %H:%M"),
                 status,
                 f"{tokens:,}",
-                escape((run.result_text or run.error_text or "")[:60].replace("\n", " ")),
+                Content((run.result_text or run.error_text or "")[:60].replace("\n", " ")),
             )
 
     def _refresh_info(self) -> None:
         queue = self.storage.get_queue(self.queue_id)
+        # Only the first line is markup (fixed enum/number values); the rest
+        # carries arbitrary text (errors, session ids) and stays plain.
         lines = [
-            f"Status: {styled_status(queue.status)}   ·   Pending: [b]{self.storage.count_pending_items(queue.id)}[/b]"
-            f"   ·   Delivery: {queue.delivery_mode.value}",
-            f"Launch: {escape(describe_flags(queue.launch_flags))}",
-            f"[dim]Session: {escape(queue.session_id)}[/dim]",
+            Content.from_markup(
+                f"Status: {styled_status(queue.status)}   ·   Pending: [b]{self.storage.count_pending_items(queue.id)}[/b]"
+                f"   ·   Delivery: {queue.delivery_mode.value}"
+            ),
+            Content("Launch: " + describe_flags(queue.launch_flags)),
+            Content.assemble(("Session: " + queue.session_id, "dim")),
         ]
         if queue.first_run_flags:
-            lines.append(f"[yellow]First run: {escape(' '.join(queue.first_run_flags))}[/]")
+            lines.append(Content.assemble(("First run: " + " ".join(queue.first_run_flags), "yellow")))
         if queue.next_retry_at:
-            lines.append(f"[yellow]Next retry: {queue.next_retry_at:%Y-%m-%d %H:%M}[/]")
+            lines.append(Content.assemble((f"Next retry: {queue.next_retry_at:%Y-%m-%d %H:%M}", "yellow")))
         if queue.last_error:
-            lines.append(f"[red]Last error: {escape(queue.last_error[:200])}[/]")
-        self.query_one("#queue-detail-info", Static).update("\n".join(lines))
+            lines.append(Content.assemble(("Last error: " + queue.last_error[:200], "red")))
+        self.query_one("#queue-detail-info", Static).update(Content("\n").join(lines))
 
     def default_project_path(self) -> str:
         return self.storage.get_queue(self.queue_id).project_path
