@@ -92,3 +92,20 @@ async def test_resume_lists_sessions_of_path(tmp_path, monkeypatch):
         await pilot.click("#launch-start")
         await pilot.pause()
     assert storage.get_queue(results[0]).session_id == "sid-1"
+
+
+@pytest.mark.asyncio
+async def test_auto_continue_checkbox(tmp_path):
+    storage = Storage(tmp_path / "h.db")
+    results = []
+    app = _host(NewConversationModal(storage, browse_root=tmp_path), results)
+    async with app.run_test(size=(160, 50)) as pilot:
+        await pilot.pause()
+        box = app.screen.query_one("#auto-continue", Checkbox)
+        assert box.value is True
+        box.value = False
+        app.screen.query_one("#launch-path", Input).value = str(tmp_path)
+        await pilot.pause()
+        await pilot.click("#launch-start")
+        await pilot.pause()
+    assert storage.get_queue(results[0]).auto_continue is False

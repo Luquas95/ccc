@@ -37,7 +37,7 @@ VIEWS: list[tuple[str, str, str]] = [
 
 ADD_PROMPT_BUTTON = SidebarButton("sidebar-add-prompt", "Add prompt (a)", "green", "add_prompt")
 LIVE_SESSIONS_BUTTON = SidebarButton("sidebar-live-sessions", "Live sessions (s)", "blue", "pick_session")
-RETRY_BUTTON = SidebarButton("sidebar-retry", "Retry blocked (r)", "red", "retry_queue")
+RETRY_BUTTON = SidebarButton("sidebar-retry", "Retry / resume (r)", "red", "retry_queue")
 NEW_CONVERSATION_BUTTON = SidebarButton(
     "sidebar-new-conversation", "New conversation (n)", "green", "new_conversation"
 )
@@ -47,6 +47,7 @@ STATUS_STYLES = {
     QueueStatus.RUNNING: "bold green",
     QueueStatus.WAITING_RETRY: "bold yellow",
     QueueStatus.BLOCKED_ERROR: "bold red",
+    QueueStatus.PAUSED_LIMIT: "bold magenta",
 }
 
 

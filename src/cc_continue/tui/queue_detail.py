@@ -128,12 +128,13 @@ class QueueDetailScreen(SidebarScreen):
         queue = self.storage.get_queue(self.queue_id)
         # Only the first line is markup (fixed enum/number values); the rest
         # carries arbitrary text (errors, session ids) and stays plain.
+        auto = "auto-continue on" if queue.auto_continue else "auto-continue off"
         lines = [
             Content.from_markup(
                 f"Status: {styled_status(queue.status)}   ·   Pending: [b]{self.storage.count_pending_items(queue.id)}[/b]"
                 f"   ·   Delivery: {queue.delivery_mode.value}"
             ),
-            Content("Launch: " + describe_flags(queue.launch_flags)),
+            Content(f"Launch: {describe_flags(queue.launch_flags)}  ·  {auto}" + ("  ·  queue paused" if queue.paused else "")),
             Content.assemble(("Session: " + queue.session_id, "dim")),
         ]
         if queue.first_run_flags:
@@ -149,6 +150,6 @@ class QueueDetailScreen(SidebarScreen):
 
     def action_retry_queue(self) -> None:
         queue = self.storage.get_queue(self.queue_id)
-        if queue.status == QueueStatus.BLOCKED_ERROR:
+        if queue.status in (QueueStatus.BLOCKED_ERROR, QueueStatus.PAUSED_LIMIT):
             self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
             self._refresh_info()

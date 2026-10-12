@@ -108,6 +108,9 @@ class NewConversationModal(ModalScreen):
                     right.append(OptionList(id="resume-sessions"))
                 elif option.key == SESSION_FROM_PR:
                     right.append(Input(placeholder="PR number or URL", id="from-pr-input"))
+        # Not a `claude` flag: cc-continue's own behaviour at usage limits.
+        right.append(Static("cc-continue", classes="group-title"))
+        right.append(Checkbox("Auto-continue after usage limit", value=True, id="auto-continue"))
         recent = [Option(Content(p), id=p) for p in self.storage.recent_project_paths()]
         box = Container(
             Horizontal(
@@ -157,11 +160,15 @@ class NewConversationModal(ModalScreen):
     # --- attributes -----------------------------------------------------
 
     def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
+        if not event.checkbox.id.startswith("opt-"):
+            return  # e.g. auto-continue: independent of the flag catalogue
         key = event.checkbox.id.removeprefix("opt-")
         if event.value == (key in self.selection):
             return  # echo of our own sync below
         self.selection = toggle(self.selection, key, event.value)
         for checkbox in self.query(Checkbox):
+            if not checkbox.id.startswith("opt-"):
+                continue
             wanted = checkbox.id.removeprefix("opt-") in self.selection
             if checkbox.value != wanted:
                 checkbox.value = wanted
@@ -211,6 +218,7 @@ class NewConversationModal(ModalScreen):
                 name=self.query_one("#launch-name", Input).value,
                 session_id=session_id,
                 pr=self.query_one("#from-pr-input", Input).value,
+                auto_continue=self.query_one("#auto-continue", Checkbox).value,
             )
         except ValueError as exc:
             error.update(Content(str(exc)))

@@ -183,7 +183,7 @@ async def test_sidebar_buttons_show_full_label_text(tmp_path, monkeypatch):
         labels = {str(b.label) for b in app.screen.query(Button)}
         assert "New conversation (n)" in labels
         assert "Live sessions (s)" in labels
-        assert "Retry blocked (r)" in labels
+        assert "Retry / resume (r)" in labels
 
 
 from textual.widgets import Input
@@ -326,3 +326,68 @@ async def test_queue_names_are_not_truncated(tmp_path, monkeypatch):
         await pilot.pause()
         table = app.screen.query_one("#conversation-queue-list", DataTable)
         assert table.columns[next(iter(table.columns))].get_render_width(table) >= len("a-rather-long-queue-name")
+
+
+@pytest.mark.asyncio
+async def test_paused_limit_status_and_r_resumes(tmp_path, monkeypatch):
+    from datetime import datetime, timedelta
+    from cc_continue.models import QueueStatus
+
+    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    storage = Storage(tmp_path / "history.db")
+    q = storage.create_queue("a", "/tmp/a", "s-a", auto_continue=False)
+    reset = (datetime.now() + timedelta(hours=1)).replace(second=0, microsecond=0)
+    storage.update_queue_status(q.id, QueueStatus.PAUSED_LIMIT, next_retry_at=reset)
+    app = await _open(storage)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        status = str(app.screen.query_one("#conversation-status").render())
+        assert "Paused at usage limit" in status and reset.strftime("%H:%M") in status
+        assert "auto-continue off" in str(app.screen.query_one("#conversation-header").render())
+        storage.update_queue_status(q.id, QueueStatus.PAUSED_LIMIT, next_retry_at=datetime.now() - timedelta(minutes=1))
+        await app.screen._refresh_current()
+        assert "press r to continue" in str(app.screen.query_one("#conversation-status").render())
+        app.screen.query_one("#conversation-queue-list").focus()
+        await pilot.press("r")
+        await pilot.pause()
+        assert storage.get_queue(q.id).status == QueueStatus.IDLE
+
+
+@pytest.mark.asyncio
+async def test_message_while_paused_at_limit_resumes_queue(tmp_path, monkeypatch):
+    from cc_continue.models import QueueStatus
+
+    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    storage = Storage(tmp_path / "history.db")
+    q = storage.create_queue("a", "/tmp/a", "s-a")
+    storage.update_queue_status(q.id, QueueStatus.PAUSED_LIMIT)
+    app = await _open(storage)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.screen.query_one("#message-input", Input).focus()
+        await pilot.press(*"go")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert storage.get_queue(q.id).status == QueueStatus.IDLE
+
+
+@pytest.mark.asyncio
+async def test_paused_queue_status_and_t_opens_tasks(tmp_path, monkeypatch):
+    from cc_continue.tui.tasks import TasksModal
+
+    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    storage = Storage(tmp_path / "history.db")
+    q = storage.create_queue("a", "/tmp/a", "s-a")
+    storage.set_queue_paused(q.id, True)
+    app = await _open(storage)
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        assert "Queue paused" in str(app.screen.query_one("#conversation-status").render())
+        app.screen.query_one("#conversation-queue-list").focus()
+        await pilot.press("t")
+        await pilot.pause()
+        assert isinstance(app.screen, TasksModal)
+        await pilot.press("p")
+        await pilot.press("escape")
+        await pilot.pause()
+        assert "Queue paused" not in str(app.screen.query_one("#conversation-status").render())

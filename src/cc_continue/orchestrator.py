@@ -87,7 +87,9 @@ def attach_to_session(
     return queue
 
 
-def start_conversation(storage, project_path, selection, *, name=None, session_id=None, pr=None) -> Queue:
+def start_conversation(
+    storage, project_path, selection, *, name=None, session_id=None, pr=None, auto_continue=True
+) -> Queue:
     """Create the queue behind a conversation started from the TUI's
     New conversation dialog (see launch_options for what selection
     holds). Raises ValueError with a message fit to show the user."""
@@ -99,14 +101,19 @@ def start_conversation(storage, project_path, selection, *, name=None, session_i
     name = (name or "").strip() or Path(project_path).name or project_path
 
     if mode == SESSION_NEW:
-        return storage.create_queue(name, project_path, str(uuid.uuid4()), launch_flags=flags)
+        return storage.create_queue(
+            name, project_path, str(uuid.uuid4()), launch_flags=flags, auto_continue=auto_continue
+        )
 
     if mode == SESSION_FROM_PR:
         pr = (pr or "").strip()
         if not pr:
             raise ValueError("Enter a pull request number or URL.")
         first = ["--from-pr", pr] + (["--fork-session"] if fork else [])
-        return storage.create_queue(name, project_path, str(uuid.uuid4()), launch_flags=flags, first_run_flags=first)
+        return storage.create_queue(
+            name, project_path, str(uuid.uuid4()), launch_flags=flags, first_run_flags=first,
+            auto_continue=auto_continue,
+        )
 
     if mode == SESSION_CONTINUE:
         sessions = list_sessions_for_directory(project_path)
@@ -120,11 +127,14 @@ def start_conversation(storage, project_path, selection, *, name=None, session_i
         return storage.create_queue(
             name, project_path, str(uuid.uuid4()), launch_flags=flags,
             first_run_flags=["--resume", session_id, "--fork-session"],
+            auto_continue=auto_continue,
         )
     existing = storage.get_queue_by_session_id(session_id)
     if existing is not None:
         return existing
-    return storage.create_queue(name, project_path, session_id, always_resume=True, launch_flags=flags)
+    return storage.create_queue(
+        name, project_path, session_id, always_resume=True, launch_flags=flags, auto_continue=auto_continue
+    )
 
 
 class QueueRuntime:

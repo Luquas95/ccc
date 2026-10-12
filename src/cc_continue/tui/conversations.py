@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from rich.text import Text
 from textual.containers import Vertical, VerticalScroll
 from textual.content import Content
@@ -23,7 +25,8 @@ class ConversationsScreen(SidebarScreen):
 
     BINDINGS = [
         ("escape", "back", "Back"),
-        ("r", "retry_queue", "Retry blocked"),
+        ("r", "retry_queue", "Retry / resume"),
+        ("t", "tasks", "Tasks"),
     ]
 
     # Sidebar frame/buttons come from SidebarScreen (layout.SHARED_CSS);
@@ -233,7 +236,10 @@ class ConversationsScreen(SidebarScreen):
         )
 
     def _update_header(self, queue: Queue) -> None:
-        parts = [(queue.name, "bold"), "  ", (queue.project_path, "dim"), "  ·  ", describe_flags(queue.launch_flags)]
+        parts = [
+            (queue.name, "bold"), "  ", (queue.project_path, "dim"), "  ·  ", describe_flags(queue.launch_flags),
+            "  ·  ", ("auto-continue on", "green") if queue.auto_continue else ("auto-continue off", "yellow"),
+        ]
         if queue.first_run_flags:
             parts += ["  ·  ", ("first run: " + " ".join(queue.first_run_flags), "yellow")]
         self.query_one("#conversation-header", Static).update(Content.assemble(*parts))
@@ -244,6 +250,13 @@ class ConversationsScreen(SidebarScreen):
             status = ("● Claude is working…", "bold green")
         elif queue.status == QueueStatus.WAITING_RETRY and queue.next_retry_at:
             status = (f"⏸ Waiting for usage limit reset until {queue.next_retry_at:%H:%M}", "bold yellow")
+        elif queue.status == QueueStatus.PAUSED_LIMIT:
+            if queue.next_retry_at and queue.next_retry_at > datetime.now():
+                status = (f"⏸ Paused at usage limit, resets {queue.next_retry_at:%H:%M}", "bold magenta")
+            else:
+                status = ("⏸ Limit reset — press r to continue", "bold magenta")
+        elif queue.paused:
+            status = ("⏸ Queue paused — t, p to resume", "bold yellow")
         elif queue.status == QueueStatus.BLOCKED_ERROR:
             line = (queue.last_error or "").replace("\n", " ")[:120]
             status = (f"✖ Blocked: {line} — press r to retry", "bold red")
@@ -289,6 +302,9 @@ class ConversationsScreen(SidebarScreen):
             return
         # Pure storage write — the daemon picks it up on its next poll.
         self.storage.add_queue_item(self._current_queue_id, text)
+        if self.storage.get_queue(self._current_queue_id).status == QueueStatus.PAUSED_LIMIT:
+            # Writing to a conversation paused at a limit means "go on".
+            self.storage.update_queue_status(self._current_queue_id, QueueStatus.IDLE)
         event.input.value = ""
         await self._refresh_current()
 
@@ -309,8 +325,20 @@ class ConversationsScreen(SidebarScreen):
         if self._current_queue_id is None:
             return
         queue = self.storage.get_queue(self._current_queue_id)
-        if queue.status == QueueStatus.BLOCKED_ERROR:
+        if queue.status in (QueueStatus.BLOCKED_ERROR, QueueStatus.PAUSED_LIMIT):
             # No in-process runtime to notify (this screen never executes
             # anything) — flipping the status is enough, the daemon picks
             # it up on its next poll.
             self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
+            self.run_worker(self._refresh_current(), exclusive=True, group="refresh")
+
+    def action_tasks(self) -> None:
+        from cc_continue.tui.tasks import TasksModal
+
+        if self._current_queue_id is None:
+            return
+
+        def closed(_result) -> None:
+            self.run_worker(self._refresh_current(), exclusive=True, group="refresh")
+
+        self.app.push_screen(TasksModal(self.storage, self._current_queue_id), closed)

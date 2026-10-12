@@ -117,7 +117,7 @@ class DashboardScreen(SidebarScreen):
 
     def action_retry_queue(self) -> None:
         queue = self._selected_queue()
-        if queue is not None and queue.status == QueueStatus.BLOCKED_ERROR:
+        if queue is not None and queue.status in (QueueStatus.BLOCKED_ERROR, QueueStatus.PAUSED_LIMIT):
             # No in-process runtime to notify (the TUI never executes) —
             # flipping the status is enough, the daemon picks it up on its
             # next poll (at most POLL_INTERVAL_SECONDS later).
