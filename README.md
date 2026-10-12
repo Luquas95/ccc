@@ -115,8 +115,8 @@ screen's own list where it has one, and coloured action buttons at the
 bottom; content on the right sits in round-bordered panels.
 
 TUI keys, available on every screen: `d` dashboard, `c` conversations,
-`s` live sessions, `v` analytics, `a` add prompt (path prefilled from the
-selected queue). Plus: `Enter` open queue detail / attach to a session,
+`s` live sessions, `v` analytics, `n` new conversation, `a` add prompt
+(path prefilled from the selected queue). Plus: `Enter` open queue detail / attach to a session,
 `r` retry a blocked queue (daemon picks it back up within ~5s; on the
 sessions screen `r` refreshes instead), `Esc` back, `q` quit on the
 dashboard (just closes the viewer — queued work is unaffected).
@@ -138,6 +138,39 @@ dashboard (just closes the viewer — queued work is unaffected).
   were about to type. No structured result comes back either (only
   "delivered" or "failed"); the actual response appears in that terminal,
   not in cc-continue.
+
+### Starting a new conversation
+
+Press `n` anywhere (or the green **New conversation** button in the
+conversations view). The dialog has:
+
+- **Directory** — recent directories, a directory tree from `~/DEV`, or
+  type a path.
+- **Attributes** to tick (groups marked *one* are exclusive):
+
+  | Group | Options |
+  |---|---|
+  | Session (*one*) | New session · Continue last in directory · Resume selected… (pick from that directory's past sessions) · From pull request… (`--from-pr`) |
+  | | As a copy (fork) — `--fork-session`, with any of the resuming options |
+  | Permissions (*one*) | Skip all permission checks · Auto-accept edits · Plan only |
+  | Model (*one*) | Opus · Sonnet · Haiku · Fable |
+  | Effort (*one*) | high · xhigh · max |
+  | Other | Fallback to Sonnet when overloaded · Claude in Chrome · Safe mode |
+
+After **Start** the conversation opens in the conversations view; type in
+the box under the transcript and press Enter. Each message is queued and
+run by the daemon as `claude -p --resume … <your attributes>`, so
+conversations started here also keep going across usage limits and with
+the TUI closed. While a message waits it shows as a grey *queued* bubble;
+the status line says whether Claude is working, waiting for a limit reset,
+or blocked.
+
+Because runs are headless, Claude can't ask you to approve a tool mid-run
+and interactive slash commands aren't available — choose the permission
+mode up front. Resuming a session that already has a conversation in
+cc-continue just switches to it (unless you fork). A fork / from-PR
+conversation adopts the new session id Claude Code returns on its first
+run.
 
 ### Conversations view
 

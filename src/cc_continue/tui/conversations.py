@@ -222,7 +222,8 @@ class ConversationsScreen(SidebarScreen):
             return Static(Content.assemble("⚙ ", event.text), classes="tool-call-line")
         label = "You" if event.kind == "human" else "Claude"
         box_class = "message-box-human" if event.kind == "human" else "message-box-assistant"
-        time_str = event.timestamp.strftime("%H:%M")
+        # Transcript timestamps are UTC; show local time.
+        time_str = event.timestamp.astimezone().strftime("%H:%M")
         return Static(
             Content.assemble((label, "bold"), "  ", (time_str, "dim"), "\n", event.text),
             classes=f"message-box {box_class}",
