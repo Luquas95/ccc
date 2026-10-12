@@ -211,6 +211,20 @@ one. Press `t` in the conversations view to edit that queue:
 
 The message box under the transcript adds to the end of the same queue.
 
+### Conversation list: markers, archive, delete
+
+Each conversation in the list (and on the dashboard) shows what it's doing:
+`●` Claude is working · `‖` waiting for a usage-limit reset / paused ·
+`✖` blocked on an error · `◆` a new reply you haven't looked at yet —
+followed by `·N` queued tasks.
+
+In the conversations view: `x` archives the selected conversation (hidden
+from the lists, still processed; `h` shows archived ones, `x` again
+restores), `Ctrl+D` deletes it after confirmation — its queued tasks and
+run history go, Claude Code's own transcript stays (so it can still be
+picked under *Resume selected…*). A conversation Claude is working on
+can't be deleted until it finishes or you pause it.
+
 ### Conversations view
 
 Press `c` on the dashboard to see a queue's full conversation — not just
