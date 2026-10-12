@@ -22,7 +22,9 @@ CREATE TABLE IF NOT EXISTS queues (
     always_resume INTEGER NOT NULL DEFAULT 0,
     delivery_mode TEXT NOT NULL DEFAULT 'headless',
     launch_flags TEXT,
-    first_run_flags TEXT
+    first_run_flags TEXT,
+    auto_continue INTEGER NOT NULL DEFAULT 1,
+    paused INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS queue_items (
@@ -31,7 +33,13 @@ CREATE TABLE IF NOT EXISTS queue_items (
     prompt_text TEXT NOT NULL,
     position INTEGER NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
-    added_at TEXT NOT NULL
+    added_at TEXT NOT NULL,
+    continue_on_retry INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS prompt_runs (
@@ -123,6 +131,14 @@ class Storage:
             if column not in columns:
                 conn.execute(f"ALTER TABLE queues ADD COLUMN {column} TEXT")
                 conn.commit()
+        for column, default in (("auto_continue", 1), ("paused", 0)):
+            if column not in columns:
+                conn.execute(f"ALTER TABLE queues ADD COLUMN {column} INTEGER NOT NULL DEFAULT {default}")
+                conn.commit()
+        item_columns = {row[1] for row in conn.execute("PRAGMA table_info(queue_items)").fetchall()}
+        if "continue_on_retry" not in item_columns:
+            conn.execute("ALTER TABLE queue_items ADD COLUMN continue_on_retry INTEGER NOT NULL DEFAULT 0")
+            conn.commit()
 
     def _connect(self) -> sqlite3.Connection:
         # timeout: wait for another process's write lock instead of raising
@@ -141,13 +157,14 @@ class Storage:
         delivery_mode: DeliveryMode = DeliveryMode.HEADLESS,
         launch_flags: list[str] | None = None,
         first_run_flags: list[str] | None = None,
+        auto_continue: bool = True,
     ) -> Queue:
         now = datetime.now().isoformat()
         with closing(self._connect()) as conn:
             cur = conn.execute(
                 "INSERT INTO queues (name, project_path, session_id, status, created_at, updated_at, "
-                "always_resume, delivery_mode, launch_flags, first_run_flags) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "always_resume, delivery_mode, launch_flags, first_run_flags, auto_continue) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     name,
                     project_path,
@@ -159,6 +176,7 @@ class Storage:
                     delivery_mode.value,
                     _dump_flags(launch_flags),
                     _dump_flags(first_run_flags),
+                    int(auto_continue),
                 ),
             )
             conn.commit()
@@ -301,6 +319,66 @@ class Storage:
             ).fetchall()
             return [self._row_to_item(r) for r in rows]
 
+    def _set_queue_flag(self, queue_id: int, column: str, value: bool) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute(
+                f"UPDATE queues SET {column} = ?, updated_at = ? WHERE id = ?",
+                (int(value), datetime.now().isoformat(), queue_id),
+            )
+            conn.commit()
+
+    def set_queue_auto_continue(self, queue_id: int, value: bool) -> None:
+        self._set_queue_flag(queue_id, "auto_continue", value)
+
+    def set_queue_paused(self, queue_id: int, value: bool) -> None:
+        self._set_queue_flag(queue_id, "paused", value)
+
+    def set_item_continue_on_retry(self, item_id: int, value: bool) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute("UPDATE queue_items SET continue_on_retry = ? WHERE id = ?", (int(value), item_id))
+            conn.commit()
+
+    def update_item_text(self, item_id: int, text: str) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute("UPDATE queue_items SET prompt_text = ? WHERE id = ?", (text, item_id))
+            conn.commit()
+
+    def skip_item(self, item_id: int) -> None:
+        self.set_item_status(item_id, ItemStatus.SKIPPED)
+
+    def move_item(self, item_id: int, delta: int) -> bool:
+        """Swap a pending item with its pending neighbour (delta -1 = up,
+        +1 = down). Returns False when it's already at that edge."""
+        with closing(self._connect()) as conn:
+            item = conn.execute("SELECT * FROM queue_items WHERE id = ?", (item_id,)).fetchone()
+            if item is None:
+                return False
+            cmp, order = ("<", "DESC") if delta < 0 else (">", "ASC")
+            other = conn.execute(
+                f"SELECT * FROM queue_items WHERE queue_id = ? AND status = ? AND position {cmp} ? "
+                f"ORDER BY position {order} LIMIT 1",
+                (item["queue_id"], ItemStatus.PENDING.value, item["position"]),
+            ).fetchone()
+            if other is None:
+                return False
+            conn.execute("UPDATE queue_items SET position = ? WHERE id = ?", (other["position"], item["id"]))
+            conn.execute("UPDATE queue_items SET position = ? WHERE id = ?", (item["position"], other["id"]))
+            conn.commit()
+            return True
+
+    def get_setting(self, key: str, default: str | None = None) -> str | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+            return row["value"] if row else default
+
+    def set_setting(self, key: str, value: str) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute(
+                "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (key, value),
+            )
+            conn.commit()
+
     def set_item_status(self, item_id: int, status: ItemStatus) -> None:
         with closing(self._connect()) as conn:
             conn.execute("UPDATE queue_items SET status = ? WHERE id = ?", (status.value, item_id))
@@ -431,6 +509,8 @@ class Storage:
             delivery_mode=DeliveryMode(row["delivery_mode"]),
             launch_flags=json.loads(row["launch_flags"]) if row["launch_flags"] else None,
             first_run_flags=json.loads(row["first_run_flags"]) if row["first_run_flags"] else None,
+            auto_continue=bool(row["auto_continue"]),
+            paused=bool(row["paused"]),
         )
 
     @staticmethod
@@ -442,6 +522,7 @@ class Storage:
             position=row["position"],
             status=ItemStatus(row["status"]),
             added_at=datetime.fromisoformat(row["added_at"]),
+            continue_on_retry=bool(row["continue_on_retry"]),
         )
 
     @staticmethod

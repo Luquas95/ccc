@@ -306,3 +306,68 @@ def test_recent_project_paths_and_pending_items(tmp_path):
     assert set(storage.recent_project_paths()) == {"/tmp/a", "/tmp/b"}
     storage.add_queue_item(a.id, "one"); storage.add_queue_item(a.id, "two")
     assert [i.prompt_text for i in storage.list_pending_items(a.id)] == ["one", "two"]
+
+
+def test_auto_continue_and_paused_defaults_and_setters(tmp_path):
+    storage = Storage(tmp_path / "h.db")
+    q = storage.create_queue("a", "/tmp/a", "s1")
+    assert q.auto_continue is True and q.paused is False
+    assert storage.create_queue("b", "/tmp/b", "s2", auto_continue=False).auto_continue is False
+    storage.set_queue_auto_continue(q.id, False)
+    storage.set_queue_paused(q.id, True)
+    q = storage.get_queue(q.id)
+    assert q.auto_continue is False and q.paused is True
+
+
+def test_migration_adds_auto_continue_paused_and_continue_flag(tmp_path):
+    db = tmp_path / "old.db"
+    conn = _sqlite3.connect(db)
+    conn.execute(
+        "CREATE TABLE queues (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, project_path TEXT NOT NULL, "
+        "session_id TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'idle', next_retry_at TEXT, last_error TEXT, "
+        "created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE queue_items (id INTEGER PRIMARY KEY AUTOINCREMENT, queue_id INTEGER NOT NULL, "
+        "prompt_text TEXT NOT NULL, position INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'pending', added_at TEXT NOT NULL)"
+    )
+    conn.execute("INSERT INTO queues (name, project_path, session_id, created_at, updated_at) VALUES ('x','/x','sx','2026-01-01T00:00:00','2026-01-01T00:00:00')")
+    conn.execute("INSERT INTO queue_items (queue_id, prompt_text, position, added_at) VALUES (1, 'p', 0, '2026-01-01T00:00:00')")
+    conn.commit(); conn.close()
+    storage = Storage(db)
+    q = storage.list_queues()[0]
+    assert q.auto_continue is True and q.paused is False
+    assert storage.list_pending_items(q.id)[0].continue_on_retry is False
+
+
+def test_item_editing_moving_and_skipping(tmp_path):
+    storage = Storage(tmp_path / "h.db")
+    q = storage.create_queue("a", "/tmp/a", "s1")
+    one = storage.add_queue_item(q.id, "one")
+    two = storage.add_queue_item(q.id, "two")
+    done = storage.add_queue_item(q.id, "done")
+    three = storage.add_queue_item(q.id, "three")
+    storage.set_item_status(done.id, ItemStatus.DONE)
+
+    def order():
+        return [i.prompt_text for i in storage.list_pending_items(q.id)]
+
+    assert storage.move_item(three.id, -1) is True  # skips over the non-pending one
+    assert order() == ["one", "three", "two"]
+    assert storage.move_item(one.id, -1) is False  # already first
+    assert storage.move_item(one.id, +1) is True
+    assert order() == ["three", "one", "two"]
+    storage.update_item_text(two.id, "two edited")
+    storage.skip_item(one.id)
+    assert order() == ["three", "two edited"]
+    storage.set_item_continue_on_retry(two.id, True)
+    assert storage.list_pending_items(q.id)[1].continue_on_retry is True
+
+
+def test_settings(tmp_path):
+    storage = Storage(tmp_path / "h.db")
+    assert storage.get_setting("continue_text") is None
+    assert storage.get_setting("continue_text", "dflt") == "dflt"
+    storage.set_setting("continue_text", "go on")
+    storage.set_setting("continue_text", "keep going")
+    assert storage.get_setting("continue_text") == "keep going"

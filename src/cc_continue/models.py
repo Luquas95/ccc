@@ -10,6 +10,9 @@ class QueueStatus(str, Enum):
     RUNNING = "running"
     WAITING_RETRY = "waiting_retry"
     BLOCKED_ERROR = "blocked_error"
+    # Hit a usage limit with auto-continue off: waits for the user (r / a
+    # new message) even after the limit resets.
+    PAUSED_LIMIT = "paused_limit"
 
 
 class ItemStatus(str, Enum):
@@ -63,6 +66,10 @@ class Queue:
     # --from-pr ...). Cleared once the daemon adopts the session id Claude
     # Code returned for that run.
     first_run_flags: list[str] | None = None
+    # Resume by itself once a usage limit resets (else PAUSED_LIMIT).
+    auto_continue: bool = True
+    # Manually paused from the Tasks editor: start no further items.
+    paused: bool = False
 
 
 @dataclass
@@ -73,6 +80,9 @@ class QueueItem:
     position: int
     status: ItemStatus = ItemStatus.PENDING
     added_at: datetime = field(default_factory=datetime.now)
+    # A usage limit interrupted this item after it reached the conversation:
+    # the retry sends the continue text instead of repeating the prompt.
+    continue_on_retry: bool = False
 
 
 @dataclass
