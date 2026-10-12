@@ -135,6 +135,9 @@ class Storage:
                 conn.commit()
         if "last_seen_at" not in columns:
             conn.execute("ALTER TABLE queues ADD COLUMN last_seen_at TEXT")
+            # Existing conversations start as seen — otherwise every old one
+            # would show the "new reply" marker after upgrading.
+            conn.execute("UPDATE queues SET last_seen_at = ?", (datetime.now().isoformat(),))
             conn.commit()
         for column, default in (("auto_continue", 1), ("paused", 0), ("archived", 0)):
             if column not in columns:

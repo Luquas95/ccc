@@ -420,3 +420,24 @@ def test_unseen_queue_ids(tmp_path):
                                         started_at=later, finished_at=later, status=RunStatus.SUCCESS))
     assert storage.unseen_queue_ids() == {q.id}
     assert other.id not in storage.unseen_queue_ids()
+
+
+def test_migration_marks_existing_conversations_seen(tmp_path):
+    db = tmp_path / "old.db"
+    conn = _sqlite3.connect(db)
+    conn.execute(
+        "CREATE TABLE queues (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, project_path TEXT NOT NULL, "
+        "session_id TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'idle', next_retry_at TEXT, last_error TEXT, "
+        "created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE prompt_runs (id INTEGER PRIMARY KEY AUTOINCREMENT, queue_id INTEGER NOT NULL, queue_item_id INTEGER, "
+        "prompt_text TEXT NOT NULL, started_at TEXT NOT NULL, finished_at TEXT, status TEXT NOT NULL, cost_usd REAL NOT NULL DEFAULT 0, "
+        "input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, cache_read_tokens INTEGER NOT NULL DEFAULT 0, "
+        "cache_creation_tokens INTEGER NOT NULL DEFAULT 0, duration_ms INTEGER NOT NULL DEFAULT 0, num_turns INTEGER NOT NULL DEFAULT 0, "
+        "result_text TEXT, error_text TEXT)"
+    )
+    conn.execute("INSERT INTO queues (name, project_path, session_id, created_at, updated_at) VALUES ('x','/x','sx','2026-01-01T00:00:00','2026-01-01T00:00:00')")
+    conn.execute("INSERT INTO prompt_runs (queue_id, prompt_text, started_at, finished_at, status) VALUES (1,'p','2026-01-01T00:00:00','2026-01-01T00:01:00','success')")
+    conn.commit(); conn.close()
+    assert Storage(db).unseen_queue_ids() == set()

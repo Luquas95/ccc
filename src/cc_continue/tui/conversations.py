@@ -274,14 +274,14 @@ class ConversationsScreen(SidebarScreen):
         if queue.status == QueueStatus.RUNNING:
             status = ("● Claude is working…", "bold green")
         elif queue.status == QueueStatus.WAITING_RETRY and queue.next_retry_at:
-            status = (f"⏸ Waiting for usage limit reset until {queue.next_retry_at:%H:%M}", "bold yellow")
+            status = (f"‖ Waiting for usage limit reset until {queue.next_retry_at:%H:%M}", "bold yellow")
         elif queue.status == QueueStatus.PAUSED_LIMIT:
             if queue.next_retry_at and queue.next_retry_at > datetime.now():
-                status = (f"⏸ Paused at usage limit, resets {queue.next_retry_at:%H:%M}", "bold magenta")
+                status = (f"‖ Paused at usage limit, resets {queue.next_retry_at:%H:%M}", "bold magenta")
             else:
-                status = ("⏸ Limit reset — press r to continue", "bold magenta")
+                status = ("‖ Limit reset — press r to continue", "bold magenta")
         elif queue.paused:
-            status = ("⏸ Queue paused — t, p to resume", "bold yellow")
+            status = ("‖ Queue paused — t, p to resume", "bold yellow")
         elif queue.status == QueueStatus.BLOCKED_ERROR:
             line = (queue.last_error or "").replace("\n", " ")[:120]
             status = (f"✖ Blocked: {line} — press r to retry", "bold red")

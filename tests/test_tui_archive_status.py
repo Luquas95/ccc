@@ -43,13 +43,13 @@ def test_queue_marker():
     q = Queue(id=1, name="a", project_path="/a", session_id="s")
     assert queue_marker(q, unseen=False)[0] == " "
     assert queue_marker(q, unseen=True)[0] == "◆"
-    for status, icon in [(QueueStatus.RUNNING, "●"), (QueueStatus.WAITING_RETRY, "⏸"),
-                         (QueueStatus.PAUSED_LIMIT, "⏸"), (QueueStatus.BLOCKED_ERROR, "✖")]:
+    for status, icon in [(QueueStatus.RUNNING, "●"), (QueueStatus.WAITING_RETRY, "‖"),
+                         (QueueStatus.PAUSED_LIMIT, "‖"), (QueueStatus.BLOCKED_ERROR, "✖")]:
         q.status = status
         assert queue_marker(q, unseen=True)[0] == icon  # activity beats "new"
     q.status = QueueStatus.IDLE
     q.paused = True
-    assert queue_marker(q, unseen=False)[0] == "⏸"
+    assert queue_marker(q, unseen=False)[0] == "‖"
 
 
 @pytest.mark.asyncio

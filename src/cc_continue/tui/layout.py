@@ -67,9 +67,9 @@ def queue_marker(queue: Queue, unseen: bool) -> tuple[str, str]:
     if queue.status == QueueStatus.BLOCKED_ERROR:
         return "✖", "bold red"
     if queue.status in (QueueStatus.PAUSED_LIMIT, QueueStatus.WAITING_RETRY):
-        return "⏸", "bold magenta"
+        return "‖", "bold magenta"
     if queue.paused:
-        return "⏸", "bold yellow"
+        return "‖", "bold yellow"
     if unseen:
         return "◆", "bold cyan"
     return " ", ""
