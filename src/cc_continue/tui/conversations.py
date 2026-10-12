@@ -11,7 +11,14 @@ from cc_continue.launch_options import describe_flags
 from cc_continue.models import Queue, QueueStatus
 from cc_continue.storage import Storage
 from cc_continue.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
-from cc_continue.tui.layout import LIVE_SESSIONS_BUTTON, NEW_CONVERSATION_BUTTON, RETRY_BUTTON, SidebarScreen
+from cc_continue.tui.layout import (
+    LIVE_SESSIONS_BUTTON,
+    NEW_CONVERSATION_BUTTON,
+    RETRY_BUTTON,
+    ConfirmModal,
+    SidebarScreen,
+    queue_label,
+)
 
 
 # Newest transcript events mounted when a conversation is opened; older
@@ -27,6 +34,9 @@ class ConversationsScreen(SidebarScreen):
         ("escape", "back", "Back"),
         ("r", "retry_queue", "Retry / resume"),
         ("t", "tasks", "Tasks"),
+        ("x", "toggle_archive", "Archive"),
+        ("h", "toggle_show_archived", "Show archived"),
+        ("ctrl+d", "delete_conversation", "Delete"),
     ]
 
     # Sidebar frame/buttons come from SidebarScreen (layout.SHARED_CSS);
@@ -83,6 +93,10 @@ class ConversationsScreen(SidebarScreen):
         self._focus_input_on_mount = select_queue_id is not None
         # Queue ids in the order of the sidebar table's rows.
         self._queue_ids: list[int] = []
+        # Plain text of the list rows as last drawn — rebuild when it changes
+        # (new/removed conversation, status marker, pending count).
+        self._list_signature: list[str] = []
+        self._show_archived = False
         # What the transcript pane currently shows (queue, event count,
         # pending item ids) — re-render only when this changes.
         self._rendered_key: tuple | None = None
@@ -126,10 +140,20 @@ class ConversationsScreen(SidebarScreen):
         # stays at the header's ("Queue") and every name gets cut to 5 chars.
         table.clear(columns=True)
         table.add_column("Queue")
-        queues = self.storage.list_queues()
-        self._queue_ids = [q.id for q in queues]
-        for queue in queues:
-            table.add_row(Text(queue.name))
+        rows = self._list_rows()
+        self._queue_ids = [queue_id for queue_id, _ in rows]
+        self._list_signature = [label.plain for _, label in rows]
+        for _, label in rows:
+            table.add_row(label)
+
+    def _list_rows(self) -> list[tuple[int, Text]]:
+        unseen = self.storage.unseen_queue_ids()
+        return [
+            (q.id, queue_label(q, q.id in unseen and q.id != self._current_queue_id,
+                               self.storage.count_pending_items(q.id)))
+            for q in self.storage.list_queues()
+            if self._show_archived or not q.archived
+        ]
 
     def _move_cursor_to_current(self) -> None:
         if self._current_queue_id in self._queue_ids:
@@ -149,6 +173,7 @@ class ConversationsScreen(SidebarScreen):
 
     async def _show_queue(self, queue_id: int) -> None:
         self._current_queue_id = queue_id
+        self.storage.mark_seen(queue_id)
         self._load_transcript(queue_id)
         await self._render_transcript(queue_id)
 
@@ -265,8 +290,11 @@ class ConversationsScreen(SidebarScreen):
         return Content.assemble(status, f"  ·  {pending} queued" if pending else "")
 
     async def _refresh_current(self) -> None:
-        if [q.id for q in self.storage.list_queues()] != self._queue_ids:
-            # A conversation was started elsewhere (dialog, CLI, another TUI).
+        if self._current_queue_id is not None and self.app.screen is self:
+            # You're looking at it: replies to it aren't "new".
+            self.storage.mark_seen(self._current_queue_id)
+        if [label.plain for _, label in self._list_rows()] != self._list_signature:
+            # New/removed conversation, or a marker / pending count changed.
             self._rebuild_queue_list()
             self._move_cursor_to_current()
         if self._current_queue_id is None:
@@ -342,3 +370,73 @@ class ConversationsScreen(SidebarScreen):
             self.run_worker(self._refresh_current(), exclusive=True, group="refresh")
 
         self.app.push_screen(TasksModal(self.storage, self._current_queue_id), closed)
+
+    def action_toggle_archive(self) -> None:
+        if self._current_queue_id is None:
+            return
+        queue = self.storage.get_queue(self._current_queue_id)
+        self.storage.set_queue_archived(queue.id, not queue.archived)
+        if not queue.archived and not self._show_archived:
+            self._select_neighbour()
+        self.run_worker(self._refresh_current(), exclusive=True, group="refresh")
+
+    def action_toggle_show_archived(self) -> None:
+        self._show_archived = not self._show_archived
+        self._rebuild_queue_list()
+        self._move_cursor_to_current()
+
+    def action_delete_conversation(self) -> None:
+        if self._current_queue_id is None:
+            return
+        queue = self.storage.get_queue(self._current_queue_id)
+        if queue.status == QueueStatus.RUNNING:
+            self.app.push_screen(
+                ConfirmModal(
+                    "Can't delete",
+                    f"Claude is working on '{queue.name}' right now — wait or pause it first (t, p).",
+                    can_confirm=False,
+                )
+            )
+            return
+
+        def answered(yes: bool) -> None:
+            if not yes:
+                return
+            self.storage.delete_queue(queue.id)
+            self._cache.pop(queue.id, None)
+            self._select_neighbour()
+            self.run_worker(self._after_delete(), exclusive=True, group="refresh")
+
+        self.app.push_screen(
+            ConfirmModal(
+                "Delete conversation",
+                f"Delete '{queue.name}' with its queued tasks and run history from cc-continue?\n"
+                "Claude Code's own transcript stays, so it can still be resumed later.",
+            ),
+            answered,
+        )
+
+    def _select_neighbour(self) -> None:
+        """Pick the next (else previous) visible conversation after the
+        current one disappears from the list."""
+        ids = self._queue_ids
+        current = self._current_queue_id
+        if current in ids:
+            i = ids.index(current)
+            rest = ids[i + 1:] + list(reversed(ids[:i]))
+        else:
+            rest = ids
+        self._current_queue_id = rest[0] if rest else None
+        self._rendered_key = None
+
+    async def _after_delete(self) -> None:
+        self._rebuild_queue_list()
+        self._move_cursor_to_current()
+        if self._current_queue_id is None:
+            container = self.query_one("#conversation-transcript", VerticalScroll)
+            await container.remove_children()
+            await container.mount(Static("No conversation yet."))
+            self.query_one("#conversation-header", Static).update("")
+            self.query_one("#conversation-status", Static).update("")
+            return
+        await self._show_queue(self._current_queue_id)

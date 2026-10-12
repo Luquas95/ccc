@@ -10,11 +10,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from rich.text import Text
 from textual.containers import Horizontal, Vertical
-from textual.screen import Screen
+from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Footer, Header, Rule, Static
 
-from cc_continue.models import QueueStatus
+from cc_continue.models import Queue, QueueStatus
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,77 @@ def styled_status(status: QueueStatus) -> str:
     so no escaping needed)."""
     style = STATUS_STYLES.get(status, "")
     return f"[{style}]{status.value}[/]" if style else status.value
+
+
+def queue_marker(queue: Queue, unseen: bool) -> tuple[str, str]:
+    """(icon, style) shown before a conversation's name. Current activity
+    wins over the "new reply" marker."""
+    if queue.status == QueueStatus.RUNNING:
+        return "●", "bold green"
+    if queue.status == QueueStatus.BLOCKED_ERROR:
+        return "✖", "bold red"
+    if queue.status in (QueueStatus.PAUSED_LIMIT, QueueStatus.WAITING_RETRY):
+        return "⏸", "bold magenta"
+    if queue.paused:
+        return "⏸", "bold yellow"
+    if unseen:
+        return "◆", "bold cyan"
+    return " ", ""
+
+
+def queue_label(queue: Queue, unseen: bool, pending: int = 0) -> Text:
+    """List label: marker, name (dim when archived), pending count."""
+    icon, style = queue_marker(queue, unseen)
+    label = Text.assemble((icon, style), " ", (queue.name, "dim" if queue.archived else ""))
+    if pending:
+        label.append(f" ·{pending}", style="dim")
+    return label
+
+
+class ConfirmModal(ModalScreen):
+    """Yes/no question. Dismisses True only when confirmed; with
+    can_confirm=False it's just a notice (any key closes it, False)."""
+
+    DEFAULT_CSS = """
+    ConfirmModal {
+        align: center middle;
+    }
+    ConfirmModal > Vertical {
+        width: 70;
+        height: auto;
+        border: round red;
+        border-title-color: red;
+        border-title-style: bold;
+        background: $surface;
+        padding: 1 2;
+    }
+    ConfirmModal .confirm-hint {
+        color: $text-muted;
+        margin-top: 1;
+    }
+    """
+
+    BINDINGS = [
+        ("y", "answer(True)", "Yes"),
+        ("enter", "answer(True)", "Yes"),
+        ("n", "answer(False)", "No"),
+        ("escape", "answer(False)", "No"),
+    ]
+
+    def __init__(self, title: str, text: str, can_confirm: bool = True):
+        super().__init__()
+        self.box_title = title
+        self.text = text
+        self.can_confirm = can_confirm
+
+    def compose(self):
+        hint = "y / Enter yes  ·  n / Esc no" if self.can_confirm else "Esc close"
+        box = Vertical(Static(Text(self.text), id="confirm-text"), Static(hint, classes="confirm-hint"))
+        box.border_title = self.box_title
+        yield box
+
+    def action_answer(self, yes: bool) -> None:
+        self.dismiss(yes and self.can_confirm)
 
 
 SHARED_CSS = """

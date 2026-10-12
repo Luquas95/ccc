@@ -13,6 +13,7 @@ from cc_continue.tui.layout import (
     RETRY_BUTTON,
     SidebarScreen,
     panel,
+    queue_label,
     styled_status,
 )
 
@@ -58,7 +59,8 @@ class DashboardScreen(SidebarScreen):
         cursor_row = table.cursor_row
         table.clear()
         total_pending = total_tokens = blocked = running = 0
-        queues = self.storage.list_queues()
+        queues = self._visible_queues()
+        unseen = self.storage.unseen_queue_ids()
         for queue in queues:
             pending = self.storage.count_pending_items(queue.id)
             today_tokens = sum(
@@ -71,7 +73,7 @@ class DashboardScreen(SidebarScreen):
             blocked += queue.status == QueueStatus.BLOCKED_ERROR
             running += queue.status == QueueStatus.RUNNING
             table.add_row(
-                Text(queue.name),
+                queue_label(queue, queue.id in unseen),
                 styled_status(queue.status),
                 str(pending),
                 f"{today_tokens:,}",
@@ -87,9 +89,12 @@ class DashboardScreen(SidebarScreen):
             f"{blocked_text}  ·  [b]{total_tokens:,}[/b] tokens today"
         )
 
+    def _visible_queues(self):
+        return [q for q in self.storage.list_queues() if not q.archived]
+
     def _selected_queue(self):
         table = self.query_one("#dashboard-table", DataTable)
-        queues = self.storage.list_queues()
+        queues = self._visible_queues()
         if table.cursor_row is None or table.cursor_row >= len(queues):
             return None
         return queues[table.cursor_row]
@@ -103,7 +108,7 @@ class DashboardScreen(SidebarScreen):
         # so listen for its message instead of a screen-level binding.
         from cc_continue.tui.queue_detail import QueueDetailScreen
 
-        queues = self.storage.list_queues()
+        queues = self._visible_queues()
         if event.cursor_row >= len(queues):
             return
         queue = queues[event.cursor_row]
