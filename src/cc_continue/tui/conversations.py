@@ -1,68 +1,30 @@
 from __future__ import annotations
 
 from rich.markup import escape
-from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import Screen
-from textual.widgets import Button, DataTable, Footer, Header, Rule, Static
+from textual.containers import VerticalScroll
+from textual.widgets import DataTable, Static
 
 from cc_continue.models import QueueStatus
 from cc_continue.storage import Storage
 from cc_continue.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
+from cc_continue.tui.layout import ADD_PROMPT_BUTTON, LIVE_SESSIONS_BUTTON, RETRY_BUTTON, SidebarScreen
 
 
-class ConversationsScreen(Screen):
+class ConversationsScreen(SidebarScreen):
+    VIEW = "conversations"
+    SUB_TITLE = "Conversations"
+
     BINDINGS = [
         ("escape", "back", "Back"),
-        ("a", "add_prompt", "Add prompt"),
-        ("s", "pick_session", "Live sessions"),
         ("r", "retry_queue", "Retry blocked"),
     ]
 
+    # Sidebar frame/buttons come from SidebarScreen (layout.SHARED_CSS);
+    # only the transcript message boxes are specific to this screen.
     DEFAULT_CSS = """
-    ConversationsScreen #conversation-sidebar {
-        width: 32;
-        background: $surface;
-    }
-    ConversationsScreen .sidebar-title {
-        padding: 1 1 0 1;
-        text-style: bold;
-        color: green;
-    }
-    ConversationsScreen .sidebar-rule {
-        color: yellow;
-    }
-    ConversationsScreen .sidebar-label {
-        padding: 0 1 1 1;
-        text-style: bold;
-    }
-    ConversationsScreen #conversation-queue-list {
-        height: 1fr;
-    }
-    ConversationsScreen #conversation-queue-list > .datatable--cursor {
-        background: blue;
-        color: white;
-        text-style: bold;
-    }
-    ConversationsScreen .sidebar-button {
-        width: 100%;
-        height: 3;
-        border: none;
-        text-style: bold;
-    }
-    ConversationsScreen #sidebar-add-prompt {
-        background: green;
-        color: black;
-    }
-    ConversationsScreen #sidebar-live-sessions {
-        background: blue;
-        color: white;
-    }
-    ConversationsScreen #sidebar-retry {
-        background: red;
-        color: white;
-    }
     ConversationsScreen #conversation-transcript {
         width: 1fr;
+        height: 1fr;
     }
     ConversationsScreen .message-box {
         border: round cyan;
@@ -84,30 +46,22 @@ class ConversationsScreen(Screen):
     """
 
     def __init__(self, storage: Storage):
-        super().__init__()
-        self.storage = storage
+        super().__init__(storage)
         # Per-queue cache: queue_id -> {"path": Path|None, "offset": int,
         # "events": list[TranscriptEvent]} so switching back to an
         # already-viewed queue doesn't re-parse its transcript from zero.
         self._cache: dict[int, dict] = {}
         self._current_queue_id: int | None = None
 
-    def compose(self):
-        yield Header()
-        yield Horizontal(
-            Vertical(
-                Static("cc-continue", classes="sidebar-title"),
-                Rule(classes="sidebar-rule"),
-                Static("Queues", classes="sidebar-label"),
-                DataTable(id="conversation-queue-list"),
-                Button("Add prompt (a)", id="sidebar-add-prompt", classes="sidebar-button"),
-                Button("Live sessions (s)", id="sidebar-live-sessions", classes="sidebar-button"),
-                Button("Retry blocked (r)", id="sidebar-retry", classes="sidebar-button"),
-                id="conversation-sidebar",
-            ),
-            VerticalScroll(id="conversation-transcript"),
-        )
-        yield Footer()
+    def sidebar_buttons(self):
+        return [ADD_PROMPT_BUTTON, LIVE_SESSIONS_BUTTON, RETRY_BUTTON]
+
+    def compose_sidebar_section(self):
+        yield Static("Queues", classes="sidebar-label")
+        yield DataTable(id="conversation-queue-list", classes="sidebar-list")
+
+    def compose_main(self):
+        yield VerticalScroll(id="conversation-transcript")
 
     async def on_mount(self) -> None:
         table = self.query_one("#conversation-queue-list", DataTable)
@@ -116,7 +70,7 @@ class ConversationsScreen(Screen):
         table.add_column("Queue")
         queues = self.storage.list_queues()
         for queue in queues:
-            table.add_row(queue.name)
+            table.add_row(escape(queue.name))
         if queues:
             # Don't rely solely on RowHighlighted firing for the initial
             # cursor position (focus timing can vary once Header/Footer
@@ -188,23 +142,10 @@ class ConversationsScreen(Screen):
             cached["offset"] = new_offset
             await self._render_transcript(queue_id)
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "sidebar-add-prompt":
-            self.action_add_prompt()
-        elif event.button.id == "sidebar-live-sessions":
-            self.action_pick_session()
-        elif event.button.id == "sidebar-retry":
-            self.action_retry_queue()
-
-    def action_add_prompt(self) -> None:
-        from cc_continue.tui.queue_detail import AddPromptModal
-
-        self.app.push_screen(AddPromptModal(self.storage))
-
-    def action_pick_session(self) -> None:
-        from cc_continue.tui.session_picker import SessionPickerScreen
-
-        self.app.push_screen(SessionPickerScreen(self.storage))
+    def default_project_path(self) -> str:
+        if self._current_queue_id is None:
+            return ""
+        return self.storage.get_queue(self._current_queue_id).project_path
 
     def action_retry_queue(self) -> None:
         if self._current_queue_id is None:
@@ -215,6 +156,3 @@ class ConversationsScreen(Screen):
             # anything) — flipping the status is enough, the daemon picks
             # it up on its next poll.
             self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
-
-    def action_back(self) -> None:
-        self.app.pop_screen()

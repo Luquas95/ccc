@@ -4,12 +4,13 @@ import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 
-from textual.containers import Container, Horizontal
-from textual.screen import Screen
-from textual.widgets import DataTable, Footer, Header, ProgressBar, Sparkline, Static
+from rich.markup import escape
+from textual.containers import Container, Horizontal, VerticalScroll
+from textual.widgets import DataTable, ProgressBar, Sparkline, Static
 
 from cc_continue.models import RunStatus
 from cc_continue.storage import Storage
+from cc_continue.tui.layout import SidebarScreen, panel
 from cc_continue.usage_api import ProUsage, get_pro_usage
 
 UNAVAILABLE_TEXT = "Claude Pro usage: unavailable (offline, or not logged in via claude.ai OAuth)"
@@ -65,16 +66,25 @@ def build_model_token_bars(totals: list[tuple[str, int]]) -> list[ModelTokenBar]
     return [ModelTokenBar(model, tokens, (tokens / max_tokens) * 100) for model, tokens in totals]
 
 
-class AnalyticsScreen(Screen):
+class AnalyticsScreen(SidebarScreen):
+    VIEW = "analytics"
+    SUB_TITLE = "Analytics"
+
     BINDINGS = [("escape", "back", "Back")]
 
     DEFAULT_CSS = """
-    AnalyticsScreen #pro-usage-gauges {
+    AnalyticsScreen #analytics-scroll {
+        height: 1fr;
+    }
+    AnalyticsScreen #pro-usage-gauges, AnalyticsScreen #model-usage-gauges {
         height: auto;
     }
     AnalyticsScreen .usage-gauge-row {
         height: 1;
         margin-bottom: 1;
+    }
+    AnalyticsScreen .usage-gauge-row:last-child {
+        margin-bottom: 0;
     }
     AnalyticsScreen .usage-gauge-label {
         width: 42;
@@ -82,29 +92,29 @@ class AnalyticsScreen(Screen):
     AnalyticsScreen .usage-gauge-row ProgressBar {
         width: 1fr;
     }
-    AnalyticsScreen #model-usage-gauges {
-        height: auto;
+    AnalyticsScreen #tokens-sparkline {
+        height: 3;
+    }
+    AnalyticsScreen #analytics-summary {
+        margin-top: 1;
     }
     """
 
     def __init__(self, storage: Storage):
-        super().__init__()
-        self.storage = storage
+        super().__init__(storage)
 
-    def compose(self):
-        yield Header()
-        yield Container(
-            Static("Claude Pro usage (account limits)"),
-            Container(id="pro-usage-gauges"),
-            Static("Tokens used by model (this tool's own history)"),
-            Container(id="model-usage-gauges"),
-            Static("Tokens per day (last 30 days)"),
-            Sparkline([], id="tokens-sparkline"),
-            Static("Tokens per project", id="project-tokens-label"),
-            DataTable(id="analytics-project-table"),
-            Static(id="analytics-summary"),
+    def compose_main(self):
+        yield VerticalScroll(
+            panel(Container(id="pro-usage-gauges"), title="Claude Pro usage (account limits)"),
+            panel(Container(id="model-usage-gauges"), title="Tokens by model (this tool's own history)"),
+            panel(Sparkline([], id="tokens-sparkline"), title="Tokens per day (last 30 days)"),
+            panel(
+                DataTable(id="analytics-project-table"),
+                Static(id="analytics-summary"),
+                title="Tokens per project",
+            ),
+            id="analytics-scroll",
         )
-        yield Footer()
 
     async def on_mount(self) -> None:
         self.run_worker(self.refresh_pro_usage(), exclusive=True)
@@ -117,6 +127,7 @@ class AnalyticsScreen(Screen):
         sparkline.data = [v for _, v in daily] or [0]
 
         table = self.query_one("#analytics-project-table", DataTable)
+        table.cursor_type = "row"
         table.add_columns("Project", "Total tokens", "Success", "Errors", "Rate-limited")
         for queue in self.storage.list_queues():
             runs = self.storage.runs_for_queue(queue.id)
@@ -127,11 +138,11 @@ class AnalyticsScreen(Screen):
             success = sum(1 for r in runs if r.status == RunStatus.SUCCESS)
             errors = sum(1 for r in runs if r.status == RunStatus.ERROR)
             limited = sum(1 for r in runs if r.status == RunStatus.RATE_LIMITED)
-            table.add_row(queue.name, f"{total_tokens:,}", str(success), str(errors), str(limited))
+            table.add_row(escape(queue.name), f"{total_tokens:,}", str(success), str(errors), str(limited))
 
         blocked_seconds = self.storage.blocked_seconds_total()
         summary = self.query_one("#analytics-summary", Static)
-        summary.update(f"Total time blocked on rate limits: {blocked_seconds / 60:.1f} min")
+        summary.update(f"Total time blocked on rate limits: [b]{blocked_seconds / 60:.1f} min[/b]")
 
     async def refresh_pro_usage(self) -> None:
         usage = await asyncio.to_thread(get_pro_usage)
@@ -164,6 +175,3 @@ class AnalyticsScreen(Screen):
         )
         await container.mount(row)
         progress_bar.update(progress=percentage)
-
-    def action_back(self) -> None:
-        self.app.pop_screen()

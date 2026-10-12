@@ -108,10 +108,18 @@ Without opening anything:
 
     .venv/bin/cc-continue add /path/to/project "do the thing"
 
-TUI keys: `a` add prompt, `s` live sessions, `c` conversations, `Enter`
-open queue detail / attach to a session, `v` analytics, `r` retry a
-blocked queue (daemon picks it back up within ~5s), `q` quit (just closes
-the viewer — queued work is unaffected).
+Every TUI screen shares one layout (modelled on the conversations view):
+a left sidebar with the **Views** list (Dashboard / Conversations / Live
+sessions / Analytics — the current one highlighted, clickable), the
+screen's own list where it has one, and coloured action buttons at the
+bottom; content on the right sits in round-bordered panels.
+
+TUI keys, available on every screen: `d` dashboard, `c` conversations,
+`s` live sessions, `v` analytics, `a` add prompt (path prefilled from the
+selected queue). Plus: `Enter` open queue detail / attach to a session,
+`r` retry a blocked queue (daemon picks it back up within ~5s; on the
+sessions screen `r` refreshes instead), `Esc` back, `q` quit on the
+dashboard (just closes the viewer — queued work is unaffected).
 
 ### Two delivery modes
 

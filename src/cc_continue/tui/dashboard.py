@@ -2,56 +2,101 @@ from __future__ import annotations
 
 from datetime import date
 
-from textual.containers import Container
-from textual.screen import Screen
-from textual.widgets import DataTable, Footer, Header
+from rich.markup import escape
+from textual.widgets import DataTable, Static
 
 from cc_continue.models import QueueStatus
 from cc_continue.storage import Storage
+from cc_continue.tui.layout import (
+    ADD_PROMPT_BUTTON,
+    LIVE_SESSIONS_BUTTON,
+    RETRY_BUTTON,
+    SidebarScreen,
+    panel,
+    styled_status,
+)
 
 
-class DashboardScreen(Screen):
+PATH_COLUMN_WIDTH = 48
+
+
+def _shorten_path(path: str) -> str:
+    """Keep the informative tail of long paths so the table doesn't need a
+    horizontal scrollbar."""
+    return path if len(path) <= PATH_COLUMN_WIDTH else "…" + path[-(PATH_COLUMN_WIDTH - 1):]
+
+
+class DashboardScreen(SidebarScreen):
+    VIEW = "dashboard"
+    SUB_TITLE = "Dashboard"
+
     BINDINGS = [
-        ("a", "add_prompt", "Add prompt"),
-        ("s", "pick_session", "Live sessions"),
-        ("c", "view_conversations", "Conversations"),
-        ("v", "view_analytics", "Analytics"),
         ("r", "retry_queue", "Retry blocked"),
         ("q", "quit", "Quit"),
     ]
 
     def __init__(self, storage: Storage):
-        super().__init__()
-        self.storage = storage
+        super().__init__(storage)
 
-    def compose(self):
-        yield Header()
-        yield Container(DataTable(id="dashboard-table"))
-        yield Footer()
+    def sidebar_buttons(self):
+        return [ADD_PROMPT_BUTTON, LIVE_SESSIONS_BUTTON, RETRY_BUTTON]
+
+    def compose_main(self):
+        yield panel(Static(id="dashboard-overview"), title="Overview")
+        yield panel(DataTable(id="dashboard-table"), title="Queues", fill=True)
 
     def on_mount(self) -> None:
         table = self.query_one("#dashboard-table", DataTable)
         table.cursor_type = "row"
-        table.add_columns("Project", "Status", "Pending", "Today's tokens")
+        table.add_columns("Project", "Status", "Pending", "Today's tokens", "Path")
         self.refresh_table()
         self.set_interval(2.0, self.refresh_table)
 
     def refresh_table(self) -> None:
         table = self.query_one("#dashboard-table", DataTable)
+        # Keep the cursor where it was across the periodic rebuild.
+        cursor_row = table.cursor_row
         table.clear()
-        for queue in self.storage.list_queues():
+        total_pending = total_tokens = blocked = running = 0
+        queues = self.storage.list_queues()
+        for queue in queues:
             pending = self.storage.count_pending_items(queue.id)
             today_tokens = sum(
                 r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_creation_tokens
                 for r in self.storage.runs_for_queue(queue.id)
                 if r.started_at.date() == date.today()
             )
-            table.add_row(queue.name, queue.status.value, str(pending), f"{today_tokens:,}")
+            total_pending += pending
+            total_tokens += today_tokens
+            blocked += queue.status == QueueStatus.BLOCKED_ERROR
+            running += queue.status == QueueStatus.RUNNING
+            table.add_row(
+                escape(queue.name),
+                styled_status(queue.status),
+                str(pending),
+                f"{today_tokens:,}",
+                f"[dim]{escape(_shorten_path(queue.project_path))}[/dim]",
+            )
+        if queues and cursor_row is not None:
+            table.move_cursor(row=min(cursor_row, len(queues) - 1))
 
-    def action_add_prompt(self) -> None:
-        from cc_continue.tui.queue_detail import AddPromptModal
+        blocked_text = f"[bold red]{blocked} blocked[/]" if blocked else "0 blocked"
+        running_text = f"[bold green]{running} running[/]" if running else "0 running"
+        self.query_one("#dashboard-overview", Static).update(
+            f"[b]{len(queues)}[/b] queues  ·  {running_text}  ·  [b]{total_pending}[/b] pending  ·  "
+            f"{blocked_text}  ·  [b]{total_tokens:,}[/b] tokens today"
+        )
 
-        self.app.push_screen(AddPromptModal(self.storage))
+    def _selected_queue(self):
+        table = self.query_one("#dashboard-table", DataTable)
+        queues = self.storage.list_queues()
+        if table.cursor_row is None or table.cursor_row >= len(queues):
+            return None
+        return queues[table.cursor_row]
+
+    def default_project_path(self) -> str:
+        queue = self._selected_queue()
+        return queue.project_path if queue else ""
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         # DataTable owns the "enter" key itself (action select_cursor),
@@ -64,34 +109,20 @@ class DashboardScreen(Screen):
         queue = queues[event.cursor_row]
         self.app.push_screen(QueueDetailScreen(self.storage, queue.id))
 
-    def action_pick_session(self) -> None:
-        from cc_continue.tui.session_picker import SessionPickerScreen
-
-        self.app.push_screen(SessionPickerScreen(self.storage))
-
     def action_view_conversations(self) -> None:
-        from cc_continue.tui.conversations import ConversationsScreen
-
-        self.app.push_screen(ConversationsScreen(self.storage))
+        self.action_goto("conversations")
 
     def action_view_analytics(self) -> None:
-        from cc_continue.tui.analytics import AnalyticsScreen
-
-        self.app.push_screen(AnalyticsScreen(self.storage))
+        self.action_goto("analytics")
 
     def action_retry_queue(self) -> None:
-        table = self.query_one("#dashboard-table", DataTable)
-        if table.cursor_row is None:
-            return
-        queues = self.storage.list_queues()
-        if table.cursor_row >= len(queues):
-            return
-        queue = queues[table.cursor_row]
-        if queue.status == QueueStatus.BLOCKED_ERROR:
+        queue = self._selected_queue()
+        if queue is not None and queue.status == QueueStatus.BLOCKED_ERROR:
             # No in-process runtime to notify (the TUI never executes) —
             # flipping the status is enough, the daemon picks it up on its
             # next poll (at most POLL_INTERVAL_SECONDS later).
             self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
+            self.refresh_table()
 
     def action_quit(self) -> None:
         self.app.exit()

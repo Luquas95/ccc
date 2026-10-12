@@ -7,6 +7,8 @@ from cc_continue.tui.dashboard import DashboardScreen
 
 
 class CCContinueApp(App):
+    TITLE = "cc-continue"
+
     """A pure viewer/editor of the queue database. It never executes
     prompts itself — only `cc-continue-daemon` does that. This app can be
     opened and closed freely (e.g. inside a tmux window over SSH) without
