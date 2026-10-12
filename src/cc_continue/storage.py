@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS queues (
     auto_continue INTEGER NOT NULL DEFAULT 1,
     paused INTEGER NOT NULL DEFAULT 0,
     archived INTEGER NOT NULL DEFAULT 0,
-    last_seen_at TEXT
+    last_seen_at TEXT,
+    remote_control_url TEXT
 );
 
 CREATE TABLE IF NOT EXISTS queue_items (
@@ -133,6 +134,9 @@ class Storage:
             if column not in columns:
                 conn.execute(f"ALTER TABLE queues ADD COLUMN {column} TEXT")
                 conn.commit()
+        if "remote_control_url" not in columns:
+            conn.execute("ALTER TABLE queues ADD COLUMN remote_control_url TEXT")
+            conn.commit()
         if "last_seen_at" not in columns:
             conn.execute("ALTER TABLE queues ADD COLUMN last_seen_at TEXT")
             # Existing conversations start as seen — otherwise every old one
@@ -343,6 +347,26 @@ class Storage:
 
     def set_queue_archived(self, queue_id: int, value: bool) -> None:
         self._set_queue_flag(queue_id, "archived", value)
+
+    def set_remote_control_url(self, queue_id: int, url: str | None) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute("UPDATE queues SET remote_control_url = ? WHERE id = ?", (url, queue_id))
+            conn.commit()
+
+    def add_queue_item_front(self, queue_id: int, prompt_text: str) -> QueueItem:
+        """Queue a prompt ahead of everything pending (e.g. "continue" after
+        a usage limit interrupted the current task)."""
+        with closing(self._connect()) as conn:
+            min_pos = conn.execute(
+                "SELECT COALESCE(MIN(position), 0) FROM queue_items WHERE queue_id = ?", (queue_id,)
+            ).fetchone()[0]
+            cur = conn.execute(
+                "INSERT INTO queue_items (queue_id, prompt_text, position, status, added_at) VALUES (?, ?, ?, ?, ?)",
+                (queue_id, prompt_text, min_pos - 1, ItemStatus.PENDING.value, datetime.now().isoformat()),
+            )
+            conn.commit()
+            row = conn.execute("SELECT * FROM queue_items WHERE id = ?", (cur.lastrowid,)).fetchone()
+            return self._row_to_item(row)
 
     def find_queue(self, queue_id: int) -> Queue | None:
         """Like get_queue, but None for a queue that no longer exists."""
@@ -558,6 +582,7 @@ class Storage:
             paused=bool(row["paused"]),
             archived=bool(row["archived"]),
             last_seen_at=datetime.fromisoformat(row["last_seen_at"]) if row["last_seen_at"] else None,
+            remote_control_url=row["remote_control_url"],
         )
 
     @staticmethod

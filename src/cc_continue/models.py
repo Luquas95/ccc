@@ -40,6 +40,10 @@ class DeliveryMode(str, Enum):
     # terminal's conversation. Riskier (see live_delivery module) and
     # gives no structured result — only "delivered" or "failed".
     LIVE_TERMINAL = "live_terminal"
+    # cc-continue runs an interactive `claude --remote-control` itself (see
+    # managed_sessions) and pastes queued prompts into it; the conversation
+    # is also reachable from the Claude mobile app / claude.ai.
+    REMOTE_CONTROL = "remote_control"
 
 
 @dataclass
@@ -74,6 +78,8 @@ class Queue:
     archived: bool = False
     # When the conversation was last shown in the TUI ("new reply" marker).
     last_seen_at: datetime | None = None
+    # Remote-control link printed by the managed interactive session.
+    remote_control_url: str | None = None
 
 
 @dataclass

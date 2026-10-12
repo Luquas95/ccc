@@ -441,3 +441,15 @@ def test_migration_marks_existing_conversations_seen(tmp_path):
     conn.execute("INSERT INTO prompt_runs (queue_id, prompt_text, started_at, finished_at, status) VALUES (1,'p','2026-01-01T00:00:00','2026-01-01T00:01:00','success')")
     conn.commit(); conn.close()
     assert Storage(db).unseen_queue_ids() == set()
+
+
+def test_remote_control_url_and_front_insert(tmp_path):
+    storage = Storage(tmp_path / "h.db")
+    q = storage.create_queue("a", "/tmp/a", "s1")
+    assert q.remote_control_url is None
+    storage.set_remote_control_url(q.id, "https://claude.ai/code/session_x")
+    assert storage.get_queue(q.id).remote_control_url == "https://claude.ai/code/session_x"
+    storage.add_queue_item(q.id, "one")
+    storage.add_queue_item(q.id, "two")
+    storage.add_queue_item_front(q.id, "continue")
+    assert [i.prompt_text for i in storage.list_pending_items(q.id)] == ["continue", "one", "two"]
