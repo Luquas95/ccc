@@ -8,7 +8,7 @@ from textual.content import Content
 from textual.widgets import DataTable, Input, Static
 
 from cc_continue.launch_options import describe_flags
-from cc_continue.models import Queue, QueueStatus
+from cc_continue.models import DeliveryMode, Queue, QueueStatus
 from cc_continue.storage import Storage
 from cc_continue.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
 from cc_continue.tui.layout import (
@@ -265,6 +265,8 @@ class ConversationsScreen(SidebarScreen):
             (queue.name, "bold"), "  ", (queue.project_path, "dim"), "  ·  ", describe_flags(queue.launch_flags),
             "  ·  ", ("auto-continue on", "green") if queue.auto_continue else ("auto-continue off", "yellow"),
         ]
+        if queue.delivery_mode == DeliveryMode.REMOTE_CONTROL:
+            parts += ["\n", ("remote control: ", "bold"), (queue.remote_control_url or "starting…", "cyan")]
         if queue.first_run_flags:
             parts += ["  ·  ", ("first run: " + " ".join(queue.first_run_flags), "yellow")]
         self.query_one("#conversation-header", Static).update(Content.assemble(*parts))

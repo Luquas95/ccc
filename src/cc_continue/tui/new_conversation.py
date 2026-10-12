@@ -111,6 +111,7 @@ class NewConversationModal(ModalScreen):
         # Not a `claude` flag: cc-continue's own behaviour at usage limits.
         right.append(Static("cc-continue", classes="group-title"))
         right.append(Checkbox("Auto-continue after usage limit", value=True, id="auto-continue"))
+        right.append(Checkbox("Remote control (phone / claude.ai)", value=True, id="remote-control"))
         recent = [Option(Content(p), id=p) for p in self.storage.recent_project_paths()]
         box = Container(
             Horizontal(
@@ -219,6 +220,7 @@ class NewConversationModal(ModalScreen):
                 session_id=session_id,
                 pr=self.query_one("#from-pr-input", Input).value,
                 auto_continue=self.query_one("#auto-continue", Checkbox).value,
+                remote_control=self.query_one("#remote-control", Checkbox).value,
             )
         except ValueError as exc:
             error.update(Content(str(exc)))

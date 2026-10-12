@@ -113,12 +113,13 @@ async def test_start_conversation_remote_control_mode(storage, project_dir):
 
 async def test_daemon_starts_process_and_reads_url_and_trust(storage, project_dir, tmux):
     q = _rc(storage, project_dir, name="conv")
-    tmux.pane_text = "Do you trust the files in this folder?\n... https://claude.ai/code/session_ABC123"
+    tmux.pane_text = "Do you trust the files in this folder?\n❯ 1. Yes, proceed\n... https://claude.ai/code/session_ABC123"
 
     async def body():
         assert await _until(lambda: tmux.started)
         assert await _until(lambda: storage.get_queue(q.id).remote_control_url == "https://claude.ai/code/session_ABC123")
-        assert tmux.confirmed >= 1
+        await asyncio.sleep(0.2)
+        assert tmux.confirmed == 1  # at most once per start
 
     await _run_orch(storage, body)
     cmd = tmux.started[0]
@@ -195,3 +196,16 @@ async def test_fork_adopts_real_session_id(storage, project_dir, tmux):
     await _run_orch(storage, body)
     assert tmux.started[0][:4] == ["claude", "--resume", "orig", "--fork-session"]
     assert storage.get_queue(q.id).first_run_flags is None
+
+
+async def test_trust_prompt_not_confirmed_after_startup_window(storage, project_dir, tmux, monkeypatch):
+    monkeypatch.setattr("cc_continue.orchestrator.TRUST_CONFIRM_WINDOW_SECONDS", 0)
+    _rc(storage, project_dir)
+    tmux.pane_text = "Do you trust the files in this folder?\n❯ 1. Yes, proceed"
+
+    async def body():
+        assert await _until(lambda: tmux.started)
+        await asyncio.sleep(0.2)
+
+    await _run_orch(storage, body)
+    assert tmux.confirmed == 0

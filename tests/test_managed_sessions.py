@@ -32,8 +32,12 @@ def test_parse_remote_url_and_trust_prompt():
     pane = "  /remote-control is active · Continue here, on your phone, or at https://claude.ai/code/session_012kihHi2x9g\n"
     assert ms.parse_remote_url(pane) == "https://claude.ai/code/session_012kihHi2x9g"
     assert ms.parse_remote_url("nothing here") is None
-    assert ms.needs_trust_confirmation("Do you trust the files in this folder?\n❯ 1. Yes, proceed")
+    assert ms.needs_trust_confirmation("Do you trust the files in this folder?\n❯ 1. Yes, proceed\n  2. No, exit")
     assert not ms.needs_trust_confirmation("❯ Řekni jen OK")
+    # Claude merely mentioning the phrase in a reply is not the dialog.
+    assert not ms.needs_trust_confirmation("● Do you trust the files in this folder? That's the dialog text.")
+    # Any other prompt (e.g. a tool permission question) is never confirmed.
+    assert not ms.needs_trust_confirmation("Do you want to proceed?\n❯ 1. Yes\n  2. No")
 
 
 @pytest.fixture

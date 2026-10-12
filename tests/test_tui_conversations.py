@@ -391,3 +391,19 @@ async def test_paused_queue_status_and_t_opens_tasks(tmp_path, monkeypatch):
         await pilot.press("escape")
         await pilot.pause()
         assert "Queue paused" not in str(app.screen.query_one("#conversation-status").render())
+
+
+@pytest.mark.asyncio
+async def test_header_shows_remote_control_link(tmp_path, monkeypatch):
+    from cc_continue.models import DeliveryMode
+
+    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    storage = Storage(tmp_path / "history.db")
+    q = storage.create_queue("rc", "/tmp/rc", "s-rc", delivery_mode=DeliveryMode.REMOTE_CONTROL, launch_flags=[])
+    app = await _open(storage)
+    async with app.run_test(size=(200, 40)) as pilot:
+        await pilot.pause()
+        assert "remote control: starting…" in str(app.screen.query_one("#conversation-header").render())
+        storage.set_remote_control_url(q.id, "https://claude.ai/code/session_XYZ")
+        await app.screen._refresh_current()
+        assert "https://claude.ai/code/session_XYZ" in str(app.screen.query_one("#conversation-header").render())

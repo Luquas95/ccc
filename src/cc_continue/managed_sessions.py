@@ -79,10 +79,13 @@ def parse_remote_url(pane_text: str) -> str | None:
 
 
 def needs_trust_confirmation(pane_text: str) -> bool:
-    """Interactive Claude asks whether to trust a new folder (headless -p
-    skips it). The user picked the folder in cc-continue, so we accept."""
-    lowered = pane_text.lower()
-    return "do you trust" in lowered or "trust this folder" in lowered
+    """True only while interactive Claude shows its folder-trust dialog
+    (headless -p skips it; the user picked the folder in cc-continue, so the
+    daemon accepts it). Deliberately narrow: the question AND its "Yes,
+    proceed" choice must be on screen, so Claude merely quoting the phrase,
+    or any other prompt — tool permission questions in particular — never
+    matches. Callers additionally limit this to just after startup."""
+    return "Do you trust the files in this folder?" in pane_text and "Yes, proceed" in pane_text
 
 
 def confirm(queue_id: int) -> None:

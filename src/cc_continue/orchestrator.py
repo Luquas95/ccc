@@ -49,6 +49,9 @@ MAINTENANCE_INTERVAL_SECONDS = 10.0
 # After pasting a prompt, wait up to this long for Claude to report busy
 # before considering the next one (it flips from idle a moment later).
 DELIVERY_SETTLE_SECONDS = 15.0
+# The folder-trust dialog is only accepted this soon after the daemon
+# started the process, and at most once per start.
+TRUST_CONFIRM_WINDOW_SECONDS = 60.0
 # Fallback wait when a managed session hits a limit and usage is unknown.
 MANAGED_LIMIT_FALLBACK = timedelta(minutes=15)
 
@@ -164,6 +167,10 @@ class QueueRuntime:
         # managed session was blocked on a limit at the previous check.
         self._last_maintenance = 0.0
         self._managed_was_blocked = False
+        # Loop time when the daemon last started the managed process, and
+        # whether the trust dialog may still be accepted for that start.
+        self._managed_started_at: float | None = None
+        self._trust_confirm_pending = False
 
     def start(self) -> None:
         self._task = asyncio.create_task(self._loop())
@@ -408,10 +415,19 @@ class QueueRuntime:
             logger.info("Starting remote-control session for '%s'", queue.name)
             await asyncio.to_thread(managed_sessions.start, queue, command)
             self._managed_was_blocked = False
+            self._managed_started_at = asyncio.get_running_loop().time()
+            self._trust_confirm_pending = True
             return
 
         pane = await asyncio.to_thread(managed_sessions.capture, queue.id)
-        if managed_sessions.needs_trust_confirmation(pane):
+        in_startup_window = (
+            self._managed_started_at is not None
+            and asyncio.get_running_loop().time() - self._managed_started_at <= TRUST_CONFIRM_WINDOW_SECONDS
+        )
+        if self._trust_confirm_pending and in_startup_window and managed_sessions.needs_trust_confirmation(pane):
+            # Only the folder-trust dialog, only right after our own start,
+            # only once. Tool permission prompts are never answered here.
+            self._trust_confirm_pending = False
             await asyncio.to_thread(managed_sessions.confirm, queue.id)
         url = managed_sessions.parse_remote_url(pane)
         if url and url != queue.remote_control_url:

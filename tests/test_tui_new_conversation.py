@@ -109,3 +109,36 @@ async def test_auto_continue_checkbox(tmp_path):
         await pilot.click("#launch-start")
         await pilot.pause()
     assert storage.get_queue(results[0]).auto_continue is False
+
+
+@pytest.mark.asyncio
+async def test_remote_control_checkbox_default_on(tmp_path):
+    from cc_continue.models import DeliveryMode
+
+    storage = Storage(tmp_path / "h.db")
+    results = []
+    app = _host(NewConversationModal(storage, browse_root=tmp_path), results)
+    async with app.run_test(size=(160, 50)) as pilot:
+        await pilot.pause()
+        assert app.screen.query_one("#remote-control", Checkbox).value is True
+        app.screen.query_one("#launch-path", Input).value = str(tmp_path)
+        await pilot.click("#launch-start")
+        await pilot.pause()
+    assert storage.get_queue(results[0]).delivery_mode == DeliveryMode.REMOTE_CONTROL
+
+
+@pytest.mark.asyncio
+async def test_remote_control_unticked_gives_headless(tmp_path):
+    from cc_continue.models import DeliveryMode
+
+    storage = Storage(tmp_path / "h.db")
+    results = []
+    app = _host(NewConversationModal(storage, browse_root=tmp_path), results)
+    async with app.run_test(size=(160, 50)) as pilot:
+        await pilot.pause()
+        app.screen.query_one("#remote-control", Checkbox).value = False
+        app.screen.query_one("#launch-path", Input).value = str(tmp_path)
+        await pilot.pause()
+        await pilot.click("#launch-start")
+        await pilot.pause()
+    assert storage.get_queue(results[0]).delivery_mode == DeliveryMode.HEADLESS
