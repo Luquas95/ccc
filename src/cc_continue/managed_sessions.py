@@ -8,9 +8,12 @@ Headless `claude -p` can't do this — it silently ignores --remote-control
 """
 from __future__ import annotations
 
+import os
 import re
 import shlex
+import signal
 import subprocess
+import time
 
 from cc_continue.live_delivery import DeliveryResult
 from cc_continue.models import Queue
@@ -20,6 +23,11 @@ TMUX_SOCKET = "cc-continue-sessions"
 
 _REMOTE_URL_RE = re.compile(r"https://claude\.ai/code/session_[A-Za-z0-9]+")
 _SESSION_SELECTING_FLAGS = ("--resume", "--from-pr")
+
+# kill-session only sends SIGHUP; Claude shuts down gracefully but takes a
+# few seconds. Wait this long before SIGTERM, then this long before SIGKILL.
+STOP_GRACE_SECONDS = 10.0
+STOP_TERM_SECONDS = 3.0
 
 
 def _run(args: list[str], input_text: str | None = None) -> subprocess.CompletedProcess:
@@ -56,8 +64,42 @@ def start(queue: Queue, command: list[str]) -> None:
     )
 
 
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _signal(pid: int, sig: int) -> None:
+    try:
+        os.kill(pid, sig)
+    except ProcessLookupError:
+        pass
+
+
+def _wait_gone(pid: int, seconds: float) -> bool:
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        if not _pid_alive(pid):
+            return True
+        time.sleep(min(0.2, seconds))
+    return not _pid_alive(pid)
+
+
 def stop(queue_id: int) -> None:
+    """End the conversation's interactive process — and make sure it's
+    really gone, not left running without its tmux pane."""
+    pid = pane_pid(queue_id)
     _tmux("kill-session", "-t", target(queue_id))
+    if pid is None or _wait_gone(pid, STOP_GRACE_SECONDS):
+        return
+    _signal(pid, signal.SIGTERM)
+    if not _wait_gone(pid, STOP_TERM_SECONDS):
+        _signal(pid, signal.SIGKILL)
 
 
 def capture(queue_id: int) -> str:

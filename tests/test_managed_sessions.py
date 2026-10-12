@@ -55,6 +55,9 @@ def calls(monkeypatch):
         return subprocess.CompletedProcess(args, 0, "", "")
 
     monkeypatch.setattr(ms, "_run", fake_run)
+    # Never let a test signal a real process: the fake pane pid is 4242.
+    monkeypatch.setattr(ms, "_pid_alive", lambda pid: False)
+    monkeypatch.setattr(ms, "_signal", lambda pid, sig: None)
     return recorded
 
 
@@ -70,7 +73,7 @@ def test_tmux_calls_use_own_socket_and_target(calls):
     start_args = calls[1][0]
     assert "new-session" in start_args and "-c" in start_args and "/tmp/p" in start_args
     assert start_args[-1] == "claude --session-id sid-1 --remote-control 'my conv'"
-    assert calls[-1][0][3:] == ["kill-session", "-t", "q7"]
+    assert ["kill-session", "-t", "q7"] in [args[3:] for args, _ in calls]
 
 
 def test_paste_and_submit_uses_bracketed_paste(calls):
@@ -81,3 +84,28 @@ def test_paste_and_submit_uses_bracketed_paste(calls):
     assert calls[0][1] == "line one\nline two"
     assert "-p" in calls[1][0] and "-d" in calls[1][0]
     assert calls[2][0][-1] == "Enter"
+
+
+def test_stop_escalates_when_process_lingers(calls, monkeypatch):
+    alive = {"n": 0}
+    signals = []
+
+    def fake_alive(pid):
+        alive["n"] += 1
+        return not signals or signals[-1] != 9  # dies only on SIGKILL
+
+    monkeypatch.setattr(ms, "_pid_alive", fake_alive)
+    monkeypatch.setattr(ms, "_signal", lambda pid, sig: signals.append(sig))
+    monkeypatch.setattr(ms, "STOP_GRACE_SECONDS", 0.05)
+    monkeypatch.setattr(ms, "STOP_TERM_SECONDS", 0.05)
+    ms.stop(7)
+    assert calls[0][0][3] == "display-message" and calls[1][0][3] == "kill-session"
+    assert signals == [15, 9]
+
+
+def test_stop_does_not_signal_a_process_that_exited(calls, monkeypatch):
+    signals = []
+    monkeypatch.setattr(ms, "_pid_alive", lambda pid: False)
+    monkeypatch.setattr(ms, "_signal", lambda pid, sig: signals.append(sig))
+    ms.stop(7)
+    assert signals == []

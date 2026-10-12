@@ -173,6 +173,30 @@ cc-continue just switches to it (unless you fork). A fork / from-PR
 conversation adopts the new session id Claude Code returns on its first
 run.
 
+### Remote control (phone / claude.ai)
+
+*Remote control* in the New conversation dialog is ticked by default.
+Such a conversation doesn't run headless message by message: the daemon
+keeps an interactive `claude --remote-control <name>` running for it in a
+hidden tmux server (`tmux -L cc-continue-sessions`, session `q<id>`), so
+you can also continue it from the Claude mobile app or claude.ai — the
+link appears in the conversation header and the queue detail. (Headless
+`claude -p` silently ignores `--remote-control`; it needs a live process.)
+
+- Messages from the TUI and the task queue are pasted into it once Claude
+  is idle (multi-line prompts as a single paste). Messages sent from the
+  phone show up in the same transcript.
+- The daemon starts the process after the conversation is created, after
+  a daemon restart, and if it dies (`--resume` keeps the history); it
+  accepts the folder-trust dialog only right after starting it, never
+  any tool-permission prompt. Archiving (`x`) or deleting stops it.
+- Usage limits: if the session gets blocked mid-work, a continue message
+  is queued first and sent after the reset (auto-continue) or when you
+  press `r`.
+- Each such conversation keeps a Claude Code process in memory; archive
+  the ones you don't use. Runs aren't counted in the token analytics
+  (interactive sessions return no structured result).
+
 ### Usage limits and auto-continue
 
 Each conversation has an **auto-continue** switch (on by default; a
