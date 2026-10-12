@@ -27,3 +27,17 @@ def test_add_command_reuses_existing_queue(tmp_path):
     assert len(storage.runs_for_queue(queue.id)) == 0
     first = storage.next_pending_item(queue.id)
     assert first.prompt_text == "first"
+
+
+def test_config_continue_text_set_and_show(tmp_path, monkeypatch, capsys):
+    from cc_continue import cli
+    from cc_continue.orchestrator import DEFAULT_CONTINUE_TEXT
+
+    db_path = tmp_path / "history.db"
+    monkeypatch.setattr(cli, "default_db_path", lambda: db_path)
+    cli.main(["config", "continue-text"])
+    assert capsys.readouterr().out.strip() == DEFAULT_CONTINUE_TEXT
+    cli.main(["config", "continue-text", "Jedeme dál."])
+    assert Storage(db_path).get_setting("continue_text") == "Jedeme dál."
+    cli.main(["config", "continue-text"])
+    assert capsys.readouterr().out.strip().endswith("Jedeme dál.")

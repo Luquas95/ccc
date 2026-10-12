@@ -19,6 +19,18 @@ def add_command(db_path: str, project_path: str, prompt: str) -> None:
     enqueue_prompt(storage, project_path, prompt)
 
 
+def config_command(db_path: str, setting: str, value: str | None) -> None:
+    from cc_continue.orchestrator import DEFAULT_CONTINUE_TEXT
+
+    storage = Storage(db_path)
+    if setting == "continue-text":
+        if value is None:
+            print(storage.get_setting("continue_text", DEFAULT_CONTINUE_TEXT))
+        else:
+            storage.set_setting("continue_text", value)
+            print(f"continue-text set to: {value}")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="cc-continue")
     subparsers = parser.add_subparsers(dest="command")
@@ -31,7 +43,19 @@ def main(argv: list[str] | None = None) -> None:
     add_parser.add_argument("project_path")
     add_parser.add_argument("prompt")
 
+    config_parser = subparsers.add_parser("config", help="Show or change cc-continue settings")
+    config_sub = config_parser.add_subparsers(dest="setting", required=True)
+    continue_parser = config_sub.add_parser(
+        "continue-text",
+        help="Message sent after a usage limit interrupted a prompt mid-way (no value: show it)",
+    )
+    continue_parser.add_argument("value", nargs="?")
+
     args = parser.parse_args(argv)
+
+    if args.command == "config":
+        config_command(str(default_db_path()), args.setting, args.value)
+        return
 
     if args.command == "add":
         try:
