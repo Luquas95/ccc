@@ -413,3 +413,158 @@ async def test_first_run_adopts_returned_session_id(storage, project_dir):
     assert calls[0][1] == ["--resume", "orig", "--fork-session"]
     q = storage.get_queue(q.id)
     assert q.session_id == "forked-id" and q.first_run_flags is None and q.always_resume
+
+
+# --- auto-continue / usage-based limits ------------------------------------
+
+from datetime import datetime, timedelta, timezone  # noqa: E402
+
+from cc_continue.orchestrator import DEFAULT_CONTINUE_TEXT  # noqa: E402
+from cc_continue.usage_api import ProUsage, WindowUsage  # noqa: E402
+
+
+def _five_hour_usage(pct, reset_local):
+    return ProUsage(
+        five_hour=WindowUsage(pct, reset_local.astimezone().astimezone(timezone.utc)), seven_day=None, per_model=[]
+    )
+
+
+async def _until(cond, timeout=2.0):
+    for _ in range(int(timeout / 0.01)):
+        if cond():
+            return True
+        await asyncio.sleep(0.01)
+    return False
+
+
+@pytest.fixture
+def fast_poll(monkeypatch):
+    monkeypatch.setattr("cc_continue.orchestrator.POLL_INTERVAL_SECONDS", 0.02)
+    monkeypatch.setattr("cc_continue.orchestrator.next_backoff_seconds", lambda prev: 0)
+
+
+def _limited_then_ok(sent):
+    async def fake_run(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
+        sent.append(prompt)
+        if len(sent) == 1:
+            return RunResult(status=RunStatus.RATE_LIMITED, error_text="usage limit reached")
+        return RunResult(status=RunStatus.SUCCESS)
+
+    return fake_run
+
+
+async def test_auto_continue_sends_continue_text_when_prompt_reached_conversation(storage, project_dir, fast_poll, monkeypatch):
+    monkeypatch.setattr("cc_continue.orchestrator.last_human_text", lambda session_id: "do work")
+    sent = []
+    orch = Orchestrator(storage, run_fn=_limited_then_ok(sent))
+    await orch.start_all()
+    orch.add_prompt(project_dir, "do work")
+    assert await _until(lambda: len(sent) >= 2)
+    await orch.stop_all()
+    assert sent == ["do work", DEFAULT_CONTINUE_TEXT]
+    queue = storage.get_queue_by_path(project_dir)
+    assert sorted((r.id, r.prompt_text) for r in storage.runs_for_queue(queue.id))[-1][1] == DEFAULT_CONTINUE_TEXT
+
+
+async def test_prompt_not_in_transcript_is_resent(storage, project_dir, fast_poll, monkeypatch):
+    monkeypatch.setattr("cc_continue.orchestrator.last_human_text", lambda session_id: None)
+    sent = []
+    orch = Orchestrator(storage, run_fn=_limited_then_ok(sent))
+    await orch.start_all()
+    orch.add_prompt(project_dir, "do work")
+    assert await _until(lambda: len(sent) >= 2)
+    await orch.stop_all()
+    assert sent == ["do work", "do work"]
+
+
+async def test_custom_continue_text_from_settings(storage, project_dir, fast_poll, monkeypatch):
+    monkeypatch.setattr("cc_continue.orchestrator.last_human_text", lambda session_id: "do work")
+    storage.set_setting("continue_text", "dál")
+    sent = []
+    orch = Orchestrator(storage, run_fn=_limited_then_ok(sent))
+    await orch.start_all()
+    orch.add_prompt(project_dir, "do work")
+    assert await _until(lambda: len(sent) >= 2)
+    await orch.stop_all()
+    assert sent[1] == "dál"
+
+
+async def test_auto_continue_off_pauses_until_user_resumes(storage, project_dir, fast_poll, monkeypatch):
+    monkeypatch.setattr("cc_continue.orchestrator.last_human_text", lambda session_id: None)
+    queue = enqueue_prompt(storage, project_dir, "do work")
+    storage.set_queue_auto_continue(queue.id, False)
+    sent = []
+    orch = Orchestrator(storage, run_fn=_limited_then_ok(sent))
+    await orch.start_all()
+    assert await _until(lambda: storage.get_queue(queue.id).status == QueueStatus.PAUSED_LIMIT)
+    await asyncio.sleep(0.2)
+    assert len(sent) == 1
+    storage.update_queue_status(queue.id, QueueStatus.IDLE)  # what `r` in the TUI does
+    assert await _until(lambda: len(sent) >= 2)
+    await orch.stop_all()
+
+
+async def test_rate_limit_waits_for_reset_reported_by_usage(storage, project_dir, fast_poll, monkeypatch):
+    reset = datetime.now().replace(microsecond=0) + timedelta(hours=1)
+    monkeypatch.setattr("cc_continue.orchestrator.get_pro_usage", lambda force_refresh=False: _five_hour_usage(99, reset))
+    monkeypatch.setattr("cc_continue.orchestrator.last_human_text", lambda session_id: None)
+    sent = []
+    orch = Orchestrator(storage, run_fn=_limited_then_ok(sent))
+    await orch.start_all()
+    orch.add_prompt(project_dir, "do work")
+    queue_id = storage.get_queue_by_path(project_dir).id
+    assert await _until(lambda: storage.get_queue(queue_id).status == QueueStatus.WAITING_RETRY)
+    await asyncio.sleep(0.2)
+    await orch.stop_all()
+    assert len(sent) == 1
+    assert storage.get_queue(queue_id).next_retry_at == reset + timedelta(seconds=30)
+
+
+async def test_exhausted_usage_holds_queue_without_running_claude(storage, project_dir, fast_poll, monkeypatch):
+    reset = datetime.now().replace(microsecond=0) + timedelta(hours=2)
+    monkeypatch.setattr("cc_continue.orchestrator.get_pro_usage", lambda force_refresh=False: _five_hour_usage(100, reset))
+    sent = []
+    orch = Orchestrator(storage, run_fn=_limited_then_ok(sent))
+    await orch.start_all()
+    orch.add_prompt(project_dir, "do work")
+    queue_id = storage.get_queue_by_path(project_dir).id
+    assert await _until(lambda: storage.get_queue(queue_id).status == QueueStatus.WAITING_RETRY)
+    await asyncio.sleep(0.2)
+    await orch.stop_all()
+    assert sent == []
+    assert storage.get_queue(queue_id).next_retry_at == reset + timedelta(seconds=30)
+
+
+async def test_paused_queue_starts_nothing_until_unpaused(storage, project_dir, fast_poll):
+    queue = enqueue_prompt(storage, project_dir, "do work")
+    storage.set_queue_paused(queue.id, True)
+    sent = []
+
+    async def fake_run(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
+        sent.append(prompt)
+        return RunResult(status=RunStatus.SUCCESS)
+
+    orch = Orchestrator(storage, run_fn=fake_run)
+    await orch.start_all()
+    await asyncio.sleep(0.2)
+    assert sent == []
+    storage.set_queue_paused(queue.id, False)
+    assert await _until(lambda: sent == ["do work"])
+    await orch.stop_all()
+
+
+async def test_restart_while_waiting_does_not_retry_early(storage, project_dir, fast_poll):
+    queue = enqueue_prompt(storage, project_dir, "do work")
+    storage.update_queue_status(queue.id, QueueStatus.WAITING_RETRY, next_retry_at=datetime.now() + timedelta(hours=1))
+    sent = []
+
+    async def fake_run(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
+        sent.append(prompt)
+        return RunResult(status=RunStatus.SUCCESS)
+
+    orch = Orchestrator(storage, run_fn=fake_run)
+    await orch.start_all()
+    await asyncio.sleep(0.2)
+    await orch.stop_all()
+    assert sent == []
+    assert storage.get_queue(queue.id).status == QueueStatus.WAITING_RETRY

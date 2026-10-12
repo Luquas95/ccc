@@ -161,3 +161,15 @@ def _summarize(path: Path) -> tuple[str | None, int]:
                 if first_prompt is None and event.kind == "human" and not event.text.lstrip().startswith("<"):
                     first_prompt = event.text.strip().splitlines()[0][:120]
     return first_prompt, count
+
+
+def last_human_text(session_id: str) -> str | None:
+    """The last human message recorded in a session's transcript — used
+    after a usage-limit hit to tell whether the prompt actually reached
+    the conversation. None if there's no transcript or no human message."""
+    path = find_transcript_path(session_id)
+    if path is None:
+        return None
+    events, _ = parse_transcript_events(path)
+    humans = [e for e in events if e.kind == "human"]
+    return humans[-1].text if humans else None

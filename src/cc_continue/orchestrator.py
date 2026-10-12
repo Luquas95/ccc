@@ -4,7 +4,7 @@ import asyncio
 import logging
 import sqlite3
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Awaitable, Callable
 
@@ -16,13 +16,15 @@ from cc_continue.launch_options import (
     persistent_flags,
     session_mode,
 )
+from cc_continue.limits import exhausted_until, retry_time_after_rate_limit
 from cc_continue.live_delivery import deliver_to_live_session
 from cc_continue.models import DeliveryMode, ItemStatus, PromptRun, Queue, QueueItem, QueueStatus, RunStatus
 from cc_continue.retry import next_backoff_seconds, parse_reset_time
 from cc_continue.runner import RunResult, execute
 from cc_continue.session_discovery import discover_sessions, session_ready_for_input
 from cc_continue.storage import Storage
-from cc_continue.transcript import list_sessions_for_directory
+from cc_continue.transcript import last_human_text, list_sessions_for_directory
+from cc_continue.usage_api import get_pro_usage
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +35,11 @@ RunFn = Callable[[str, str, str, bool, list[str] | None, list[str] | None], Awai
 # TUI, or `cc-continue add`) to enqueue a prompt or clear a blocked queue
 # without the daemon needing any cross-process signaling mechanism.
 POLL_INTERVAL_SECONDS = 5.0
+
+# Sent instead of repeating a prompt that a usage limit interrupted after
+# it had reached the conversation. Overridable via the "continue_text"
+# setting (`cc-continue config continue-text`).
+DEFAULT_CONTINUE_TEXT = "Pokračuj tam, kde jsi skončil."
 
 
 def enqueue_prompt(storage: Storage, project_path: str, prompt_text: str, name: str | None = None) -> Queue:
@@ -160,14 +167,40 @@ class QueueRuntime:
             queue = self.storage.get_queue(self.queue.id)
             self.queue = queue
 
-            if queue.status == QueueStatus.BLOCKED_ERROR:
+            if queue.status in (QueueStatus.BLOCKED_ERROR, QueueStatus.PAUSED_LIMIT) or queue.paused:
+                # Waiting for the user (r / a new message / unpause in TUI).
                 await self._wait_for_wake_or_poll(POLL_INTERVAL_SECONDS)
                 continue
 
+            if queue.status == QueueStatus.WAITING_RETRY and queue.next_retry_at is not None:
+                remaining = (queue.next_retry_at - datetime.now()).total_seconds()
+                if remaining > 0:
+                    # Sleep in slices so changes made from the TUI are seen.
+                    await self._wait_for_wake_or_poll(min(remaining, POLL_INTERVAL_SECONDS))
+                    continue
+                # Reset time reached: confirm with fresh usage figures.
+                until = exhausted_until(await asyncio.to_thread(get_pro_usage, True), datetime.now())
+                if until is not None:
+                    self._hold_for_limit(queue, until)
+                    continue
+                self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
+                continue
+
+            if self.storage.next_pending_item(queue.id) is None:
+                if queue.status != QueueStatus.IDLE:
+                    self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
+                await self._wait_for_wake_or_poll(POLL_INTERVAL_SECONDS)
+                continue
+
+            if queue.delivery_mode == DeliveryMode.HEADLESS:
+                # Don't even start Claude while a limit window is used up.
+                until = exhausted_until(await asyncio.to_thread(get_pro_usage), datetime.now())
+                if until is not None:
+                    self._hold_for_limit(queue, until)
+                    continue
+
             item = self.storage.claim_next_pending_item(queue.id)
             if item is None:
-                self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
-                await self._wait_for_wake_or_poll(POLL_INTERVAL_SECONDS)
                 continue
 
             self.storage.update_queue_status(queue.id, QueueStatus.RUNNING)
@@ -185,15 +218,25 @@ class QueueRuntime:
                 )
                 self._record_error_run(queue, item, f"{type(exc).__name__}: {exc}")
 
+    def _hold_for_limit(self, queue: Queue, until: datetime) -> None:
+        """Usage limit: wait for the reset by itself (auto-continue) or
+        stop and wait for the user."""
+        status = QueueStatus.WAITING_RETRY if queue.auto_continue else QueueStatus.PAUSED_LIMIT
+        self.storage.update_queue_status(queue.id, status, next_retry_at=until)
+
     async def _process_item(self, queue: Queue, item: QueueItem) -> None:
         if queue.delivery_mode == DeliveryMode.LIVE_TERMINAL:
             await self._process_live_terminal_item(queue, item)
             return
 
         resume = queue.always_resume or self._has_run_before()
+        if item.continue_on_retry:
+            text = self.storage.get_setting("continue_text", DEFAULT_CONTINUE_TEXT) or DEFAULT_CONTINUE_TEXT
+        else:
+            text = item.prompt_text
         started_at = datetime.now()
         result = await self.run_fn(
-            queue.project_path, queue.session_id, item.prompt_text, resume, queue.launch_flags, queue.first_run_flags
+            queue.project_path, queue.session_id, text, resume, queue.launch_flags, queue.first_run_flags
         )
         finished_at = datetime.now()
 
@@ -202,7 +245,7 @@ class QueueRuntime:
                 id=0,
                 queue_id=queue.id,
                 queue_item_id=item.id,
-                prompt_text=item.prompt_text,
+                prompt_text=text,
                 started_at=started_at,
                 finished_at=finished_at,
                 status=result.status,
@@ -236,15 +279,18 @@ class QueueRuntime:
 
         if result.status == RunStatus.RATE_LIMITED:
             self.storage.set_item_status(item.id, ItemStatus.PENDING)
-            retry_at = parse_reset_time(result.error_text or "")
+            reached = await asyncio.to_thread(last_human_text, queue.session_id)
+            if reached is not None and reached.strip() == text.strip():
+                # Claude had started on it — resume rather than repeat it.
+                self.storage.set_item_continue_on_retry(item.id, True)
+            now = datetime.now()
+            retry_at = retry_time_after_rate_limit(await asyncio.to_thread(get_pro_usage, True), now)
+            if retry_at is None:
+                retry_at = parse_reset_time(result.error_text or "")
             if retry_at is None:
                 self._backoff_seconds = next_backoff_seconds(self._backoff_seconds)
-                retry_at = datetime.fromtimestamp(datetime.now().timestamp() + self._backoff_seconds)
-            self.storage.update_queue_status(
-                queue.id, QueueStatus.WAITING_RETRY, next_retry_at=retry_at
-            )
-            delay = max((retry_at - datetime.now()).total_seconds(), 0)
-            await self._wait_for_wake_or_poll(delay)
+                retry_at = now + timedelta(seconds=self._backoff_seconds)
+            self._hold_for_limit(queue, retry_at)
             return
 
         self._fail_item(queue, item, result.error_text)

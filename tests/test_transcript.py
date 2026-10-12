@@ -269,3 +269,16 @@ def test_lists_sessions_newest_first_via_path_and_realpath(tmp_path, monkeypatch
     assert [s.session_id for s in sessions] == ["new", "old"]
     assert sessions[0].first_prompt == "real prompt"
     assert sessions[1].message_count == 2
+
+
+def test_last_human_text(tmp_path, monkeypatch):
+    from cc_continue.transcript import last_human_text
+
+    root = tmp_path / "projects"
+    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", root)
+    (root / "-x").mkdir(parents=True)
+    (root / "-x" / "sid.jsonl").write_text(
+        _session_line("user", "first") + _session_line("assistant", "ok") + _session_line("user", "second")
+    )
+    assert last_human_text("sid") == "second"
+    assert last_human_text("missing") is None
