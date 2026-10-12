@@ -279,3 +279,38 @@ async def test_truncated_tool_preview_with_bracket_does_not_crash(tmp_path, monk
         await pilot.pause()
         text = "\n".join(str(s.render()) for s in app.screen.query("#conversation-transcript Static"))
         assert "data-section" in text
+
+
+@pytest.mark.asyncio
+async def test_long_transcript_renders_only_newest_events_and_appends_new_ones(tmp_path, monkeypatch):
+    from cc_continue.tui.conversations import MAX_RENDERED_EVENTS
+
+    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    project_dir = tmp_path / "projects" / "-tmp-proj-a"
+    project_dir.mkdir(parents=True)
+    storage = Storage(tmp_path / "history.db")
+    storage.create_queue("proj-a", "/tmp/proj-a", "session-aaa")
+    transcript = project_dir / "session-aaa.jsonl"
+
+    def user_line(i):
+        return json.dumps(
+            {"type": "user", "message": {"role": "user", "content": f"msg {i}"}, "timestamp": "2026-09-04T10:00:00.000Z"}
+        ) + "\n"
+
+    total = MAX_RENDERED_EVENTS + 30
+    transcript.write_text("".join(user_line(i) for i in range(total)))
+    app = await _open(storage)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        boxes = app.screen.query("#conversation-transcript .message-box")
+        assert len(boxes) == MAX_RENDERED_EVENTS
+        assert "30 earlier messages not shown" in "\n".join(
+            str(s.render()) for s in app.screen.query("#conversation-transcript Static")
+        )
+        with open(transcript, "a") as f:
+            f.write(user_line(total))
+        await app.screen._refresh_current()
+        await pilot.pause()
+        boxes = app.screen.query("#conversation-transcript .message-box")
+        assert len(boxes) == MAX_RENDERED_EVENTS + 1
+        assert f"msg {total}" in str(boxes.last().render())

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from textual.containers import VerticalScroll
+from textual.containers import Vertical, VerticalScroll
 from textual.content import Content
 from textual.widgets import DataTable, Input, Static
 
@@ -9,6 +9,11 @@ from cc_continue.models import Queue, QueueStatus
 from cc_continue.storage import Storage
 from cc_continue.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
 from cc_continue.tui.layout import LIVE_SESSIONS_BUTTON, NEW_CONVERSATION_BUTTON, RETRY_BUTTON, SidebarScreen
+
+
+# Newest transcript events mounted when a conversation is opened; older
+# ones are summarised in one line (mounting is ~7ms per message).
+MAX_RENDERED_EVENTS = 100
 
 
 class ConversationsScreen(SidebarScreen):
@@ -35,6 +40,9 @@ class ConversationsScreen(SidebarScreen):
     ConversationsScreen #conversation-status {
         height: 1;
         padding: 0 1;
+    }
+    ConversationsScreen #queued-messages {
+        height: auto;
     }
     ConversationsScreen .message-box {
         border: round cyan;
@@ -153,6 +161,9 @@ class ConversationsScreen(SidebarScreen):
         return bool(events)
 
     async def _render_transcript(self, queue_id: int) -> None:
+        """Full re-render of the transcript pane (switching queues). Only
+        the newest MAX_RENDERED_EVENTS events are mounted — a long resumed
+        session has thousands, and mounting each costs ~7ms."""
         queue = self.storage.get_queue(queue_id)
         pending = self.storage.list_pending_items(queue_id)
         events: list[TranscriptEvent] = self._cache[queue_id]["events"]
@@ -163,18 +174,42 @@ class ConversationsScreen(SidebarScreen):
         container = self.query_one("#conversation-transcript", VerticalScroll)
         await container.remove_children()
         if not events and not pending:
-            await container.mount(Static("No conversation yet."))
+            await container.mount(Static("No conversation yet.", id="transcript-placeholder"))
             return
-        for event in events:
-            await container.mount(self._render_event(event))
-        for item in pending:
-            await container.mount(
-                Static(
-                    Content.assemble(("You", "bold"), "  ", ("queued", "dim"), "\n", item.prompt_text),
-                    classes="message-box message-box-queued",
-                )
+        shown = events[-MAX_RENDERED_EVENTS:]
+        widgets = []
+        if len(events) > len(shown):
+            widgets.append(
+                Static(f"… {len(events) - len(shown)} earlier messages not shown", classes="tool-call-line")
             )
+        widgets += [self._render_event(e) for e in shown]
+        widgets.append(Vertical(*self._queued_widgets(pending), id="queued-messages"))
+        # One mount call = one layout pass, much faster than mounting
+        # each widget separately.
+        await container.mount(*widgets)
         container.scroll_end(animate=False)
+
+    async def _append_new_events(self, queue_id: int, new_events: list[TranscriptEvent], pending) -> None:
+        """Incremental update while a conversation is open: add only the new
+        events (before the queued bubbles) and refresh the queued list,
+        instead of re-mounting the whole transcript every 2 seconds."""
+        container = self.query_one("#conversation-transcript", VerticalScroll)
+        queued_box = self.query_one("#queued-messages", Vertical)
+        if new_events:
+            await container.mount(*[self._render_event(e) for e in new_events], before=queued_box)
+        await queued_box.remove_children()
+        await queued_box.mount(*self._queued_widgets(pending))
+        container.scroll_end(animate=False)
+
+    @staticmethod
+    def _queued_widgets(pending) -> list[Static]:
+        return [
+            Static(
+                Content.assemble(("You", "bold"), "  ", ("queued", "dim"), "\n", item.prompt_text),
+                classes="message-box message-box-queued",
+            )
+            for item in pending
+        ]
 
     def _render_event(self, event: TranscriptEvent) -> Static:
         # event.text is arbitrary conversation content (human-typed or a
@@ -223,12 +258,24 @@ class ConversationsScreen(SidebarScreen):
         self._load_transcript(queue_id)
         queue = self.storage.get_queue(queue_id)
         pending = self.storage.list_pending_items(queue_id)
-        key = (queue_id, len(self._cache[queue_id]["events"]), tuple(i.id for i in pending))
-        if key != self._rendered_key:
-            await self._render_transcript(queue_id)
+        events = self._cache[queue_id]["events"]
+        key = (queue_id, len(events), tuple(i.id for i in pending))
+        self._update_header(queue)
+        self.query_one("#conversation-status", Static).update(self._status_text(queue, len(pending)))
+        if key == self._rendered_key:
+            return
+        rendered = self._rendered_key
+        incremental = (
+            rendered is not None
+            and rendered[0] == queue_id
+            and len(events) >= rendered[1]
+            and self.query("#queued-messages")
+        )
+        if incremental:
+            await self._append_new_events(queue_id, events[rendered[1]:], pending)
+            self._rendered_key = key
         else:
-            self._update_header(queue)
-            self.query_one("#conversation-status", Static).update(self._status_text(queue, len(pending)))
+            await self._render_transcript(queue_id)
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id != "message-input":
@@ -239,7 +286,7 @@ class ConversationsScreen(SidebarScreen):
         # Pure storage write — the daemon picks it up on its next poll.
         self.storage.add_queue_item(self._current_queue_id, text)
         event.input.value = ""
-        await self._render_transcript(self._current_queue_id)
+        await self._refresh_current()
 
     def open_conversation(self, queue_id: int) -> None:
         # Already on this screen: just select it in place.
