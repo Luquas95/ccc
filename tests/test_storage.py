@@ -251,3 +251,58 @@ def test_blocked_seconds_total(storage):
         )
     )
     assert storage.blocked_seconds_total() == pytest.approx(300, abs=1)
+
+
+import sqlite3 as _sqlite3
+
+
+def test_launch_flags_round_trip(tmp_path):
+    storage = Storage(tmp_path / "h.db")
+    q = storage.create_queue("a", "/tmp/a", "s1", launch_flags=["--model", "opus"], first_run_flags=["--fork-session"])
+    q = storage.get_queue(q.id)
+    assert q.launch_flags == ["--model", "opus"]
+    assert q.first_run_flags == ["--fork-session"]
+    assert storage.create_queue("b", "/tmp/b", "s2").launch_flags is None
+
+
+def test_migration_adds_launch_columns_to_old_db(tmp_path):
+    db = tmp_path / "old.db"
+    conn = _sqlite3.connect(db)
+    conn.execute(
+        "CREATE TABLE queues (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, project_path TEXT NOT NULL, "
+        "session_id TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'idle', next_retry_at TEXT, last_error TEXT, "
+        "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, always_resume INTEGER NOT NULL DEFAULT 0, "
+        "delivery_mode TEXT NOT NULL DEFAULT 'headless')"
+    )
+    conn.execute("INSERT INTO queues (name, project_path, session_id, created_at, updated_at) VALUES ('x','/x','sx','2026-01-01T00:00:00','2026-01-01T00:00:00')")
+    conn.commit(); conn.close()
+    q = Storage(db).list_queues()[0]
+    assert q.launch_flags is None and q.first_run_flags is None
+
+
+def test_set_queue_session_adopts_id_and_clears_first_run(tmp_path):
+    storage = Storage(tmp_path / "h.db")
+    q = storage.create_queue("a", "/tmp/a", "placeholder", first_run_flags=["--fork-session"])
+    storage.set_queue_session(q.id, "real-id")
+    q = storage.get_queue(q.id)
+    assert (q.session_id, q.first_run_flags, q.always_resume) == ("real-id", None, True)
+
+
+def test_set_queue_session_collision_raises(tmp_path):
+    storage = Storage(tmp_path / "h.db")
+    storage.create_queue("a", "/tmp/a", "taken")
+    q = storage.create_queue("b", "/tmp/b", "placeholder")
+    with pytest.raises(_sqlite3.IntegrityError):
+        storage.set_queue_session(q.id, "taken")
+
+
+def test_recent_project_paths_and_pending_items(tmp_path):
+    storage = Storage(tmp_path / "h.db")
+    a = storage.create_queue("a", "/tmp/a", "s1")
+    storage.create_queue("b", "/tmp/b", "s2")
+    storage.create_queue("a2", "/tmp/a", "s3")
+    storage.update_queue_status(a.id, QueueStatus.IDLE)  # bumps updated_at
+    assert storage.recent_project_paths()[0] == "/tmp/a"
+    assert set(storage.recent_project_paths()) == {"/tmp/a", "/tmp/b"}
+    storage.add_queue_item(a.id, "one"); storage.add_queue_item(a.id, "two")
+    assert [i.prompt_text for i in storage.list_pending_items(a.id)] == ["one", "two"]

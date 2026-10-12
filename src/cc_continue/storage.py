@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from contextlib import closing
 from datetime import datetime
@@ -19,7 +20,9 @@ CREATE TABLE IF NOT EXISTS queues (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     always_resume INTEGER NOT NULL DEFAULT 0,
-    delivery_mode TEXT NOT NULL DEFAULT 'headless'
+    delivery_mode TEXT NOT NULL DEFAULT 'headless',
+    launch_flags TEXT,
+    first_run_flags TEXT
 );
 
 CREATE TABLE IF NOT EXISTS queue_items (
@@ -60,6 +63,10 @@ CREATE TABLE IF NOT EXISTS run_model_usage (
     cache_creation_tokens INTEGER NOT NULL DEFAULT 0
 );
 """
+
+
+def _dump_flags(flags: list[str] | None) -> str | None:
+    return json.dumps(flags) if flags is not None else None
 
 
 class Storage:
@@ -112,6 +119,10 @@ class Storage:
         if "delivery_mode" not in columns:
             conn.execute("ALTER TABLE queues ADD COLUMN delivery_mode TEXT NOT NULL DEFAULT 'headless'")
             conn.commit()
+        for column in ("launch_flags", "first_run_flags"):
+            if column not in columns:
+                conn.execute(f"ALTER TABLE queues ADD COLUMN {column} TEXT")
+                conn.commit()
 
     def _connect(self) -> sqlite3.Connection:
         # timeout: wait for another process's write lock instead of raising
@@ -128,12 +139,15 @@ class Storage:
         session_id: str,
         always_resume: bool = False,
         delivery_mode: DeliveryMode = DeliveryMode.HEADLESS,
+        launch_flags: list[str] | None = None,
+        first_run_flags: list[str] | None = None,
     ) -> Queue:
         now = datetime.now().isoformat()
         with closing(self._connect()) as conn:
             cur = conn.execute(
                 "INSERT INTO queues (name, project_path, session_id, status, created_at, updated_at, "
-                "always_resume, delivery_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "always_resume, delivery_mode, launch_flags, first_run_flags) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     name,
                     project_path,
@@ -143,6 +157,8 @@ class Storage:
                     now,
                     int(always_resume),
                     delivery_mode.value,
+                    _dump_flags(launch_flags),
+                    _dump_flags(first_run_flags),
                 ),
             )
             conn.commit()
@@ -175,6 +191,28 @@ class Storage:
         with closing(self._connect()) as conn:
             rows = conn.execute("SELECT * FROM queues ORDER BY name").fetchall()
             return [self._row_to_queue(r) for r in rows]
+
+    def set_queue_session(self, queue_id: int, session_id: str) -> None:
+        """Adopt the session id Claude Code actually used (fork / from-PR
+        first runs return a new one). Clears the one-shot first-run flags;
+        later runs plain --resume it. Raises sqlite3.IntegrityError if the
+        id already belongs to another queue."""
+        with closing(self._connect()) as conn:
+            conn.execute(
+                "UPDATE queues SET session_id = ?, first_run_flags = NULL, always_resume = 1, updated_at = ? "
+                "WHERE id = ?",
+                (session_id, datetime.now().isoformat(), queue_id),
+            )
+            conn.commit()
+
+    def recent_project_paths(self, limit: int = 10) -> list[str]:
+        with closing(self._connect()) as conn:
+            rows = conn.execute(
+                "SELECT project_path, MAX(updated_at) AS last FROM queues "
+                "GROUP BY project_path ORDER BY last DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            return [r["project_path"] for r in rows]
 
     def update_queue_status(
         self,
@@ -254,6 +292,14 @@ class Storage:
                 (queue_id, ItemStatus.PENDING.value),
             ).fetchone()
             return row[0]
+
+    def list_pending_items(self, queue_id: int) -> list[QueueItem]:
+        with closing(self._connect()) as conn:
+            rows = conn.execute(
+                "SELECT * FROM queue_items WHERE queue_id = ? AND status = ? ORDER BY position",
+                (queue_id, ItemStatus.PENDING.value),
+            ).fetchall()
+            return [self._row_to_item(r) for r in rows]
 
     def set_item_status(self, item_id: int, status: ItemStatus) -> None:
         with closing(self._connect()) as conn:
@@ -383,6 +429,8 @@ class Storage:
             updated_at=datetime.fromisoformat(row["updated_at"]),
             always_resume=bool(row["always_resume"]),
             delivery_mode=DeliveryMode(row["delivery_mode"]),
+            launch_flags=json.loads(row["launch_flags"]) if row["launch_flags"] else None,
+            first_run_flags=json.loads(row["first_run_flags"]) if row["first_run_flags"] else None,
         )
 
     @staticmethod

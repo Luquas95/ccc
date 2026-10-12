@@ -55,6 +55,14 @@ class Queue:
     # prompt must use --resume, never --session-id, since the ID isn't new.
     always_resume: bool = False
     delivery_mode: DeliveryMode = DeliveryMode.HEADLESS
+    # Flags passed to `claude` on every run (permissions, model, effort...)
+    # for conversations started from the TUI. None = queue predates launch
+    # attributes; the runner then uses its legacy flags.
+    launch_flags: list[str] | None = None
+    # One-shot flags for the first successful run only (--fork-session,
+    # --from-pr ...). Cleared once the daemon adopts the session id Claude
+    # Code returned for that run.
+    first_run_flags: list[str] | None = None
 
 
 @dataclass
