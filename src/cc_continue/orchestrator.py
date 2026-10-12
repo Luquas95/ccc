@@ -2,17 +2,27 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sqlite3
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Awaitable, Callable
 
+from cc_continue.launch_options import (
+    FORK,
+    SESSION_CONTINUE,
+    SESSION_FROM_PR,
+    SESSION_NEW,
+    persistent_flags,
+    session_mode,
+)
 from cc_continue.live_delivery import deliver_to_live_session
 from cc_continue.models import DeliveryMode, ItemStatus, PromptRun, Queue, QueueItem, QueueStatus, RunStatus
 from cc_continue.retry import next_backoff_seconds, parse_reset_time
 from cc_continue.runner import RunResult, execute
 from cc_continue.session_discovery import discover_sessions, session_ready_for_input
 from cc_continue.storage import Storage
+from cc_continue.transcript import list_sessions_for_directory
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +78,46 @@ def attach_to_session(
         )
     storage.add_queue_item(queue.id, prompt_text)
     return queue
+
+
+def start_conversation(storage, project_path, selection, *, name=None, session_id=None, pr=None) -> Queue:
+    """Create the queue behind a conversation started from the TUI's
+    New conversation dialog (see launch_options for what selection
+    holds). Raises ValueError with a message fit to show the user."""
+    if not Path(project_path).is_dir():
+        raise ValueError(f"'{project_path}' is not an existing directory")
+    mode = session_mode(selection)
+    fork = FORK in selection and mode != SESSION_NEW
+    flags = persistent_flags(selection)
+    name = (name or "").strip() or Path(project_path).name or project_path
+
+    if mode == SESSION_NEW:
+        return storage.create_queue(name, project_path, str(uuid.uuid4()), launch_flags=flags)
+
+    if mode == SESSION_FROM_PR:
+        pr = (pr or "").strip()
+        if not pr:
+            raise ValueError("Enter a pull request number or URL.")
+        first = ["--from-pr", pr] + (["--fork-session"] if fork else [])
+        return storage.create_queue(name, project_path, str(uuid.uuid4()), launch_flags=flags, first_run_flags=first)
+
+    if mode == SESSION_CONTINUE:
+        sessions = list_sessions_for_directory(project_path)
+        if not sessions:
+            raise ValueError("There is no previous conversation in this directory.")
+        session_id = sessions[0].session_id
+    if not session_id:
+        raise ValueError("Select a conversation to resume.")
+
+    if fork:
+        return storage.create_queue(
+            name, project_path, str(uuid.uuid4()), launch_flags=flags,
+            first_run_flags=["--resume", session_id, "--fork-session"],
+        )
+    existing = storage.get_queue_by_session_id(session_id)
+    if existing is not None:
+        return existing
+    return storage.create_queue(name, project_path, session_id, always_resume=True, launch_flags=flags)
 
 
 class QueueRuntime:
@@ -180,6 +230,8 @@ class QueueRuntime:
         if result.status == RunStatus.SUCCESS:
             self.storage.set_item_status(item.id, ItemStatus.DONE)
             self._backoff_seconds = None
+            if queue.first_run_flags is not None:
+                self._adopt_session(queue, result.session_id or queue.session_id)
             return
 
         if result.status == RunStatus.RATE_LIMITED:
@@ -235,6 +287,19 @@ class QueueRuntime:
             )
         )
         self.storage.set_item_status(item.id, ItemStatus.DONE)
+
+    def _adopt_session(self, queue: Queue, session_id: str) -> None:
+        """After the first successful run of a fork / from-PR conversation,
+        switch the queue from its placeholder id to the session Claude Code
+        actually created, so later messages --resume that one."""
+        try:
+            self.storage.set_queue_session(queue.id, session_id)
+        except sqlite3.IntegrityError:
+            self.storage.update_queue_status(
+                queue.id,
+                QueueStatus.BLOCKED_ERROR,
+                last_error=f"session {session_id} already has a conversation in cc-continue",
+            )
 
     def _record_error_run(self, queue: Queue, item: QueueItem, error_text: str) -> None:
         now = datetime.now()

@@ -348,3 +348,68 @@ async def test_crash_recovery_requeues_running_items(storage, project_dir):
 
     runs = storage.runs_for_queue(queue.id)
     assert any(r.prompt_text == "interrupted prompt" and r.status == RunStatus.SUCCESS for r in runs)
+
+
+from cc_continue.launch_options import DEFAULT_SELECTION, FORK, SESSION_CONTINUE, SESSION_FROM_PR, SESSION_RESUME, toggle
+from cc_continue.orchestrator import start_conversation
+
+
+def test_start_new_conversation_creates_fresh_queue_per_launch(storage, project_dir):
+    a = start_conversation(storage, str(project_dir), toggle(DEFAULT_SELECTION, "model_haiku", True))
+    b = start_conversation(storage, str(project_dir), DEFAULT_SELECTION, name="second")
+    assert a.id != b.id and a.session_id != b.session_id
+    assert a.launch_flags == ["--dangerously-skip-permissions", "--model", "haiku"]
+    assert not a.always_resume and a.first_run_flags is None and b.name == "second"
+
+
+def test_start_rejects_missing_directory(storage, tmp_path):
+    with pytest.raises(ValueError):
+        start_conversation(storage, str(tmp_path / "nope"), DEFAULT_SELECTION)
+
+
+def test_resume_reuses_existing_queue_unless_fork(storage, project_dir):
+    sel = toggle(DEFAULT_SELECTION, SESSION_RESUME, True)
+    first = start_conversation(storage, str(project_dir), sel, session_id="abc")
+    assert first.always_resume and first.session_id == "abc"
+    assert start_conversation(storage, str(project_dir), sel, session_id="abc").id == first.id
+    fork = start_conversation(storage, str(project_dir), toggle(sel, FORK, True), session_id="abc")
+    assert fork.id != first.id and fork.first_run_flags == ["--resume", "abc", "--fork-session"]
+
+
+def test_continue_picks_latest_session_of_directory(storage, project_dir, monkeypatch):
+    from cc_continue.transcript import SessionSummary
+    from datetime import datetime
+    monkeypatch.setattr("cc_continue.orchestrator.list_sessions_for_directory",
+                        lambda path: [SessionSummary("newest", datetime.now(), "hi", 2)])
+    q = start_conversation(storage, str(project_dir), toggle(DEFAULT_SELECTION, SESSION_CONTINUE, True))
+    assert q.session_id == "newest"
+    monkeypatch.setattr("cc_continue.orchestrator.list_sessions_for_directory", lambda path: [])
+    with pytest.raises(ValueError):
+        start_conversation(storage, str(project_dir), toggle(DEFAULT_SELECTION, SESSION_CONTINUE, True), name="x")
+
+
+def test_from_pr_needs_value(storage, project_dir):
+    sel = toggle(DEFAULT_SELECTION, SESSION_FROM_PR, True)
+    with pytest.raises(ValueError):
+        start_conversation(storage, str(project_dir), sel, pr="  ")
+    q = start_conversation(storage, str(project_dir), sel, pr="42")
+    assert q.first_run_flags == ["--from-pr", "42"]
+
+
+async def test_first_run_adopts_returned_session_id(storage, project_dir):
+    q = start_conversation(storage, str(project_dir),
+                           toggle(toggle(DEFAULT_SELECTION, SESSION_RESUME, True), FORK, True), session_id="orig")
+    storage.add_queue_item(q.id, "hello")
+    calls = []
+
+    async def fake_run(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
+        calls.append((session_id, first_run_flags, launch_flags))
+        return RunResult(status=RunStatus.SUCCESS, session_id="forked-id")
+
+    orch = Orchestrator(storage, run_fn=fake_run)
+    await orch.start_all()
+    await asyncio.sleep(0.3)
+    await orch.stop_all()
+    assert calls[0][1] == ["--resume", "orig", "--fork-session"]
+    q = storage.get_queue(q.id)
+    assert q.session_id == "forked-id" and q.first_run_flags is None and q.always_resume
