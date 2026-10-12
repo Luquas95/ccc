@@ -117,8 +117,9 @@ bottom; content on the right sits in round-bordered panels.
 TUI keys, available on every screen: `d` dashboard, `c` conversations,
 `s` live sessions, `v` analytics, `n` new conversation, `a` add prompt
 (path prefilled from the selected queue). Plus: `Enter` open queue detail / attach to a session,
-`r` retry a blocked queue (daemon picks it back up within ~5s; on the
-sessions screen `r` refreshes instead), `Esc` back, `q` quit on the
+`r` retry a blocked queue or resume one paused at a usage limit (daemon
+picks it back up within ~5s; on the sessions screen `r` refreshes
+instead), `t` task queue editor (conversations view), `Esc` back, `q` quit on the
 dashboard (just closes the viewer — queued work is unaffected).
 
 ### Two delivery modes
@@ -171,6 +172,44 @@ mode up front. Resuming a session that already has a conversation in
 cc-continue just switches to it (unless you fork). A fork / from-PR
 conversation adopts the new session id Claude Code returns on its first
 run.
+
+### Usage limits and auto-continue
+
+Each conversation has an **auto-continue** switch (on by default; a
+checkbox in the New conversation dialog, `o` in the Tasks editor).
+
+- The daemon reads the account's real usage (5-hour, weekly and any
+  per-model window — the same figures as the Analytics screen). Before it
+  starts a message it checks them: while a window is used up it doesn't
+  even start Claude, it waits for that window's reset (+30 s).
+- After Claude Code reports a usage limit (429), the wait is the busiest
+  window's reset; if usage can't be read it falls back to the time in the
+  error message, then to a 15→30→60 min backoff.
+- **Auto-continue on:** after the reset the conversation carries on by
+  itself. **Off:** it stops in `paused_limit` and waits for you — press `r`
+  or just send another message.
+- If the limit cut a message off after it had reached the conversation,
+  the retry sends a short continue message instead of repeating it:
+  `cc-continue config continue-text` shows it, `cc-continue config
+  continue-text "…"` changes it (default *Pokračuj tam, kde jsi skončil.*).
+- Waiting survives daemon restarts (the reset time is stored).
+
+### Task queue
+
+A conversation works through its queued messages one after another, in
+the same session — the next starts as soon as Claude finishes the previous
+one. Press `t` in the conversations view to edit that queue:
+
+| Key | |
+|---|---|
+| `a` | add a task (multi-line editor, `Ctrl+S` save, `Esc` cancel) |
+| `e` / `Enter` | edit the selected task |
+| `Delete` | remove it (kept in history as skipped) |
+| `Ctrl+↑` / `Ctrl+↓` | move it up / down |
+| `p` | pause / resume the queue (a running task finishes) |
+| `o` | toggle auto-continue |
+
+The message box under the transcript adds to the end of the same queue.
 
 ### Conversations view
 
