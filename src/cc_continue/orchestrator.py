@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Awaitable, Callable
 
+from cc_continue import managed_sessions
 from cc_continue.launch_options import (
     FORK,
     SESSION_CONTINUE,
@@ -23,7 +24,7 @@ from cc_continue.retry import next_backoff_seconds, parse_reset_time
 from cc_continue.runner import RunResult, execute
 from cc_continue.session_discovery import discover_sessions, session_ready_for_input
 from cc_continue.storage import Storage
-from cc_continue.transcript import last_human_text, list_sessions_for_directory
+from cc_continue.transcript import find_transcript_path, last_human_text, list_sessions_for_directory
 from cc_continue.usage_api import get_pro_usage
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,16 @@ POLL_INTERVAL_SECONDS = 5.0
 # it had reached the conversation. Overridable via the "continue_text"
 # setting (`cc-continue config continue-text`).
 DEFAULT_CONTINUE_TEXT = "Pokračuj tam, kde jsi skončil."
+
+# Remote-control conversations: how often the daemon checks its managed
+# interactive process (running? trust prompt? link? hit a limit?) — each
+# check runs `claude agents`, so not on every 5s poll.
+MAINTENANCE_INTERVAL_SECONDS = 10.0
+# After pasting a prompt, wait up to this long for Claude to report busy
+# before considering the next one (it flips from idle a moment later).
+DELIVERY_SETTLE_SECONDS = 15.0
+# Fallback wait when a managed session hits a limit and usage is unknown.
+MANAGED_LIMIT_FALLBACK = timedelta(minutes=15)
 
 
 def enqueue_prompt(storage: Storage, project_path: str, prompt_text: str, name: str | None = None) -> Queue:
@@ -88,7 +99,8 @@ def attach_to_session(
 
 
 def start_conversation(
-    storage, project_path, selection, *, name=None, session_id=None, pr=None, auto_continue=True
+    storage, project_path, selection, *, name=None, session_id=None, pr=None, auto_continue=True,
+    remote_control=False,
 ) -> Queue:
     """Create the queue behind a conversation started from the TUI's
     New conversation dialog (see launch_options for what selection
@@ -99,10 +111,12 @@ def start_conversation(
     fork = FORK in selection and mode != SESSION_NEW
     flags = persistent_flags(selection)
     name = (name or "").strip() or Path(project_path).name or project_path
+    delivery = DeliveryMode.REMOTE_CONTROL if remote_control else DeliveryMode.HEADLESS
 
     if mode == SESSION_NEW:
         return storage.create_queue(
-            name, project_path, str(uuid.uuid4()), launch_flags=flags, auto_continue=auto_continue
+            name, project_path, str(uuid.uuid4()), launch_flags=flags, auto_continue=auto_continue,
+            delivery_mode=delivery,
         )
 
     if mode == SESSION_FROM_PR:
@@ -112,7 +126,7 @@ def start_conversation(
         first = ["--from-pr", pr] + (["--fork-session"] if fork else [])
         return storage.create_queue(
             name, project_path, str(uuid.uuid4()), launch_flags=flags, first_run_flags=first,
-            auto_continue=auto_continue,
+            auto_continue=auto_continue, delivery_mode=delivery,
         )
 
     if mode == SESSION_CONTINUE:
@@ -127,13 +141,14 @@ def start_conversation(
         return storage.create_queue(
             name, project_path, str(uuid.uuid4()), launch_flags=flags,
             first_run_flags=["--resume", session_id, "--fork-session"],
-            auto_continue=auto_continue,
+            auto_continue=auto_continue, delivery_mode=delivery,
         )
     existing = storage.get_queue_by_session_id(session_id)
     if existing is not None:
         return existing
     return storage.create_queue(
-        name, project_path, session_id, always_resume=True, launch_flags=flags, auto_continue=auto_continue
+        name, project_path, session_id, always_resume=True, launch_flags=flags, auto_continue=auto_continue,
+        delivery_mode=delivery,
     )
 
 
@@ -145,6 +160,10 @@ class QueueRuntime:
         self._wake = asyncio.Event()
         self._task: asyncio.Task | None = None
         self._backoff_seconds: int | None = None
+        # Remote-control conversations: last maintenance time and whether the
+        # managed session was blocked on a limit at the previous check.
+        self._last_maintenance = 0.0
+        self._managed_was_blocked = False
 
     def start(self) -> None:
         self._task = asyncio.create_task(self._loop())
@@ -177,8 +196,23 @@ class QueueRuntime:
             queue = self.storage.find_queue(self.queue.id)
             if queue is None:
                 logger.info("Queue %s was deleted, stopping its runtime", self.queue.id)
+                if self.queue.delivery_mode == DeliveryMode.REMOTE_CONTROL:
+                    await asyncio.to_thread(managed_sessions.stop, self.queue.id)
                 return
             self.queue = queue
+
+            if queue.delivery_mode == DeliveryMode.REMOTE_CONTROL:
+                if queue.archived:
+                    # Archiving frees the interactive process; nothing runs.
+                    if await asyncio.to_thread(managed_sessions.is_running, queue.id):
+                        await asyncio.to_thread(managed_sessions.stop, queue.id)
+                    await self._wait_for_wake_or_poll(POLL_INTERVAL_SECONDS)
+                    continue
+                await self._maintain_managed_session(queue)
+                queue = self.storage.find_queue(queue.id)
+                if queue is None:
+                    continue
+                self.queue = queue
 
             if queue.status in (QueueStatus.BLOCKED_ERROR, QueueStatus.PAUSED_LIMIT) or queue.paused:
                 # Waiting for the user (r / a new message / unpause in TUI).
@@ -205,7 +239,7 @@ class QueueRuntime:
                 await self._wait_for_wake_or_poll(POLL_INTERVAL_SECONDS)
                 continue
 
-            if queue.delivery_mode == DeliveryMode.HEADLESS:
+            if queue.delivery_mode in (DeliveryMode.HEADLESS, DeliveryMode.REMOTE_CONTROL):
                 # Don't even start Claude while a limit window is used up.
                 until = exhausted_until(await asyncio.to_thread(get_pro_usage), datetime.now())
                 if until is not None:
@@ -240,6 +274,9 @@ class QueueRuntime:
     async def _process_item(self, queue: Queue, item: QueueItem) -> None:
         if queue.delivery_mode == DeliveryMode.LIVE_TERMINAL:
             await self._process_live_terminal_item(queue, item)
+            return
+        if queue.delivery_mode == DeliveryMode.REMOTE_CONTROL:
+            await self._process_managed_item(queue, item)
             return
 
         resume = queue.always_resume or self._has_run_before()
@@ -346,6 +383,108 @@ class QueueRuntime:
             )
         )
         self.storage.set_item_status(item.id, ItemStatus.DONE)
+
+    # --- remote-control conversations (managed interactive sessions) -------
+
+    async def _managed_agent(self, queue: Queue):
+        """This conversation's interactive process as `claude agents` sees
+        it (matched by its tmux pane's pid, else by session id)."""
+        pid = await asyncio.to_thread(managed_sessions.pane_pid, queue.id)
+        sessions = await asyncio.to_thread(discover_sessions)
+        return next(
+            (s for s in sessions if (pid is not None and s.pid == pid) or s.session_id == queue.session_id),
+            None,
+        )
+
+    async def _maintain_managed_session(self, queue: Queue, force: bool = False) -> None:
+        now = asyncio.get_running_loop().time()
+        if not force and now - self._last_maintenance < MAINTENANCE_INTERVAL_SECONDS:
+            return
+        self._last_maintenance = now
+
+        if not await asyncio.to_thread(managed_sessions.is_running, queue.id):
+            has_transcript = find_transcript_path(queue.session_id) is not None
+            command = managed_sessions.build_interactive_command(queue, has_transcript)
+            logger.info("Starting remote-control session for '%s'", queue.name)
+            await asyncio.to_thread(managed_sessions.start, queue, command)
+            self._managed_was_blocked = False
+            return
+
+        pane = await asyncio.to_thread(managed_sessions.capture, queue.id)
+        if managed_sessions.needs_trust_confirmation(pane):
+            await asyncio.to_thread(managed_sessions.confirm, queue.id)
+        url = managed_sessions.parse_remote_url(pane)
+        if url and url != queue.remote_control_url:
+            self.storage.set_remote_control_url(queue.id, url)
+
+        session = await self._managed_agent(queue)
+        if session is None:
+            return
+        if queue.first_run_flags is not None and session.session_id != queue.session_id:
+            # Fork / from-PR: the process created a new session id.
+            self._adopt_session(queue, session.session_id)
+        blocked = session.state == "blocked"
+        if blocked and not self._managed_was_blocked and queue.status not in (
+            QueueStatus.WAITING_RETRY,
+            QueueStatus.PAUSED_LIMIT,
+        ):
+            # Hit a usage limit mid-work: queue a "continue" ahead of
+            # everything and wait for the reset (or for the user).
+            text = self.storage.get_setting("continue_text", DEFAULT_CONTINUE_TEXT) or DEFAULT_CONTINUE_TEXT
+            self.storage.add_queue_item_front(queue.id, text)
+            now_dt = datetime.now()
+            retry_at = retry_time_after_rate_limit(
+                await asyncio.to_thread(get_pro_usage, True), now_dt
+            ) or (now_dt + MANAGED_LIMIT_FALLBACK)
+            self._hold_for_limit(queue, retry_at)
+        self._managed_was_blocked = blocked
+
+    async def _process_managed_item(self, queue: Queue, item: QueueItem) -> None:
+        """Paste a queued prompt into the conversation's managed interactive
+        process once it's idle (it may be busy with a message sent from the
+        phone / claude.ai)."""
+        while True:
+            current = self.storage.find_queue(queue.id)
+            if current is None or current.archived or current.paused:
+                self.storage.set_item_status(item.id, ItemStatus.PENDING)
+                return
+            if not await asyncio.to_thread(managed_sessions.is_running, queue.id):
+                await self._maintain_managed_session(current, force=True)
+            else:
+                session = await self._managed_agent(current)
+                if session is not None and session.status == "idle":
+                    break
+            await self._wait_for_wake_or_poll(POLL_INTERVAL_SECONDS)
+
+        text = item.prompt_text
+        if item.continue_on_retry:
+            text = self.storage.get_setting("continue_text", DEFAULT_CONTINUE_TEXT) or DEFAULT_CONTINUE_TEXT
+        result = await asyncio.to_thread(managed_sessions.paste_and_submit, queue.id, text)
+        if not result.delivered:
+            self._record_error_run(queue, item, result.error or "delivery to the remote-control session failed")
+            return
+        now = datetime.now()
+        self.storage.insert_prompt_run(
+            PromptRun(
+                id=0,
+                queue_id=queue.id,
+                queue_item_id=item.id,
+                prompt_text=text,
+                started_at=now,
+                finished_at=now,
+                status=RunStatus.SUCCESS,
+                result_text="Delivered to the remote-control session — the reply is in the transcript.",
+            )
+        )
+        self.storage.set_item_status(item.id, ItemStatus.DONE)
+        # Give Claude a moment to pick it up so the next item isn't pasted
+        # while it still reports the previous idle state.
+        deadline = asyncio.get_running_loop().time() + DELIVERY_SETTLE_SECONDS
+        while asyncio.get_running_loop().time() < deadline:
+            session = await self._managed_agent(queue)
+            if session is None or session.status != "idle":
+                break
+            await asyncio.sleep(min(1.0, DELIVERY_SETTLE_SECONDS))
 
     def _adopt_session(self, queue: Queue, session_id: str) -> None:
         """After the first successful run of a fork / from-PR conversation,
