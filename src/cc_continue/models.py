@@ -70,6 +70,10 @@ class Queue:
     auto_continue: bool = True
     # Manually paused from the Tasks editor: start no further items.
     paused: bool = False
+    # Hidden from the TUI lists (still processed by the daemon).
+    archived: bool = False
+    # When the conversation was last shown in the TUI ("new reply" marker).
+    last_seen_at: datetime | None = None
 
 
 @dataclass

@@ -174,7 +174,10 @@ class QueueRuntime:
 
     async def _loop(self) -> None:
         while True:
-            queue = self.storage.get_queue(self.queue.id)
+            queue = self.storage.find_queue(self.queue.id)
+            if queue is None:
+                logger.info("Queue %s was deleted, stopping its runtime", self.queue.id)
+                return
             self.queue = queue
 
             if queue.status in (QueueStatus.BLOCKED_ERROR, QueueStatus.PAUSED_LIMIT) or queue.paused:

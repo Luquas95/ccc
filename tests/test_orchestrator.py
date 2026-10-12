@@ -568,3 +568,18 @@ async def test_restart_while_waiting_does_not_retry_early(storage, project_dir, 
     await orch.stop_all()
     assert sent == []
     assert storage.get_queue(queue.id).status == QueueStatus.WAITING_RETRY
+
+
+async def test_deleted_queue_stops_its_runtime_quietly(storage, project_dir, fast_poll, caplog):
+    queue = enqueue_prompt(storage, project_dir, "never run")
+    storage.set_queue_paused(queue.id, True)
+    orch = Orchestrator(storage, run_fn=_limited_then_ok([]))
+    await orch.start_all()
+    await asyncio.sleep(0.05)
+    storage.delete_queue(queue.id)
+    runtime = orch.runtimes[queue.id]
+    assert await _until(lambda: runtime._task.done())
+    await asyncio.sleep(0.1)  # discovery loop must not restart it
+    await orch.stop_all()
+    assert runtime._task.exception() is None
+    assert "crashed" not in caplog.text

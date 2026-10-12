@@ -371,3 +371,52 @@ def test_settings(tmp_path):
     storage.set_setting("continue_text", "go on")
     storage.set_setting("continue_text", "keep going")
     assert storage.get_setting("continue_text") == "keep going"
+
+
+def test_archive_and_find_queue(tmp_path):
+    storage = Storage(tmp_path / "h.db")
+    q = storage.create_queue("a", "/tmp/a", "s1")
+    assert q.archived is False
+    storage.set_queue_archived(q.id, True)
+    assert storage.get_queue(q.id).archived is True
+    assert storage.find_queue(q.id).id == q.id
+    assert storage.find_queue(9999) is None
+
+
+def test_delete_queue_removes_everything(tmp_path):
+    storage = Storage(tmp_path / "h.db")
+    keep = storage.create_queue("keep", "/tmp/k", "sk")
+    q = storage.create_queue("a", "/tmp/a", "s1")
+    item = storage.add_queue_item(q.id, "p")
+    run_id = storage.insert_prompt_run(
+        PromptRun(id=0, queue_id=q.id, queue_item_id=item.id, prompt_text="p",
+                  started_at=datetime.now(), finished_at=datetime.now(), status=RunStatus.SUCCESS)
+    )
+    storage.insert_run_model_usage(run_id, "m", input_tokens=1, output_tokens=1, cache_read_tokens=0, cache_creation_tokens=0)
+    storage.add_queue_item(keep.id, "stays")
+    storage.delete_queue(q.id)
+    assert storage.find_queue(q.id) is None
+    assert storage.runs_for_queue(q.id) == []
+    assert storage.list_pending_items(q.id) == []
+    assert storage.total_tokens_by_model() == []
+    assert [i.prompt_text for i in storage.list_pending_items(keep.id)] == ["stays"]
+
+
+def test_unseen_queue_ids(tmp_path):
+    from datetime import timedelta
+
+    storage = Storage(tmp_path / "h.db")
+    q = storage.create_queue("a", "/tmp/a", "s1")
+    other = storage.create_queue("b", "/tmp/b", "s2")
+    assert storage.unseen_queue_ids() == set()
+    finished = datetime.now()
+    storage.insert_prompt_run(PromptRun(id=0, queue_id=q.id, queue_item_id=None, prompt_text="p",
+                                        started_at=finished, finished_at=finished, status=RunStatus.SUCCESS))
+    assert storage.unseen_queue_ids() == {q.id}
+    storage.mark_seen(q.id)
+    assert storage.unseen_queue_ids() == set()
+    later = datetime.now() + timedelta(seconds=5)
+    storage.insert_prompt_run(PromptRun(id=0, queue_id=q.id, queue_item_id=None, prompt_text="p2",
+                                        started_at=later, finished_at=later, status=RunStatus.SUCCESS))
+    assert storage.unseen_queue_ids() == {q.id}
+    assert other.id not in storage.unseen_queue_ids()

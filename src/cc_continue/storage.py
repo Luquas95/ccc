@@ -24,7 +24,9 @@ CREATE TABLE IF NOT EXISTS queues (
     launch_flags TEXT,
     first_run_flags TEXT,
     auto_continue INTEGER NOT NULL DEFAULT 1,
-    paused INTEGER NOT NULL DEFAULT 0
+    paused INTEGER NOT NULL DEFAULT 0,
+    archived INTEGER NOT NULL DEFAULT 0,
+    last_seen_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS queue_items (
@@ -131,7 +133,10 @@ class Storage:
             if column not in columns:
                 conn.execute(f"ALTER TABLE queues ADD COLUMN {column} TEXT")
                 conn.commit()
-        for column, default in (("auto_continue", 1), ("paused", 0)):
+        if "last_seen_at" not in columns:
+            conn.execute("ALTER TABLE queues ADD COLUMN last_seen_at TEXT")
+            conn.commit()
+        for column, default in (("auto_continue", 1), ("paused", 0), ("archived", 0)):
             if column not in columns:
                 conn.execute(f"ALTER TABLE queues ADD COLUMN {column} INTEGER NOT NULL DEFAULT {default}")
                 conn.commit()
@@ -333,6 +338,43 @@ class Storage:
     def set_queue_paused(self, queue_id: int, value: bool) -> None:
         self._set_queue_flag(queue_id, "paused", value)
 
+    def set_queue_archived(self, queue_id: int, value: bool) -> None:
+        self._set_queue_flag(queue_id, "archived", value)
+
+    def find_queue(self, queue_id: int) -> Queue | None:
+        """Like get_queue, but None for a queue that no longer exists."""
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT * FROM queues WHERE id = ?", (queue_id,)).fetchone()
+            return self._row_to_queue(row) if row else None
+
+    def delete_queue(self, queue_id: int) -> None:
+        """Remove a queue with its items, runs and per-model usage. Claude
+        Code's own transcript is left alone."""
+        with closing(self._connect()) as conn:
+            conn.execute(
+                "DELETE FROM run_model_usage WHERE prompt_run_id IN (SELECT id FROM prompt_runs WHERE queue_id = ?)",
+                (queue_id,),
+            )
+            conn.execute("DELETE FROM prompt_runs WHERE queue_id = ?", (queue_id,))
+            conn.execute("DELETE FROM queue_items WHERE queue_id = ?", (queue_id,))
+            conn.execute("DELETE FROM queues WHERE id = ?", (queue_id,))
+            conn.commit()
+
+    def mark_seen(self, queue_id: int) -> None:
+        # Not updated_at: viewing isn't activity (recent_project_paths).
+        with closing(self._connect()) as conn:
+            conn.execute("UPDATE queues SET last_seen_at = ? WHERE id = ?", (datetime.now().isoformat(), queue_id))
+            conn.commit()
+
+    def unseen_queue_ids(self) -> set[int]:
+        """Queues with a run that finished after they were last viewed."""
+        with closing(self._connect()) as conn:
+            rows = conn.execute(
+                "SELECT DISTINCT q.id FROM queues q JOIN prompt_runs r ON r.queue_id = q.id "
+                "WHERE r.finished_at IS NOT NULL AND (q.last_seen_at IS NULL OR r.finished_at > q.last_seen_at)"
+            ).fetchall()
+            return {r[0] for r in rows}
+
     def set_item_continue_on_retry(self, item_id: int, value: bool) -> None:
         with closing(self._connect()) as conn:
             conn.execute("UPDATE queue_items SET continue_on_retry = ? WHERE id = ?", (int(value), item_id))
@@ -511,6 +553,8 @@ class Storage:
             first_run_flags=json.loads(row["first_run_flags"]) if row["first_run_flags"] else None,
             auto_continue=bool(row["auto_continue"]),
             paused=bool(row["paused"]),
+            archived=bool(row["archived"]),
+            last_seen_at=datetime.fromisoformat(row["last_seen_at"]) if row["last_seen_at"] else None,
         )
 
     @staticmethod
