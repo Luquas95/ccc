@@ -1585,7 +1585,7 @@ git commit -m "feat: add Textual dashboard screen and app wiring"
 - Consumes: `Storage`, `Orchestrator`.
 - Produces: `AddPromptModal(orchestrator: Orchestrator)` Textual `ModalScreen` with a project-path input, a prompt textarea, and a submit button that calls `orchestrator.add_prompt(path, prompt)`; `QueueDetailScreen(storage, queue_id)` showing pending items and run history for one queue.
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```python
 import pytest
@@ -1640,12 +1640,12 @@ async def test_queue_detail_shows_history(tmp_path):
         assert "proj-c" in str(header.renderable)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_tui_queue_detail.py -v`
 Expected: FAIL (`ModuleNotFoundError`).
 
-- [ ] **Step 3: Implement queue_detail.py and wire dashboard actions**
+- [x] **Step 3: Implement queue_detail.py and wire dashboard actions**
 
 `src/cc_continue/tui/queue_detail.py`:
 ```python
@@ -1790,7 +1790,7 @@ left to modify there for this task.
 - Consumes: `Storage.daily_cost_totals`, `Storage.blocked_seconds_total`, `Storage.list_queues`, `Storage.runs_for_queue`.
 - Produces: `AnalyticsScreen(storage: Storage)` showing: total cost/tokens (last 30 days) as a `Sparkline`, per-project cost as a `DataTable`, total blocked time, success/error/rate_limited counts.
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```python
 import pytest
@@ -1832,12 +1832,12 @@ async def test_analytics_shows_totals(tmp_path):
         assert any("proj-d" in cell for cell in rows)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_tui_analytics.py -v`
 Expected: FAIL (`ModuleNotFoundError`).
 
-- [ ] **Step 3: Implement analytics.py**
+- [x] **Step 3: Implement analytics.py**
 
 ```python
 from __future__ import annotations
@@ -1925,7 +1925,7 @@ already wired in Task 8; nothing to modify there for this task.
 **Interfaces:**
 - None (documentation + manual verification task).
 
-- [ ] **Step 1: Write README.md**
+- [x] **Step 1: Write README.md**
 
 ```markdown
 # CC-continue

@@ -13,25 +13,22 @@
 # of whether this TUI or its tmux session exists at all.
 #
 # Safe to run whether you're already inside a tmux session (e.g. your own
-# SSH-persistence session) or not — nesting tmux inside tmux would
-# otherwise fail with "sessions should be nested with care".
+# SSH-persistence session) or not: from inside tmux it deliberately nests
+# (TMUX unset), since switch-client can't cross to a different tmux server.
+# Detach the inner one with the prefix pressed twice (Ctrl+B Ctrl+B D).
 set -euo pipefail
 
+# The TUI runs on its own tmux server/socket, separate from your default
+# one (see deploy/systemd/cc-continue-tui.service for why).
+TMUX_SOCKET="cc-continue"
 SESSION="cc-continue"
 PROJECT_DIR="/home/lukas/DEV/CC-continue"
 RUN_CMD="while true; do $PROJECT_DIR/.venv/bin/cc-continue; sleep 1; done"
 
-if tmux has-session -t "$SESSION" 2>/dev/null; then
-    if [ -n "${TMUX:-}" ]; then
-        exec tmux switch-client -t "$SESSION"
-    else
-        exec tmux attach-session -t "$SESSION"
-    fi
+if tmux -L "$TMUX_SOCKET" has-session -t "$SESSION" 2>/dev/null; then
+    # A client can't switch-client across tmux servers, so from inside
+    # another tmux session we attach with $TMUX unset (nested on purpose).
+    TMUX= exec tmux -L "$TMUX_SOCKET" attach-session -t "$SESSION"
 else
-    if [ -n "${TMUX:-}" ]; then
-        tmux new-session -d -s "$SESSION" -c "$PROJECT_DIR" "$RUN_CMD"
-        exec tmux switch-client -t "$SESSION"
-    else
-        exec tmux new-session -s "$SESSION" -c "$PROJECT_DIR" "$RUN_CMD"
-    fi
+    TMUX= exec tmux -L "$TMUX_SOCKET" new-session -s "$SESSION" -c "$PROJECT_DIR" "$RUN_CMD"
 fi

@@ -1,6 +1,9 @@
 [Unit]
 Description=CC-continue queue daemon (executes queued Claude Code prompts)
 After=network-online.target
+# The project lives on a separate disk mounted with `nofail`; don't try to
+# start before it's there.
+RequiresMountsFor=/mnt/AI
 
 [Service]
 Type=simple

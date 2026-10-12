@@ -55,6 +55,18 @@ Stop/disable it:
 
     systemctl --user disable --now cc-continue
 
+### Encrypted home (ecryptfs)
+
+If your home directory is ecryptfs-encrypted, linger alone isn't enough:
+the user systemd manager starts at boot, before login, while
+`~/.config/systemd/user/` is still unreadable — so the units silently
+never start. Start them at login instead, e.g. with an XFCE/GNOME
+autostart entry (`~/.config/autostart/cc-continue-units.desktop`) that
+runs:
+
+    systemctl --user daemon-reload
+    systemctl --user start cc-continue.service cc-continue-tui.service
+
 ## Running the TUI (systemd + tmux, always attachable)
 
 The TUI can run the same way: a `cc-continue-tui` systemd unit boots a
@@ -62,8 +74,16 @@ persistent tmux session named `cc-continue` at startup, with `ccc` running
 inside it in a restart loop — so it's always alive and ready. Quitting the
 TUI (`q`) just makes it reappear a second later in the same pane; the
 session is never left dead. Attach any time with `bin/cc-continue-tmux.sh`
-(or plain `tmux attach -t cc-continue`) and detach (`Ctrl+B D`) or just
-close the terminal/SSH connection whenever — it keeps running either way.
+(or plain `tmux -L cc-continue attach -t cc-continue`) and detach
+(`Ctrl+B D`) or just close the terminal/SSH connection whenever — it
+keeps running either way.
+
+The TUI runs on its **own tmux server** (socket `-L cc-continue`), not
+your default one, so it doesn't show up in plain `tmux ls`. That's
+deliberate: if the unit started your default tmux server, all your other
+tmux sessions would live in this unit's cgroup and systemd-oomd killing
+it would take them all down. If the session dies anyway (oomd, crash,
+`kill-server`), the unit notices within ~5s and recreates it.
 
 ```bash
 cp deploy/systemd/cc-continue-tui.service ~/.config/systemd/user/

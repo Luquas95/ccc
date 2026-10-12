@@ -1,17 +1,25 @@
 [Unit]
 Description=CC-continue TUI, always alive in a persistent tmux session
 After=cc-continue.service
+RequiresMountsFor=/mnt/AI
 
 [Service]
-# tmux new-session -d forks its own detached server/session and returns
-# immediately — that's a genuine one-shot action, not a long-running
-# foreground process, so Type=oneshot + RemainAfterExit=yes is correct
-# here (not Type=simple, which would treat the immediate exit as a crash
-# and loop-restart the unit itself).
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/bin/tmux new-session -d -s cc-continue -c /home/lukas/DEV/CC-continue "while true; do /home/lukas/DEV/CC-continue/.venv/bin/cc-continue; sleep 1; done"
-ExecStop=/usr/bin/tmux kill-session -t cc-continue
+# The TUI gets its OWN tmux server (`-L cc-continue`), never the user's
+# default one. If this unit were the first to start tmux, the default
+# server — and with it every other tmux session on the machine — would
+# live inside this unit's cgroup, so systemd-oomd picking this unit would
+# kill all of them at once (that happened twice).
+#
+# The unit stays "running" for as long as the tmux session exists: the
+# ExecStart script creates the detached session and then just waits on
+# it. If the session disappears for any reason (oomd kill, tmux crash,
+# `tmux -L cc-continue kill-server`), the script exits non-zero and
+# Restart=always brings everything back after RestartSec.
+Type=simple
+ExecStart=/home/lukas/DEV/CC-continue/bin/cc-continue-tui-supervise.sh
+ExecStop=/usr/bin/tmux -L cc-continue kill-session -t cc-continue
+Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=default.target

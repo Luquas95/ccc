@@ -45,7 +45,7 @@ CC-continue/
 **Interfaces:**
 - Produces: `TranscriptEventKind` (`Literal["human", "assistant_text", "tool_call"]` — implemented as a plain `str` constant set, not an Enum, to keep this task's public surface minimal); `TranscriptEvent` dataclass (`kind: str`, `text: str`, `timestamp: datetime`); `find_transcript_path(session_id: str) -> Path | None`. Later tasks (Task 2, Task 3) import both from `cc_continue.transcript`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 from pathlib import Path
@@ -78,12 +78,12 @@ def test_find_transcript_path_returns_none_when_missing(tmp_path, monkeypatch):
     assert find_transcript_path("nonexistent-session-id") is None
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_transcript.py -v`
 Expected: FAIL (`ModuleNotFoundError: No module named 'cc_continue.transcript'`)
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 from __future__ import annotations
@@ -117,12 +117,12 @@ def find_transcript_path(session_id: str) -> Path | None:
     return matches[0] if matches else None
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_transcript.py -v`
 Expected: PASS (3 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/cc_continue/transcript.py tests/test_transcript.py
@@ -141,7 +141,7 @@ git commit -m "feat: add transcript event model and session file discovery"
 - Consumes: `TranscriptEvent` (Task 1).
 - Produces: `parse_transcript_events(path: Path, since_byte_offset: int = 0) -> tuple[list[TranscriptEvent], int]`. Task 4 (`ConversationsScreen`) calls this directly.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 import json
@@ -329,12 +329,12 @@ a `timestamp` field, which `_events_from_line` requires (returns `[]`
 when missing) — `events2` would have been `[]`, not length 1. Fixed to
 complete the object with a valid `timestamp` field, as shown.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_transcript.py -v`
 Expected: the 8 new tests FAIL with `ImportError` / `AttributeError: module 'cc_continue.transcript' has no attribute 'parse_transcript_events'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Append to `src/cc_continue/transcript.py`:
 
@@ -412,12 +412,12 @@ def parse_transcript_events(path: Path, since_byte_offset: int = 0) -> tuple[lis
     return events, consumed
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_transcript.py -v`
 Expected: PASS (11 tests total)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/cc_continue/transcript.py tests/test_transcript.py
@@ -434,7 +434,7 @@ git commit -m "feat: parse transcript events with incremental byte-offset reads"
 **Interfaces:**
 - Consumes: `parse_transcript_events` (Task 2). No new production code — a fixture-based regression test only.
 
-- [ ] **Step 1: Write the test using real captured transcript shapes**
+- [x] **Step 1: Write the test using real captured transcript shapes**
 
 These three lines are the exact real shapes captured during earlier live
 testing of this project (a human-typed prompt, and the two-block
@@ -506,14 +506,14 @@ def test_parses_real_captured_transcript_shape(tmp_path):
     ]
 ```
 
-- [ ] **Step 2: Run test to verify it fails or passes**
+- [x] **Step 2: Run test to verify it fails or passes**
 
 Run: `.venv/bin/pytest tests/test_transcript.py::test_parses_real_captured_transcript_shape -v`
 Expected: PASS immediately (Task 2's implementation should already handle this shape correctly — this test exists to lock that in as a regression guard, not to drive new implementation).
 
 If it fails, the failure tells you which assumption from Task 2 doesn't hold against real data — fix `_events_from_line` until it passes before moving on.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests/test_transcript.py
@@ -532,7 +532,7 @@ git commit -m "test: lock in transcript parsing against a real captured shape"
 - Consumes: `Storage.list_queues()` (existing, returns `list[Queue]`, each with `.id: int`, `.name: str`, `.session_id: str`); `find_transcript_path`, `parse_transcript_events`, `TranscriptEvent` (Tasks 1–2).
 - Produces: `ConversationsScreen(storage: Storage)` — a Textual `Screen` subclass. Task 5 wires a dashboard binding to push it.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 import pytest
@@ -571,12 +571,12 @@ async def test_shows_queue_list_and_placeholder_for_no_transcript(tmp_path, monk
         assert "No conversation yet." in right_panel_text
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_tui_conversations.py -v`
 Expected: FAIL (`ModuleNotFoundError: No module named 'cc_continue.tui.conversations'`)
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 from __future__ import annotations
@@ -709,12 +709,12 @@ class ConversationsScreen(Screen):
         self.app.pop_screen()
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `.venv/bin/pytest tests/test_tui_conversations.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/cc_continue/tui/conversations.py tests/test_tui_conversations.py
@@ -734,7 +734,7 @@ git commit -m "feat: add ConversationsScreen with split-pane queue list and tran
 - Consumes: `ConversationsScreen` (Task 4).
 - Produces: nothing new consumed by later tasks — this is the final integration task.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add `import json` to the top of `tests/test_tui_conversations.py` (Task 4's
 version of this file doesn't need it; these new tests build JSONL content
@@ -846,12 +846,12 @@ async def test_pressing_c_opens_conversations_screen(tmp_path):
         assert isinstance(app.screen, ConversationsScreen)
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_tui_conversations.py tests/test_tui_dashboard.py -v`
 Expected: the three new tests FAIL — the dashboard one with `AssertionError` (no such screen, since 'c' is unbound), the conversations ones may already PASS if Task 4's implementation is correct (that's fine, they still serve as regression coverage — but run them to confirm before moving on).
 
-- [ ] **Step 3: Wire the dashboard binding**
+- [x] **Step 3: Wire the dashboard binding**
 
 In `src/cc_continue/tui/dashboard.py`, add to `BINDINGS` (after the existing `"s"` entry):
 
@@ -868,12 +868,12 @@ Add a new action method (near `action_view_analytics`):
         self.app.push_screen(ConversationsScreen(self.storage))
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_tui_conversations.py tests/test_tui_dashboard.py -v`
 Expected: PASS. If either new `test_tui_conversations.py` test fails, the failure will point at a specific gap in Task 4's `ConversationsScreen` (e.g. `_show_queue` not resetting `events`/`offset` correctly per queue, or `_refresh_current` not re-rendering) — fix `conversations.py` directly, these tests are the actual spec for that behavior.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/cc_continue/tui/dashboard.py tests/test_tui_conversations.py tests/test_tui_dashboard.py
@@ -889,12 +889,12 @@ git commit -m "feat: wire conversations screen to dashboard 'c' key, verify live
 
 **Interfaces:** None — verification and documentation only.
 
-- [ ] **Step 1: Run the full test suite**
+- [x] **Step 1: Run the full test suite**
 
 Run: `.venv/bin/pytest -q`
 Expected: all tests PASS (89 existing + this plan's new tests).
 
-- [ ] **Step 2: Live visual check in an isolated tmux pane**
+- [x] **Step 2: Live visual check in an isolated tmux pane**
 
 This screen's box/color layout is exactly the kind of thing that can look
 fine in widget-region introspection but render broken on screen (see this
@@ -924,7 +924,7 @@ CSS rules to fix, same pattern already used in this file's `DEFAULT_CSS`).
 tmux kill-session -t cc-debug 2>/dev/null
 ```
 
-- [ ] **Step 3: Update README**
+- [x] **Step 3: Update README**
 
 In `README.md`, in the "TUI keys" line, change:
 
@@ -960,7 +960,7 @@ every ~2s for new messages (e.g. from a live-terminal session someone is
 actively typing in).
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add README.md
