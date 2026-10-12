@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from rich.text import Text
 from textual.containers import Container, Horizontal
 from textual.content import Content
 from textual.screen import ModalScreen
@@ -61,8 +62,8 @@ class SessionPickerScreen(SidebarScreen):
         for session in self.sessions:
             status = session.state if session.state == "blocked" else (session.status or "")
             style = SESSION_STATUS_STYLES.get(status)
-            status_cell = Content.assemble((status, style)) if style else Content(status)
-            table.add_row(Content(session.name), session.kind, status_cell, Content.assemble((session.cwd, "dim")))
+            status_cell = Text(status, style=style or "")
+            table.add_row(Text(session.name), session.kind, status_cell, Text(session.cwd, style="dim"))
 
     def action_refresh(self) -> None:
         self.refresh_sessions()

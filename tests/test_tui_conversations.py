@@ -314,3 +314,15 @@ async def test_long_transcript_renders_only_newest_events_and_appends_new_ones(t
         boxes = app.screen.query("#conversation-transcript .message-box")
         assert len(boxes) == MAX_RENDERED_EVENTS + 1
         assert f"msg {total}" in str(boxes.last().render())
+
+
+@pytest.mark.asyncio
+async def test_queue_names_are_not_truncated(tmp_path, monkeypatch):
+    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    storage = Storage(tmp_path / "history.db")
+    storage.create_queue("a-rather-long-queue-name", "/tmp/a", "s-a")
+    app = await _open(storage)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        table = app.screen.query_one("#conversation-queue-list", DataTable)
+        assert table.columns[next(iter(table.columns))].get_render_width(table) >= len("a-rather-long-queue-name")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from rich.text import Text
 from textual.containers import Vertical, VerticalScroll
 from textual.content import Content
 from textual.widgets import DataTable, Input, Static
@@ -100,7 +101,6 @@ class ConversationsScreen(SidebarScreen):
         table = self.query_one("#conversation-queue-list", DataTable)
         table.cursor_type = "row"
         table.show_header = False
-        table.add_column("Queue")
         self._rebuild_queue_list()
         if self._current_queue_id not in self._queue_ids:
             self._current_queue_id = self._queue_ids[0] if self._queue_ids else None
@@ -119,11 +119,14 @@ class ConversationsScreen(SidebarScreen):
 
     def _rebuild_queue_list(self) -> None:
         table = self.query_one("#conversation-queue-list", DataTable)
-        table.clear()
+        # Recreate the column too: after a plain clear() the auto width
+        # stays at the header's ("Queue") and every name gets cut to 5 chars.
+        table.clear(columns=True)
+        table.add_column("Queue")
         queues = self.storage.list_queues()
         self._queue_ids = [q.id for q in queues]
         for queue in queues:
-            table.add_row(Content(queue.name))
+            table.add_row(Text(queue.name))
 
     def _move_cursor_to_current(self) -> None:
         if self._current_queue_id in self._queue_ids:

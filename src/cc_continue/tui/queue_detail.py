@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from rich.text import Text
 from textual.containers import Container, Horizontal
 from textual.content import Content
 from textual.screen import ModalScreen
@@ -120,7 +121,7 @@ class QueueDetailScreen(SidebarScreen):
                 run.started_at.strftime("%Y-%m-%d %H:%M"),
                 status,
                 f"{tokens:,}",
-                Content((run.result_text or run.error_text or "")[:60].replace("\n", " ")),
+                Text((run.result_text or run.error_text or "")[:60].replace("\n", " ")),
             )
 
     def _refresh_info(self) -> None:
