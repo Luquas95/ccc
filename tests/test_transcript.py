@@ -234,3 +234,38 @@ def test_parses_real_captured_transcript_shape(tmp_path):
         ("human", "Reply with exactly one word: LIVEDELIVERY"),
         ("assistant_text", "LIVEDELIVERY"),
     ]
+
+
+import os
+import time
+
+from cc_continue.transcript import encode_project_dir, list_sessions_for_directory
+
+
+def _session_line(kind, content, ts="2026-10-12T10:00:00.000Z"):
+    if kind == "user":
+        return json.dumps({"type": "user", "message": {"role": "user", "content": content}, "timestamp": ts}) + "\n"
+    return json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": content}]}, "timestamp": ts}) + "\n"
+
+
+def test_encode_project_dir():
+    assert encode_project_dir("/mnt/AI/DEV/CC-continue") == "-mnt-AI-DEV-CC-continue"
+    assert encode_project_dir("/a/b_c.d") == "-a-b-c-d"
+
+
+def test_lists_sessions_newest_first_via_path_and_realpath(tmp_path, monkeypatch):
+    root = tmp_path / "projects"
+    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", root)
+    real = tmp_path / "real"; real.mkdir()
+    link = tmp_path / "link"; link.symlink_to(real)
+    d1 = root / encode_project_dir(str(link)); d1.mkdir(parents=True)
+    d2 = root / encode_project_dir(str(real)); d2.mkdir(parents=True)
+    (d1 / "old.jsonl").write_text(_session_line("user", "first old") + _session_line("assistant", "ok"))
+    time.sleep(0.01)
+    (d2 / "new.jsonl").write_text(_session_line("user", "<command-name>x</command-name>") + _session_line("user", "real prompt"))
+    (d2 / "empty.jsonl").write_text(_session_line("assistant", "no human"))
+    os.utime(d1 / "old.jsonl", (1, 1))
+    sessions = list_sessions_for_directory(str(link))
+    assert [s.session_id for s in sessions] == ["new", "old"]
+    assert sessions[0].first_prompt == "real prompt"
+    assert sessions[1].message_count == 2

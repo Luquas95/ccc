@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -99,3 +101,63 @@ def parse_transcript_events(path: Path, since_byte_offset: int = 0) -> tuple[lis
             events.extend(_events_from_line(data))
             consumed += len(raw_line)
     return events, consumed
+
+
+@dataclass
+class SessionSummary:
+    session_id: str
+    modified: datetime
+    first_prompt: str
+    message_count: int
+
+
+def encode_project_dir(path: str) -> str:
+    """Claude Code's transcript directory name for a cwd: every
+    non-alphanumeric character becomes "-" (confirmed on this machine)."""
+    return re.sub(r"[^A-Za-z0-9]", "-", path)
+
+
+def list_sessions_for_directory(path: str, limit: int = 50) -> list[SessionSummary]:
+    """Claude Code sessions recorded for a directory, newest first. Tries
+    the path as given AND its realpath — ~/DEV is a symlink, and sessions
+    started from either spelling land in different directories."""
+    files: dict[str, Path] = {}
+    for candidate in {path.rstrip("/") or "/", os.path.realpath(path)}:
+        project_dir = PROJECTS_ROOT / encode_project_dir(candidate)
+        if project_dir.is_dir():
+            for f in project_dir.glob("*.jsonl"):
+                files.setdefault(f.stem, f)
+    newest = sorted(files.values(), key=lambda f: f.stat().st_mtime, reverse=True)[:limit]
+    summaries = []
+    for f in newest:
+        first_prompt, count = _summarize(f)
+        if first_prompt is None:
+            continue
+        summaries.append(SessionSummary(f.stem, datetime.fromtimestamp(f.stat().st_mtime), first_prompt, count))
+    return summaries
+
+
+_MESSAGE_LINE_RE = re.compile(rb'"type":\s*"(?:user|assistant)"')
+
+
+def _summarize(path: Path) -> tuple[str | None, int]:
+    first_prompt = None
+    count = 0
+    with open(path, "rb") as fh:
+        for raw in fh:
+            # Cheap pre-filter: most lines (tool results, hooks, metadata)
+            # aren't messages, and transcripts can be many MB.
+            if not _MESSAGE_LINE_RE.search(raw):
+                continue
+            try:
+                data = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            for event in _events_from_line(data):
+                if event.kind == "tool_call":
+                    continue
+                count += 1
+                # Skip harness-injected lines like <command-name>…</command-name>.
+                if first_prompt is None and event.kind == "human" and not event.text.lstrip().startswith("<"):
+                    first_prompt = event.text.strip().splitlines()[0][:120]
+    return first_prompt, count
