@@ -16,7 +16,7 @@ from cc_continue.storage import Storage
 
 logger = logging.getLogger(__name__)
 
-RunFn = Callable[[str, str, str, bool], Awaitable[RunResult]]
+RunFn = Callable[[str, str, str, bool, list[str] | None, list[str] | None], Awaitable[RunResult]]
 
 # How often an idle/blocked queue re-checks storage even without an
 # in-process notify(). This is what makes it safe for another process (the
@@ -142,7 +142,9 @@ class QueueRuntime:
 
         resume = queue.always_resume or self._has_run_before()
         started_at = datetime.now()
-        result = await self.run_fn(queue.project_path, queue.session_id, item.prompt_text, resume)
+        result = await self.run_fn(
+            queue.project_path, queue.session_id, item.prompt_text, resume, queue.launch_flags, queue.first_run_flags
+        )
         finished_at = datetime.now()
 
         run_id = self.storage.insert_prompt_run(

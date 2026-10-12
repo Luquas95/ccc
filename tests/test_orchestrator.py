@@ -23,7 +23,7 @@ def project_dir(tmp_path):
 async def test_add_prompt_runs_and_marks_done(storage, project_dir):
     calls = []
 
-    async def fake_run(project_path, session_id, prompt, resume):
+    async def fake_run(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
         calls.append((prompt, resume))
         return RunResult(status=RunStatus.SUCCESS, result_text="done", cost_usd=0.01)
 
@@ -46,7 +46,7 @@ async def test_add_prompt_runs_and_marks_done(storage, project_dir):
 
 
 async def test_persists_per_model_usage(storage, project_dir):
-    async def fake_run(project_path, session_id, prompt, resume):
+    async def fake_run(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
         return RunResult(
             status=RunStatus.SUCCESS,
             model_usage={"claude-sonnet-5": {"input_tokens": 2, "output_tokens": 4}},
@@ -69,7 +69,7 @@ async def test_persists_per_model_usage(storage, project_dir):
 async def test_second_prompt_resumes_session(storage, project_dir):
     calls = []
 
-    async def fake_run(project_path, session_id, prompt, resume):
+    async def fake_run(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
         calls.append(resume)
         return RunResult(status=RunStatus.SUCCESS)
 
@@ -95,7 +95,7 @@ async def test_second_prompt_resumes_session(storage, project_dir):
 
 
 async def test_hard_error_blocks_queue(storage, project_dir):
-    async def fake_run(project_path, session_id, prompt, resume):
+    async def fake_run(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
         return RunResult(status=RunStatus.ERROR, error_text="tool crashed")
 
     orch = Orchestrator(storage, run_fn=fake_run)
@@ -121,7 +121,7 @@ async def test_rate_limited_reschedules_with_short_backoff(storage, project_dir,
     monkeypatch.setattr("cc_continue.orchestrator.next_backoff_seconds", lambda prev: 0)
     call_count = {"n": 0}
 
-    async def fake_run(project_path, session_id, prompt, resume):
+    async def fake_run(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
         call_count["n"] += 1
         if call_count["n"] == 1:
             return RunResult(status=RunStatus.RATE_LIMITED, error_text="usage limit reached")
@@ -149,7 +149,7 @@ async def test_unhandled_exception_is_caught_and_blocks_queue_visibly(storage, p
     """A run_fn that raises (e.g. a bad cwd raising FileNotFoundError)
     must never leave the queue silently stuck at 'running' forever."""
 
-    async def raising_run(project_path, session_id, prompt, resume):
+    async def raising_run(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
         raise FileNotFoundError("[Errno 2] No such file or directory: 'nope'")
 
     orch = Orchestrator(storage, run_fn=raising_run)
@@ -260,7 +260,7 @@ async def test_discovers_queue_created_after_start_all(storage, tmp_path, monkey
     monkeypatch.setattr("cc_continue.orchestrator.POLL_INTERVAL_SECONDS", 0.02)
     calls = []
 
-    async def fake_run(project_path, session_id, prompt, resume):
+    async def fake_run(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
         calls.append(prompt)
         return RunResult(status=RunStatus.SUCCESS)
 
@@ -296,11 +296,11 @@ async def test_two_orchestrators_never_double_execute_same_item(tmp_path):
     calls_a = []
     calls_b = []
 
-    async def fake_run_a(project_path, session_id, prompt, resume):
+    async def fake_run_a(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
         calls_a.append(prompt)
         return RunResult(status=RunStatus.SUCCESS)
 
-    async def fake_run_b(project_path, session_id, prompt, resume):
+    async def fake_run_b(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
         calls_b.append(prompt)
         return RunResult(status=RunStatus.SUCCESS)
 
@@ -332,7 +332,7 @@ async def test_crash_recovery_requeues_running_items(storage, project_dir):
     storage.set_item_status(item.id, ItemStatus.RUNNING)
     storage.update_queue_status(queue.id, QueueStatus.RUNNING)
 
-    async def fake_run(project_path, session_id, prompt, resume):
+    async def fake_run(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
         return RunResult(status=RunStatus.SUCCESS)
 
     orch = Orchestrator(storage, run_fn=fake_run)

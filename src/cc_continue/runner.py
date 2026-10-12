@@ -108,16 +108,41 @@ def classify_output(stdout: str, stderr: str, exit_code: int) -> RunResult:
     )
 
 
-async def execute(project_path: str, session_id: str, prompt: str, resume: bool) -> RunResult:
-    session_flag = ["--resume", session_id] if resume else ["--session-id", session_id]
+# Flags used for queues created before launch attributes existed (NULL
+# launch_flags) — exactly what every run used before.
+LEGACY_FLAGS = ["--dangerously-skip-permissions"]
+
+# First-run flags that themselves say which session to talk to; the
+# queue's own (placeholder) session id must not be passed alongside them.
+_SESSION_SELECTING_FLAGS = ("--resume", "--from-pr")
+
+
+def build_command(
+    session_id: str,
+    prompt: str,
+    resume: bool,
+    launch_flags: list[str] | None = None,
+    first_run_flags: list[str] | None = None,
+) -> list[str]:
+    first = list(first_run_flags or [])
+    if any(flag in first for flag in _SESSION_SELECTING_FLAGS):
+        session_flag: list[str] = []
+    else:
+        session_flag = ["--resume", session_id] if resume else ["--session-id", session_id]
+    flags = LEGACY_FLAGS if launch_flags is None else list(launch_flags)
+    return ["claude", *session_flag, *first, "-p", prompt, "--output-format", "json", *flags]
+
+
+async def execute(
+    project_path: str,
+    session_id: str,
+    prompt: str,
+    resume: bool,
+    launch_flags: list[str] | None = None,
+    first_run_flags: list[str] | None = None,
+) -> RunResult:
     proc = await asyncio.create_subprocess_exec(
-        "claude",
-        *session_flag,
-        "-p",
-        prompt,
-        "--output-format",
-        "json",
-        "--dangerously-skip-permissions",
+        *build_command(session_id, prompt, resume, launch_flags, first_run_flags),
         cwd=project_path,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,

@@ -21,7 +21,7 @@ async def test_daemon_processes_prequeued_prompt_and_stops_on_sigterm(tmp_path):
 
     calls = []
 
-    async def fake_run(project_path, session_id, prompt, resume):
+    async def fake_run(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
         calls.append(prompt)
         return RunResult(status=RunStatus.SUCCESS, result_text="done")
 
