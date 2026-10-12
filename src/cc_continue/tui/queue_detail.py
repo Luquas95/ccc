@@ -5,6 +5,7 @@ from textual.containers import Container, Horizontal
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Input, Static, TextArea
 
+from cc_continue.launch_options import describe_flags
 from cc_continue.models import QueueStatus, RunStatus
 from cc_continue.orchestrator import enqueue_prompt
 from cc_continue.storage import Storage
@@ -127,8 +128,11 @@ class QueueDetailScreen(SidebarScreen):
         lines = [
             f"Status: {styled_status(queue.status)}   ·   Pending: [b]{self.storage.count_pending_items(queue.id)}[/b]"
             f"   ·   Delivery: {queue.delivery_mode.value}",
+            f"Launch: {escape(describe_flags(queue.launch_flags))}",
             f"[dim]Session: {escape(queue.session_id)}[/dim]",
         ]
+        if queue.first_run_flags:
+            lines.append(f"[yellow]First run: {escape(' '.join(queue.first_run_flags))}[/]")
         if queue.next_retry_at:
             lines.append(f"[yellow]Next retry: {queue.next_retry_at:%Y-%m-%d %H:%M}[/]")
         if queue.last_error:

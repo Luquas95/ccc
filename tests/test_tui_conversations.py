@@ -181,6 +181,72 @@ async def test_sidebar_buttons_show_full_label_text(tmp_path, monkeypatch):
     async with app.run_test() as pilot:
         await pilot.pause()
         labels = {str(b.label) for b in app.screen.query(Button)}
-        assert "Add prompt (a)" in labels
+        assert "New conversation (n)" in labels
         assert "Live sessions (s)" in labels
         assert "Retry blocked (r)" in labels
+
+
+from textual.widgets import Input
+
+
+async def _open(storage, **kw):
+    screen = ConversationsScreen(storage, **kw)
+
+    class _HostApp(App):
+        async def on_mount(self):
+            await self.push_screen(screen)
+
+    return _HostApp()
+
+
+@pytest.mark.asyncio
+async def test_message_input_queues_prompt_and_shows_queued_bubble(tmp_path, monkeypatch):
+    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    storage = Storage(tmp_path / "history.db")
+    q = storage.create_queue("proj-a", "/tmp/proj-a", "session-aaa", launch_flags=["--model", "haiku"])
+    app = await _open(storage)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        box = app.screen.query_one("#message-input", Input)
+        box.focus()
+        await pilot.press(*"ahoj")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert [i.prompt_text for i in storage.list_pending_items(q.id)] == ["ahoj"]
+        assert box.value == ""
+        queued = app.screen.query(".message-box-queued")
+        assert len(queued) == 1 and "ahoj" in str(queued.first().render())
+        assert "1 queued" in str(app.screen.query_one("#conversation-status").render())
+        assert "Haiku" in str(app.screen.query_one("#conversation-header").render())
+
+
+@pytest.mark.asyncio
+async def test_new_queue_appears_and_select_queue_id_opens_it(tmp_path, monkeypatch):
+    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    storage = Storage(tmp_path / "history.db")
+    storage.create_queue("a", "/tmp/a", "s-a")
+    b = storage.create_queue("b", "/tmp/b", "s-b")
+    app = await _open(storage, select_queue_id=b.id)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert app.screen._current_queue_id == b.id
+        storage.create_queue("c", "/tmp/c", "s-c")
+        await app.screen._refresh_current()
+        await pilot.pause()
+        table = app.screen.query_one("#conversation-queue-list", DataTable)
+        assert table.row_count == 3
+        assert app.screen._current_queue_id == b.id
+
+
+@pytest.mark.asyncio
+async def test_status_line_shows_waiting_for_reset(tmp_path, monkeypatch):
+    from datetime import datetime
+    from cc_continue.models import QueueStatus
+    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    storage = Storage(tmp_path / "history.db")
+    q = storage.create_queue("a", "/tmp/a", "s-a")
+    storage.update_queue_status(q.id, QueueStatus.WAITING_RETRY, next_retry_at=datetime(2026, 10, 12, 15, 0))
+    app = await _open(storage)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert "15:00" in str(app.screen.query_one("#conversation-status").render())

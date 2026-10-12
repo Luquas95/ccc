@@ -38,6 +38,9 @@ VIEWS: list[tuple[str, str, str]] = [
 ADD_PROMPT_BUTTON = SidebarButton("sidebar-add-prompt", "Add prompt (a)", "green", "add_prompt")
 LIVE_SESSIONS_BUTTON = SidebarButton("sidebar-live-sessions", "Live sessions (s)", "blue", "pick_session")
 RETRY_BUTTON = SidebarButton("sidebar-retry", "Retry blocked (r)", "red", "retry_queue")
+NEW_CONVERSATION_BUTTON = SidebarButton(
+    "sidebar-new-conversation", "New conversation (n)", "green", "new_conversation"
+)
 
 STATUS_STYLES = {
     QueueStatus.IDLE: "dim",
@@ -220,6 +223,7 @@ class SidebarScreen(Screen):
         ("s", "goto('sessions')", "Live sessions"),
         ("v", "goto('analytics')", "Analytics"),
         ("a", "add_prompt", "Add prompt"),
+        ("n", "new_conversation", "New conversation"),
     ]
 
     def __init__(self, storage):
@@ -285,7 +289,7 @@ class SidebarScreen(Screen):
 
     # --- navigation ------------------------------------------------------
 
-    def _make_view(self, view: str) -> Screen:
+    def _make_view(self, view: str, **kwargs) -> Screen:
         if view == "dashboard":
             from cc_continue.tui.dashboard import DashboardScreen
 
@@ -293,7 +297,7 @@ class SidebarScreen(Screen):
         if view == "conversations":
             from cc_continue.tui.conversations import ConversationsScreen
 
-            return ConversationsScreen(self.storage)
+            return ConversationsScreen(self.storage, **kwargs)
         if view == "sessions":
             from cc_continue.tui.session_picker import SessionPickerScreen
 
@@ -305,22 +309,37 @@ class SidebarScreen(Screen):
         raise ValueError(f"unknown view: {view}")
 
     def action_goto(self, view: str) -> None:
-        """Switch to another top-level view, keeping the stack shallow:
+        if view == self.VIEW and not getattr(self, "IS_DETAIL", False):
+            return
+        self._navigate(view, self._make_view(view))
+
+    def _navigate(self, view: str, screen: Screen) -> None:
+        """Show another top-level view, keeping the stack shallow:
         dashboard is the home screen at the bottom, at most one other view
         sits on top of it (plus a detail screen pushed from that view)."""
         from cc_continue.tui.dashboard import DashboardScreen
 
-        if view == self.VIEW and not getattr(self, "IS_DETAIL", False):
-            return
         stack = self.app.screen_stack
         home_index = next((i for i, s in enumerate(stack) if isinstance(s, DashboardScreen)), None)
         if home_index is not None:
             for _ in range(len(stack) - 1 - home_index):
                 self.app.pop_screen()
             if view != "dashboard":
-                self.app.push_screen(self._make_view(view))
+                self.app.push_screen(screen)
         else:
-            self.app.switch_screen(self._make_view(view))
+            self.app.switch_screen(screen)
+
+    def action_new_conversation(self) -> None:
+        from cc_continue.tui.new_conversation import NewConversationModal
+
+        def opened(queue_id: int | None) -> None:
+            if queue_id is not None:
+                self.open_conversation(queue_id)
+
+        self.app.push_screen(NewConversationModal(self.storage), opened)
+
+    def open_conversation(self, queue_id: int) -> None:
+        self._navigate("conversations", self._make_view("conversations", select_queue_id=queue_id))
 
     def action_pick_session(self) -> None:
         self.action_goto("sessions")

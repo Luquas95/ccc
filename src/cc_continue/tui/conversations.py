@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from rich.markup import escape
 from textual.containers import VerticalScroll
-from textual.widgets import DataTable, Static
+from textual.widgets import DataTable, Input, Static
 
-from cc_continue.models import QueueStatus
+from cc_continue.launch_options import describe_flags
+from cc_continue.models import Queue, QueueStatus
 from cc_continue.storage import Storage
 from cc_continue.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
-from cc_continue.tui.layout import ADD_PROMPT_BUTTON, LIVE_SESSIONS_BUTTON, RETRY_BUTTON, SidebarScreen
+from cc_continue.tui.layout import LIVE_SESSIONS_BUTTON, NEW_CONVERSATION_BUTTON, RETRY_BUTTON, SidebarScreen
 
 
 class ConversationsScreen(SidebarScreen):
@@ -22,9 +23,18 @@ class ConversationsScreen(SidebarScreen):
     # Sidebar frame/buttons come from SidebarScreen (layout.SHARED_CSS);
     # only the transcript message boxes are specific to this screen.
     DEFAULT_CSS = """
+    ConversationsScreen #conversation-header {
+        height: auto;
+        padding: 0 1;
+        margin-bottom: 1;
+    }
     ConversationsScreen #conversation-transcript {
         width: 1fr;
         height: 1fr;
+    }
+    ConversationsScreen #conversation-status {
+        height: 1;
+        padding: 0 1;
     }
     ConversationsScreen .message-box {
         border: round cyan;
@@ -37,6 +47,10 @@ class ConversationsScreen(SidebarScreen):
     ConversationsScreen .message-box-assistant {
         border: round green;
     }
+    ConversationsScreen .message-box-queued {
+        border: round $panel-lighten-2;
+        color: $text-muted;
+    }
     ConversationsScreen .message-header {
         color: $accent;
     }
@@ -45,73 +59,122 @@ class ConversationsScreen(SidebarScreen):
     }
     """
 
-    def __init__(self, storage: Storage):
+    def __init__(self, storage: Storage, select_queue_id: int | None = None):
         super().__init__(storage)
         # Per-queue cache: queue_id -> {"path": Path|None, "offset": int,
         # "events": list[TranscriptEvent]} so switching back to an
         # already-viewed queue doesn't re-parse its transcript from zero.
         self._cache: dict[int, dict] = {}
-        self._current_queue_id: int | None = None
+        self._current_queue_id: int | None = select_queue_id
+        # Opened for a specific (usually just-started) conversation: put the
+        # cursor straight into the message box.
+        self._focus_input_on_mount = select_queue_id is not None
+        # Queue ids in the order of the sidebar table's rows.
+        self._queue_ids: list[int] = []
+        # What the transcript pane currently shows (queue, event count,
+        # pending item ids) — re-render only when this changes.
+        self._rendered_key: tuple | None = None
 
     def sidebar_buttons(self):
-        return [ADD_PROMPT_BUTTON, LIVE_SESSIONS_BUTTON, RETRY_BUTTON]
+        return [NEW_CONVERSATION_BUTTON, LIVE_SESSIONS_BUTTON, RETRY_BUTTON]
 
     def compose_sidebar_section(self):
         yield Static("Queues", classes="sidebar-label")
         yield DataTable(id="conversation-queue-list", classes="sidebar-list")
 
     def compose_main(self):
+        yield Static(id="conversation-header")
         yield VerticalScroll(id="conversation-transcript")
+        yield Static(id="conversation-status")
+        yield Input(placeholder="Message Claude… (Enter to send, Esc back)", id="message-input")
 
     async def on_mount(self) -> None:
         table = self.query_one("#conversation-queue-list", DataTable)
         table.cursor_type = "row"
         table.show_header = False
         table.add_column("Queue")
-        queues = self.storage.list_queues()
-        for queue in queues:
-            table.add_row(escape(queue.name))
-        if queues:
+        self._rebuild_queue_list()
+        if self._current_queue_id not in self._queue_ids:
+            self._current_queue_id = self._queue_ids[0] if self._queue_ids else None
+        if self._current_queue_id is not None:
             # Don't rely solely on RowHighlighted firing for the initial
             # cursor position (focus timing can vary once Header/Footer
-            # siblings are present) — select the first queue explicitly
-            # so the right panel is deterministically populated on open.
-            await self._show_queue(queues[0].id)
+            # siblings are present) — select the queue explicitly so the
+            # right panel is deterministically populated on open.
+            self._move_cursor_to_current()
+            await self._show_queue(self._current_queue_id)
         # set_interval accepts an async callback directly (confirmed live
         # with a standalone sandbox script — no run_worker wrapper needed).
         self.set_interval(2.0, self._refresh_current)
+        if self._focus_input_on_mount:
+            self.query_one("#message-input", Input).focus()
+
+    def _rebuild_queue_list(self) -> None:
+        table = self.query_one("#conversation-queue-list", DataTable)
+        table.clear()
+        queues = self.storage.list_queues()
+        self._queue_ids = [q.id for q in queues]
+        for queue in queues:
+            table.add_row(escape(queue.name))
+
+    def _move_cursor_to_current(self) -> None:
+        if self._current_queue_id in self._queue_ids:
+            table = self.query_one("#conversation-queue-list", DataTable)
+            table.move_cursor(row=self._queue_ids.index(self._current_queue_id))
 
     async def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         # RowHighlighted fires on arrow-key movement (confirmed live: no
         # Enter needed), unlike RowSelected which only fires on
         # Enter/click — this is what makes switching immediate, per the
         # design.
-        queues = self.storage.list_queues()
-        if event.cursor_row >= len(queues):
+        if event.cursor_row >= len(self._queue_ids):
             return
-        await self._show_queue(queues[event.cursor_row].id)
+        queue_id = self._queue_ids[event.cursor_row]
+        if queue_id != self._current_queue_id or self._rendered_key is None:
+            await self._show_queue(queue_id)
 
     async def _show_queue(self, queue_id: int) -> None:
         self._current_queue_id = queue_id
-        if queue_id not in self._cache:
-            queue = self.storage.get_queue(queue_id)
-            path = find_transcript_path(queue.session_id)
-            self._cache[queue_id] = {"path": path, "offset": 0, "events": []}
-            if path is not None:
-                events, offset = parse_transcript_events(path)
-                self._cache[queue_id]["events"] = events
-                self._cache[queue_id]["offset"] = offset
+        self._load_transcript(queue_id)
         await self._render_transcript(queue_id)
 
+    def _load_transcript(self, queue_id: int) -> bool:
+        """Read new transcript lines into the cache. Returns True if any new
+        events arrived. A queue whose transcript doesn't exist yet (a new
+        conversation before its first run) is looked up again each call."""
+        cached = self._cache.setdefault(queue_id, {"path": None, "offset": 0, "events": []})
+        if cached["path"] is None:
+            cached["path"] = find_transcript_path(self.storage.get_queue(queue_id).session_id)
+            if cached["path"] is None:
+                return False
+        events, offset = parse_transcript_events(cached["path"], since_byte_offset=cached["offset"])
+        cached["offset"] = offset
+        cached["events"].extend(events)
+        return bool(events)
+
     async def _render_transcript(self, queue_id: int) -> None:
+        queue = self.storage.get_queue(queue_id)
+        pending = self.storage.list_pending_items(queue_id)
+        events: list[TranscriptEvent] = self._cache[queue_id]["events"]
+        self._update_header(queue)
+        self.query_one("#conversation-status", Static).update(self._status_text(queue, len(pending)))
+        self._rendered_key = (queue_id, len(events), tuple(i.id for i in pending))
+
         container = self.query_one("#conversation-transcript", VerticalScroll)
         await container.remove_children()
-        events: list[TranscriptEvent] = self._cache[queue_id]["events"]
-        if not events:
+        if not events and not pending:
             await container.mount(Static("No conversation yet."))
             return
         for event in events:
             await container.mount(self._render_event(event))
+        for item in pending:
+            await container.mount(
+                Static(
+                    f"[b]You[/b]  [dim]queued[/dim]\n{escape(item.prompt_text)}",
+                    classes="message-box message-box-queued",
+                )
+            )
+        container.scroll_end(animate=False)
 
     def _render_event(self, event: TranscriptEvent) -> Static:
         # event.text is arbitrary conversation content (human-typed or a
@@ -129,18 +192,63 @@ class ConversationsScreen(SidebarScreen):
         time_str = event.timestamp.strftime("%H:%M")
         return Static(f"[b]{label}[/b]  [dim]{time_str}[/dim]\n{safe_text}", classes=f"message-box {box_class}")
 
+    def _update_header(self, queue: Queue) -> None:
+        text = (
+            f"[b]{escape(queue.name)}[/b]  [dim]{escape(queue.project_path)}[/dim]"
+            f"  ·  {escape(describe_flags(queue.launch_flags))}"
+        )
+        if queue.first_run_flags:
+            text += f"  ·  [yellow]first run: {escape(' '.join(queue.first_run_flags))}[/]"
+        self.query_one("#conversation-header", Static).update(text)
+
+    @staticmethod
+    def _status_text(queue: Queue, pending: int) -> str:
+        if queue.status == QueueStatus.RUNNING:
+            text = "[bold green]● Claude is working…[/]"
+        elif queue.status == QueueStatus.WAITING_RETRY and queue.next_retry_at:
+            text = f"[bold yellow]⏸ Waiting for usage limit reset until {queue.next_retry_at:%H:%M}[/]"
+        elif queue.status == QueueStatus.BLOCKED_ERROR:
+            text = f"[bold red]✖ Blocked: {escape((queue.last_error or '')[:120])} — press r to retry[/]"
+        else:
+            text = "[dim]Ready[/dim]"
+        return f"{text}  ·  {pending} queued" if pending else text
+
     async def _refresh_current(self) -> None:
+        if [q.id for q in self.storage.list_queues()] != self._queue_ids:
+            # A conversation was started elsewhere (dialog, CLI, another TUI).
+            self._rebuild_queue_list()
+            self._move_cursor_to_current()
         if self._current_queue_id is None:
             return
         queue_id = self._current_queue_id
-        cached = self._cache.get(queue_id)
-        if cached is None or cached["path"] is None:
-            return
-        new_events, new_offset = parse_transcript_events(cached["path"], since_byte_offset=cached["offset"])
-        if new_events:
-            cached["events"].extend(new_events)
-            cached["offset"] = new_offset
+        self._load_transcript(queue_id)
+        queue = self.storage.get_queue(queue_id)
+        pending = self.storage.list_pending_items(queue_id)
+        key = (queue_id, len(self._cache[queue_id]["events"]), tuple(i.id for i in pending))
+        if key != self._rendered_key:
             await self._render_transcript(queue_id)
+        else:
+            self._update_header(queue)
+            self.query_one("#conversation-status", Static).update(self._status_text(queue, len(pending)))
+
+    async def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id != "message-input":
+            return
+        text = event.value.strip()
+        if not text or self._current_queue_id is None:
+            return
+        # Pure storage write — the daemon picks it up on its next poll.
+        self.storage.add_queue_item(self._current_queue_id, text)
+        event.input.value = ""
+        await self._render_transcript(self._current_queue_id)
+
+    def open_conversation(self, queue_id: int) -> None:
+        # Already on this screen: just select it in place.
+        self._rebuild_queue_list()
+        self._current_queue_id = queue_id
+        self._move_cursor_to_current()
+        self.run_worker(self._show_queue(queue_id), exclusive=True, group="show-queue")
+        self.query_one("#message-input", Input).focus()
 
     def default_project_path(self) -> str:
         if self._current_queue_id is None:

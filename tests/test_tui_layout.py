@@ -129,3 +129,20 @@ async def test_add_prompt_prefills_selected_queue_path(tmp_path):
         await pilot.press("escape")
         await pilot.pause()
         assert isinstance(app.screen, DashboardScreen)
+
+
+@pytest.mark.asyncio
+async def test_n_opens_new_conversation_and_lands_in_conversations(tmp_path):
+    from cc_continue.tui.new_conversation import NewConversationModal
+    app = _app(tmp_path)
+    async with app.run_test(size=(160, 50)) as pilot:
+        await pilot.pause()
+        await pilot.press("n")
+        await pilot.pause()
+        assert isinstance(app.screen, NewConversationModal)
+        app.screen.query_one("#launch-path").value = str(tmp_path)
+        await pilot.click("#launch-start")
+        await pilot.pause()
+        assert isinstance(app.screen, ConversationsScreen)
+        newest = max(q.id for q in app.screen.storage.list_queues())
+        assert app.screen._current_queue_id == newest
