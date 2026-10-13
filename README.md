@@ -273,6 +273,13 @@ one. Press `t` in the conversations view to edit that queue:
 
 The message box under the transcript adds to the end of the same queue.
 
+**Scheduling:** the task editor has a *Run at* field — empty (as soon as
+possible), `HH:MM` (today, or tomorrow if that time has passed),
+`YYYY-MM-DD HH:MM`, or `reset` (after the next 5-hour usage window
+reset). A scheduled task keeps its place in the queue, so the tasks
+behind it wait too; the task list shows a *When* column and the status
+line says when the next task starts.
+
 ### Conversation list: markers, archive, delete
 
 Each conversation in the list (and on the dashboard) shows what it's doing:
