@@ -6,7 +6,16 @@ from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 
-from ccc.models import DeliveryMode, ItemStatus, PromptRun, Queue, QueueItem, QueueStatus, RunStatus
+from ccc.models import (
+    DeliveryMode,
+    ItemStatus,
+    PermissionRequest,
+    PromptRun,
+    Queue,
+    QueueItem,
+    QueueStatus,
+    RunStatus,
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS queues (
@@ -39,6 +48,22 @@ CREATE TABLE IF NOT EXISTS queue_items (
     added_at TEXT NOT NULL,
     continue_on_retry INTEGER NOT NULL DEFAULT 0,
     not_before TEXT
+);
+
+CREATE TABLE IF NOT EXISTS permission_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    queue_id INTEGER NOT NULL,
+    tool_name TEXT NOT NULL,
+    input_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    decided_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS permission_allow (
+    queue_id INTEGER NOT NULL,
+    tool_name TEXT NOT NULL,
+    PRIMARY KEY (queue_id, tool_name)
 );
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -396,8 +421,73 @@ class Storage:
             )
             conn.execute("DELETE FROM prompt_runs WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM queue_items WHERE queue_id = ?", (queue_id,))
+            conn.execute("DELETE FROM permission_requests WHERE queue_id = ?", (queue_id,))
+            conn.execute("DELETE FROM permission_allow WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM queues WHERE id = ?", (queue_id,))
             conn.commit()
+
+    # --- tool permission requests -------------------------------------------
+
+    @staticmethod
+    def _row_to_request(row: sqlite3.Row) -> PermissionRequest:
+        return PermissionRequest(
+            id=row["id"],
+            queue_id=row["queue_id"],
+            tool_name=row["tool_name"],
+            input=json.loads(row["input_json"]),
+            created_at=datetime.fromisoformat(row["created_at"]),
+            status=row["status"],
+        )
+
+    def create_permission_request(self, queue_id: int, tool_name: str, tool_input: dict) -> PermissionRequest:
+        with closing(self._connect()) as conn:
+            cur = conn.execute(
+                "INSERT INTO permission_requests (queue_id, tool_name, input_json, created_at) VALUES (?, ?, ?, ?)",
+                (queue_id, tool_name, json.dumps(tool_input, ensure_ascii=False), datetime.now().isoformat()),
+            )
+            conn.commit()
+            row = conn.execute("SELECT * FROM permission_requests WHERE id = ?", (cur.lastrowid,)).fetchone()
+            return self._row_to_request(row)
+
+    def get_permission_request(self, request_id: int) -> PermissionRequest | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT * FROM permission_requests WHERE id = ?", (request_id,)).fetchone()
+            return self._row_to_request(row) if row else None
+
+    def pending_permission_requests(self, queue_id: int) -> list[PermissionRequest]:
+        with closing(self._connect()) as conn:
+            rows = conn.execute(
+                "SELECT * FROM permission_requests WHERE queue_id = ? AND status = 'pending' ORDER BY id",
+                (queue_id,),
+            ).fetchall()
+            return [self._row_to_request(r) for r in rows]
+
+    def queues_waiting_for_approval(self) -> set[int]:
+        with closing(self._connect()) as conn:
+            rows = conn.execute("SELECT DISTINCT queue_id FROM permission_requests WHERE status = 'pending'").fetchall()
+            return {r[0] for r in rows}
+
+    def decide_permission_request(self, request_id: int, allow: bool) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute(
+                "UPDATE permission_requests SET status = ?, decided_at = ? WHERE id = ? AND status = 'pending'",
+                ("allowed" if allow else "denied", datetime.now().isoformat(), request_id),
+            )
+            conn.commit()
+
+    def always_allow_tool(self, queue_id: int, tool_name: str) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO permission_allow (queue_id, tool_name) VALUES (?, ?)", (queue_id, tool_name)
+            )
+            conn.commit()
+
+    def is_tool_always_allowed(self, queue_id: int, tool_name: str) -> bool:
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT 1 FROM permission_allow WHERE queue_id = ? AND tool_name = ?", (queue_id, tool_name)
+            ).fetchone()
+            return row is not None
 
     def mark_seen(self, queue_id: int) -> None:
         # Not updated_at: viewing isn't activity (recent_project_paths).

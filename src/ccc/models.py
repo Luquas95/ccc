@@ -118,3 +118,16 @@ class PromptRun:
     # Auto-commit after a successful headless task in a git repo.
     git_commit: str | None = None
     git_note: str | None = None
+
+
+@dataclass
+class PermissionRequest:
+    """Claude (headless, not skip-permissions) asking to use a tool; the
+    permission MCP server waits until the user decides in the TUI."""
+
+    id: int
+    queue_id: int
+    tool_name: str
+    input: dict
+    created_at: datetime
+    status: str = "pending"  # "pending" | "allowed" | "denied"
