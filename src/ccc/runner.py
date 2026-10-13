@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import json
 from dataclasses import dataclass, field
 
@@ -108,6 +109,10 @@ def classify_output(stdout: str, stderr: str, exit_code: int) -> RunResult:
     )
 
 
+# MCP call timeout for the permission prompt tool: a week, i.e. "until
+# the user answers" in practice.
+PERMISSION_TOOL_TIMEOUT_MS = 7 * 24 * 3600 * 1000
+
 # Flags used for queues created before launch attributes existed (NULL
 # launch_flags) — exactly what every run used before.
 LEGACY_FLAGS = ["--dangerously-skip-permissions"]
@@ -141,11 +146,17 @@ async def execute(
     launch_flags: list[str] | None = None,
     first_run_flags: list[str] | None = None,
 ) -> RunResult:
+    env = None
+    if launch_flags and "--permission-prompt-tool" in launch_flags:
+        # The permission tool waits for the user without a time limit;
+        # don't let Claude Code give up on the MCP call first.
+        env = {**os.environ, "MCP_TOOL_TIMEOUT": str(PERMISSION_TOOL_TIMEOUT_MS)}
     proc = await asyncio.create_subprocess_exec(
         *build_command(session_id, prompt, resume, launch_flags, first_run_flags),
         cwd=project_path,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        env=env,
     )
     stdout_bytes, stderr_bytes = await proc.communicate()
     result = classify_output(

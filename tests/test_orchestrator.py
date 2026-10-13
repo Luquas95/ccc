@@ -745,3 +745,38 @@ async def test_no_git_commands_for_conversations_without_command_permission(stor
     run = storage.runs_for_queue(q.id)[0]
     assert calls == []
     assert run.git_commit is None and "Skip all permission checks" in run.git_note
+
+
+# --- permission prompt tool -------------------------------------------------
+
+
+async def test_permission_tool_attached_only_outside_yolo(storage, project_dir, fast_poll):
+    import json as _json
+
+    from ccc.launch_options import DEFAULT_SELECTION, toggle
+    from ccc.orchestrator import start_conversation
+
+    seen = {}
+
+    async def capture(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
+        seen[prompt] = launch_flags
+        return RunResult(status=RunStatus.SUCCESS)
+
+    yolo = start_conversation(storage, project_dir, DEFAULT_SELECTION)
+    storage.add_queue_item(yolo.id, "yolo")
+    edits = start_conversation(storage, project_dir, toggle(DEFAULT_SELECTION, "perm_accept_edits", True))
+    storage.add_queue_item(edits.id, "edits")
+    orch = Orchestrator(storage, run_fn=capture)
+    await orch.start_all()
+    assert await _until(lambda: len(seen) == 2)
+    await orch.stop_all()
+    assert "--permission-prompt-tool" not in seen["yolo"]
+    flags = seen["edits"]
+    assert flags[:2] == ["--permission-mode", "acceptEdits"]
+    assert flags[flags.index("--permission-prompt-tool") + 1] == "mcp__ccc__approve"
+    config = _json.loads(flags[flags.index("--mcp-config") + 1])
+    server = config["mcpServers"]["ccc"]
+    assert server["args"] == ["-m", "ccc.permission_mcp"]
+    assert server["env"]["CCC_QUEUE_ID"] == str(edits.id)
+    assert server["env"]["CCC_DB"] == storage.db_path
+    assert storage.get_queue(edits.id).launch_flags == ["--permission-mode", "acceptEdits"]  # stored flags untouched

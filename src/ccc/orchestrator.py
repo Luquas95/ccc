@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import sqlite3
+import sys
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -153,6 +155,21 @@ def start_conversation(
         name, project_path, session_id, always_resume=True, launch_flags=flags, auto_continue=auto_continue,
         delivery_mode=delivery,
     )
+
+
+def permission_tool_flags(queue_id: int, db_path: str) -> list[str]:
+    """Attach ccc's permission MCP server (see permission_mcp) so tool
+    approvals wait for the user instead of being denied in -p mode."""
+    config = {
+        "mcpServers": {
+            "ccc": {
+                "command": sys.executable,
+                "args": ["-m", "ccc.permission_mcp"],
+                "env": {"CCC_DB": str(db_path), "CCC_QUEUE_ID": str(queue_id)},
+            }
+        }
+    }
+    return ["--mcp-config", json.dumps(config), "--permission-prompt-tool", "mcp__ccc__approve"]
 
 
 def _inside_git_repo(path: str) -> bool:
@@ -331,9 +348,14 @@ class QueueRuntime:
         # Git only where Claude may run commands anyway — see gitops.
         git_allowed = gitops.claude_can_run_commands(queue)
         before = await asyncio.to_thread(gitops.snapshot, queue.project_path) if git_allowed else None
+        flags = queue.launch_flags
+        if not git_allowed:
+            # Restricted permission mode: tool approvals go to the user in
+            # the TUI instead of being denied automatically.
+            flags = list(flags or []) + permission_tool_flags(queue.id, self.storage.db_path)
         started_at = datetime.now()
         result = await self.run_fn(
-            queue.project_path, queue.session_id, text, resume, queue.launch_flags, queue.first_run_flags
+            queue.project_path, queue.session_id, text, resume, flags, queue.first_run_flags
         )
         finished_at = datetime.now()
         git_commit = git_note = None
