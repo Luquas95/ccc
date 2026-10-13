@@ -155,6 +155,15 @@ def start_conversation(
     )
 
 
+def _inside_git_repo(path: str) -> bool:
+    """Just looks for a .git entry upwards — runs no git command."""
+    current = Path(path).resolve()
+    for candidate in (current, *current.parents):
+        if (candidate / ".git").exists():
+            return True
+    return False
+
+
 class QueueRuntime:
     def __init__(self, storage: Storage, queue: Queue, run_fn: RunFn = execute, notifier=None):
         self.storage = storage
@@ -319,13 +328,17 @@ class QueueRuntime:
             text = self.storage.get_setting("continue_text", DEFAULT_CONTINUE_TEXT) or DEFAULT_CONTINUE_TEXT
         else:
             text = item.prompt_text
-        before = await asyncio.to_thread(gitops.snapshot, queue.project_path)
+        # Git only where Claude may run commands anyway — see gitops.
+        git_allowed = gitops.claude_can_run_commands(queue)
+        before = await asyncio.to_thread(gitops.snapshot, queue.project_path) if git_allowed else None
         started_at = datetime.now()
         result = await self.run_fn(
             queue.project_path, queue.session_id, text, resume, queue.launch_flags, queue.first_run_flags
         )
         finished_at = datetime.now()
         git_commit = git_note = None
+        if not git_allowed and result.status == RunStatus.SUCCESS and _inside_git_repo(queue.project_path):
+            git_note = "not committed: auto-commit only runs in 'Skip all permission checks' conversations"
         if before is not None and result.status == RunStatus.SUCCESS:
             outcome = await asyncio.to_thread(
                 gitops.commit_task, queue.project_path, before, item.prompt_text, queue.name

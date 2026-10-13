@@ -246,7 +246,12 @@ In a git repository, every successful headless task is committed:
 trailer. It's skipped — and the reason recorded — when the working tree
 already had uncommitted changes before the task (that's your work, it is
 never swept into a ccc commit), on a detached HEAD, or when nothing
-changed. The queue detail shows a *Commit* column; Enter on a run opens
+changed. Auto-commit only happens in conversations started with *Skip all
+permission checks*: the daemon runs git outside Claude's permission mode,
+so in an *Auto-accept edits* / *Plan only* conversation Claude could
+otherwise plant a git hook or config that ccc would execute for it. Every
+git call also disables hooks, fsmonitor, external diff/textconv and the
+pager. The queue detail shows a *Commit* column; Enter on a run opens
 the commit's stat and coloured diff.
 
 ### Task queue

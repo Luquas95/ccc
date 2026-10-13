@@ -1,10 +1,18 @@
 """Git around a headless task: note the state before it, commit what
 Claude changed after it, show a commit. Conservative on purpose — never
 commits work that was already uncommitted before the task (that's the
-user's), nor on a detached HEAD."""
+user's), nor on a detached HEAD.
+
+Security: the daemon runs git outside Claude's permission mode, in a repo
+Claude may have just edited. A conversation limited to editing files
+could plant .git/hooks/pre-commit or core.fsmonitor and have ccc execute
+it. So (1) the orchestrator only uses this module for conversations that
+may run commands anyway (claude_can_run_commands), and (2) every git call
+here disables hooks, fsmonitor, external diff/textconv and the pager."""
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 from dataclasses import dataclass
 
@@ -13,8 +21,32 @@ logger = logging.getLogger(__name__)
 SHOW_MAX_CHARS = 200_000
 
 
+_HARDENING = [
+    "-c", "core.hooksPath=/dev/null",
+    "-c", "core.fsmonitor=false",
+    "-c", "core.untrackedCache=false",
+    "-c", "diff.external=",
+    "-c", "core.pager=cat",
+]
+
+
 def _git(cwd: str, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", "-C", cwd, *args], capture_output=True, text=True, timeout=30)
+    return subprocess.run(
+        ["git", *_HARDENING, "-C", cwd, *args],
+        capture_output=True, text=True, timeout=30,
+        env={**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_PAGER": "cat"},
+    )
+
+
+def claude_can_run_commands(queue) -> bool:
+    """True when the conversation's own permission mode already lets
+    Claude run arbitrary commands, so ccc running git there grants
+    nothing new. Legacy queues (no launch flags) ran with
+    --dangerously-skip-permissions."""
+    flags = queue.launch_flags
+    if flags is None or "--dangerously-skip-permissions" in flags:
+        return True
+    return any(a == "--permission-mode" and b == "bypassPermissions" for a, b in zip(flags, flags[1:]))
 
 
 @dataclass
@@ -61,7 +93,7 @@ def commit_task(cwd: str, before: Snapshot, task_text: str, conversation: str) -
     first_line = (task_text.strip().splitlines() or ["task"])[0][:72]
     message = f"ccc: {first_line}\n\nccc-conversation: {conversation}\n"
     added = _git(cwd, "add", "-A")
-    committed = _git(cwd, "commit", "-q", "-m", message) if added.returncode == 0 else added
+    committed = _git(cwd, "commit", "-q", "--no-verify", "-m", message) if added.returncode == 0 else added
     if committed.returncode != 0:
         logger.warning("auto-commit failed in %s: %s", cwd, committed.stderr.strip()[:300])
         return CommitOutcome(None, "not committed: git commit failed")
@@ -70,7 +102,7 @@ def commit_task(cwd: str, before: Snapshot, task_text: str, conversation: str) -
 
 
 def show(cwd: str, commit: str) -> str:
-    result = _git(cwd, "show", "--stat", "--patch", "--no-color", commit)
+    result = _git(cwd, "show", "--stat", "--patch", "--no-color", "--no-ext-diff", "--no-textconv", commit)
     text = result.stdout if result.returncode == 0 else result.stderr
     if len(text) > SHOW_MAX_CHARS:
         text = text[:SHOW_MAX_CHARS] + f"\n… (truncated, {len(text)} chars)"

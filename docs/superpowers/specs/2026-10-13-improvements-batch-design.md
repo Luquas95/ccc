@@ -72,6 +72,14 @@ restartují se služby (rozhodnutí uživatele).
 - Jen pro headless konverzace v git repozitáři.
 - Před spuštěním úkolu: `git rev-parse HEAD` + `git status --porcelain`
   uloží se do `prompt_runs.git_before` (HEAD) — kvůli rozlišení změn.
+- **Bezpečnost (nález bezpečnostní kontroly commitu):** démon spouští git
+  mimo režim oprávnění Clauda; konverzace omezená na úpravy souborů by
+  mohla podstrčit `.git/hooks/*` nebo `core.fsmonitor` a ccc by je spustil.
+  Proto git (snapshot i commit) jen u konverzací se „Skip all permission
+  checks“ (a starších) — jinde se nespustí ani `git status`, k běhu se
+  uloží důvod. Každé volání gitu navíc: `core.hooksPath=/dev/null`,
+  `core.fsmonitor=false`, `diff.external=`, `--no-verify`,
+  `--no-ext-diff --no-textconv`, žádný pager.
 - **Upřesnění při implementaci:** auto-commit se vynechá, když byl strom
   už před úkolem špinavý (necommitnutá práce uživatele by se jinak
   přimíchala do commitu ccc); důvod se uloží do `prompt_runs.git_note`.

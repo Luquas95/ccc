@@ -719,3 +719,29 @@ async def test_scheduled_task_waits_and_blocks_later_ones(storage, project_dir, 
     storage.update_item_schedule(later.id, datetime.now() - timedelta(seconds=1))
     assert await _until(lambda: sent == ["first", "scheduled", "after"])
     await orch.stop_all()
+
+
+async def test_no_git_commands_for_conversations_without_command_permission(storage, tmp_path, fast_poll, monkeypatch):
+    import subprocess
+
+    from ccc.launch_options import DEFAULT_SELECTION, toggle
+    from ccc.orchestrator import start_conversation
+
+    repo = tmp_path / "gitproj2"
+    repo.mkdir()
+    subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
+    calls = []
+    monkeypatch.setattr("ccc.gitops._git", lambda *a: calls.append(a))
+
+    async def ok(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
+        return RunResult(status=RunStatus.SUCCESS)
+
+    q = start_conversation(storage, str(repo), toggle(DEFAULT_SELECTION, "perm_accept_edits", True))
+    storage.add_queue_item(q.id, "edit things")
+    orch = Orchestrator(storage, run_fn=ok)
+    await orch.start_all()
+    assert await _until(lambda: storage.runs_for_queue(q.id))
+    await orch.stop_all()
+    run = storage.runs_for_queue(q.id)[0]
+    assert calls == []
+    assert run.git_commit is None and "Skip all permission checks" in run.git_note
