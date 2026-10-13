@@ -5,7 +5,7 @@ from datetime import datetime
 from rich.text import Text
 from textual.containers import Vertical, VerticalScroll
 from textual.content import Content
-from textual.widgets import DataTable, Input, Static
+from textual.widgets import DataTable, Static
 
 from ccc.launch_options import describe_flags
 from ccc.models import DeliveryMode, Queue, QueueStatus
@@ -19,6 +19,7 @@ from ccc.tui.layout import (
     SidebarScreen,
     queue_label,
 )
+from ccc.tui.message_box import MessageBox
 
 
 # Newest transcript events mounted when a conversation is opened; older
@@ -112,7 +113,7 @@ class ConversationsScreen(SidebarScreen):
         yield Static(id="conversation-header")
         yield VerticalScroll(id="conversation-transcript")
         yield Static(id="conversation-status")
-        yield Input(placeholder="Message Claude… (Enter to send, Esc back)", id="message-input")
+        yield MessageBox(placeholder="Message Claude… (Enter send · Ctrl+J new line · Esc back)", id="message-input")
 
     async def on_mount(self) -> None:
         table = self.query_one("#conversation-queue-list", DataTable)
@@ -132,7 +133,7 @@ class ConversationsScreen(SidebarScreen):
         # with a standalone sandbox script — no run_worker wrapper needed).
         self.set_interval(2.0, self._refresh_current)
         if self._focus_input_on_mount:
-            self.query_one("#message-input", Input).focus()
+            self.query_one("#message-input", MessageBox).focus()
 
     def _rebuild_queue_list(self) -> None:
         table = self.query_one("#conversation-queue-list", DataTable)
@@ -324,10 +325,8 @@ class ConversationsScreen(SidebarScreen):
         else:
             await self._render_transcript(queue_id)
 
-    async def on_input_submitted(self, event: Input.Submitted) -> None:
-        if event.input.id != "message-input":
-            return
-        text = event.value.strip()
+    async def on_message_box_submitted(self, event: MessageBox.Submitted) -> None:
+        text = event.text.strip()
         if not text or self._current_queue_id is None:
             return
         # Pure storage write — the daemon picks it up on its next poll.
@@ -335,7 +334,7 @@ class ConversationsScreen(SidebarScreen):
         if self.storage.get_queue(self._current_queue_id).status == QueueStatus.PAUSED_LIMIT:
             # Writing to a conversation paused at a limit means "go on".
             self.storage.update_queue_status(self._current_queue_id, QueueStatus.IDLE)
-        event.input.value = ""
+        event.box.text = ""
         await self._refresh_current()
 
     def open_conversation(self, queue_id: int) -> None:
@@ -344,7 +343,7 @@ class ConversationsScreen(SidebarScreen):
         self._current_queue_id = queue_id
         self._move_cursor_to_current()
         self.run_worker(self._show_queue(queue_id), exclusive=True, group="show-queue")
-        self.query_one("#message-input", Input).focus()
+        self.query_one("#message-input", MessageBox).focus()
 
     def default_project_path(self) -> str:
         if self._current_queue_id is None:

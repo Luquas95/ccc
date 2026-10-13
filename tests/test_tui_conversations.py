@@ -188,6 +188,8 @@ async def test_sidebar_buttons_show_full_label_text(tmp_path, monkeypatch):
 
 from textual.widgets import Input
 
+from ccc.tui.message_box import MessageBox
+
 
 async def _open(storage, **kw):
     screen = ConversationsScreen(storage, **kw)
@@ -207,13 +209,13 @@ async def test_message_input_queues_prompt_and_shows_queued_bubble(tmp_path, mon
     app = await _open(storage)
     async with app.run_test() as pilot:
         await pilot.pause()
-        box = app.screen.query_one("#message-input", Input)
+        box = app.screen.query_one("#message-input", MessageBox)
         box.focus()
         await pilot.press(*"ahoj")
         await pilot.press("enter")
         await pilot.pause()
         assert [i.prompt_text for i in storage.list_pending_items(q.id)] == ["ahoj"]
-        assert box.value == ""
+        assert box.text == ""
         queued = app.screen.query(".message-box-queued")
         assert len(queued) == 1 and "ahoj" in str(queued.first().render())
         assert "1 queued" in str(app.screen.query_one("#conversation-status").render())
@@ -364,7 +366,7 @@ async def test_message_while_paused_at_limit_resumes_queue(tmp_path, monkeypatch
     app = await _open(storage)
     async with app.run_test() as pilot:
         await pilot.pause()
-        app.screen.query_one("#message-input", Input).focus()
+        app.screen.query_one("#message-input", MessageBox).focus()
         await pilot.press(*"go")
         await pilot.press("enter")
         await pilot.pause()
@@ -407,3 +409,40 @@ async def test_header_shows_remote_control_link(tmp_path, monkeypatch):
         storage.set_remote_control_url(q.id, "https://claude.ai/code/session_XYZ")
         await app.screen._refresh_current()
         assert "https://claude.ai/code/session_XYZ" in str(app.screen.query_one("#conversation-header").render())
+
+
+
+@pytest.mark.asyncio
+async def test_message_box_ctrl_j_adds_line_enter_sends_all(tmp_path, monkeypatch):
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    storage = Storage(tmp_path / "history.db")
+    q = storage.create_queue("a", "/tmp/a", "s-a")
+    app = await _open(storage)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        box = app.screen.query_one("#message-input", MessageBox)
+        box.focus()
+        await pilot.press(*"one")
+        await pilot.press("ctrl+j")
+        await pilot.press(*"two")
+        await pilot.press("shift+enter")
+        await pilot.press(*"three")
+        assert storage.list_pending_items(q.id) == []
+        await pilot.press("enter")
+        await pilot.pause()
+        assert [i.prompt_text for i in storage.list_pending_items(q.id)] == ["one\ntwo\nthree"]
+        assert box.text == ""
+
+
+@pytest.mark.asyncio
+async def test_message_box_ignores_blank(tmp_path, monkeypatch):
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    storage = Storage(tmp_path / "history.db")
+    q = storage.create_queue("a", "/tmp/a", "s-a")
+    app = await _open(storage)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.screen.query_one("#message-input", MessageBox).focus()
+        await pilot.press("ctrl+j", "enter")
+        await pilot.pause()
+        assert storage.list_pending_items(q.id) == []
