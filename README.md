@@ -197,6 +197,19 @@ link appears in the conversation header and the queue detail. (Headless
   the ones you don't use. Runs aren't counted in the token analytics
   (interactive sessions return no structured result).
 
+### Approving tool calls
+
+Headless conversations started with *Auto-accept edits* or *Plan only*
+don't silently lose tool calls that need permission: ccc attaches its own
+permission MCP server (`--permission-prompt-tool mcp__ccc__approve`), so
+Claude's request waits — with no time limit — for you. The conversation
+shows `?` in the lists and *Waiting for your approval: Bash — press p*;
+`p` opens the request: `y` allow, `a` always allow that tool in this
+conversation, `n` deny (Claude is told and adapts), `Esc` decide later.
+A Telegram message tells you when a request is waiting. Conversations
+with *Skip all permission checks* approve everything as before;
+remote-control ones are approved inside the session (phone / claude.ai).
+
 ### Telegram notifications
 
 The daemon can message you on Telegram when a conversation **finished its

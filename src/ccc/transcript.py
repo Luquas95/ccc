@@ -96,7 +96,7 @@ def _events_from_line(data: dict) -> list[TranscriptEvent]:
                     events.append(TranscriptEvent(kind="assistant_text", text=text, timestamp=timestamp))
             elif block_type == "tool_use":
                 name = block.get("name", "?")
-                input_preview = json.dumps(block.get("input", {}))
+                input_preview = json.dumps(block.get("input", {}), ensure_ascii=False)
                 if len(input_preview) > TOOL_PREVIEW_MAX_CHARS:
                     input_preview = input_preview[:TOOL_PREVIEW_MAX_CHARS] + "…"
                 events.append(
