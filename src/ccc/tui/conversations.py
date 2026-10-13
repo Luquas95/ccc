@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 
 from rich.text import Text
 from textual.containers import Vertical, VerticalScroll
@@ -22,6 +23,9 @@ from ccc.tui.layout import (
 from ccc.tui.message_box import MessageBox
 
 
+# Where `e` writes a conversation exported as Markdown.
+EXPORT_DIR = Path.home() / "Documents" / "ccc-exports"
+
 # Newest transcript events mounted when a conversation is opened; older
 # ones are summarised in one line (Markdown + tool widgets cost ~15ms each).
 MAX_RENDERED_EVENTS = 60
@@ -38,6 +42,8 @@ class ConversationsScreen(SidebarScreen):
         ("x", "toggle_archive", "Archive"),
         ("h", "toggle_show_archived", "Show archived"),
         ("ctrl+d", "delete_conversation", "Delete"),
+        ("slash", "search", "Search"),
+        ("e", "export", "Export"),
     ]
 
     # Sidebar frame/buttons come from SidebarScreen (layout.SHARED_CSS);
@@ -487,3 +493,23 @@ class ConversationsScreen(SidebarScreen):
             self.query_one("#conversation-status", Static).update("")
             return
         await self._show_queue(self._current_queue_id)
+
+    def action_search(self) -> None:
+        from ccc.tui.search import SearchModal
+
+        def chosen(queue_id: int | None) -> None:
+            if queue_id is None:
+                return
+            if self.storage.get_queue(queue_id).archived and not self._show_archived:
+                self._show_archived = True  # so the hit is visible in the list
+            self.open_conversation(queue_id)
+
+        self.app.push_screen(SearchModal(self.storage), chosen)
+
+    def action_export(self) -> None:
+        from ccc.search import export_markdown
+
+        if self._current_queue_id is None:
+            return
+        path = export_markdown(self.storage, self._current_queue_id, EXPORT_DIR)
+        self.notify(f"Exported to {path}", title="Export")

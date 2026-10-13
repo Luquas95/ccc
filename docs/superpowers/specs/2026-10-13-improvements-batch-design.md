@@ -42,7 +42,8 @@ restartují se služby (rozhodnutí uživatele).
 
 - `/` v Conversations otevře okno hledání: textové pole, výsledky napříč
   všemi (i archivovanými) konverzacemi — název konverzace, čas, úryvek
-  s nálezem. Enter otevře konverzaci (výsledek se zvýrazní scrollem).
+  s nálezem. Enter otevře konverzaci (bez posunu na nalezenou zprávu —
+  zobrazuje se jen posledních 60 zpráv, starší nález by nebyl na obrazovce).
   Hledá se v přepisech (case-insensitive podřetězec), max. 200 výsledků.
 - `e` v Conversations exportuje vybranou konverzaci do
   `~/Documents/ccc-exports/<název>-<datum>.md` (zprávy, nástroje jako

@@ -249,6 +249,18 @@ run history go, Claude Code's own transcript stays (so it can still be
 picked under *Resume selected…*). A conversation Claude is working on
 can't be deleted until it finishes or you pause it.
 
+### Reading, searching, exporting
+
+Claude's replies render as Markdown; a tool call is a collapsed `▸ ⚙
+Tool: …` line — Enter/click shows its full input and its result. The
+message box under the transcript is multi-line: Enter sends, Ctrl+J (or
+Shift+Enter where the terminal reports it) starts a new line. In the
+conversations view `/` searches every conversation (archived too) and
+Enter on a hit opens it; `e` exports the selected conversation as
+Markdown to `~/Documents/ccc-exports/`. The sidebar shows whether the
+daemon is running. The New conversation dialog remembers your last
+choice and can save it as a named preset.
+
 ### Conversations view
 
 Press `c` on the dashboard to see a queue's full conversation — not just
