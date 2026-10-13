@@ -696,3 +696,26 @@ async def test_task_outside_git_has_no_commit(storage, project_dir, fast_poll):
     await orch.stop_all()
     run = storage.runs_for_queue(queue.id)[0]
     assert run.git_commit is None and run.git_note is None
+
+
+# --- scheduling -------------------------------------------------------------
+
+
+async def test_scheduled_task_waits_and_blocks_later_ones(storage, project_dir, fast_poll):
+    sent = []
+
+    async def ok(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
+        sent.append(prompt)
+        return RunResult(status=RunStatus.SUCCESS)
+
+    queue = enqueue_prompt(storage, project_dir, "first")
+    later = storage.add_queue_item(queue.id, "scheduled", not_before=datetime.now() + timedelta(hours=1))
+    storage.add_queue_item(queue.id, "after")
+    orch = Orchestrator(storage, run_fn=ok)
+    await orch.start_all()
+    assert await _until(lambda: sent == ["first"])
+    await asyncio.sleep(0.2)
+    assert sent == ["first"]  # "after" keeps its place behind the scheduled one
+    storage.update_item_schedule(later.id, datetime.now() - timedelta(seconds=1))
+    assert await _until(lambda: sent == ["first", "scheduled", "after"])
+    await orch.stop_all()

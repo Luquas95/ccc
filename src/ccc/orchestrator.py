@@ -250,6 +250,17 @@ class QueueRuntime:
                 await self._wait_for_wake_or_poll(POLL_INTERVAL_SECONDS)
                 continue
 
+            upcoming = self.storage.next_pending_item(queue.id)
+            if upcoming.not_before is not None:
+                remaining = (upcoming.not_before - datetime.now()).total_seconds()
+                if remaining > 0:
+                    # Scheduled for later; it keeps its place, so tasks
+                    # queued behind it wait too.
+                    if queue.status != QueueStatus.IDLE:
+                        self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
+                    await self._wait_for_wake_or_poll(min(remaining, POLL_INTERVAL_SECONDS))
+                    continue
+
             if queue.delivery_mode in (DeliveryMode.HEADLESS, DeliveryMode.REMOTE_CONTROL):
                 # Don't even start Claude while a limit window is used up.
                 until = exhausted_until(await asyncio.to_thread(get_pro_usage), datetime.now())

@@ -453,3 +453,13 @@ def test_remote_control_url_and_front_insert(tmp_path):
     storage.add_queue_item(q.id, "two")
     storage.add_queue_item_front(q.id, "continue")
     assert [i.prompt_text for i in storage.list_pending_items(q.id)] == ["continue", "one", "two"]
+
+
+def test_item_schedule(tmp_path):
+    storage = Storage(tmp_path / "h.db")
+    q = storage.create_queue("a", "/tmp/a", "s1")
+    at = datetime(2026, 10, 13, 22, 0)
+    item = storage.add_queue_item(q.id, "later", not_before=at)
+    assert item.not_before == at
+    storage.update_item_schedule(item.id, None)
+    assert storage.list_pending_items(q.id)[0].not_before is None

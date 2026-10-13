@@ -93,6 +93,8 @@ class QueueItem:
     # A usage limit interrupted this item after it reached the conversation:
     # the retry sends the continue text instead of repeating the prompt.
     continue_on_retry: bool = False
+    # Don't start before this (naive local time); None = as soon as possible.
+    not_before: datetime | None = None
 
 
 @dataclass

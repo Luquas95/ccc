@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS queue_items (
     position INTEGER NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     added_at TEXT NOT NULL,
-    continue_on_retry INTEGER NOT NULL DEFAULT 0
+    continue_on_retry INTEGER NOT NULL DEFAULT 0,
+    not_before TEXT
 );
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -155,6 +156,9 @@ class Storage:
                 conn.execute(f"ALTER TABLE prompt_runs ADD COLUMN {column} TEXT")
                 conn.commit()
         item_columns = {row[1] for row in conn.execute("PRAGMA table_info(queue_items)").fetchall()}
+        if "not_before" not in item_columns:
+            conn.execute("ALTER TABLE queue_items ADD COLUMN not_before TEXT")
+            conn.commit()
         if "continue_on_retry" not in item_columns:
             conn.execute("ALTER TABLE queue_items ADD COLUMN continue_on_retry INTEGER NOT NULL DEFAULT 0")
             conn.commit()
@@ -271,16 +275,17 @@ class Storage:
             )
             conn.commit()
 
-    def add_queue_item(self, queue_id: int, prompt_text: str) -> QueueItem:
+    def add_queue_item(self, queue_id: int, prompt_text: str, not_before: datetime | None = None) -> QueueItem:
         with closing(self._connect()) as conn:
             max_pos = conn.execute(
                 "SELECT COALESCE(MAX(position), -1) FROM queue_items WHERE queue_id = ?", (queue_id,)
             ).fetchone()[0]
             now = datetime.now().isoformat()
             cur = conn.execute(
-                "INSERT INTO queue_items (queue_id, prompt_text, position, status, added_at) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (queue_id, prompt_text, max_pos + 1, ItemStatus.PENDING.value, now),
+                "INSERT INTO queue_items (queue_id, prompt_text, position, status, added_at, not_before) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (queue_id, prompt_text, max_pos + 1, ItemStatus.PENDING.value, now,
+                 not_before.isoformat() if not_before else None),
             )
             conn.commit()
             item_id = cur.lastrowid
@@ -412,6 +417,14 @@ class Storage:
     def set_item_continue_on_retry(self, item_id: int, value: bool) -> None:
         with closing(self._connect()) as conn:
             conn.execute("UPDATE queue_items SET continue_on_retry = ? WHERE id = ?", (int(value), item_id))
+            conn.commit()
+
+    def update_item_schedule(self, item_id: int, not_before: datetime | None) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute(
+                "UPDATE queue_items SET not_before = ? WHERE id = ?",
+                (not_before.isoformat() if not_before else None, item_id),
+            )
             conn.commit()
 
     def update_item_text(self, item_id: int, text: str) -> None:
@@ -604,6 +617,7 @@ class Storage:
             status=ItemStatus(row["status"]),
             added_at=datetime.fromisoformat(row["added_at"]),
             continue_on_retry=bool(row["continue_on_retry"]),
+            not_before=datetime.fromisoformat(row["not_before"]) if row["not_before"] else None,
         )
 
     @staticmethod
