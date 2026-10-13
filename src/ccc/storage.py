@@ -61,7 +61,9 @@ CREATE TABLE IF NOT EXISTS prompt_runs (
     duration_ms INTEGER NOT NULL DEFAULT 0,
     num_turns INTEGER NOT NULL DEFAULT 0,
     result_text TEXT,
-    error_text TEXT
+    error_text TEXT,
+    git_commit TEXT,
+    git_note TEXT
 );
 
 CREATE TABLE IF NOT EXISTS run_model_usage (
@@ -146,6 +148,11 @@ class Storage:
         for column, default in (("auto_continue", 1), ("paused", 0), ("archived", 0)):
             if column not in columns:
                 conn.execute(f"ALTER TABLE queues ADD COLUMN {column} INTEGER NOT NULL DEFAULT {default}")
+                conn.commit()
+        run_columns = {row[1] for row in conn.execute("PRAGMA table_info(prompt_runs)").fetchall()}
+        for column in ("git_commit", "git_note"):
+            if column not in run_columns:
+                conn.execute(f"ALTER TABLE prompt_runs ADD COLUMN {column} TEXT")
                 conn.commit()
         item_columns = {row[1] for row in conn.execute("PRAGMA table_info(queue_items)").fetchall()}
         if "continue_on_retry" not in item_columns:
@@ -470,8 +477,8 @@ class Storage:
             cur = conn.execute(
                 "INSERT INTO prompt_runs (queue_id, queue_item_id, prompt_text, started_at, finished_at, "
                 "status, cost_usd, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, "
-                "duration_ms, num_turns, result_text, error_text) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "duration_ms, num_turns, result_text, error_text, git_commit, git_note) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     run.queue_id,
                     run.queue_item_id,
@@ -488,6 +495,8 @@ class Storage:
                     run.num_turns,
                     run.result_text,
                     run.error_text,
+                    run.git_commit,
+                    run.git_note,
                 ),
             )
             conn.commit()
@@ -616,4 +625,6 @@ class Storage:
             num_turns=row["num_turns"],
             result_text=row["result_text"],
             error_text=row["error_text"],
+            git_commit=row["git_commit"],
+            git_note=row["git_note"],
         )

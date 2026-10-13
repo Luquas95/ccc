@@ -239,6 +239,16 @@ checkbox in the New conversation dialog, `o` in the Tasks editor).
   continue-text "…"` changes it (default *Pokračuj tam, kde jsi skončil.*).
 - Waiting survives daemon restarts (the reset time is stored).
 
+### Auto-commit and diffs
+
+In a git repository, every successful headless task is committed:
+`ccc: <first line of the task>` with a `ccc-conversation: <name>`
+trailer. It's skipped — and the reason recorded — when the working tree
+already had uncommitted changes before the task (that's your work, it is
+never swept into a ccc commit), on a detached HEAD, or when nothing
+changed. The queue detail shows a *Commit* column; Enter on a run opens
+the commit's stat and coloured diff.
+
 ### Task queue
 
 A conversation works through its queued messages one after another, in

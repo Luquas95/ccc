@@ -68,3 +68,41 @@ async def test_queue_detail_shows_history(tmp_path):
         await pilot.pause()
         header = app.screen.query_one("#queue-detail-title")
         assert "proj-c" in str(header.render())
+
+
+@pytest.mark.asyncio
+async def test_run_with_commit_shows_column_and_opens_diff(tmp_path, monkeypatch):
+    from datetime import datetime
+
+    from textual.app import App as _App
+    from textual.widgets import DataTable
+
+    from ccc.models import PromptRun, RunStatus
+    from ccc.tui.queue_detail import DiffModal
+
+    monkeypatch.setattr("ccc.gitops.show", lambda cwd, commit: f"commit {commit}\n+added [line]\n")
+    storage = Storage(tmp_path / "history.db")
+    queue = storage.create_queue("proj", "/tmp/proj", "s1")
+    now = datetime.now()
+    storage.insert_prompt_run(PromptRun(id=0, queue_id=queue.id, queue_item_id=None, prompt_text="p", started_at=now,
+                                        finished_at=now, status=RunStatus.SUCCESS, git_commit="abcdef1234567",
+                                        git_note="committed"))
+
+    class Host(_App):
+        async def on_mount(self):
+            await self.push_screen(QueueDetailScreen(storage, queue.id))
+
+    app = Host()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        table = app.screen.query_one("#queue-history-table", DataTable)
+        assert "abcdef1" in [str(c) for c in table.get_row_at(0)]
+        table.focus()
+        await pilot.press("enter")
+        await pilot.pause()
+        assert isinstance(app.screen, DiffModal)
+        assert "+added [line]" in app.screen.diff_text
+        assert app.screen.query_one("#diff-text") is not None
+        await pilot.press("escape")
+        await pilot.pause()
+        assert isinstance(app.screen, QueueDetailScreen)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from rich.text import Text
-from textual.containers import Container, Horizontal
+from textual.containers import Container, Horizontal, VerticalScroll
 from textual.content import Content
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Input, Static, TextArea
@@ -79,6 +79,42 @@ class AddPromptModal(ModalScreen):
         self.dismiss()
 
 
+class DiffModal(ModalScreen):
+    """`git show` of one auto-commit, coloured, scrollable."""
+
+    DEFAULT_CSS = MODAL_CSS.format(cls="DiffModal") + """
+    DiffModal > Container {
+        width: 95%;
+        height: 90%;
+    }
+    DiffModal VerticalScroll {
+        height: 1fr;
+    }
+    """
+
+    BINDINGS = [("escape", "close", "Close")]
+
+    def __init__(self, project_path: str, commit: str):
+        super().__init__()
+        self.project_path = project_path
+        self.commit = commit
+
+    def compose(self):
+        from rich.syntax import Syntax
+
+        from ccc import gitops
+
+        text = gitops.show(self.project_path, self.commit)
+        self.diff_text = text
+        diff = Static(Syntax(text, "diff", theme="ansi_dark", word_wrap=False), id="diff-text")
+        box = Container(VerticalScroll(diff))
+        box.border_title = f"Commit {self.commit[:10]}  ·  Esc close"
+        yield box
+
+    def action_close(self) -> None:
+        self.dismiss()
+
+
 class QueueDetailScreen(SidebarScreen):
     """Detail of one queue, opened from the dashboard; shares the
     dashboard's sidebar highlight since it's a drill-down of it."""
@@ -112,8 +148,9 @@ class QueueDetailScreen(SidebarScreen):
         self._refresh_info()
         table = self.query_one("#queue-history-table", DataTable)
         table.cursor_type = "row"
-        table.add_columns("Started", "Status", "Tokens", "Result")
-        for run in self.storage.runs_for_queue(self.queue_id):
+        table.add_columns("Started", "Status", "Tokens", "Commit", "Result")
+        self._runs = self.storage.runs_for_queue(self.queue_id)
+        for run in self._runs:
             tokens = run.input_tokens + run.output_tokens + run.cache_read_tokens + run.cache_creation_tokens
             style = RUN_STATUS_STYLES.get(run.status, "")
             status = f"[{style}]{run.status.value}[/]" if style else run.status.value
@@ -121,8 +158,19 @@ class QueueDetailScreen(SidebarScreen):
                 run.started_at.strftime("%Y-%m-%d %H:%M"),
                 status,
                 f"{tokens:,}",
+                Text(run.git_commit[:7]) if run.git_commit else Text("—" if not run.git_note else "·", style="dim"),
                 Text((run.result_text or run.error_text or "")[:60].replace("\n", " ")),
             )
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        if event.data_table.id != "queue-history-table" or event.cursor_row >= len(self._runs):
+            return
+        run = self._runs[event.cursor_row]
+        if run.git_commit:
+            queue = self.storage.get_queue(self.queue_id)
+            self.app.push_screen(DiffModal(queue.project_path, run.git_commit))
+        elif run.git_note:
+            self.notify(run.git_note, title="No commit")
 
     def _refresh_info(self) -> None:
         queue = self.storage.get_queue(self.queue_id)

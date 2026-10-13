@@ -113,3 +113,6 @@ class PromptRun:
     num_turns: int = 0
     result_text: str | None = None
     error_text: str | None = None
+    # Auto-commit after a successful headless task in a git repo.
+    git_commit: str | None = None
+    git_note: str | None = None

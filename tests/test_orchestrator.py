@@ -654,3 +654,45 @@ async def test_notifies_needs_you_when_paused_at_limit(storage, project_dir, fas
     await asyncio.sleep(0.1)
     await orch.stop_all()
     assert len(notifier.texts) == 1 and "needs you" in notifier.texts[0]
+
+
+# --- auto-commit ------------------------------------------------------------
+
+
+async def test_successful_task_in_git_repo_is_committed(storage, tmp_path, fast_poll):
+    import subprocess
+
+    repo = tmp_path / "gitproj"
+    repo.mkdir()
+    for args in (["init", "-q", "-b", "main"], ["config", "user.email", "t@e.com"], ["config", "user.name", "T"]):
+        subprocess.run(["git", "-C", str(repo), *args], check=True)
+    (repo / "x.txt").write_text("1\n")
+    subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "init"], check=True)
+
+    async def edit(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
+        (repo / "x.txt").write_text("2\n")
+        return RunResult(status=RunStatus.SUCCESS, result_text="edited")
+
+    queue = enqueue_prompt(storage, str(repo), "Bump x")
+    orch = Orchestrator(storage, run_fn=edit)
+    await orch.start_all()
+    assert await _until(lambda: storage.runs_for_queue(queue.id))
+    await orch.stop_all()
+    run = storage.runs_for_queue(queue.id)[0]
+    assert run.git_commit and run.git_note == "committed"
+    log = subprocess.run(["git", "-C", str(repo), "log", "-1", "--format=%s"], capture_output=True, text=True).stdout
+    assert log.strip() == "ccc: Bump x"
+
+
+async def test_task_outside_git_has_no_commit(storage, project_dir, fast_poll):
+    async def ok(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
+        return RunResult(status=RunStatus.SUCCESS)
+
+    queue = enqueue_prompt(storage, project_dir, "x")
+    orch = Orchestrator(storage, run_fn=ok)
+    await orch.start_all()
+    assert await _until(lambda: storage.runs_for_queue(queue.id))
+    await orch.stop_all()
+    run = storage.runs_for_queue(queue.id)[0]
+    assert run.git_commit is None and run.git_note is None

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Awaitable, Callable
 
-from ccc import managed_sessions
+from ccc import gitops, managed_sessions
 from ccc.launch_options import (
     FORK,
     SESSION_CONTINUE,
@@ -308,11 +308,18 @@ class QueueRuntime:
             text = self.storage.get_setting("continue_text", DEFAULT_CONTINUE_TEXT) or DEFAULT_CONTINUE_TEXT
         else:
             text = item.prompt_text
+        before = await asyncio.to_thread(gitops.snapshot, queue.project_path)
         started_at = datetime.now()
         result = await self.run_fn(
             queue.project_path, queue.session_id, text, resume, queue.launch_flags, queue.first_run_flags
         )
         finished_at = datetime.now()
+        git_commit = git_note = None
+        if before is not None and result.status == RunStatus.SUCCESS:
+            outcome = await asyncio.to_thread(
+                gitops.commit_task, queue.project_path, before, item.prompt_text, queue.name
+            )
+            git_commit, git_note = outcome.commit, outcome.note
 
         run_id = self.storage.insert_prompt_run(
             PromptRun(
@@ -332,6 +339,8 @@ class QueueRuntime:
                 num_turns=result.num_turns,
                 result_text=result.result_text,
                 error_text=result.error_text,
+                git_commit=git_commit,
+                git_note=git_note,
             )
         )
         for model_name, tokens in result.model_usage.items():

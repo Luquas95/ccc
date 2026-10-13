@@ -72,6 +72,9 @@ restartují se služby (rozhodnutí uživatele).
 - Jen pro headless konverzace v git repozitáři.
 - Před spuštěním úkolu: `git rev-parse HEAD` + `git status --porcelain`
   uloží se do `prompt_runs.git_before` (HEAD) — kvůli rozlišení změn.
+- **Upřesnění při implementaci:** auto-commit se vynechá, když byl strom
+  už před úkolem špinavý (necommitnutá práce uživatele by se jinak
+  přimíchala do commitu ccc); důvod se uloží do `prompt_runs.git_note`.
 - Po úspěšném úkolu: pokud jsou změny (`git status --porcelain`
   neprázdný), `git add -A` + `git commit -m "ccc: <první řádek úkolu>"`
   (+ řádek `ccc-conversation: <název>`); hash do `prompt_runs.git_commit`.
