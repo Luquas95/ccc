@@ -1,0 +1,27 @@
+"""Daemon liveness: the daemon stamps a setting every few seconds, the TUI
+warns when the stamp gets stale (otherwise a dead daemon just looks like
+an idle queue)."""
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+
+from ccc.storage import Storage
+
+HEARTBEAT_KEY = "daemon_heartbeat"
+HEARTBEAT_SECONDS = 10.0
+STALE_AFTER = timedelta(seconds=30)
+
+
+def beat(storage: Storage, now: datetime | None = None) -> None:
+    storage.set_setting(HEARTBEAT_KEY, (now or datetime.now()).isoformat())
+
+
+def daemon_alive(storage: Storage, now: datetime | None = None) -> bool:
+    raw = storage.get_setting(HEARTBEAT_KEY)
+    if not raw:
+        return False
+    try:
+        last = datetime.fromisoformat(raw)
+    except ValueError:
+        return False
+    return (now or datetime.now()) - last <= STALE_AFTER

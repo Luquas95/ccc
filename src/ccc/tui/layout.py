@@ -135,6 +135,9 @@ SidebarScreen #sidebar {
     width: 32;
     background: $surface;
 }
+SidebarScreen #daemon-state {
+    padding: 0 1;
+}
 SidebarScreen .sidebar-title {
     padding: 1 1 0 1;
     text-style: bold;
@@ -328,6 +331,7 @@ class SidebarScreen(Screen):
         yield Horizontal(
             Vertical(
                 Static("ccc", classes="sidebar-title"),
+                Static("", id="daemon-state"),
                 Rule(classes="sidebar-rule"),
                 Static("Views", classes="sidebar-label"),
                 Vertical(*nav_items, id="sidebar-nav"),
@@ -338,6 +342,24 @@ class SidebarScreen(Screen):
             Vertical(*self.compose_main(), id="main"),
         )
         yield Footer()
+
+    def on_screen_resume(self) -> None:
+        self.refresh_daemon_state()
+
+    def on_mount(self) -> None:
+        # Textual dispatches on_mount along the MRO, so this runs in
+        # addition to each screen's own on_mount.
+        self.refresh_daemon_state()
+        self.set_interval(2.0, self.refresh_daemon_state)
+
+    def refresh_daemon_state(self) -> None:
+        from ccc.heartbeat import daemon_alive
+
+        if daemon_alive(self.storage):
+            text = Text("● daemon running", style="green")
+        else:
+            text = Text("✖ daemon not running — queues are stopped", style="bold red")
+        self.query_one("#daemon-state", Static).update(text)
 
     @staticmethod
     def _make_button(spec: SidebarButton) -> Button:
