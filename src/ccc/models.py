@@ -33,14 +33,14 @@ class DeliveryMode(str, Enum):
     # Runs `claude -p --resume` as a separate headless subprocess. Safe,
     # gives real structured results (tokens/cost/success), but its
     # response never appears in any interactive terminal — only in
-    # CC-continue's own history.
+    # ccc's own history.
     HEADLESS = "headless"
     # Types the prompt directly into a live interactive session's own
     # tmux pane via `tmux send-keys`, so it visibly continues that
     # terminal's conversation. Riskier (see live_delivery module) and
     # gives no structured result — only "delivered" or "failed".
     LIVE_TERMINAL = "live_terminal"
-    # cc-continue runs an interactive `claude --remote-control` itself (see
+    # ccc runs an interactive `claude --remote-control` itself (see
     # managed_sessions) and pastes queued prompts into it; the conversation
     # is also reachable from the Claude mobile app / claude.ai.
     REMOTE_CONTROL = "remote_control"
@@ -58,7 +58,7 @@ class Queue:
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     # True for a queue attached to a session that already existed before
-    # CC-continue touched it (discovered via `claude agents`) — its first
+    # ccc touched it (discovered via `claude agents`) — its first
     # prompt must use --resume, never --session-id, since the ID isn't new.
     always_resume: bool = False
     delivery_mode: DeliveryMode = DeliveryMode.HEADLESS

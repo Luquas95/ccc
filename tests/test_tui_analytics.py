@@ -4,20 +4,20 @@ import pytest
 from textual.app import App
 from textual.widgets import ProgressBar
 
-from cc_continue.models import PromptRun, RunStatus
-from cc_continue.storage import Storage
-from cc_continue.tui.analytics import (
+from ccc.models import PromptRun, RunStatus
+from ccc.storage import Storage
+from ccc.tui.analytics import (
     UNAVAILABLE_TEXT,
     AnalyticsScreen,
     build_model_token_bars,
     build_usage_gauges,
 )
-from cc_continue.usage_api import ModelUsage, ProUsage, WindowUsage
+from ccc.usage_api import ModelUsage, ProUsage, WindowUsage
 
 
 @pytest.mark.asyncio
 async def test_analytics_shows_totals(tmp_path, monkeypatch):
-    monkeypatch.setattr("cc_continue.tui.analytics.get_pro_usage", lambda: None)
+    monkeypatch.setattr("ccc.tui.analytics.get_pro_usage", lambda: None)
 
     db_path = str(tmp_path / "history.db")
     storage = Storage(db_path)
@@ -58,7 +58,7 @@ async def test_analytics_shows_pro_usage_gauges(tmp_path, monkeypatch):
         seven_day=WindowUsage(47.0, datetime(2026, 9, 4, 12, 59).astimezone()),
         per_model=[ModelUsage("Opus", 62.0, datetime(2026, 9, 4, 12, 59).astimezone())],
     )
-    monkeypatch.setattr("cc_continue.tui.analytics.get_pro_usage", lambda: fake_usage)
+    monkeypatch.setattr("ccc.tui.analytics.get_pro_usage", lambda: fake_usage)
 
     storage = Storage(tmp_path / "history.db")
     screen = AnalyticsScreen(storage)
@@ -84,7 +84,7 @@ async def test_analytics_shows_pro_usage_gauges(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_analytics_pro_usage_unavailable(tmp_path, monkeypatch):
-    monkeypatch.setattr("cc_continue.tui.analytics.get_pro_usage", lambda: None)
+    monkeypatch.setattr("ccc.tui.analytics.get_pro_usage", lambda: None)
 
     storage = Storage(tmp_path / "history.db")
     screen = AnalyticsScreen(storage)
@@ -104,7 +104,7 @@ async def test_analytics_pro_usage_unavailable(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_analytics_shows_model_usage_bars(tmp_path, monkeypatch):
-    monkeypatch.setattr("cc_continue.tui.analytics.get_pro_usage", lambda: None)
+    monkeypatch.setattr("ccc.tui.analytics.get_pro_usage", lambda: None)
 
     storage = Storage(tmp_path / "history.db")
     queue = storage.create_queue("proj-e", "/tmp/proj-e", "sess-1")

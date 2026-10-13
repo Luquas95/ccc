@@ -6,7 +6,7 @@ from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 
-from cc_continue.models import DeliveryMode, ItemStatus, PromptRun, Queue, QueueItem, QueueStatus, RunStatus
+from ccc.models import DeliveryMode, ItemStatus, PromptRun, Queue, QueueItem, QueueStatus, RunStatus
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS queues (
@@ -196,7 +196,7 @@ class Storage:
         return self.get_queue(queue_id)
 
     def get_queue_by_path(self, project_path: str) -> Queue | None:
-        """The single queue for a bare directory (the plain `cc-continue
+        """The single queue for a bare directory (the plain `ccc
         add <path>` flow). Multiple queues CAN share a project_path now
         (one per attached live session — see get_queue_by_session_id), so
         this returns the oldest one for that path; use
@@ -512,8 +512,8 @@ class Storage:
 
     def total_tokens_by_model(self) -> list[tuple[str, int]]:
         """All-time total tokens (input+output+cache_read+cache_creation)
-        per model actually used, across every run CC-continue has
-        executed — descending by volume. This is CC-continue's own
+        per model actually used, across every run ccc has
+        executed — descending by volume. This is ccc's own
         recorded history, not an account-wide limit from Anthropic (which
         doesn't expose a per-model breakdown on every plan)."""
         with closing(self._connect()) as conn:

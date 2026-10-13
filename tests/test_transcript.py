@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 
-from cc_continue.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
+from ccc.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
 
 
 def _line(obj: dict) -> str:
@@ -16,7 +16,7 @@ def test_transcript_event_fields():
 
 
 def test_find_transcript_path_locates_by_session_id(tmp_path, monkeypatch):
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path)
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path)
     project_dir = tmp_path / "-home-lukas-DEV-some-project"
     project_dir.mkdir()
     transcript_file = project_dir / "9219c2bb-c393-4aed-ab94-fdab69a93891.jsonl"
@@ -27,7 +27,7 @@ def test_find_transcript_path_locates_by_session_id(tmp_path, monkeypatch):
 
 
 def test_find_transcript_path_returns_none_when_missing(tmp_path, monkeypatch):
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path)
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path)
     assert find_transcript_path("nonexistent-session-id") is None
 
 
@@ -184,7 +184,7 @@ REAL_TRANSCRIPT_JSONL = "\n".join(
                 "message": {"role": "user", "content": "Reply with exactly one word: LIVEDELIVERY"},
                 "uuid": "b705e8a4-a01e-4f31-8fea-122ed9d1cb1c",
                 "timestamp": "2026-09-04T07:52:10.929Z",
-                "cwd": "/home/lukas/DEV/CC-continue",
+                "cwd": "/home/lukas/DEV/ccc",
                 "sessionId": "9219c2bb-c393-4aed-ab94-fdab69a93891",
             }
         ),
@@ -239,7 +239,7 @@ def test_parses_real_captured_transcript_shape(tmp_path):
 import os
 import time
 
-from cc_continue.transcript import encode_project_dir, list_sessions_for_directory
+from ccc.transcript import encode_project_dir, list_sessions_for_directory
 
 
 def _session_line(kind, content, ts="2026-10-12T10:00:00.000Z"):
@@ -249,13 +249,13 @@ def _session_line(kind, content, ts="2026-10-12T10:00:00.000Z"):
 
 
 def test_encode_project_dir():
-    assert encode_project_dir("/mnt/AI/DEV/CC-continue") == "-mnt-AI-DEV-CC-continue"
+    assert encode_project_dir("/mnt/AI/DEV/ccc") == "-mnt-AI-DEV-ccc"
     assert encode_project_dir("/a/b_c.d") == "-a-b-c-d"
 
 
 def test_lists_sessions_newest_first_via_path_and_realpath(tmp_path, monkeypatch):
     root = tmp_path / "projects"
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", root)
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", root)
     real = tmp_path / "real"; real.mkdir()
     link = tmp_path / "link"; link.symlink_to(real)
     d1 = root / encode_project_dir(str(link)); d1.mkdir(parents=True)
@@ -272,10 +272,10 @@ def test_lists_sessions_newest_first_via_path_and_realpath(tmp_path, monkeypatch
 
 
 def test_last_human_text(tmp_path, monkeypatch):
-    from cc_continue.transcript import last_human_text
+    from ccc.transcript import last_human_text
 
     root = tmp_path / "projects"
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", root)
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", root)
     (root / "-x").mkdir(parents=True)
     (root / "-x" / "sid.jsonl").write_text(
         _session_line("user", "first") + _session_line("assistant", "ok") + _session_line("user", "second")

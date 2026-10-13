@@ -1,4 +1,4 @@
-from cc_continue.launch_options import (
+from ccc.launch_options import (
     DEFAULT_SELECTION, FORK, SESSION_CONTINUE, SESSION_NEW, describe_flags,
     persistent_flags, session_mode, toggle,
 )

@@ -1,23 +1,23 @@
 import pytest
 from textual.widgets import Button, Input
 
-from cc_continue.storage import Storage
-from cc_continue.tui.analytics import AnalyticsScreen
-from cc_continue.tui.app import CCContinueApp
-from cc_continue.tui.conversations import ConversationsScreen
-from cc_continue.tui.dashboard import DashboardScreen
-from cc_continue.tui.layout import SidebarScreen
-from cc_continue.tui.queue_detail import AddPromptModal, QueueDetailScreen
-from cc_continue.tui.session_picker import SessionPickerScreen
+from ccc.storage import Storage
+from ccc.tui.analytics import AnalyticsScreen
+from ccc.tui.app import CCContinueApp
+from ccc.tui.conversations import ConversationsScreen
+from ccc.tui.dashboard import DashboardScreen
+from ccc.tui.layout import SidebarScreen
+from ccc.tui.queue_detail import AddPromptModal, QueueDetailScreen
+from ccc.tui.session_picker import SessionPickerScreen
 
 
 @pytest.fixture(autouse=True)
 def _no_external_calls(monkeypatch, tmp_path):
     # Sessions view shells out to `claude agents`, analytics hits the usage
     # API, conversations reads ~/.claude transcripts — keep tests offline.
-    monkeypatch.setattr("cc_continue.tui.session_picker.discover_sessions", lambda: [])
-    monkeypatch.setattr("cc_continue.tui.analytics.get_pro_usage", lambda: None)
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    monkeypatch.setattr("ccc.tui.session_picker.discover_sessions", lambda: [])
+    monkeypatch.setattr("ccc.tui.analytics.get_pro_usage", lambda: None)
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
 
 
 def _app(tmp_path):
@@ -133,7 +133,7 @@ async def test_add_prompt_prefills_selected_queue_path(tmp_path):
 
 @pytest.mark.asyncio
 async def test_n_opens_new_conversation_and_lands_in_conversations(tmp_path):
-    from cc_continue.tui.new_conversation import NewConversationModal
+    from ccc.tui.new_conversation import NewConversationModal
     app = _app(tmp_path)
     async with app.run_test(size=(160, 50)) as pilot:
         await pilot.pause()

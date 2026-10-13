@@ -2,8 +2,8 @@ import pytest
 from textual.app import App
 from textual.widgets import Checkbox, Input, OptionList
 
-from cc_continue.storage import Storage
-from cc_continue.tui.new_conversation import NewConversationModal
+from ccc.storage import Storage
+from ccc.tui.new_conversation import NewConversationModal
 
 
 def _host(modal, results):
@@ -75,8 +75,8 @@ async def test_recent_directory_fills_path(tmp_path):
 @pytest.mark.asyncio
 async def test_resume_lists_sessions_of_path(tmp_path, monkeypatch):
     from datetime import datetime
-    from cc_continue.transcript import SessionSummary
-    monkeypatch.setattr("cc_continue.tui.new_conversation.list_sessions_for_directory",
+    from ccc.transcript import SessionSummary
+    monkeypatch.setattr("ccc.tui.new_conversation.list_sessions_for_directory",
                         lambda p: [SessionSummary("sid-1", datetime(2026, 10, 1, 9, 0), "fix the bug", 4)])
     storage = Storage(tmp_path / "h.db")
     results = []
@@ -113,7 +113,7 @@ async def test_auto_continue_checkbox(tmp_path):
 
 @pytest.mark.asyncio
 async def test_remote_control_checkbox_default_on(tmp_path):
-    from cc_continue.models import DeliveryMode
+    from ccc.models import DeliveryMode
 
     storage = Storage(tmp_path / "h.db")
     results = []
@@ -129,7 +129,7 @@ async def test_remote_control_checkbox_default_on(tmp_path):
 
 @pytest.mark.asyncio
 async def test_remote_control_unticked_gives_headless(tmp_path):
-    from cc_continue.models import DeliveryMode
+    from ccc.models import DeliveryMode
 
     storage = Storage(tmp_path / "h.db")
     results = []

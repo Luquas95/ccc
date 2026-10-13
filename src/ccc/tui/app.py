@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from textual.app import App
 
-from cc_continue.storage import Storage
-from cc_continue.tui.dashboard import DashboardScreen
+from ccc.storage import Storage
+from ccc.tui.dashboard import DashboardScreen
 
 
 class CCContinueApp(App):
-    TITLE = "cc-continue"
+    TITLE = "ccc"
 
     """A pure viewer/editor of the queue database. It never executes
-    prompts itself — only `cc-continue-daemon` does that. This app can be
+    prompts itself — only `ccc-daemon` does that. This app can be
     opened and closed freely (e.g. inside a tmux window over SSH) without
     affecting whether queued prompts keep running."""
 

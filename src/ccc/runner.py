@@ -4,7 +4,7 @@ import asyncio
 import json
 from dataclasses import dataclass, field
 
-from cc_continue.models import RunStatus
+from ccc.models import RunStatus
 
 RATE_LIMIT_PATTERNS = (
     "usage limit",

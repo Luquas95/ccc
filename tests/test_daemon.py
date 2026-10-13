@@ -4,11 +4,11 @@ import signal
 
 import pytest
 
-from cc_continue.daemon import _run
-from cc_continue.models import RunStatus
-from cc_continue.orchestrator import enqueue_prompt
-from cc_continue.runner import RunResult
-from cc_continue.storage import Storage
+from ccc.daemon import _run
+from ccc.models import RunStatus
+from ccc.orchestrator import enqueue_prompt
+from ccc.runner import RunResult
+from ccc.storage import Storage
 
 
 @pytest.mark.asyncio

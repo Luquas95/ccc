@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from cc_continue.retry import (
+from ccc.retry import (
     MAX_BACKOFF_SECONDS,
     MIN_BACKOFF_SECONDS,
     next_backoff_seconds,

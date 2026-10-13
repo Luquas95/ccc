@@ -2,8 +2,8 @@ import subprocess
 
 import pytest
 
-from cc_continue import managed_sessions as ms
-from cc_continue.models import DeliveryMode, Queue
+from ccc import managed_sessions as ms
+from ccc.models import DeliveryMode, Queue
 
 
 def _queue(**kw):

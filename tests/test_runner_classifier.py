@@ -1,5 +1,5 @@
-from cc_continue.models import RunStatus
-from cc_continue.runner import classify_output
+from ccc.models import RunStatus
+from ccc.runner import classify_output
 
 SUCCESS_JSON = (
     '{"duration_api_ms":1395,"stop_reason":"end_turn",'
@@ -84,7 +84,7 @@ def test_classify_generic_failure():
 
 
 # Captured verbatim from a real usage-limit hit in production on
-# 2026-09-03 while running the CC-continue daemon (JSON on stdout,
+# 2026-09-03 while running the ccc daemon (JSON on stdout,
 # non-zero exit). Wording ("session limit", "resets 8:30pm" — no "at")
 # did not match the original RATE_LIMIT_PATTERNS and was misclassified as
 # a hard ERROR, incorrectly blocking the queue instead of scheduling a

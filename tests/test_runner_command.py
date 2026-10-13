@@ -1,4 +1,4 @@
-from cc_continue.runner import build_command
+from ccc.runner import build_command
 
 
 def test_legacy_queue_command_unchanged():

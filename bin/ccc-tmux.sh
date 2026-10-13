@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Attaches to the persistent "cc-continue" tmux session running the TUI.
+# Attaches to the persistent "ccc" tmux session running the TUI.
 #
-# Normally this session already exists — the cc-continue-tui systemd unit
-# creates it at boot, running cc-continue in a restart loop, so the app
+# Normally this session already exists — the ccc-tui systemd unit
+# creates it at boot, running ccc in a restart loop, so the app
 # is always live and ready to attach to. Quitting the TUI (q) just makes
 # it reappear a second later; the session itself is never left dead. This
 # script's fallback branch (session missing) recreates it the same way,
 # in case the systemd unit isn't installed/running for some reason.
 #
-# This is purely a convenience viewer/editor — with cc-continue-daemon
+# This is purely a convenience viewer/editor — with ccc-daemon
 # running as its own systemd service, queued prompts execute regardless
 # of whether this TUI or its tmux session exists at all.
 #
@@ -19,11 +19,11 @@
 set -euo pipefail
 
 # The TUI runs on its own tmux server/socket, separate from your default
-# one (see deploy/systemd/cc-continue-tui.service for why).
-TMUX_SOCKET="cc-continue"
-SESSION="cc-continue"
-PROJECT_DIR="/home/lukas/DEV/CC-continue"
-RUN_CMD="while true; do $PROJECT_DIR/.venv/bin/cc-continue; sleep 1; done"
+# one (see deploy/systemd/ccc-tui.service for why).
+TMUX_SOCKET="ccc"
+SESSION="ccc"
+PROJECT_DIR="/home/lukas/DEV/ccc"
+RUN_CMD="while true; do $PROJECT_DIR/.venv/bin/ccc; sleep 1; done"
 
 if tmux -L "$TMUX_SOCKET" has-session -t "$SESSION" 2>/dev/null; then
     # A client can't switch-client across tmux servers, so from inside

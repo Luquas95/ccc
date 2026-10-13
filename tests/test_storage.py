@@ -3,8 +3,8 @@ from datetime import datetime
 
 import pytest
 
-from cc_continue.models import ItemStatus, PromptRun, QueueStatus, RunStatus
-from cc_continue.storage import Storage
+from ccc.models import ItemStatus, PromptRun, QueueStatus, RunStatus
+from ccc.storage import Storage
 
 
 @pytest.fixture

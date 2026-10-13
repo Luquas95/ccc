@@ -1,5 +1,5 @@
 [project]
-name = "cc-continue"
+name = "ccc"
 version = "0.1.0"
 description = "Prompt queue + auto-continue TUI for Claude Code"
 requires-python = ">=3.12"
@@ -14,8 +14,8 @@ dev = [
 ]
 
 [project.scripts]
-cc-continue = "cc_continue.cli:main"
-cc-continue-daemon = "cc_continue.daemon:main"
+ccc = "ccc.cli:main"
+ccc-daemon = "ccc.daemon:main"
 
 [build-system]
 requires = ["setuptools>=68"]

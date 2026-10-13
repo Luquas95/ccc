@@ -2,9 +2,9 @@ from unittest.mock import patch
 
 import pytest
 
-from cc_continue.session_discovery import DiscoveredSession
-from cc_continue.storage import Storage
-from cc_continue.tui.session_picker import SessionPickerScreen
+from ccc.session_discovery import DiscoveredSession
+from ccc.storage import Storage
+from ccc.tui.session_picker import SessionPickerScreen
 from textual.app import App
 from textual.widgets import DataTable
 
@@ -25,7 +25,7 @@ async def test_session_picker_lists_discovered_sessions(tmp_path):
             await self.push_screen(screen)
 
     app = _HostApp()
-    with patch("cc_continue.tui.session_picker.discover_sessions", return_value=FAKE_SESSIONS):
+    with patch("ccc.tui.session_picker.discover_sessions", return_value=FAKE_SESSIONS):
         async with app.run_test() as pilot:
             await pilot.pause()
             table = app.screen.query_one("#session-picker-table", DataTable)
@@ -45,7 +45,7 @@ async def test_selecting_a_session_and_sending_a_prompt_attaches_it(tmp_path):
             await self.push_screen(screen)
 
     app = _HostApp()
-    with patch("cc_continue.tui.session_picker.discover_sessions", return_value=FAKE_SESSIONS):
+    with patch("ccc.tui.session_picker.discover_sessions", return_value=FAKE_SESSIONS):
         async with app.run_test() as pilot:
             await pilot.pause()
             table = app.screen.query_one("#session-picker-table", DataTable)

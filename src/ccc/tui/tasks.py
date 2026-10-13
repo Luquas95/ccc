@@ -9,8 +9,8 @@ from textual.content import Content
 from textual.screen import ModalScreen
 from textual.widgets import DataTable, Static, TextArea
 
-from cc_continue.storage import Storage
-from cc_continue.tui.layout import MODAL_CSS
+from ccc.storage import Storage
+from ccc.tui.layout import MODAL_CSS
 
 PREVIEW_CHARS = 100
 

@@ -2,13 +2,13 @@ import asyncio
 
 import pytest
 
-from cc_continue import managed_sessions as ms
-from cc_continue.launch_options import DEFAULT_SELECTION, FORK, SESSION_RESUME, toggle
-from cc_continue.live_delivery import DeliveryResult
-from cc_continue.models import DeliveryMode, ItemStatus, QueueStatus
-from cc_continue.orchestrator import DEFAULT_CONTINUE_TEXT, Orchestrator, start_conversation
-from cc_continue.session_discovery import DiscoveredSession
-from cc_continue.storage import Storage
+from ccc import managed_sessions as ms
+from ccc.launch_options import DEFAULT_SELECTION, FORK, SESSION_RESUME, toggle
+from ccc.live_delivery import DeliveryResult
+from ccc.models import DeliveryMode, ItemStatus, QueueStatus
+from ccc.orchestrator import DEFAULT_CONTINUE_TEXT, Orchestrator, start_conversation
+from ccc.session_discovery import DiscoveredSession
+from ccc.storage import Storage
 
 
 class FakeTmux:
@@ -56,7 +56,7 @@ class FakeTmux:
                 for qid in self.running
             ]
 
-        monkeypatch.setattr("cc_continue.orchestrator.discover_sessions", discover)
+        monkeypatch.setattr("ccc.orchestrator.discover_sessions", discover)
 
 
 @pytest.fixture
@@ -73,9 +73,9 @@ def project_dir(tmp_path):
 
 @pytest.fixture
 def tmux(monkeypatch):
-    monkeypatch.setattr("cc_continue.orchestrator.POLL_INTERVAL_SECONDS", 0.02)
-    monkeypatch.setattr("cc_continue.orchestrator.MAINTENANCE_INTERVAL_SECONDS", 0)
-    monkeypatch.setattr("cc_continue.orchestrator.DELIVERY_SETTLE_SECONDS", 0.05)
+    monkeypatch.setattr("ccc.orchestrator.POLL_INTERVAL_SECONDS", 0.02)
+    monkeypatch.setattr("ccc.orchestrator.MAINTENANCE_INTERVAL_SECONDS", 0)
+    monkeypatch.setattr("ccc.orchestrator.DELIVERY_SETTLE_SECONDS", 0.05)
     fake = FakeTmux()
     fake.install(monkeypatch)
     return fake
@@ -199,7 +199,7 @@ async def test_fork_adopts_real_session_id(storage, project_dir, tmux):
 
 
 async def test_trust_prompt_not_confirmed_after_startup_window(storage, project_dir, tmux, monkeypatch):
-    monkeypatch.setattr("cc_continue.orchestrator.TRUST_CONFIRM_WINDOW_SECONDS", 0)
+    monkeypatch.setattr("ccc.orchestrator.TRUST_CONFIRM_WINDOW_SECONDS", 0)
     _rc(storage, project_dir)
     tmux.pane_text = "Do you trust the files in this folder?\n❯ 1. Yes, proceed"
 

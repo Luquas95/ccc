@@ -4,13 +4,13 @@ import pytest
 from textual.app import App
 from textual.widgets import Button, DataTable
 
-from cc_continue.storage import Storage
-from cc_continue.tui.conversations import ConversationsScreen
+from ccc.storage import Storage
+from ccc.tui.conversations import ConversationsScreen
 
 
 @pytest.mark.asyncio
 async def test_shows_queue_list_and_placeholder_for_no_transcript(tmp_path, monkeypatch):
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
     (tmp_path / "projects").mkdir()
 
     storage = Storage(tmp_path / "history.db")
@@ -38,7 +38,7 @@ async def test_shows_queue_list_and_placeholder_for_no_transcript(tmp_path, monk
 
 @pytest.mark.asyncio
 async def test_renders_real_conversation_and_switches_on_arrow_key(tmp_path, monkeypatch):
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
     project_dir = tmp_path / "projects" / "-tmp-proj-a"
     project_dir.mkdir(parents=True)
 
@@ -82,7 +82,7 @@ async def test_renders_real_conversation_and_switches_on_arrow_key(tmp_path, mon
 
 @pytest.mark.asyncio
 async def test_picks_up_new_transcript_lines_on_periodic_refresh(tmp_path, monkeypatch):
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
     project_dir = tmp_path / "projects" / "-tmp-proj-a"
     project_dir.mkdir(parents=True)
 
@@ -127,7 +127,7 @@ async def test_message_text_containing_markup_like_syntax_renders_literally(tmp_
     # "[red]URGENT[/red]" silently interpreted as a style tag instead of
     # shown as the literal characters the human/model actually
     # wrote/said — confirmed with rich.console.Console before the fix.
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
     project_dir = tmp_path / "projects" / "-tmp-proj-a"
     project_dir.mkdir(parents=True)
 
@@ -167,7 +167,7 @@ async def test_sidebar_buttons_show_full_label_text(tmp_path, monkeypatch):
     # earlier draft using "Add prompt [a]" silently lost the "[a]" —
     # square brackets look like a (invalid, silently-dropped) style tag.
     # Fixed by using parentheses instead; this locks that in.
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
     (tmp_path / "projects").mkdir()
     storage = Storage(tmp_path / "history.db")
 
@@ -201,7 +201,7 @@ async def _open(storage, **kw):
 
 @pytest.mark.asyncio
 async def test_message_input_queues_prompt_and_shows_queued_bubble(tmp_path, monkeypatch):
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
     storage = Storage(tmp_path / "history.db")
     q = storage.create_queue("proj-a", "/tmp/proj-a", "session-aaa", launch_flags=["--model", "haiku"])
     app = await _open(storage)
@@ -222,7 +222,7 @@ async def test_message_input_queues_prompt_and_shows_queued_bubble(tmp_path, mon
 
 @pytest.mark.asyncio
 async def test_new_queue_appears_and_select_queue_id_opens_it(tmp_path, monkeypatch):
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
     storage = Storage(tmp_path / "history.db")
     storage.create_queue("a", "/tmp/a", "s-a")
     b = storage.create_queue("b", "/tmp/b", "s-b")
@@ -241,8 +241,8 @@ async def test_new_queue_appears_and_select_queue_id_opens_it(tmp_path, monkeypa
 @pytest.mark.asyncio
 async def test_status_line_shows_waiting_for_reset(tmp_path, monkeypatch):
     from datetime import datetime
-    from cc_continue.models import QueueStatus
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    from ccc.models import QueueStatus
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
     storage = Storage(tmp_path / "history.db")
     q = storage.create_queue("a", "/tmp/a", "s-a")
     storage.update_queue_status(q.id, QueueStatus.WAITING_RETRY, next_retry_at=datetime(2026, 10, 12, 15, 0))
@@ -258,7 +258,7 @@ async def test_truncated_tool_preview_with_bracket_does_not_crash(tmp_path, monk
     # an unclosed `[data-section=\"quick…` — Textual's markup parser raised
     # MarkupError on it even after rich's escape(), crashing the screen.
     # Real text from a captured transcript.
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
     project_dir = tmp_path / "projects" / "-tmp-proj-a"
     project_dir.mkdir(parents=True)
     storage = Storage(tmp_path / "history.db")
@@ -283,9 +283,9 @@ async def test_truncated_tool_preview_with_bracket_does_not_crash(tmp_path, monk
 
 @pytest.mark.asyncio
 async def test_long_transcript_renders_only_newest_events_and_appends_new_ones(tmp_path, monkeypatch):
-    from cc_continue.tui.conversations import MAX_RENDERED_EVENTS
+    from ccc.tui.conversations import MAX_RENDERED_EVENTS
 
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
     project_dir = tmp_path / "projects" / "-tmp-proj-a"
     project_dir.mkdir(parents=True)
     storage = Storage(tmp_path / "history.db")
@@ -318,7 +318,7 @@ async def test_long_transcript_renders_only_newest_events_and_appends_new_ones(t
 
 @pytest.mark.asyncio
 async def test_queue_names_are_not_truncated(tmp_path, monkeypatch):
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
     storage = Storage(tmp_path / "history.db")
     storage.create_queue("a-rather-long-queue-name", "/tmp/a", "s-a")
     app = await _open(storage)
@@ -331,9 +331,9 @@ async def test_queue_names_are_not_truncated(tmp_path, monkeypatch):
 @pytest.mark.asyncio
 async def test_paused_limit_status_and_r_resumes(tmp_path, monkeypatch):
     from datetime import datetime, timedelta
-    from cc_continue.models import QueueStatus
+    from ccc.models import QueueStatus
 
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
     storage = Storage(tmp_path / "history.db")
     q = storage.create_queue("a", "/tmp/a", "s-a", auto_continue=False)
     reset = (datetime.now() + timedelta(hours=1)).replace(second=0, microsecond=0)
@@ -355,9 +355,9 @@ async def test_paused_limit_status_and_r_resumes(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_message_while_paused_at_limit_resumes_queue(tmp_path, monkeypatch):
-    from cc_continue.models import QueueStatus
+    from ccc.models import QueueStatus
 
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
     storage = Storage(tmp_path / "history.db")
     q = storage.create_queue("a", "/tmp/a", "s-a")
     storage.update_queue_status(q.id, QueueStatus.PAUSED_LIMIT)
@@ -373,9 +373,9 @@ async def test_message_while_paused_at_limit_resumes_queue(tmp_path, monkeypatch
 
 @pytest.mark.asyncio
 async def test_paused_queue_status_and_t_opens_tasks(tmp_path, monkeypatch):
-    from cc_continue.tui.tasks import TasksModal
+    from ccc.tui.tasks import TasksModal
 
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
     storage = Storage(tmp_path / "history.db")
     q = storage.create_queue("a", "/tmp/a", "s-a")
     storage.set_queue_paused(q.id, True)
@@ -395,9 +395,9 @@ async def test_paused_queue_status_and_t_opens_tasks(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_header_shows_remote_control_link(tmp_path, monkeypatch):
-    from cc_continue.models import DeliveryMode
+    from ccc.models import DeliveryMode
 
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
     storage = Storage(tmp_path / "history.db")
     q = storage.create_queue("rc", "/tmp/rc", "s-rc", delivery_mode=DeliveryMode.REMOTE_CONTROL, launch_flags=[])
     app = await _open(storage)

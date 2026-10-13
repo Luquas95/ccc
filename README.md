@@ -1,4 +1,4 @@
-# CC-continue
+# ccc
 
 Prompt-queue tool for Claude Code. Queue prompts per project; a daemon
 runs them headless (`claude -p --resume`) one at a time per project,
@@ -7,16 +7,16 @@ usage-limit block resets — no need to be at the keyboard, no need to keep
 any terminal open. A separate TUI lets you look at and add to the queues
 whenever you want, without affecting whether they keep running.
 
-History and analytics are kept in `~/.local/share/cc-continue/history.db`
+History and analytics are kept in `~/.local/share/ccc/history.db`
 (SQLite).
 
 ## Architecture: daemon vs. TUI
 
-- **`cc-continue-daemon`** is the only thing that ever executes prompts.
+- **`ccc-daemon`** is the only thing that ever executes prompts.
   It's a headless asyncio process — no TUI, no TTY needed — so it can run
   as a real `systemd --user` service that survives SSH logout, crashes
   (auto-restart), and reboots.
-- **`cc-continue`** (the TUI) is a pure viewer/editor: it reads and writes
+- **`ccc`** (the TUI) is a pure viewer/editor: it reads and writes
   the same SQLite database, but never runs a prompt itself. Open it in a
   tmux window when you want to look at something or queue a prompt
   interactively; close it any time — the daemon keeps working regardless.
@@ -40,20 +40,20 @@ observability, not an extra charge.
 
 ```bash
 mkdir -p ~/.config/systemd/user
-cp deploy/systemd/cc-continue.service ~/.config/systemd/user/
+cp deploy/systemd/ccc.service ~/.config/systemd/user/
 systemctl --user daemon-reload
 loginctl enable-linger "$USER"   # let it keep running after SSH logout
-systemctl --user enable --now cc-continue
+systemctl --user enable --now ccc
 ```
 
 Check on it:
 
-    systemctl --user status cc-continue
-    journalctl --user -u cc-continue -f
+    systemctl --user status ccc
+    journalctl --user -u ccc -f
 
 Stop/disable it:
 
-    systemctl --user disable --now cc-continue
+    systemctl --user disable --now ccc
 
 ### Encrypted home (ecryptfs)
 
@@ -61,24 +61,24 @@ If your home directory is ecryptfs-encrypted, linger alone isn't enough:
 the user systemd manager starts at boot, before login, while
 `~/.config/systemd/user/` is still unreadable — so the units silently
 never start. Start them at login instead, e.g. with an XFCE/GNOME
-autostart entry (`~/.config/autostart/cc-continue-units.desktop`) that
+autostart entry (`~/.config/autostart/ccc-units.desktop`) that
 runs:
 
     systemctl --user daemon-reload
-    systemctl --user start cc-continue.service cc-continue-tui.service
+    systemctl --user start ccc.service ccc-tui.service
 
 ## Running the TUI (systemd + tmux, always attachable)
 
-The TUI can run the same way: a `cc-continue-tui` systemd unit boots a
-persistent tmux session named `cc-continue` at startup, with `ccc` running
+The TUI can run the same way: a `ccc-tui` systemd unit boots a
+persistent tmux session named `ccc` at startup, with `ccc` running
 inside it in a restart loop — so it's always alive and ready. Quitting the
 TUI (`q`) just makes it reappear a second later in the same pane; the
-session is never left dead. Attach any time with `bin/cc-continue-tmux.sh`
-(or plain `tmux -L cc-continue attach -t cc-continue`) and detach
+session is never left dead. Attach any time with `bin/ccc-tmux.sh`
+(or plain `tmux -L ccc attach -t ccc`) and detach
 (`Ctrl+B D`) or just close the terminal/SSH connection whenever — it
 keeps running either way.
 
-The TUI runs on its **own tmux server** (socket `-L cc-continue`), not
+The TUI runs on its **own tmux server** (socket `-L ccc`), not
 your default one, so it doesn't show up in plain `tmux ls`. That's
 deliberate: if the unit started your default tmux server, all your other
 tmux sessions would live in this unit's cgroup and systemd-oomd killing
@@ -86,9 +86,9 @@ it would take them all down. If the session dies anyway (oomd, crash,
 `kill-server`), the unit notices within ~5s and recreates it.
 
 ```bash
-cp deploy/systemd/cc-continue-tui.service ~/.config/systemd/user/
+cp deploy/systemd/ccc-tui.service ~/.config/systemd/user/
 systemctl --user daemon-reload
-systemctl --user enable --now cc-continue-tui
+systemctl --user enable --now ccc-tui
 ```
 
 (Needs `loginctl enable-linger "$USER"` too, same as the daemon above, so
@@ -96,17 +96,17 @@ it survives SSH logout — skip if you already ran that for the daemon.)
 
 Attach to it:
 
-    ./bin/cc-continue-tmux.sh
+    ./bin/ccc-tmux.sh
 
 Stop/disable it (kills the tmux session too):
 
-    systemctl --user disable --now cc-continue-tui
+    systemctl --user disable --now ccc-tui
 
 ## Queueing prompts
 
 Without opening anything:
 
-    .venv/bin/cc-continue add /path/to/project "do the thing"
+    .venv/bin/ccc add /path/to/project "do the thing"
 
 Every TUI screen shares one layout (modelled on the conversations view):
 a left sidebar with the **Views** list (Dashboard / Conversations / Live
@@ -127,7 +127,7 @@ dashboard (just closes the viewer — queued work is unaffected).
 - **Headless** (default for `add`/`a`) — the daemon runs
   `claude -p --resume` as a separate subprocess. Safe, gives real
   structured results (tokens, cost, success/failure), but the response
-  only ever shows up in cc-continue's own history — never in a terminal.
+  only ever shows up in ccc's own history — never in a terminal.
 - **Live terminal** (`s` → pick a session → send) — for continuing a
   session you're actively watching in a tmux pane. The daemon waits until
   `claude agents --json` reports that session idle and not blocked on a
@@ -138,7 +138,7 @@ dashboard (just closes the viewer — queued work is unaffected).
   is idle" — so a delivery can in principle interleave with something you
   were about to type. No structured result comes back either (only
   "delivered" or "failed"); the actual response appears in that terminal,
-  not in cc-continue.
+  not in ccc.
 
 ### Starting a new conversation
 
@@ -169,7 +169,7 @@ or blocked.
 Because runs are headless, Claude can't ask you to approve a tool mid-run
 and interactive slash commands aren't available — choose the permission
 mode up front. Resuming a session that already has a conversation in
-cc-continue just switches to it (unless you fork). A fork / from-PR
+ccc just switches to it (unless you fork). A fork / from-PR
 conversation adopts the new session id Claude Code returns on its first
 run.
 
@@ -178,7 +178,7 @@ run.
 *Remote control* in the New conversation dialog is ticked by default.
 Such a conversation doesn't run headless message by message: the daemon
 keeps an interactive `claude --remote-control <name>` running for it in a
-hidden tmux server (`tmux -L cc-continue-sessions`, session `q<id>`), so
+hidden tmux server (`tmux -L ccc-sessions`, session `q<id>`), so
 you can also continue it from the Claude mobile app or claude.ai — the
 link appears in the conversation header and the queue detail. (Headless
 `claude -p` silently ignores `--remote-control`; it needs a live process.)
@@ -214,7 +214,7 @@ checkbox in the New conversation dialog, `o` in the Tasks editor).
   or just send another message.
 - If the limit cut a message off after it had reached the conversation,
   the retry sends a short continue message instead of repeating it:
-  `cc-continue config continue-text` shows it, `cc-continue config
+  `ccc config continue-text` shows it, `ccc config
   continue-text "…"` changes it (default *Pokračuj tam, kde jsi skončil.*).
 - Waiting survives daemon restarts (the reset time is stored).
 

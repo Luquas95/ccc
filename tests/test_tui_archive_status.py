@@ -4,11 +4,11 @@ import pytest
 from textual.app import App
 from textual.widgets import DataTable
 
-from cc_continue.models import PromptRun, QueueStatus, RunStatus
-from cc_continue.storage import Storage
-from cc_continue.tui.conversations import ConversationsScreen
-from cc_continue.tui.dashboard import DashboardScreen
-from cc_continue.tui.layout import ConfirmModal, queue_marker
+from ccc.models import PromptRun, QueueStatus, RunStatus
+from ccc.storage import Storage
+from ccc.tui.conversations import ConversationsScreen
+from ccc.tui.dashboard import DashboardScreen
+from ccc.tui.layout import ConfirmModal, queue_marker
 
 
 def _host(screen):
@@ -33,12 +33,12 @@ def _finished_run(storage, queue_id):
 
 @pytest.fixture
 def storage(tmp_path, monkeypatch):
-    monkeypatch.setattr("cc_continue.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
     return Storage(tmp_path / "h.db")
 
 
 def test_queue_marker():
-    from cc_continue.models import Queue
+    from ccc.models import Queue
 
     q = Queue(id=1, name="a", project_path="/a", session_id="s")
     assert queue_marker(q, unseen=False)[0] == " "

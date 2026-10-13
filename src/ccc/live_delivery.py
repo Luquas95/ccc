@@ -3,7 +3,7 @@ from __future__ import annotations
 import subprocess
 from dataclasses import dataclass
 
-from cc_continue.session_discovery import discover_sessions, find_tmux_pane_for_pid, session_ready_for_input
+from ccc.session_discovery import discover_sessions, find_tmux_pane_for_pid, session_ready_for_input
 
 
 @dataclass

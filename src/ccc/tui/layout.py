@@ -1,4 +1,4 @@
-"""Shared look for every cc-continue screen.
+"""Shared look for every ccc screen.
 
 The conversations view (left sidebar: app title, rule, section label,
 selectable list, coloured action buttons at the bottom; right: content in
@@ -15,7 +15,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Footer, Header, Rule, Static
 
-from cc_continue.models import Queue, QueueStatus
+from ccc.models import Queue, QueueStatus
 
 
 @dataclass(frozen=True)
@@ -327,7 +327,7 @@ class SidebarScreen(Screen):
             nav_items.append(item)
         yield Horizontal(
             Vertical(
-                Static("cc-continue", classes="sidebar-title"),
+                Static("ccc", classes="sidebar-title"),
                 Rule(classes="sidebar-rule"),
                 Static("Views", classes="sidebar-label"),
                 Vertical(*nav_items, id="sidebar-nav"),
@@ -364,19 +364,19 @@ class SidebarScreen(Screen):
 
     def _make_view(self, view: str, **kwargs) -> Screen:
         if view == "dashboard":
-            from cc_continue.tui.dashboard import DashboardScreen
+            from ccc.tui.dashboard import DashboardScreen
 
             return DashboardScreen(self.storage)
         if view == "conversations":
-            from cc_continue.tui.conversations import ConversationsScreen
+            from ccc.tui.conversations import ConversationsScreen
 
             return ConversationsScreen(self.storage, **kwargs)
         if view == "sessions":
-            from cc_continue.tui.session_picker import SessionPickerScreen
+            from ccc.tui.session_picker import SessionPickerScreen
 
             return SessionPickerScreen(self.storage)
         if view == "analytics":
-            from cc_continue.tui.analytics import AnalyticsScreen
+            from ccc.tui.analytics import AnalyticsScreen
 
             return AnalyticsScreen(self.storage)
         raise ValueError(f"unknown view: {view}")
@@ -390,7 +390,7 @@ class SidebarScreen(Screen):
         """Show another top-level view, keeping the stack shallow:
         dashboard is the home screen at the bottom, at most one other view
         sits on top of it (plus a detail screen pushed from that view)."""
-        from cc_continue.tui.dashboard import DashboardScreen
+        from ccc.tui.dashboard import DashboardScreen
 
         stack = self.app.screen_stack
         home_index = next((i for i, s in enumerate(stack) if isinstance(s, DashboardScreen)), None)
@@ -403,7 +403,7 @@ class SidebarScreen(Screen):
             self.app.switch_screen(screen)
 
     def action_new_conversation(self) -> None:
-        from cc_continue.tui.new_conversation import NewConversationModal
+        from ccc.tui.new_conversation import NewConversationModal
 
         def opened(queue_id: int | None) -> None:
             if queue_id is not None:
@@ -418,7 +418,7 @@ class SidebarScreen(Screen):
         self.action_goto("sessions")
 
     def action_add_prompt(self) -> None:
-        from cc_continue.tui.queue_detail import AddPromptModal
+        from ccc.tui.queue_detail import AddPromptModal
 
         self.app.push_screen(AddPromptModal(self.storage, self.default_project_path()))
 

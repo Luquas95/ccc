@@ -7,11 +7,11 @@ from textual.containers import Vertical, VerticalScroll
 from textual.content import Content
 from textual.widgets import DataTable, Input, Static
 
-from cc_continue.launch_options import describe_flags
-from cc_continue.models import DeliveryMode, Queue, QueueStatus
-from cc_continue.storage import Storage
-from cc_continue.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
-from cc_continue.tui.layout import (
+from ccc.launch_options import describe_flags
+from ccc.models import DeliveryMode, Queue, QueueStatus
+from ccc.storage import Storage
+from ccc.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
+from ccc.tui.layout import (
     LIVE_SESSIONS_BUTTON,
     NEW_CONVERSATION_BUTTON,
     RETRY_BUTTON,
@@ -363,7 +363,7 @@ class ConversationsScreen(SidebarScreen):
             self.run_worker(self._refresh_current(), exclusive=True, group="refresh")
 
     def action_tasks(self) -> None:
-        from cc_continue.tui.tasks import TasksModal
+        from ccc.tui.tasks import TasksModal
 
         if self._current_queue_id is None:
             return
@@ -412,7 +412,7 @@ class ConversationsScreen(SidebarScreen):
         self.app.push_screen(
             ConfirmModal(
                 "Delete conversation",
-                f"Delete '{queue.name}' with its queued tasks and run history from cc-continue?\n"
+                f"Delete '{queue.name}' with its queued tasks and run history from ccc?\n"
                 "Claude Code's own transcript stays, so it can still be resumed later.",
             ),
             answered,

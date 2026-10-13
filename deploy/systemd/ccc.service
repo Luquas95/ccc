@@ -1,5 +1,5 @@
 [Unit]
-Description=CC-continue queue daemon (executes queued Claude Code prompts)
+Description=ccc queue daemon (executes queued Claude Code prompts)
 After=network-online.target
 # The project lives on a separate disk mounted with `nofail`; don't try to
 # start before it's there.
@@ -7,7 +7,7 @@ RequiresMountsFor=/mnt/AI
 
 [Service]
 Type=simple
-ExecStart=/home/lukas/DEV/CC-continue/.venv/bin/cc-continue-daemon
+ExecStart=/home/lukas/DEV/ccc/.venv/bin/ccc-daemon
 Environment=PATH=/home/lukas/.local/bin:/usr/local/bin:/usr/bin:/bin
 Restart=on-failure
 RestartSec=5

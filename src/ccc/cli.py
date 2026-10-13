@@ -4,14 +4,21 @@ import argparse
 import sys
 from pathlib import Path
 
-from cc_continue.orchestrator import enqueue_prompt
-from cc_continue.storage import Storage
+from ccc.orchestrator import enqueue_prompt
+from ccc.storage import Storage
+
+
+# Data directory used before the project was renamed from cc-continue.
+OLD_DATA_DIR_NAME = "cc-continue"
 
 
 def default_db_path() -> Path:
-    path = Path.home() / ".local" / "share" / "cc-continue" / "history.db"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    return path
+    data_dir = Path.home() / ".local" / "share" / "ccc"
+    old_dir = data_dir.parent / OLD_DATA_DIR_NAME
+    if old_dir.is_dir() and not data_dir.exists():
+        old_dir.rename(data_dir)  # carry history over from the old name
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir / "history.db"
 
 
 def add_command(db_path: str, project_path: str, prompt: str) -> None:
@@ -20,7 +27,7 @@ def add_command(db_path: str, project_path: str, prompt: str) -> None:
 
 
 def config_command(db_path: str, setting: str, value: str | None) -> None:
-    from cc_continue.orchestrator import DEFAULT_CONTINUE_TEXT
+    from ccc.orchestrator import DEFAULT_CONTINUE_TEXT
 
     storage = Storage(db_path)
     if setting == "continue-text":
@@ -32,18 +39,18 @@ def config_command(db_path: str, setting: str, value: str | None) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(prog="cc-continue")
+    parser = argparse.ArgumentParser(prog="ccc")
     subparsers = parser.add_subparsers(dest="command")
 
     add_parser = subparsers.add_parser(
         "add",
         help="Queue a prompt for a project without opening the TUI "
-        "(needs cc-continue-daemon running to actually execute it)",
+        "(needs ccc-daemon running to actually execute it)",
     )
     add_parser.add_argument("project_path")
     add_parser.add_argument("prompt")
 
-    config_parser = subparsers.add_parser("config", help="Show or change cc-continue settings")
+    config_parser = subparsers.add_parser("config", help="Show or change ccc settings")
     config_sub = config_parser.add_subparsers(dest="setting", required=True)
     continue_parser = config_sub.add_parser(
         "continue-text",
@@ -61,11 +68,11 @@ def main(argv: list[str] | None = None) -> None:
         try:
             add_command(str(default_db_path()), str(Path(args.project_path).resolve()), args.prompt)
         except ValueError as exc:
-            print(f"cc-continue add: {exc}", file=sys.stderr)
+            print(f"ccc add: {exc}", file=sys.stderr)
             sys.exit(1)
         return
 
-    from cc_continue.tui.app import run_app
+    from ccc.tui.app import run_app
 
     run_app(str(default_db_path()))
 

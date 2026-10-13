@@ -2,10 +2,10 @@ import asyncio
 
 import pytest
 
-from cc_continue.models import ItemStatus, QueueStatus, RunStatus
-from cc_continue.orchestrator import Orchestrator, enqueue_prompt
-from cc_continue.runner import RunResult
-from cc_continue.storage import Storage
+from ccc.models import ItemStatus, QueueStatus, RunStatus
+from ccc.orchestrator import Orchestrator, enqueue_prompt
+from ccc.runner import RunResult
+from ccc.storage import Storage
 
 
 @pytest.fixture
@@ -118,7 +118,7 @@ async def test_hard_error_blocks_queue(storage, project_dir):
 
 
 async def test_rate_limited_reschedules_with_short_backoff(storage, project_dir, monkeypatch):
-    monkeypatch.setattr("cc_continue.orchestrator.next_backoff_seconds", lambda prev: 0)
+    monkeypatch.setattr("ccc.orchestrator.next_backoff_seconds", lambda prev: 0)
     call_count = {"n": 0}
 
     async def fake_run(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
@@ -178,8 +178,8 @@ async def test_attach_to_session_creates_live_terminal_queue(storage, project_di
     default to live_terminal delivery (typing into that session's own
     tmux pane) rather than the headless resume path, since that's the
     whole point of attaching to something already live."""
-    from cc_continue.models import DeliveryMode
-    from cc_continue.orchestrator import attach_to_session
+    from ccc.models import DeliveryMode
+    from ccc.orchestrator import attach_to_session
 
     attach_to_session(storage, "live-session-id", project_dir, "dev-75", "ahoj")
 
@@ -189,11 +189,11 @@ async def test_attach_to_session_creates_live_terminal_queue(storage, project_di
 
 
 async def test_live_terminal_item_waits_until_session_ready_then_delivers(storage, project_dir, monkeypatch):
-    monkeypatch.setattr("cc_continue.orchestrator.POLL_INTERVAL_SECONDS", 0.02)
+    monkeypatch.setattr("ccc.orchestrator.POLL_INTERVAL_SECONDS", 0.02)
 
-    from cc_continue.live_delivery import DeliveryResult
-    from cc_continue.orchestrator import attach_to_session
-    from cc_continue.session_discovery import DiscoveredSession
+    from ccc.live_delivery import DeliveryResult
+    from ccc.orchestrator import attach_to_session
+    from ccc.session_discovery import DiscoveredSession
 
     attach_to_session(storage, "live-session-id", project_dir, "dev-75", "ahoj")
 
@@ -211,8 +211,8 @@ async def test_live_terminal_item_waits_until_session_ready_then_delivers(storag
         delivered.append((session_id, prompt_text))
         return DeliveryResult(delivered=True)
 
-    monkeypatch.setattr("cc_continue.orchestrator.discover_sessions", fake_discover_sessions)
-    monkeypatch.setattr("cc_continue.orchestrator.deliver_to_live_session", fake_deliver)
+    monkeypatch.setattr("ccc.orchestrator.discover_sessions", fake_discover_sessions)
+    monkeypatch.setattr("ccc.orchestrator.deliver_to_live_session", fake_deliver)
 
     orch = Orchestrator(storage)
     await orch.start_all()
@@ -234,11 +234,11 @@ async def test_live_terminal_item_waits_until_session_ready_then_delivers(storag
 
 
 async def test_live_terminal_item_fails_when_session_gone(storage, project_dir, monkeypatch):
-    from cc_continue.orchestrator import attach_to_session
+    from ccc.orchestrator import attach_to_session
 
     attach_to_session(storage, "live-session-id", project_dir, "dev-75", "ahoj")
 
-    monkeypatch.setattr("cc_continue.orchestrator.discover_sessions", lambda: [])
+    monkeypatch.setattr("ccc.orchestrator.discover_sessions", lambda: [])
 
     orch = Orchestrator(storage)
     await orch.start_all()
@@ -257,7 +257,7 @@ async def test_live_terminal_item_fails_when_session_gone(storage, project_dir, 
 
 
 async def test_discovers_queue_created_after_start_all(storage, tmp_path, monkeypatch):
-    monkeypatch.setattr("cc_continue.orchestrator.POLL_INTERVAL_SECONDS", 0.02)
+    monkeypatch.setattr("ccc.orchestrator.POLL_INTERVAL_SECONDS", 0.02)
     calls = []
 
     async def fake_run(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
@@ -267,7 +267,7 @@ async def test_discovers_queue_created_after_start_all(storage, tmp_path, monkey
     orch = Orchestrator(storage, run_fn=fake_run)
     await orch.start_all()  # no queues exist yet
 
-    # simulate another process (e.g. `cc-continue add`) creating a queue
+    # simulate another process (e.g. `ccc add`) creating a queue
     # directly via storage, the way enqueue_prompt() does, without going
     # through this orchestrator at all
     late_dir = tmp_path / "late-proj"
@@ -350,8 +350,8 @@ async def test_crash_recovery_requeues_running_items(storage, project_dir):
     assert any(r.prompt_text == "interrupted prompt" and r.status == RunStatus.SUCCESS for r in runs)
 
 
-from cc_continue.launch_options import DEFAULT_SELECTION, FORK, SESSION_CONTINUE, SESSION_FROM_PR, SESSION_RESUME, toggle
-from cc_continue.orchestrator import start_conversation
+from ccc.launch_options import DEFAULT_SELECTION, FORK, SESSION_CONTINUE, SESSION_FROM_PR, SESSION_RESUME, toggle
+from ccc.orchestrator import start_conversation
 
 
 def test_start_new_conversation_creates_fresh_queue_per_launch(storage, project_dir):
@@ -377,13 +377,13 @@ def test_resume_reuses_existing_queue_unless_fork(storage, project_dir):
 
 
 def test_continue_picks_latest_session_of_directory(storage, project_dir, monkeypatch):
-    from cc_continue.transcript import SessionSummary
+    from ccc.transcript import SessionSummary
     from datetime import datetime
-    monkeypatch.setattr("cc_continue.orchestrator.list_sessions_for_directory",
+    monkeypatch.setattr("ccc.orchestrator.list_sessions_for_directory",
                         lambda path: [SessionSummary("newest", datetime.now(), "hi", 2)])
     q = start_conversation(storage, str(project_dir), toggle(DEFAULT_SELECTION, SESSION_CONTINUE, True))
     assert q.session_id == "newest"
-    monkeypatch.setattr("cc_continue.orchestrator.list_sessions_for_directory", lambda path: [])
+    monkeypatch.setattr("ccc.orchestrator.list_sessions_for_directory", lambda path: [])
     with pytest.raises(ValueError):
         start_conversation(storage, str(project_dir), toggle(DEFAULT_SELECTION, SESSION_CONTINUE, True), name="x")
 
@@ -419,8 +419,8 @@ async def test_first_run_adopts_returned_session_id(storage, project_dir):
 
 from datetime import datetime, timedelta, timezone  # noqa: E402
 
-from cc_continue.orchestrator import DEFAULT_CONTINUE_TEXT  # noqa: E402
-from cc_continue.usage_api import ProUsage, WindowUsage  # noqa: E402
+from ccc.orchestrator import DEFAULT_CONTINUE_TEXT  # noqa: E402
+from ccc.usage_api import ProUsage, WindowUsage  # noqa: E402
 
 
 def _five_hour_usage(pct, reset_local):
@@ -439,8 +439,8 @@ async def _until(cond, timeout=2.0):
 
 @pytest.fixture
 def fast_poll(monkeypatch):
-    monkeypatch.setattr("cc_continue.orchestrator.POLL_INTERVAL_SECONDS", 0.02)
-    monkeypatch.setattr("cc_continue.orchestrator.next_backoff_seconds", lambda prev: 0)
+    monkeypatch.setattr("ccc.orchestrator.POLL_INTERVAL_SECONDS", 0.02)
+    monkeypatch.setattr("ccc.orchestrator.next_backoff_seconds", lambda prev: 0)
 
 
 def _limited_then_ok(sent):
@@ -454,7 +454,7 @@ def _limited_then_ok(sent):
 
 
 async def test_auto_continue_sends_continue_text_when_prompt_reached_conversation(storage, project_dir, fast_poll, monkeypatch):
-    monkeypatch.setattr("cc_continue.orchestrator.last_human_text", lambda session_id: "do work")
+    monkeypatch.setattr("ccc.orchestrator.last_human_text", lambda session_id: "do work")
     sent = []
     orch = Orchestrator(storage, run_fn=_limited_then_ok(sent))
     await orch.start_all()
@@ -467,7 +467,7 @@ async def test_auto_continue_sends_continue_text_when_prompt_reached_conversatio
 
 
 async def test_prompt_not_in_transcript_is_resent(storage, project_dir, fast_poll, monkeypatch):
-    monkeypatch.setattr("cc_continue.orchestrator.last_human_text", lambda session_id: None)
+    monkeypatch.setattr("ccc.orchestrator.last_human_text", lambda session_id: None)
     sent = []
     orch = Orchestrator(storage, run_fn=_limited_then_ok(sent))
     await orch.start_all()
@@ -478,7 +478,7 @@ async def test_prompt_not_in_transcript_is_resent(storage, project_dir, fast_pol
 
 
 async def test_custom_continue_text_from_settings(storage, project_dir, fast_poll, monkeypatch):
-    monkeypatch.setattr("cc_continue.orchestrator.last_human_text", lambda session_id: "do work")
+    monkeypatch.setattr("ccc.orchestrator.last_human_text", lambda session_id: "do work")
     storage.set_setting("continue_text", "dál")
     sent = []
     orch = Orchestrator(storage, run_fn=_limited_then_ok(sent))
@@ -490,7 +490,7 @@ async def test_custom_continue_text_from_settings(storage, project_dir, fast_pol
 
 
 async def test_auto_continue_off_pauses_until_user_resumes(storage, project_dir, fast_poll, monkeypatch):
-    monkeypatch.setattr("cc_continue.orchestrator.last_human_text", lambda session_id: None)
+    monkeypatch.setattr("ccc.orchestrator.last_human_text", lambda session_id: None)
     queue = enqueue_prompt(storage, project_dir, "do work")
     storage.set_queue_auto_continue(queue.id, False)
     sent = []
@@ -506,8 +506,8 @@ async def test_auto_continue_off_pauses_until_user_resumes(storage, project_dir,
 
 async def test_rate_limit_waits_for_reset_reported_by_usage(storage, project_dir, fast_poll, monkeypatch):
     reset = datetime.now().replace(microsecond=0) + timedelta(hours=1)
-    monkeypatch.setattr("cc_continue.orchestrator.get_pro_usage", lambda force_refresh=False: _five_hour_usage(99, reset))
-    monkeypatch.setattr("cc_continue.orchestrator.last_human_text", lambda session_id: None)
+    monkeypatch.setattr("ccc.orchestrator.get_pro_usage", lambda force_refresh=False: _five_hour_usage(99, reset))
+    monkeypatch.setattr("ccc.orchestrator.last_human_text", lambda session_id: None)
     sent = []
     orch = Orchestrator(storage, run_fn=_limited_then_ok(sent))
     await orch.start_all()
@@ -522,7 +522,7 @@ async def test_rate_limit_waits_for_reset_reported_by_usage(storage, project_dir
 
 async def test_exhausted_usage_holds_queue_without_running_claude(storage, project_dir, fast_poll, monkeypatch):
     reset = datetime.now().replace(microsecond=0) + timedelta(hours=2)
-    monkeypatch.setattr("cc_continue.orchestrator.get_pro_usage", lambda force_refresh=False: _five_hour_usage(100, reset))
+    monkeypatch.setattr("ccc.orchestrator.get_pro_usage", lambda force_refresh=False: _five_hour_usage(100, reset))
     sent = []
     orch = Orchestrator(storage, run_fn=_limited_then_ok(sent))
     await orch.start_all()

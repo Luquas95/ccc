@@ -1,8 +1,8 @@
 import pytest
 
-from cc_continue.storage import Storage
-from cc_continue.tui.app import CCContinueApp
-from cc_continue.tui.queue_detail import QueueDetailScreen
+from ccc.storage import Storage
+from ccc.tui.app import CCContinueApp
+from ccc.tui.queue_detail import QueueDetailScreen
 
 
 @pytest.mark.asyncio

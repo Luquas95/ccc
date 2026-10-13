@@ -8,13 +8,13 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, DirectoryTree, Input, OptionList, Static
 from textual.widgets.option_list import Option
 
-from cc_continue.launch_options import (
+from ccc.launch_options import (
     DEFAULT_SELECTION, FORK, GROUPS, SESSION_FROM_PR, SESSION_NEW, SESSION_RESUME, session_mode, toggle,
 )
-from cc_continue.orchestrator import start_conversation
-from cc_continue.storage import Storage
-from cc_continue.transcript import list_sessions_for_directory
-from cc_continue.tui.layout import MODAL_CSS
+from ccc.orchestrator import start_conversation
+from ccc.storage import Storage
+from ccc.transcript import list_sessions_for_directory
+from ccc.tui.layout import MODAL_CSS
 
 
 class _DirectoriesOnly(DirectoryTree):
@@ -108,8 +108,8 @@ class NewConversationModal(ModalScreen):
                     right.append(OptionList(id="resume-sessions"))
                 elif option.key == SESSION_FROM_PR:
                     right.append(Input(placeholder="PR number or URL", id="from-pr-input"))
-        # Not a `claude` flag: cc-continue's own behaviour at usage limits.
-        right.append(Static("cc-continue", classes="group-title"))
+        # Not a `claude` flag: ccc's own behaviour at usage limits.
+        right.append(Static("ccc", classes="group-title"))
         right.append(Checkbox("Auto-continue after usage limit", value=True, id="auto-continue"))
         right.append(Checkbox("Remote control (phone / claude.ai)", value=True, id="remote-control"))
         recent = [Option(Content(p), id=p) for p in self.storage.recent_project_paths()]

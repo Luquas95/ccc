@@ -2,8 +2,8 @@ import json
 import time
 from datetime import datetime
 
-from cc_continue import usage_api
-from cc_continue.usage_api import (
+from ccc import usage_api
+from ccc.usage_api import (
     ModelUsage,
     ProUsage,
     WindowUsage,

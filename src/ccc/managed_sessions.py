@@ -1,7 +1,7 @@
-"""Interactive Claude Code processes that cc-continue itself runs for
+"""Interactive Claude Code processes that ccc itself runs for
 remote-control conversations: one tmux session per conversation on a
 dedicated tmux server, so the conversation can also be driven from the
-Claude mobile app / claude.ai while cc-continue types queued prompts in.
+Claude mobile app / claude.ai while ccc types queued prompts in.
 
 Headless `claude -p` can't do this — it silently ignores --remote-control
 (verified), because remote control needs a long-lived process.
@@ -15,11 +15,11 @@ import signal
 import subprocess
 import time
 
-from cc_continue.live_delivery import DeliveryResult
-from cc_continue.models import Queue
+from ccc.live_delivery import DeliveryResult
+from ccc.models import Queue
 
 # Separate from the user's default tmux server and from the TUI's own one.
-TMUX_SOCKET = "cc-continue-sessions"
+TMUX_SOCKET = "ccc-sessions"
 
 _REMOTE_URL_RE = re.compile(r"https://claude\.ai/code/session_[A-Za-z0-9]+")
 _SESSION_SELECTING_FLAGS = ("--resume", "--from-pr")
@@ -122,7 +122,7 @@ def parse_remote_url(pane_text: str) -> str | None:
 
 def needs_trust_confirmation(pane_text: str) -> bool:
     """True only while interactive Claude shows its folder-trust dialog
-    (headless -p skips it; the user picked the folder in cc-continue, so the
+    (headless -p skips it; the user picked the folder in ccc, so the
     daemon accepts it). Deliberately narrow: the question AND its "Yes,
     proceed" choice must be on screen, so Claude merely quoting the phrase,
     or any other prompt — tool permission questions in particular — never
@@ -138,7 +138,7 @@ def paste_and_submit(queue_id: int, text: str) -> DeliveryResult:
     """Paste the prompt as ONE bracketed paste (plain send-keys would turn
     each newline into Enter and submit a multi-line prompt line by line),
     then press Enter to send it."""
-    buffer = f"cc-continue-{queue_id}"
+    buffer = f"ccc-{queue_id}"
     steps = [
         (("load-buffer", "-b", buffer, "-"), text),
         (("paste-buffer", "-p", "-d", "-b", buffer, "-t", target(queue_id)), None),

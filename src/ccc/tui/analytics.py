@@ -8,10 +8,10 @@ from rich.text import Text
 from textual.containers import Container, Horizontal, VerticalScroll
 from textual.widgets import DataTable, ProgressBar, Sparkline, Static
 
-from cc_continue.models import RunStatus
-from cc_continue.storage import Storage
-from cc_continue.tui.layout import SidebarScreen, panel
-from cc_continue.usage_api import ProUsage, get_pro_usage
+from ccc.models import RunStatus
+from ccc.storage import Storage
+from ccc.tui.layout import SidebarScreen, panel
+from ccc.usage_api import ProUsage, get_pro_usage
 
 UNAVAILABLE_TEXT = "Claude Pro usage: unavailable (offline, or not logged in via claude.ai OAuth)"
 
@@ -55,7 +55,7 @@ class ModelTokenBar:
 
 
 def build_model_token_bars(totals: list[tuple[str, int]]) -> list[ModelTokenBar]:
-    """Bars comparing token volume across models CC-continue has actually
+    """Bars comparing token volume across models ccc has actually
     run — its own recorded history, not an Anthropic account limit (which
     doesn't break down by model on every plan; see build_usage_gauges).
     The busiest model is scaled to 100% so bars stay comparable to each

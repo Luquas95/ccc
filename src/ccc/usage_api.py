@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 CREDENTIALS_PATH = Path.home() / ".claude" / ".credentials.json"
-CACHE_PATH = Path.home() / ".local" / "share" / "cc-continue" / "usage_cache.json"
+CACHE_PATH = Path.home() / ".local" / "share" / "ccc" / "usage_cache.json"
 CACHE_TTL_SECONDS = 60
 USAGE_ENDPOINT = "https://api.anthropic.com/api/oauth/usage"
 

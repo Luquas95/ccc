@@ -1,7 +1,7 @@
 import pytest
 
-from cc_continue.cli import add_command
-from cc_continue.tui.app import CCContinueApp
+from ccc.cli import add_command
+from ccc.tui.app import CCContinueApp
 
 
 @pytest.mark.asyncio
@@ -38,7 +38,7 @@ async def test_pressing_enter_opens_queue_detail(tmp_path):
         await pilot.press("enter")
         await pilot.pause()
 
-        from cc_continue.tui.queue_detail import QueueDetailScreen
+        from ccc.tui.queue_detail import QueueDetailScreen
 
         assert isinstance(app.screen, QueueDetailScreen)
 
@@ -56,6 +56,6 @@ async def test_pressing_c_opens_conversations_screen(tmp_path):
         await pilot.press("c")
         await pilot.pause()
 
-        from cc_continue.tui.conversations import ConversationsScreen
+        from ccc.tui.conversations import ConversationsScreen
 
         assert isinstance(app.screen, ConversationsScreen)

@@ -1,7 +1,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
-from cc_continue.session_discovery import (
+from ccc.session_discovery import (
     DiscoveredSession,
     discover_sessions,
     find_tmux_pane_for_pid,

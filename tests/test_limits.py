@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
-from cc_continue.limits import RESET_BUFFER, exhausted_until, retry_time_after_rate_limit
-from cc_continue.usage_api import ModelUsage, ProUsage, WindowUsage
+from ccc.limits import RESET_BUFFER, exhausted_until, retry_time_after_rate_limit
+from ccc.usage_api import ModelUsage, ProUsage, WindowUsage
 
 NOW = datetime(2026, 10, 12, 14, 0)
 

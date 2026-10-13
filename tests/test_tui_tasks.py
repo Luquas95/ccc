@@ -2,8 +2,8 @@ import pytest
 from textual.app import App
 from textual.widgets import DataTable, TextArea
 
-from cc_continue.storage import Storage
-from cc_continue.tui.tasks import TaskEditModal, TasksModal
+from ccc.storage import Storage
+from ccc.tui.tasks import TaskEditModal, TasksModal
 
 
 def _setup(tmp_path, *prompts):

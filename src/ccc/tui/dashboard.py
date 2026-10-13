@@ -5,9 +5,9 @@ from datetime import date
 from rich.text import Text
 from textual.widgets import DataTable, Static
 
-from cc_continue.models import QueueStatus
-from cc_continue.storage import Storage
-from cc_continue.tui.layout import (
+from ccc.models import QueueStatus
+from ccc.storage import Storage
+from ccc.tui.layout import (
     ADD_PROMPT_BUTTON,
     LIVE_SESSIONS_BUTTON,
     RETRY_BUTTON,
@@ -106,7 +106,7 @@ class DashboardScreen(SidebarScreen):
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         # DataTable owns the "enter" key itself (action select_cursor),
         # so listen for its message instead of a screen-level binding.
-        from cc_continue.tui.queue_detail import QueueDetailScreen
+        from ccc.tui.queue_detail import QueueDetailScreen
 
         queues = self._visible_queues()
         if event.cursor_row >= len(queues):

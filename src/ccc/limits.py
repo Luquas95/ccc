@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from cc_continue.usage_api import ProUsage
+from ccc.usage_api import ProUsage
 
 # Margin after the advertised reset before trying again, so the first run
 # doesn't race the limit window rolling over.

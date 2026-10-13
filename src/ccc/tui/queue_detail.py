@@ -6,11 +6,11 @@ from textual.content import Content
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Input, Static, TextArea
 
-from cc_continue.launch_options import describe_flags
-from cc_continue.models import DeliveryMode, QueueStatus, RunStatus
-from cc_continue.orchestrator import enqueue_prompt
-from cc_continue.storage import Storage
-from cc_continue.tui.layout import (
+from ccc.launch_options import describe_flags
+from ccc.models import DeliveryMode, QueueStatus, RunStatus
+from ccc.orchestrator import enqueue_prompt
+from ccc.storage import Storage
+from ccc.tui.layout import (
     ADD_PROMPT_BUTTON,
     LIVE_SESSIONS_BUTTON,
     MODAL_CSS,

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from cc_continue.models import ItemStatus, PromptRun, Queue, QueueItem, QueueStatus, RunStatus
+from ccc.models import ItemStatus, PromptRun, Queue, QueueItem, QueueStatus, RunStatus
 
 
 def test_queue_defaults():

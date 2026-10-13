@@ -1,5 +1,5 @@
-from cc_continue.cli import add_command
-from cc_continue.storage import Storage
+from ccc.cli import add_command
+from ccc.storage import Storage
 
 
 def test_add_command_creates_queue_and_item(tmp_path):
@@ -30,8 +30,8 @@ def test_add_command_reuses_existing_queue(tmp_path):
 
 
 def test_config_continue_text_set_and_show(tmp_path, monkeypatch, capsys):
-    from cc_continue import cli
-    from cc_continue.orchestrator import DEFAULT_CONTINUE_TEXT
+    from ccc import cli
+    from ccc.orchestrator import DEFAULT_CONTINUE_TEXT
 
     db_path = tmp_path / "history.db"
     monkeypatch.setattr(cli, "default_db_path", lambda: db_path)
@@ -41,3 +41,17 @@ def test_config_continue_text_set_and_show(tmp_path, monkeypatch, capsys):
     assert Storage(db_path).get_setting("continue_text") == "Jedeme dál."
     cli.main(["config", "continue-text"])
     assert capsys.readouterr().out.strip().endswith("Jedeme dál.")
+
+
+def test_default_db_path_moves_data_from_old_name(tmp_path, monkeypatch):
+    from ccc import cli
+
+    monkeypatch.setattr(cli.Path, "home", lambda: tmp_path)
+    old = tmp_path / ".local" / "share" / "cc-continue"
+    old.mkdir(parents=True)
+    (old / "history.db").write_text("db")
+    path = cli.default_db_path()
+    assert path == tmp_path / ".local" / "share" / "ccc" / "history.db"
+    assert path.read_text() == "db"
+    assert not old.exists()
+    assert cli.default_db_path() == path  # second call: nothing to move

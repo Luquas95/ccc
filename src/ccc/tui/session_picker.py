@@ -6,10 +6,10 @@ from textual.content import Content
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Static, TextArea
 
-from cc_continue.orchestrator import attach_to_session
-from cc_continue.session_discovery import DiscoveredSession, discover_sessions
-from cc_continue.storage import Storage
-from cc_continue.tui.layout import ADD_PROMPT_BUTTON, MODAL_CSS, SidebarButton, SidebarScreen, panel
+from ccc.orchestrator import attach_to_session
+from ccc.session_discovery import DiscoveredSession, discover_sessions
+from ccc.storage import Storage
+from ccc.tui.layout import ADD_PROMPT_BUTTON, MODAL_CSS, SidebarButton, SidebarScreen, panel
 
 
 REFRESH_BUTTON = SidebarButton("sidebar-refresh", "Refresh (r)", "blue", "refresh")
@@ -97,7 +97,7 @@ class AttachSessionModal(ModalScreen):
             Static(Content.assemble((self.session.name, "bold"), "  ", (self.session.cwd, "dim"))),
             Static(
                 "Delivered by typing into that session's own terminal once it's idle "
-                "and not rate-limited — the response appears there, not in cc-continue. "
+                "and not rate-limited — the response appears there, not in ccc. "
                 "If you're mid-typing something else in that terminal at the exact "
                 "moment this fires, the two can interleave.",
                 classes="attach-prompt-warning",

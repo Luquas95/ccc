@@ -8,8 +8,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Awaitable, Callable
 
-from cc_continue import managed_sessions
-from cc_continue.launch_options import (
+from ccc import managed_sessions
+from ccc.launch_options import (
     FORK,
     SESSION_CONTINUE,
     SESSION_FROM_PR,
@@ -17,15 +17,15 @@ from cc_continue.launch_options import (
     persistent_flags,
     session_mode,
 )
-from cc_continue.limits import exhausted_until, retry_time_after_rate_limit
-from cc_continue.live_delivery import deliver_to_live_session
-from cc_continue.models import DeliveryMode, ItemStatus, PromptRun, Queue, QueueItem, QueueStatus, RunStatus
-from cc_continue.retry import next_backoff_seconds, parse_reset_time
-from cc_continue.runner import RunResult, execute
-from cc_continue.session_discovery import discover_sessions, session_ready_for_input
-from cc_continue.storage import Storage
-from cc_continue.transcript import find_transcript_path, last_human_text, list_sessions_for_directory
-from cc_continue.usage_api import get_pro_usage
+from ccc.limits import exhausted_until, retry_time_after_rate_limit
+from ccc.live_delivery import deliver_to_live_session
+from ccc.models import DeliveryMode, ItemStatus, PromptRun, Queue, QueueItem, QueueStatus, RunStatus
+from ccc.retry import next_backoff_seconds, parse_reset_time
+from ccc.runner import RunResult, execute
+from ccc.session_discovery import discover_sessions, session_ready_for_input
+from ccc.storage import Storage
+from ccc.transcript import find_transcript_path, last_human_text, list_sessions_for_directory
+from ccc.usage_api import get_pro_usage
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +33,13 @@ RunFn = Callable[[str, str, str, bool, list[str] | None, list[str] | None], Awai
 
 # How often an idle/blocked queue re-checks storage even without an
 # in-process notify(). This is what makes it safe for another process (the
-# TUI, or `cc-continue add`) to enqueue a prompt or clear a blocked queue
+# TUI, or `ccc add`) to enqueue a prompt or clear a blocked queue
 # without the daemon needing any cross-process signaling mechanism.
 POLL_INTERVAL_SECONDS = 5.0
 
 # Sent instead of repeating a prompt that a usage limit interrupted after
 # it had reached the conversation. Overridable via the "continue_text"
-# setting (`cc-continue config continue-text`).
+# setting (`ccc config continue-text`).
 DEFAULT_CONTINUE_TEXT = "Pokračuj tam, kde jsi skončil."
 
 # Remote-control conversations: how often the daemon checks its managed
@@ -60,7 +60,7 @@ def enqueue_prompt(storage: Storage, project_path: str, prompt_text: str, name: 
     """Add a prompt to a project's queue, creating the queue if needed.
     Pure storage operation — does not start or notify any execution
     engine. Safe to call from a process that never runs an Orchestrator
-    (the TUI, the `cc-continue add` CLI) alongside a daemon process that
+    (the TUI, the `ccc add` CLI) alongside a daemon process that
     does; the daemon picks the new row up on its next poll.
 
     Raises ValueError if project_path isn't an existing directory when
@@ -386,7 +386,7 @@ class QueueRuntime:
                 started_at=now,
                 finished_at=now,
                 status=RunStatus.SUCCESS,
-                result_text="Delivered to the live terminal — response appears there, not in cc-continue.",
+                result_text="Delivered to the live terminal — response appears there, not in ccc.",
             )
         )
         self.storage.set_item_status(item.id, ItemStatus.DONE)
@@ -512,7 +512,7 @@ class QueueRuntime:
             self.storage.update_queue_status(
                 queue.id,
                 QueueStatus.BLOCKED_ERROR,
-                last_error=f"session {session_id} already has a conversation in cc-continue",
+                last_error=f"session {session_id} already has a conversation in ccc",
             )
 
     def _record_error_run(self, queue: Queue, item: QueueItem, error_text: str) -> None:
@@ -555,12 +555,12 @@ class Orchestrator:
 
     async def start_all(self) -> None:
         """Start executing every existing queue, then keep discovering new
-        ones (created later by `cc-continue add` or the TUI, in this or
+        ones (created later by `ccc add` or the TUI, in this or
         another process) in the background. Only ONE process (the daemon)
         should ever call this: it resets any item left 'running' back to
         'pending' as crash recovery, which would wrongly steal an item
         that's legitimately mid-execution in an already-running daemon.
-        Other processes (the TUI, `cc-continue add`) must only use
+        Other processes (the TUI, `ccc add`) must only use
         enqueue_prompt() — never construct an Orchestrator and call this."""
         self.storage.reset_running_items_to_pending()
         for queue in self.storage.list_queues():
