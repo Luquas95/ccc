@@ -5,13 +5,14 @@ from pathlib import Path
 from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.content import Content
 from textual.screen import ModalScreen
-from textual.widgets import Button, Checkbox, DirectoryTree, Input, OptionList, Static
+from textual.widgets import Button, Checkbox, DirectoryTree, Input, OptionList, Select, Static
 from textual.widgets.option_list import Option
 
 from ccc.launch_options import (
     DEFAULT_SELECTION, FORK, GROUPS, SESSION_FROM_PR, SESSION_NEW, SESSION_RESUME, session_mode, toggle,
 )
 from ccc.orchestrator import start_conversation
+from ccc.presets import LaunchChoice, list_presets, load_last, save_last, save_preset
 from ccc.storage import Storage
 from ccc.transcript import list_sessions_for_directory
 from ccc.tui.layout import MODAL_CSS
@@ -25,6 +26,31 @@ class _DirectoriesOnly(DirectoryTree):
 def default_browse_root() -> Path:
     dev = Path.home() / "DEV"
     return dev if dev.is_dir() else Path.home()
+
+
+class PresetNameModal(ModalScreen):
+    """Asks for a preset name. Dismisses with the name, or None."""
+
+    DEFAULT_CSS = MODAL_CSS.format(cls="PresetNameModal")
+    BINDINGS = [("escape", "cancel", "Cancel")]
+
+    def compose(self):
+        box = Container(
+            Static("Preset name (an existing one is overwritten)", classes="modal-label"),
+            Input(placeholder="e.g. opus-deep", id="preset-name"),
+        )
+        box.border_title = "Save as preset"
+        yield box
+
+    def on_mount(self) -> None:
+        self.query_one("#preset-name", Input).focus()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        name = event.value.strip()
+        self.dismiss(name or None)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
 
 
 class NewConversationModal(ModalScreen):
@@ -58,6 +84,15 @@ class NewConversationModal(ModalScreen):
     }
     NewConversationModal #from-pr-input {
         margin-left: 4;
+    }
+    NewConversationModal #preset-row {
+        height: 3;
+    }
+    NewConversationModal #preset-select {
+        width: 1fr;
+    }
+    NewConversationModal #preset-save {
+        margin-left: 1;
     }
     NewConversationModal .group-title {
         text-style: bold;
@@ -93,12 +128,25 @@ class NewConversationModal(ModalScreen):
         super().__init__()
         self.storage = storage
         self.browse_root = browse_root or default_browse_root()
-        self.selection = DEFAULT_SELECTION
+        # Prefill with what was used last time (session group always "new").
+        last = load_last(storage) or LaunchChoice(DEFAULT_SELECTION)
+        self.selection = last.selection
+        self._initial = last
         self._sessions_for: str | None = None
         self._session_ids: list[str] = []
 
+    def _preset_options(self) -> list[tuple[str, str]]:
+        return [(name, name) for name in sorted(list_presets(self.storage))]
+
     def compose(self):
-        right = []
+        right = [
+            Static("Preset", classes="group-title"),
+            Horizontal(
+                Select(self._preset_options(), prompt="Choose a preset…", id="preset-select"),
+                Button("Save as preset", id="preset-save"),
+                id="preset-row",
+            ),
+        ]
         for group in GROUPS:
             if group.title:
                 right.append(Static(group.title, classes="group-title"))
@@ -110,8 +158,8 @@ class NewConversationModal(ModalScreen):
                     right.append(Input(placeholder="PR number or URL", id="from-pr-input"))
         # Not a `claude` flag: ccc's own behaviour at usage limits.
         right.append(Static("ccc", classes="group-title"))
-        right.append(Checkbox("Auto-continue after usage limit", value=True, id="auto-continue"))
-        right.append(Checkbox("Remote control (phone / claude.ai)", value=True, id="remote-control"))
+        right.append(Checkbox("Auto-continue after usage limit", value=self._initial.auto_continue, id="auto-continue"))
+        right.append(Checkbox("Remote control (phone / claude.ai)", value=self._initial.remote_control, id="remote-control"))
         recent = [Option(Content(p), id=p) for p in self.storage.recent_project_paths()]
         box = Container(
             Horizontal(
@@ -196,7 +244,43 @@ class NewConversationModal(ModalScreen):
 
     # --- buttons --------------------------------------------------------
 
+    def _current_choice(self) -> LaunchChoice:
+        return LaunchChoice(
+            self.selection,
+            self.query_one("#auto-continue", Checkbox).value,
+            self.query_one("#remote-control", Checkbox).value,
+        )
+
+    def _apply_choice(self, choice: LaunchChoice) -> None:
+        self.selection = choice.selection
+        for checkbox in self.query(Checkbox):
+            if checkbox.id.startswith("opt-"):
+                wanted = checkbox.id.removeprefix("opt-") in self.selection
+                if checkbox.value != wanted:
+                    checkbox.value = wanted
+        self.query_one("#auto-continue", Checkbox).value = choice.auto_continue
+        self.query_one("#remote-control", Checkbox).value = choice.remote_control
+        self._sync_session_widgets()
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.select.id != "preset-select" or event.value is Select.BLANK:
+            return
+        choice = list_presets(self.storage).get(event.value)
+        if choice is not None:
+            self._apply_choice(choice)
+
+    def _save_preset(self, name: str | None) -> None:
+        if not name:
+            return
+        save_preset(self.storage, name, self._current_choice())
+        select = self.query_one("#preset-select", Select)
+        select.set_options(self._preset_options())
+        select.value = name
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "preset-save":
+            self.app.push_screen(PresetNameModal(), self._save_preset)
+            return
         if event.button.id == "launch-cancel":
             self.dismiss(None)
             return
@@ -225,6 +309,7 @@ class NewConversationModal(ModalScreen):
         except ValueError as exc:
             error.update(Content(str(exc)))
             return
+        save_last(self.storage, self._current_choice())
         self.dismiss(queue.id)
 
     def action_cancel(self) -> None:

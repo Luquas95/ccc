@@ -142,3 +142,53 @@ async def test_remote_control_unticked_gives_headless(tmp_path):
         await pilot.click("#launch-start")
         await pilot.pause()
     assert storage.get_queue(results[0]).delivery_mode == DeliveryMode.HEADLESS
+
+
+@pytest.mark.asyncio
+async def test_dialog_prefills_last_choice_and_saves_it(tmp_path):
+    from ccc.presets import LaunchChoice, load_last, save_last
+    from ccc.launch_options import DEFAULT_SELECTION, toggle
+
+    storage = Storage(tmp_path / "h.db")
+    save_last(storage, LaunchChoice(toggle(DEFAULT_SELECTION, "model_opus", True), auto_continue=False, remote_control=False))
+    results = []
+    app = _host(NewConversationModal(storage, browse_root=tmp_path), results)
+    async with app.run_test(size=(160, 50)) as pilot:
+        await pilot.pause()
+        assert app.screen.query_one("#opt-model_opus", Checkbox).value is True
+        assert app.screen.query_one("#auto-continue", Checkbox).value is False
+        assert app.screen.query_one("#remote-control", Checkbox).value is False
+        app.screen.query_one("#opt-effort_max", Checkbox).value = True
+        app.screen.query_one("#launch-path", Input).value = str(tmp_path)
+        await pilot.pause()
+        await pilot.click("#launch-start")
+        await pilot.pause()
+    last = load_last(storage)
+    assert {"model_opus", "effort_max"} <= last.selection
+
+
+@pytest.mark.asyncio
+async def test_preset_select_applies_and_save_as_preset(tmp_path):
+    from textual.widgets import Select
+    from ccc.presets import LaunchChoice, list_presets, save_preset
+    from ccc.launch_options import DEFAULT_SELECTION, toggle
+
+    storage = Storage(tmp_path / "h.db")
+    save_preset(storage, "haiku-fast", LaunchChoice(toggle(DEFAULT_SELECTION, "model_haiku", True), True, False))
+    app = _host(NewConversationModal(storage, browse_root=tmp_path), [])
+    async with app.run_test(size=(160, 50)) as pilot:
+        await pilot.pause()
+        app.screen.query_one("#preset-select", Select).value = "haiku-fast"
+        await pilot.pause()
+        assert app.screen.query_one("#opt-model_haiku", Checkbox).value is True
+        assert app.screen.query_one("#remote-control", Checkbox).value is False
+        app.screen.query_one("#opt-effort_xhigh", Checkbox).value = True
+        await pilot.pause()
+        await pilot.click("#preset-save")
+        await pilot.pause()
+        app.screen.query_one("#preset-name", Input).value = "haiku-xhigh"
+        await pilot.press("enter")
+        await pilot.pause()
+        assert isinstance(app.screen, NewConversationModal)
+    presets = list_presets(storage)
+    assert "effort_xhigh" in presets["haiku-xhigh"].selection
