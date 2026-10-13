@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import subprocess
 from dataclasses import dataclass
 
@@ -35,14 +36,32 @@ _HARDENING = [
     "-c", "gpg.x509.program=/bin/false",
 ]
 
-# Repo-local config that can make git execute a program and that can't be
-# reliably neutralised with -c (filter driver names are arbitrary,
-# includes pull in more config). If any is present the daemon runs no
-# further git command in that repo.
-_RISKY_CONFIG_PREFIXES = (
-    "filter.", "include.", "includeif.", "gpg.", "commit.gpgsign", "tag.gpgsign",
-    "log.showsignature", "core.sshcommand", "credential.", "core.askpass",
-)
+# Fail-closed allowlist of repo-local config keys that never make git run
+# a program. Anything else (git has many ways to run programs from
+# config) blocks the daemon from running further git in that repo.
+_SAFE_KEY_PATTERNS = [re.compile(p) for p in (
+    r"core\.(repositoryformatversion|filemode|bare|logallrefupdates|ignorecase|precomposeunicode|symlinks|autocrlf|eol|safecrlf|quotepath)",
+    r"remote\.[^.]+\.(url|fetch|pushurl|tagopt|prune)",
+    r"branch\.[^.]+\.(remote|merge|rebase|pushremote)",
+    r"user\.(name|email)",
+    r"init\.defaultbranch",
+    r"pull\.(rebase|ff)",
+    r"push\.(default|autosetupremote)",
+    r"fetch\.prune",
+    r"extensions\.(objectformat|worktreeconfig)",
+)]
+
+
+def _config_entries(raw: str) -> list[tuple[str, str]]:
+    """Parse `git config --list --null`: entries end with NUL, key and value
+    are split by the first newline — unambiguous even for multi-line values."""
+    entries = []
+    for entry in raw.split("\x00"):
+        if not entry:
+            continue
+        key, _, value = entry.partition("\n")
+        entries.append((key.strip().lower(), value))
+    return entries
 
 
 def _git(cwd: str, *args: str) -> subprocess.CompletedProcess:
@@ -80,16 +99,20 @@ class CommitOutcome:
     note: str
 
 
-def _local_config(cwd: str) -> str:
-    """The repo-local config as text. Reading config executes nothing;
-    --no-includes so include lines are seen, not followed."""
-    result = _git(cwd, "config", "--local", "--list", "--no-includes")
-    return result.stdout if result.returncode == 0 else ""
+def _local_config(cwd: str) -> str | None:
+    """The repo-local config (reading runs nothing; --no-includes so include
+    lines are seen, not followed). None when it can't be read."""
+    result = _git(cwd, "config", "--local", "--list", "--null", "--no-includes")
+    return result.stdout if result.returncode == 0 else None
 
 
-def _risky_config(config_text: str) -> bool:
-    keys = (line.split("=", 1)[0].strip().lower() for line in config_text.splitlines())
-    return any(key.startswith(_RISKY_CONFIG_PREFIXES) for key in keys)
+def _config_problem(config: str | None) -> str | None:
+    if config is None:
+        return "couldn't read the repo's git config"
+    for key, _ in _config_entries(config):
+        if not any(p.fullmatch(key) for p in _SAFE_KEY_PATTERNS):
+            return f"repo git config has '{key}', which ccc doesn't run git with"
+    return None
 
 
 def snapshot(cwd: str) -> Snapshot | None:
@@ -101,9 +124,10 @@ def snapshot(cwd: str) -> Snapshot | None:
     if inside.returncode != 0 or inside.stdout.strip() != "true":
         return None
     config = _local_config(cwd)
-    if _risky_config(config):
+    problem = _config_problem(config)
+    if problem:
         # Checked before `git status`, which can already run clean filters.
-        return Snapshot("", False, False, config, blocked="repo config defines filters, includes or signing")
+        return Snapshot("", False, False, config or "", blocked=problem)
     head = _git(cwd, "rev-parse", "HEAD")
     status = _git(cwd, "status", "--porcelain")
     branch = _git(cwd, "symbolic-ref", "-q", "HEAD")
@@ -119,10 +143,11 @@ def commit_task(cwd: str, before: Snapshot, task_text: str, conversation: str) -
     if before.blocked:
         return CommitOutcome(None, f"not committed: {before.blocked}")
     config = _local_config(cwd)
-    if config != before.config_fingerprint:
+    if config is None or config != before.config_fingerprint:
         return CommitOutcome(None, "not committed: the repo's git config changed during the task")
-    if _risky_config(config):
-        return CommitOutcome(None, "not committed: repo config defines filters, includes or signing")
+    problem = _config_problem(config)
+    if problem:
+        return CommitOutcome(None, f"not committed: {problem}")
     if not before.clean:
         return CommitOutcome(None, "not committed: there were uncommitted changes before the task")
     if not before.on_branch:
@@ -144,8 +169,9 @@ def commit_task(cwd: str, before: Snapshot, task_text: str, conversation: str) -
 
 
 def show(cwd: str, commit: str) -> str:
-    if _risky_config(_local_config(cwd)):
-        return "Not shown: this repo's git config defines filters, includes or signing, so ccc won't run git in it."
+    problem = _config_problem(_local_config(cwd))
+    if problem:
+        return f"Not shown: {problem}."
     result = _git(cwd, "show", "--stat", "--patch", "--no-color", "--no-ext-diff", "--no-textconv", commit)
     text = result.stdout if result.returncode == 0 else result.stderr
     if len(text) > SHOW_MAX_CHARS:

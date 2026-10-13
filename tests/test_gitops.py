@@ -77,8 +77,8 @@ def test_repo_hooks_and_fsmonitor_never_run(repo, tmp_path):
     before = gitops.snapshot(str(repo))
     (repo / "a.txt").write_text("changed\n")
     outcome = gitops.commit_task(str(repo), before, "task", "c")
-    gitops.show(str(repo), outcome.commit)
-    assert outcome.commit
+    # core.fsmonitor isn't on the allowlist: blocked outright, nothing runs.
+    assert outcome.commit is None and before.blocked
     assert not marker.exists()
 
 
@@ -91,7 +91,8 @@ def test_external_diff_driver_is_not_used_by_show(repo, tmp_path):
     before = gitops.snapshot(str(repo))
     (repo / "a.txt").write_text("changed\n")
     outcome = gitops.commit_task(str(repo), before, "task", "c")
-    assert "+changed" in gitops.show(str(repo), outcome.commit)
+    assert outcome.commit is None and before.blocked
+    assert gitops.show(str(repo), "HEAD").startswith("Not shown")
     assert not marker.exists()
 
 
@@ -148,3 +149,54 @@ def test_show_refuses_risky_repo(repo):
     head = _git(repo, "rev-parse", "HEAD").strip()
     _git(repo, "config", "include.path", "/tmp/elsewhere")
     assert gitops.show(str(repo), head).startswith("Not shown")
+
+
+def test_unknown_config_key_blocks_fail_closed(repo):
+    # Not on the allowlist (could be any of git's many program hooks).
+    _git(repo, "config", "core.editor", "/tmp/evil-editor")
+    before = gitops.snapshot(str(repo))
+    assert before.blocked
+    (repo / "a.txt").write_text("changed\n")
+    assert gitops.commit_task(str(repo), before, "t", "c").commit is None
+
+
+def test_unreadable_config_blocks(repo, monkeypatch):
+    real = gitops._git
+
+    def failing(cwd, *args):
+        if args[:1] == ("config",):
+            import subprocess as sp
+            return sp.CompletedProcess(args, 1, "", "boom")
+        return real(cwd, *args)
+
+    monkeypatch.setattr(gitops, "_git", failing)
+    snap = gitops.snapshot(str(repo))
+    assert snap.blocked and "read" in snap.blocked
+
+
+def test_newline_in_value_cannot_smuggle_a_key(repo):
+    # Without --null this value would print as a separate filter.* line.
+    _git(repo, "config", "user.name", "Name\nfilter.evil.clean=touch /tmp/x")
+    before = gitops.snapshot(str(repo))
+    assert before.blocked is None  # user.name is allowed; the value is just text
+    assert gitops._config_entries("user.name\nName\nfilter.evil.clean=x\x00") == [("user.name", "Name\nfilter.evil.clean=x")]
+
+
+def test_typical_clone_config_is_allowed(repo):
+    _git(repo, "remote", "add", "origin", "https://example.com/r.git")
+    _git(repo, "config", "branch.main.remote", "origin")
+    _git(repo, "config", "branch.main.merge", "refs/heads/main")
+    _git(repo, "config", "pull.rebase", "false")
+    assert gitops.snapshot(str(repo)).blocked is None
+
+
+
+def test_hook_without_config_never_runs(repo, tmp_path):
+    marker = tmp_path / "pwned"
+    hook = repo / ".git" / "hooks" / "pre-commit"
+    hook.write_text(f"#!/bin/sh\ntouch {marker}\n")
+    hook.chmod(0o755)
+    before = gitops.snapshot(str(repo))
+    (repo / "a.txt").write_text("changed\n")
+    assert gitops.commit_task(str(repo), before, "task", "c").commit
+    assert not marker.exists()
