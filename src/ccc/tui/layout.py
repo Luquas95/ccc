@@ -59,9 +59,11 @@ def styled_status(status: QueueStatus) -> str:
     return f"[{style}]{status.value}[/]" if style else status.value
 
 
-def queue_marker(queue: Queue, unseen: bool) -> tuple[str, str]:
-    """(icon, style) shown before a conversation's name. Current activity
-    wins over the "new reply" marker."""
+def queue_marker(queue: Queue, unseen: bool, needs_approval: bool = False) -> tuple[str, str]:
+    """(icon, style) shown before a conversation's name. Waiting for your
+    approval first, then current activity, then the "new reply" marker."""
+    if needs_approval:
+        return "?", "bold yellow"
     if queue.status == QueueStatus.RUNNING:
         return "●", "bold green"
     if queue.status == QueueStatus.BLOCKED_ERROR:
@@ -75,9 +77,9 @@ def queue_marker(queue: Queue, unseen: bool) -> tuple[str, str]:
     return " ", ""
 
 
-def queue_label(queue: Queue, unseen: bool, pending: int = 0) -> Text:
+def queue_label(queue: Queue, unseen: bool, pending: int = 0, needs_approval: bool = False) -> Text:
     """List label: marker, name (dim when archived), pending count."""
-    icon, style = queue_marker(queue, unseen)
+    icon, style = queue_marker(queue, unseen, needs_approval)
     label = Text.assemble((icon, style), " ", (queue.name, "dim" if queue.archived else ""))
     if pending:
         label.append(f" ·{pending}", style="dim")

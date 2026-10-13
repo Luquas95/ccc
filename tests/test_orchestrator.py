@@ -776,7 +776,7 @@ async def test_permission_tool_attached_only_outside_yolo(storage, project_dir, 
     assert flags[flags.index("--permission-prompt-tool") + 1] == "mcp__ccc__approve"
     config = _json.loads(flags[flags.index("--mcp-config") + 1])
     server = config["mcpServers"]["ccc"]
-    assert server["args"] == ["-m", "ccc.permission_mcp"]
+    assert server["args"] == ["-I", "-m", "ccc.permission_mcp"]
     assert server["env"]["CCC_QUEUE_ID"] == str(edits.id)
     assert server["env"]["CCC_DB"] == storage.db_path
     assert storage.get_queue(edits.id).launch_flags == ["--permission-mode", "acceptEdits"]  # stored flags untouched

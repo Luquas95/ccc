@@ -44,6 +44,7 @@ class ConversationsScreen(SidebarScreen):
         ("ctrl+d", "delete_conversation", "Delete"),
         ("slash", "search", "Search"),
         ("e", "export", "Export"),
+        ("p", "approve", "Approve"),
     ]
 
     # Sidebar frame/buttons come from SidebarScreen (layout.SHARED_CSS);
@@ -184,9 +185,10 @@ class ConversationsScreen(SidebarScreen):
 
     def _list_rows(self) -> list[tuple[int, Text]]:
         unseen = self.storage.unseen_queue_ids()
+        waiting = self.storage.queues_waiting_for_approval()
         return [
             (q.id, queue_label(q, q.id in unseen and q.id != self._current_queue_id,
-                               self.storage.count_pending_items(q.id)))
+                               self.storage.count_pending_items(q.id), needs_approval=q.id in waiting))
             for q in self.storage.list_queues()
             if self._show_archived or not q.archived
         ]
@@ -235,7 +237,7 @@ class ConversationsScreen(SidebarScreen):
         pending = self.storage.list_pending_items(queue_id)
         events: list[TranscriptEvent] = self._cache[queue_id]["events"]
         self._update_header(queue)
-        self.query_one("#conversation-status", Static).update(self._status_text(queue, len(pending), pending[0].not_before if pending else None))
+        self.query_one("#conversation-status", Static).update(self._status_for(queue, pending))
         self._rendered_key = (queue_id, len(events), tuple(i.id for i in pending))
 
         container = self.query_one("#conversation-transcript", VerticalScroll)
@@ -324,6 +326,15 @@ class ConversationsScreen(SidebarScreen):
             parts += ["  ·  ", ("first run: " + " ".join(queue.first_run_flags), "yellow")]
         self.query_one("#conversation-header", Static).update(Content.assemble(*parts))
 
+    def _status_for(self, queue: Queue, pending) -> Content:
+        requests = self.storage.pending_permission_requests(queue.id)
+        if requests:
+            return Content.assemble(
+                (f"? Waiting for your approval: {requests[0].tool_name} — press p", "bold yellow"),
+                f"  ·  {len(pending)} queued" if pending else "",
+            )
+        return self._status_text(queue, len(pending), pending[0].not_before if pending else None)
+
     @staticmethod
     def _status_text(queue: Queue, pending: int, next_at: datetime | None = None) -> Content:
         if queue.status == QueueStatus.RUNNING:
@@ -364,7 +375,7 @@ class ConversationsScreen(SidebarScreen):
         events = self._cache[queue_id]["events"]
         key = (queue_id, len(events), tuple(i.id for i in pending))
         self._update_header(queue)
-        self.query_one("#conversation-status", Static).update(self._status_text(queue, len(pending), pending[0].not_before if pending else None))
+        self.query_one("#conversation-status", Static).update(self._status_for(queue, pending))
         if key == self._rendered_key:
             return
         rendered = self._rendered_key
@@ -516,3 +527,18 @@ class ConversationsScreen(SidebarScreen):
             return
         path = export_markdown(self.storage, self._current_queue_id, EXPORT_DIR)
         self.notify(f"Exported to {path}", title="Export")
+
+    def action_approve(self) -> None:
+        from ccc.tui.permissions import PermissionModal
+
+        if self._current_queue_id is None:
+            return
+        requests = self.storage.pending_permission_requests(self._current_queue_id)
+        if not requests:
+            self.notify("Nothing is waiting for approval in this conversation.")
+            return
+
+        def decided(_answered) -> None:
+            self.run_worker(self._refresh_current(), exclusive=True, group="refresh")
+
+        self.app.push_screen(PermissionModal(self.storage, requests[0]), decided)

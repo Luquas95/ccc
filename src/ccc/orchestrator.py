@@ -164,7 +164,9 @@ def permission_tool_flags(queue_id: int, db_path: str) -> list[str]:
         "mcpServers": {
             "ccc": {
                 "command": sys.executable,
-                "args": ["-m", "ccc.permission_mcp"],
+                # -I: isolated mode — the server starts in the project dir, which
+                # Claude may write to; never import modules from there.
+                "args": ["-I", "-m", "ccc.permission_mcp"],
                 "env": {"CCC_DB": str(db_path), "CCC_QUEUE_ID": str(queue_id)},
             }
         }

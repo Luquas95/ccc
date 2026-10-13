@@ -61,6 +61,7 @@ class DashboardScreen(SidebarScreen):
         total_pending = total_tokens = blocked = running = 0
         queues = self._visible_queues()
         unseen = self.storage.unseen_queue_ids()
+        waiting = self.storage.queues_waiting_for_approval()
         for queue in queues:
             pending = self.storage.count_pending_items(queue.id)
             today_tokens = sum(
@@ -73,7 +74,7 @@ class DashboardScreen(SidebarScreen):
             blocked += queue.status == QueueStatus.BLOCKED_ERROR
             running += queue.status == QueueStatus.RUNNING
             table.add_row(
-                queue_label(queue, queue.id in unseen),
+                queue_label(queue, queue.id in unseen, needs_approval=queue.id in waiting),
                 styled_status(queue.status),
                 str(pending),
                 f"{today_tokens:,}",

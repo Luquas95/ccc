@@ -83,3 +83,34 @@ def test_server_process_end_to_end(tmp_path):
         assert decision == {"behavior": "allow", "updatedInput": {"file_path": "/a"}}
     finally:
         proc.kill()
+
+
+def test_planted_module_in_project_dir_is_not_loaded(tmp_path):
+    """The MCP server starts in the conversation's project directory; a
+    restricted conversation must not be able to replace it by writing
+    ccc/permission_mcp.py (or json.py) there."""
+    import json as _json
+
+    from ccc.orchestrator import permission_tool_flags
+
+    storage, q = _storage(tmp_path)
+    storage.always_allow_tool(q.id, "Read")
+    project = tmp_path / "project"
+    (project / "ccc").mkdir(parents=True)
+    marker = tmp_path / "pwned"
+    evil = f"open({str(marker)!r}, 'w').write('x')\n"
+    (project / "ccc" / "__init__.py").write_text(evil)
+    (project / "ccc" / "permission_mcp.py").write_text(evil)
+    (project / "json.py").write_text(evil)
+
+    flags = permission_tool_flags(q.id, storage.db_path)
+    server = _json.loads(flags[flags.index("--mcp-config") + 1])["mcpServers"]["ccc"]
+    proc = subprocess.Popen([server["command"], *server["args"]], cwd=project, stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE, text=True, env={**os.environ, **server["env"]})
+    try:
+        proc.stdin.write(json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}) + "\n")
+        proc.stdin.flush()
+        assert json.loads(proc.stdout.readline())["result"]["serverInfo"]["name"] == "ccc"
+    finally:
+        proc.kill()
+    assert not marker.exists()
