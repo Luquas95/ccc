@@ -55,3 +55,36 @@ def test_default_db_path_moves_data_from_old_name(tmp_path, monkeypatch):
     assert path.read_text() == "db"
     assert not old.exists()
     assert cli.default_db_path() == path  # second call: nothing to move
+
+
+def test_config_telegram(tmp_path, monkeypatch, capsys):
+    from ccc import cli
+    from ccc.notify import TELEGRAM_CHAT_KEY, TELEGRAM_TOKEN_KEY
+
+    db_path = tmp_path / "history.db"
+    monkeypatch.setattr(cli, "default_db_path", lambda: db_path)
+    cli.main(["config", "telegram-token", "123456:ABCDEFSECRET"])
+    cli.main(["config", "telegram-chat", "987"])
+    storage = Storage(db_path)
+    assert storage.get_setting(TELEGRAM_TOKEN_KEY) == "123456:ABCDEFSECRET"
+    assert storage.get_setting(TELEGRAM_CHAT_KEY) == "987"
+    capsys.readouterr()
+    cli.main(["config", "telegram-token"])
+    out = capsys.readouterr().out
+    assert "SECRET" not in out and "1234" in out  # masked
+
+    sent = []
+    monkeypatch.setattr("ccc.notify.send_telegram", lambda token, chat, text: sent.append((chat, text)))
+    cli.main(["config", "telegram-test"])
+    assert sent and sent[0][0] == "987"
+    assert "sent" in capsys.readouterr().out.lower()
+
+
+def test_config_telegram_test_without_config_fails(tmp_path, monkeypatch, capsys):
+    import pytest as _pytest
+    from ccc import cli
+
+    monkeypatch.setattr(cli, "default_db_path", lambda: tmp_path / "history.db")
+    with _pytest.raises(SystemExit):
+        cli.main(["config", "telegram-test"])
+    assert "telegram-token" in capsys.readouterr().err

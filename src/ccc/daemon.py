@@ -5,6 +5,7 @@ import logging
 import signal
 
 from ccc.heartbeat import HEARTBEAT_SECONDS, beat
+from ccc.notify import Notifier
 from ccc.orchestrator import Orchestrator, RunFn
 from ccc.runner import execute
 from ccc.storage import Storage
@@ -23,7 +24,7 @@ async def heartbeat_loop(storage: Storage, interval: float = HEARTBEAT_SECONDS) 
 
 async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     storage = Storage(db_path)
-    orchestrator = Orchestrator(storage, run_fn=run_fn)
+    orchestrator = Orchestrator(storage, run_fn=run_fn, notifier=Notifier(storage))
     await orchestrator.start_all()
     logger.info("ccc daemon started, db=%s, queues=%d", db_path, len(orchestrator.runtimes))
 

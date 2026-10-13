@@ -156,13 +156,15 @@ def start_conversation(
 
 
 class QueueRuntime:
-    def __init__(self, storage: Storage, queue: Queue, run_fn: RunFn = execute):
+    def __init__(self, storage: Storage, queue: Queue, run_fn: RunFn = execute, notifier=None):
         self.storage = storage
         self.queue = queue
         self.run_fn = run_fn
         self._wake = asyncio.Event()
         self._task: asyncio.Task | None = None
         self._backoff_seconds: int | None = None
+        # Anything with .notify(text) (Telegram in the daemon); None = silent.
+        self.notifier = notifier
         # Remote-control conversations: last maintenance time and whether the
         # managed session was blocked on a limit at the previous check.
         self._last_maintenance = 0.0
@@ -238,6 +240,8 @@ class QueueRuntime:
                     self._hold_for_limit(queue, until)
                     continue
                 self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
+                if self.storage.next_pending_item(queue.id) is not None:
+                    self._notify(f"▶ {queue.name}: usage limit reset — continuing.")
                 continue
 
             if self.storage.next_pending_item(queue.id) is None:
@@ -272,11 +276,24 @@ class QueueRuntime:
                 )
                 self._record_error_run(queue, item, f"{type(exc).__name__}: {exc}")
 
+    def _notify(self, text: str) -> None:
+        if self.notifier is not None:
+            self.notifier.notify(text)
+
     def _hold_for_limit(self, queue: Queue, until: datetime) -> None:
         """Usage limit: wait for the reset by itself (auto-continue) or
         stop and wait for the user."""
         status = QueueStatus.WAITING_RETRY if queue.auto_continue else QueueStatus.PAUSED_LIMIT
         self.storage.update_queue_status(queue.id, status, next_retry_at=until)
+        if queue.status == status:
+            return  # still the same wait (e.g. re-checked at reset time)
+        if status == QueueStatus.WAITING_RETRY:
+            self._notify(f"⏸ {queue.name}: usage limit — waiting until {until:%H:%M}, then it continues by itself.")
+        else:
+            self._notify(
+                f"✋ {queue.name} needs you: paused at the usage limit (resets {until:%H:%M}). "
+                "Press r or send a message in ccc to continue."
+            )
 
     async def _process_item(self, queue: Queue, item: QueueItem) -> None:
         if queue.delivery_mode == DeliveryMode.LIVE_TERMINAL:
@@ -330,6 +347,9 @@ class QueueRuntime:
         if result.status == RunStatus.SUCCESS:
             self.storage.set_item_status(item.id, ItemStatus.DONE)
             self._backoff_seconds = None
+            if self.storage.next_pending_item(queue.id) is None:
+                reply = (result.result_text or "").strip()
+                self._notify(f"✅ {queue.name}: queue finished." + (f"\n\n{reply[:300]}" if reply else ""))
             if queue.first_run_flags is not None:
                 self._adopt_session(queue, result.session_id or queue.session_id)
             return
@@ -534,6 +554,7 @@ class QueueRuntime:
     def _fail_item(self, queue: Queue, item: QueueItem, error_text: str | None) -> None:
         self.storage.set_item_status(item.id, ItemStatus.FAILED)
         self.storage.update_queue_status(queue.id, QueueStatus.BLOCKED_ERROR, last_error=error_text)
+        self._notify(f"✖ {queue.name}: stopped on an error — {(error_text or 'unknown error')[:300]}")
 
     def _has_run_before(self) -> bool:
         return len(self.storage.runs_for_queue(self.queue.id)) > 0
@@ -547,9 +568,10 @@ class QueueRuntime:
 
 
 class Orchestrator:
-    def __init__(self, storage: Storage, run_fn: RunFn = execute):
+    def __init__(self, storage: Storage, run_fn: RunFn = execute, notifier=None):
         self.storage = storage
         self.run_fn = run_fn
+        self.notifier = notifier
         self.runtimes: dict[int, QueueRuntime] = {}
         self._discovery_task: asyncio.Task | None = None
 
@@ -575,7 +597,7 @@ class Orchestrator:
                     self._start_runtime(queue)
 
     def _start_runtime(self, queue: Queue) -> QueueRuntime:
-        runtime = QueueRuntime(self.storage, queue, self.run_fn)
+        runtime = QueueRuntime(self.storage, queue, self.run_fn, self.notifier)
         self.runtimes[queue.id] = runtime
         runtime.start()
         return runtime

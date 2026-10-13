@@ -583,3 +583,74 @@ async def test_deleted_queue_stops_its_runtime_quietly(storage, project_dir, fas
     await orch.stop_all()
     assert runtime._task.exception() is None
     assert "crashed" not in caplog.text
+
+
+# --- notifications ----------------------------------------------------------
+
+
+class FakeNotifier:
+    def __init__(self):
+        self.texts = []
+
+    def notify(self, text):
+        self.texts.append(text)
+
+
+async def test_notifies_queue_finished_with_reply(storage, project_dir, fast_poll):
+    notifier = FakeNotifier()
+
+    async def ok(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
+        return RunResult(status=RunStatus.SUCCESS, result_text="All done: 3 files changed.")
+
+    queue = enqueue_prompt(storage, project_dir, "one")
+    storage.add_queue_item(queue.id, "two")
+    orch = Orchestrator(storage, run_fn=ok, notifier=notifier)
+    await orch.start_all()
+    assert await _until(lambda: notifier.texts)
+    await asyncio.sleep(0.1)
+    await orch.stop_all()
+    assert len(notifier.texts) == 1  # only when the queue is empty, not per task
+    assert "finished" in notifier.texts[0] and queue.name in notifier.texts[0]
+    assert "All done: 3 files changed." in notifier.texts[0]
+
+
+async def test_notifies_error(storage, project_dir, fast_poll):
+    notifier = FakeNotifier()
+
+    async def fail(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
+        return RunResult(status=RunStatus.ERROR, error_text="tool exploded")
+
+    enqueue_prompt(storage, project_dir, "one")
+    orch = Orchestrator(storage, run_fn=fail, notifier=notifier)
+    await orch.start_all()
+    assert await _until(lambda: notifier.texts)
+    await orch.stop_all()
+    assert "error" in notifier.texts[0].lower() and "tool exploded" in notifier.texts[0]
+
+
+async def test_notifies_limit_wait_and_resume(storage, project_dir, fast_poll, monkeypatch):
+    monkeypatch.setattr("ccc.orchestrator.last_human_text", lambda session_id: None)
+    notifier = FakeNotifier()
+    sent = []
+    orch = Orchestrator(storage, run_fn=_limited_then_ok(sent), notifier=notifier)
+    await orch.start_all()
+    orch.add_prompt(project_dir, "do work")
+    assert await _until(lambda: len(sent) >= 2)
+    assert await _until(lambda: any("finished" in t for t in notifier.texts))
+    await orch.stop_all()
+    kinds = [t.split()[0] for t in notifier.texts]
+    assert any("usage limit" in t and "until" in t for t in notifier.texts)
+    assert any("continuing" in t for t in notifier.texts)
+
+
+async def test_notifies_needs_you_when_paused_at_limit(storage, project_dir, fast_poll, monkeypatch):
+    monkeypatch.setattr("ccc.orchestrator.last_human_text", lambda session_id: None)
+    notifier = FakeNotifier()
+    queue = enqueue_prompt(storage, project_dir, "do work")
+    storage.set_queue_auto_continue(queue.id, False)
+    orch = Orchestrator(storage, run_fn=_limited_then_ok([]), notifier=notifier)
+    await orch.start_all()
+    assert await _until(lambda: notifier.texts)
+    await asyncio.sleep(0.1)
+    await orch.stop_all()
+    assert len(notifier.texts) == 1 and "needs you" in notifier.texts[0]

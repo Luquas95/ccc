@@ -29,7 +29,31 @@ def add_command(db_path: str, project_path: str, prompt: str) -> None:
 def config_command(db_path: str, setting: str, value: str | None) -> None:
     from ccc.orchestrator import DEFAULT_CONTINUE_TEXT
 
+    from ccc.notify import TELEGRAM_CHAT_KEY, TELEGRAM_TOKEN_KEY, Notifier
+
     storage = Storage(db_path)
+    if setting == "telegram-test":
+        notifier = Notifier(storage)
+        if not notifier.configured():
+            print("ccc: set `ccc config telegram-token …` and `ccc config telegram-chat …` first", file=sys.stderr)
+            sys.exit(1)
+        if notifier.send_now("✅ ccc: Telegram notifications work."):
+            print("Test message sent.")
+        else:
+            print("ccc: sending failed — check the token and chat id", file=sys.stderr)
+            sys.exit(1)
+        return
+    if setting in ("telegram-token", "telegram-chat"):
+        key = TELEGRAM_TOKEN_KEY if setting == "telegram-token" else TELEGRAM_CHAT_KEY
+        if value is None:
+            current = storage.get_setting(key)
+            if current and setting == "telegram-token":
+                current = current[:4] + "…" + current[-2:]  # never print the secret
+            print(current or "(not set)")
+        else:
+            storage.set_setting(key, value.strip())
+            print(f"{setting} saved.")
+        return
     if setting == "continue-text":
         if value is None:
             print(storage.get_setting("continue_text", DEFAULT_CONTINUE_TEXT))
@@ -57,6 +81,12 @@ def main(argv: list[str] | None = None) -> None:
         help="Message sent after a usage limit interrupted a prompt mid-way (no value: show it)",
     )
     continue_parser.add_argument("value", nargs="?")
+    token_parser = config_sub.add_parser("telegram-token", help="Telegram bot token for notifications (no value: show it masked)")
+    token_parser.add_argument("value", nargs="?")
+    chat_parser = config_sub.add_parser("telegram-chat", help="Telegram chat id to notify (no value: show it)")
+    chat_parser.add_argument("value", nargs="?")
+    test_parser = config_sub.add_parser("telegram-test", help="Send a test notification")
+    test_parser.set_defaults(value=None)
 
     args = parser.parse_args(argv)
 

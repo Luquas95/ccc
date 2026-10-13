@@ -197,6 +197,27 @@ link appears in the conversation header and the queue detail. (Headless
   the ones you don't use. Runs aren't counted in the token analytics
   (interactive sessions return no structured result).
 
+### Telegram notifications
+
+The daemon can message you on Telegram when a conversation **finished its
+queue** (with the start of the reply), **needs you** (paused at a usage
+limit with auto-continue off), **stopped on an error**, or **hit a usage
+limit** (waiting until HH:MM) and later **continues**.
+
+1. Create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`) and
+   copy its token.
+2. Send your bot any message, then open
+   `https://api.telegram.org/bot<TOKEN>/getUpdates` and copy
+   `"chat":{"id": …}`.
+3. Configure and test:
+
+       ccc config telegram-token <TOKEN>
+       ccc config telegram-chat <CHAT_ID>
+       ccc config telegram-test
+
+Without both values nothing is sent. The token is stored in the ccc
+database, shown masked, and never logged.
+
 ### Usage limits and auto-continue
 
 Each conversation has an **auto-continue** switch (on by default; a
