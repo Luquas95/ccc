@@ -49,10 +49,11 @@ def test_parses_human_text_turn(tmp_path):
     assert offset == path.stat().st_size
 
 
-def test_skips_user_turn_with_list_content_tool_result(tmp_path):
+def test_user_turn_with_list_content_tool_result_is_not_human(tmp_path):
     # A "user" role entry whose content is a list of blocks is Claude's
     # own tool-result feedback being fed back into the model, not
-    # something the human typed — must not appear as a human turn.
+    # something the human typed — must not appear as a human turn (it's
+    # a tool_result event, shown under its tool call).
     path = tmp_path / "t.jsonl"
     path.write_text(
         _line(
@@ -67,7 +68,8 @@ def test_skips_user_turn_with_list_content_tool_result(tmp_path):
         )
     )
     events, _ = parse_transcript_events(path)
-    assert events == []
+    assert [e.kind for e in events] == ["tool_result"]
+    assert events[0].text == "some output"
 
 
 def test_parses_assistant_text_block(tmp_path):
@@ -282,3 +284,44 @@ def test_last_human_text(tmp_path, monkeypatch):
     )
     assert last_human_text("sid") == "second"
     assert last_human_text("missing") is None
+
+
+def test_tool_call_carries_id_and_full_input_and_result_is_paired(tmp_path):
+    long_cmd = "echo " + "x" * 200
+    lines = [
+        {"type": "assistant", "timestamp": "2026-10-13T10:00:00.000Z",
+         "message": {"content": [{"type": "tool_use", "id": "tu_1", "name": "Bash", "input": {"command": long_cmd}}]}},
+        {"type": "user", "timestamp": "2026-10-13T10:00:01.000Z",
+         "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "tu_1", "content": "out line"}]}},
+        {"type": "user", "timestamp": "2026-10-13T10:00:02.000Z",
+         "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "tu_2",
+                                                   "content": [{"type": "text", "text": "a"}, {"type": "image"}, {"type": "text", "text": "b"}]}]}},
+    ]
+    path = tmp_path / "t.jsonl"
+    path.write_text("".join(json.dumps(l) + "\n" for l in lines))
+    events, _ = parse_transcript_events(path)
+    call, result, result2 = events
+    assert call.kind == "tool_call" and call.tool_use_id == "tu_1"
+    assert call.text.endswith("…") and long_cmd in call.detail
+    assert result.kind == "tool_result" and result.tool_use_id == "tu_1" and result.text == "out line"
+    assert result2.text == "a\nb"
+
+
+def test_tool_result_is_truncated(tmp_path):
+    from ccc.transcript import TOOL_RESULT_MAX_CHARS
+
+    path = tmp_path / "t.jsonl"
+    path.write_text(json.dumps({"type": "user", "timestamp": "2026-10-13T10:00:01.000Z",
+        "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t", "content": "y" * 10000}]}}) + "\n")
+    events, _ = parse_transcript_events(path)
+    assert len(events[0].text) <= TOOL_RESULT_MAX_CHARS + 40 and "truncated" in events[0].text
+
+
+def test_session_summary_counts_only_messages(tmp_path, monkeypatch):
+    root = tmp_path / "projects"
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", root)
+    d = root / encode_project_dir("/p"); d.mkdir(parents=True)
+    tool_result = json.dumps({"type": "user", "timestamp": "2026-10-13T10:00:01.000Z",
+        "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t", "content": "x"}]}}) + "\n"
+    (d / "s.jsonl").write_text(_session_line("user", "hi") + tool_result + _session_line("assistant", "ok"))
+    assert list_sessions_for_directory("/p")[0].message_count == 2

@@ -5,7 +5,7 @@ from datetime import datetime
 from rich.text import Text
 from textual.containers import Vertical, VerticalScroll
 from textual.content import Content
-from textual.widgets import DataTable, Static
+from textual.widgets import Collapsible, DataTable, Markdown, Static
 
 from ccc.launch_options import describe_flags
 from ccc.models import DeliveryMode, Queue, QueueStatus
@@ -23,8 +23,8 @@ from ccc.tui.message_box import MessageBox
 
 
 # Newest transcript events mounted when a conversation is opened; older
-# ones are summarised in one line (mounting is ~7ms per message).
-MAX_RENDERED_EVENTS = 100
+# ones are summarised in one line (Markdown + tool widgets cost ~15ms each).
+MAX_RENDERED_EVENTS = 60
 
 
 class ConversationsScreen(SidebarScreen):
@@ -80,6 +80,32 @@ class ConversationsScreen(SidebarScreen):
     ConversationsScreen .tool-call-line {
         color: $text-muted;
     }
+    ConversationsScreen .message-box {
+        height: auto;
+    }
+    ConversationsScreen .message-box Markdown {
+        margin: 0;
+        padding: 0;
+    }
+    ConversationsScreen Collapsible.tool-call {
+        border: none;
+        padding: 0;
+        margin: 0 0 1 0;
+        background: transparent;
+    }
+    ConversationsScreen Collapsible.tool-call CollapsibleTitle {
+        color: $text-muted;
+        padding: 0;
+    }
+    ConversationsScreen .tool-input {
+        color: $text-muted;
+        padding: 0 2;
+    }
+    ConversationsScreen .tool-result {
+        padding: 0 2;
+        border-left: tall $panel-lighten-2;
+        margin-left: 2;
+    }
     """
 
     def __init__(self, storage: Storage, select_queue_id: int | None = None):
@@ -97,6 +123,9 @@ class ConversationsScreen(SidebarScreen):
         # Plain text of the list rows as last drawn — rebuild when it changes
         # (new/removed conversation, status marker, pending count).
         self._list_signature: list[str] = []
+        # tool_use_id -> the result widget of a rendered tool call, so a
+        # result arriving later can be filled in.
+        self._tool_results: dict[str, Static] = {}
         self._show_archived = False
         # What the transcript pane currently shows (queue, event count,
         # pending item ids) — re-render only when this changes.
@@ -208,13 +237,14 @@ class ConversationsScreen(SidebarScreen):
         if not events and not pending:
             await container.mount(Static("No conversation yet.", id="transcript-placeholder"))
             return
-        shown = events[-MAX_RENDERED_EVENTS:]
+        shown = [e for e in events if e.kind != "tool_result"][-MAX_RENDERED_EVENTS:]
+        hidden = sum(1 for e in events if e.kind != "tool_result") - len(shown)
         widgets = []
-        if len(events) > len(shown):
-            widgets.append(
-                Static(f"… {len(events) - len(shown)} earlier messages not shown", classes="tool-call-line")
-            )
-        widgets += [self._render_event(e) for e in shown]
+        if hidden > 0:
+            widgets.append(Static(f"… {hidden} earlier messages not shown", classes="tool-call-line"))
+        self._tool_results = {}
+        results = {e.tool_use_id: e.text for e in events if e.kind == "tool_result" and e.tool_use_id}
+        widgets += [self._render_event(e, results) for e in shown]
         widgets.append(Vertical(*self._queued_widgets(pending), id="queued-messages"))
         # One mount call = one layout pass, much faster than mounting
         # each widget separately.
@@ -227,8 +257,15 @@ class ConversationsScreen(SidebarScreen):
         instead of re-mounting the whole transcript every 2 seconds."""
         container = self.query_one("#conversation-transcript", VerticalScroll)
         queued_box = self.query_one("#queued-messages", Vertical)
-        if new_events:
-            await container.mount(*[self._render_event(e) for e in new_events], before=queued_box)
+        results = {e.tool_use_id: e.text for e in new_events if e.kind == "tool_result" and e.tool_use_id}
+        # A result for a call that's already on screen: fill it in.
+        for tool_use_id, text in results.items():
+            widget = self._tool_results.get(tool_use_id)
+            if widget is not None:
+                widget.update(Content(text or "(no output)"))
+        shown = [e for e in new_events if e.kind != "tool_result"]
+        if shown:
+            await container.mount(*[self._render_event(e, results) for e in shown], before=queued_box)
         await queued_box.remove_children()
         await queued_box.mount(*self._queued_widgets(pending))
         container.scroll_end(animate=False)
@@ -243,23 +280,32 @@ class ConversationsScreen(SidebarScreen):
             for item in pending
         ]
 
-    def _render_event(self, event: TranscriptEvent) -> Static:
+    def _render_event(self, event: TranscriptEvent, results: dict[str, str]):
         # event.text is arbitrary conversation content (human-typed or a
-        # model's tool input/reply). It must never go through markup
-        # parsing: escaping isn't enough — a tool preview cut mid-way
-        # through something like `[data-section=\"quick…` crashed
-        # Textual's markup parser even after escape(). Content.assemble
-        # keeps it as plain text; only the label/timestamp get styles.
+        # model's tool input/reply). It must never go through Textual's
+        # markup parsing: escaping isn't enough — a tool preview cut mid-way
+        # through something like `[data-section=\"quick…` crashed the
+        # parser even after escape(). Content keeps it as plain text;
+        # Claude's replies go through the Markdown widget instead.
+        time_str = event.timestamp.astimezone().strftime("%H:%M")  # UTC in transcripts
         if event.kind == "tool_call":
-            return Static(Content.assemble("⚙ ", event.text), classes="tool-call-line")
-        label = "You" if event.kind == "human" else "Claude"
-        box_class = "message-box-human" if event.kind == "human" else "message-box-assistant"
-        # Transcript timestamps are UTC; show local time.
-        time_str = event.timestamp.astimezone().strftime("%H:%M")
-        return Static(
-            Content.assemble((label, "bold"), "  ", (time_str, "dim"), "\n", event.text),
-            classes=f"message-box {box_class}",
-        )
+            result = Static(
+                Content(results.get(event.tool_use_id, "(waiting for result…)") or "(no output)"),
+                classes="tool-result",
+            )
+            if event.tool_use_id:
+                self._tool_results[event.tool_use_id] = result
+            return Collapsible(
+                Static(Content(event.detail or event.text), classes="tool-input"),
+                result,
+                title=Content("⚙ " + event.text),
+                collapsed=True,
+                classes="tool-call",
+            )
+        header = Static(Content.assemble(("You" if event.kind == "human" else "Claude", "bold"), "  ", (time_str, "dim")))
+        if event.kind == "human":
+            return Vertical(header, Static(Content(event.text)), classes="message-box message-box-human")
+        return Vertical(header, Markdown(event.text), classes="message-box message-box-assistant")
 
     def _update_header(self, queue: Queue) -> None:
         parts = [

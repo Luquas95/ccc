@@ -16,9 +16,13 @@ PROJECTS_ROOT = Path.home() / ".claude" / "projects"
 
 @dataclass
 class TranscriptEvent:
-    kind: str  # "human" | "assistant_text" | "tool_call"
+    kind: str  # "human" | "assistant_text" | "tool_call" | "tool_result"
     text: str
     timestamp: datetime
+    # tool_call / tool_result: pairs a result with its call.
+    tool_use_id: str | None = None
+    # tool_call: the full input as pretty JSON (text is a short preview).
+    detail: str | None = None
 
 
 def find_transcript_path(session_id: str) -> Path | None:
@@ -33,6 +37,19 @@ def find_transcript_path(session_id: str) -> Path | None:
 
 
 TOOL_PREVIEW_MAX_CHARS = 80
+TOOL_RESULT_MAX_CHARS = 4000
+
+
+def _tool_result_text(content) -> str:
+    if isinstance(content, str):
+        text = content
+    elif isinstance(content, list):
+        text = "\n".join(b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text")
+    else:
+        text = ""
+    if len(text) > TOOL_RESULT_MAX_CHARS:
+        text = text[:TOOL_RESULT_MAX_CHARS] + f"\n… (truncated, {len(text)} chars total)"
+    return text
 
 
 def _parse_timestamp(raw: str) -> datetime:
@@ -51,6 +68,17 @@ def _events_from_line(data: dict) -> list[TranscriptEvent]:
         content = message.get("content")
         if isinstance(content, str):
             return [TranscriptEvent(kind="human", text=content, timestamp=timestamp)]
+        if isinstance(content, list):
+            return [
+                TranscriptEvent(
+                    kind="tool_result",
+                    text=_tool_result_text(block.get("content")),
+                    timestamp=timestamp,
+                    tool_use_id=block.get("tool_use_id"),
+                )
+                for block in content
+                if isinstance(block, dict) and block.get("type") == "tool_result"
+            ]
         return []
 
     if line_type == "assistant":
@@ -72,7 +100,13 @@ def _events_from_line(data: dict) -> list[TranscriptEvent]:
                 if len(input_preview) > TOOL_PREVIEW_MAX_CHARS:
                     input_preview = input_preview[:TOOL_PREVIEW_MAX_CHARS] + "…"
                 events.append(
-                    TranscriptEvent(kind="tool_call", text=f"{name}: {input_preview}", timestamp=timestamp)
+                    TranscriptEvent(
+                        kind="tool_call",
+                        text=f"{name}: {input_preview}",
+                        timestamp=timestamp,
+                        tool_use_id=block.get("id"),
+                        detail=json.dumps(block.get("input", {}), indent=2, ensure_ascii=False),
+                    )
                 )
             # "thinking" and any other block type: skipped
         return events
@@ -154,7 +188,7 @@ def _summarize(path: Path) -> tuple[str | None, int]:
             except json.JSONDecodeError:
                 continue
             for event in _events_from_line(data):
-                if event.kind == "tool_call":
+                if event.kind not in ("human", "assistant_text"):
                     continue
                 count += 1
                 # Skip harness-injected lines like <command-name>…</command-name>.

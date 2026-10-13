@@ -2,7 +2,7 @@ import json
 
 import pytest
 from textual.app import App
-from textual.widgets import Button, DataTable
+from textual.widgets import Button, DataTable, Static
 
 from ccc.storage import Storage
 from ccc.tui.conversations import ConversationsScreen
@@ -315,7 +315,7 @@ async def test_long_transcript_renders_only_newest_events_and_appends_new_ones(t
         await pilot.pause()
         boxes = app.screen.query("#conversation-transcript .message-box")
         assert len(boxes) == MAX_RENDERED_EVENTS + 1
-        assert f"msg {total}" in str(boxes.last().render())
+        assert f"msg {total}" in "\n".join(str(w.render()) for w in boxes.last().query(Static))
 
 
 @pytest.mark.asyncio
@@ -446,3 +446,36 @@ async def test_message_box_ignores_blank(tmp_path, monkeypatch):
         await pilot.press("ctrl+j", "enter")
         await pilot.pause()
         assert storage.list_pending_items(q.id) == []
+
+
+@pytest.mark.asyncio
+async def test_markdown_reply_and_expandable_tool_with_late_result(tmp_path, monkeypatch):
+    from textual.widgets import Collapsible, Markdown
+
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    project_dir = tmp_path / "projects" / "-tmp-proj-a"
+    project_dir.mkdir(parents=True)
+    storage = Storage(tmp_path / "history.db")
+    storage.create_queue("proj-a", "/tmp/proj-a", "session-aaa")
+    transcript = project_dir / "session-aaa.jsonl"
+    transcript.write_text(
+        json.dumps({"type": "assistant", "timestamp": "2026-10-13T10:00:00.000Z",
+                    "message": {"content": [{"type": "text", "text": "# Title\n\n- item [x](y)"},
+                                            {"type": "tool_use", "id": "tu1", "name": "Bash",
+                                             "input": {"command": "ls [a-z]*"}}]}}) + "\n"
+    )
+    app = await _open(storage)
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        assert len(app.screen.query("#conversation-transcript Markdown")) == 1
+        tool = app.screen.query_one("#conversation-transcript Collapsible", Collapsible)
+        assert tool.collapsed and "Bash" in str(tool.title)
+        assert "waiting for result" in str(app.screen.query_one(".tool-result").render())
+        with open(transcript, "a") as f:
+            f.write(json.dumps({"type": "user", "timestamp": "2026-10-13T10:00:01.000Z",
+                                "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "tu1",
+                                                                          "content": "a.txt [b]"}]}}) + "\n")
+        await app.screen._refresh_current()
+        await pilot.pause()
+        assert str(app.screen.query_one(".tool-result").render()) == "a.txt [b]"
+        assert len(app.screen.query("#conversation-transcript Collapsible")) == 1  # filled in, not re-added
