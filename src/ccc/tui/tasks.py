@@ -2,22 +2,41 @@
 work through one after another, plus its pause / auto-continue switches."""
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime
+
 from rich.text import Text
 from textual.binding import Binding
 from textual.containers import Container
 from textual.content import Content
 from textual.screen import ModalScreen
-from textual.widgets import DataTable, Static, TextArea
+from textual.widgets import DataTable, Input, Static, TextArea
 
+from ccc.limits import RESET_BUFFER
+from ccc.schedule import format_when, parse_when
 from ccc.storage import Storage
+from ccc.usage_api import get_pro_usage
 from ccc.tui.layout import MODAL_CSS
 
 PREVIEW_CHARS = 100
 
 
+@dataclass
+class TaskEdit:
+    text: str
+    not_before: datetime | None
+
+
+def _next_five_hour_reset() -> datetime | None:
+    usage = get_pro_usage()
+    if usage is None or usage.five_hour is None:
+        return None
+    return usage.five_hour.resets_at.astimezone().replace(tzinfo=None) + RESET_BUFFER
+
+
 class TaskEditModal(ModalScreen):
-    """Multi-line editor for one task. Dismisses with the text, or None
-    when cancelled (or left empty)."""
+    """Multi-line editor for one task plus when it may start. Dismisses
+    with a TaskEdit, or None when cancelled (or left empty)."""
 
     DEFAULT_CSS = MODAL_CSS.format(cls="TaskEditModal") + """
     TaskEditModal TextArea {
@@ -25,6 +44,12 @@ class TaskEditModal(ModalScreen):
     }
     TaskEditModal .modal-hint {
         color: $text-muted;
+    }
+    TaskEditModal #task-when {
+        margin-bottom: 0;
+    }
+    TaskEditModal #task-error {
+        color: red;
     }
     """
 
@@ -34,14 +59,18 @@ class TaskEditModal(ModalScreen):
         Binding("escape", "cancel", "Cancel", priority=True),
     ]
 
-    def __init__(self, text: str = "", title: str = "New task"):
+    def __init__(self, text: str = "", title: str = "New task", not_before: datetime | None = None):
         super().__init__()
         self.initial_text = text
         self.box_title = title
+        self.initial_when = not_before.strftime("%Y-%m-%d %H:%M") if not_before else ""
 
     def compose(self):
         box = Container(
             TextArea(self.initial_text, id="task-text"),
+            Static("Run at (empty = as soon as possible; HH:MM · YYYY-MM-DD HH:MM · reset)", classes="modal-label"),
+            Input(self.initial_when, placeholder="as soon as possible", id="task-when"),
+            Static("", id="task-error"),
             Static("Ctrl+S save  ·  Esc cancel", classes="modal-hint"),
         )
         box.border_title = self.box_title
@@ -52,7 +81,17 @@ class TaskEditModal(ModalScreen):
 
     def action_save(self) -> None:
         text = self.query_one("#task-text", TextArea).text.strip()
-        self.dismiss(text or None)
+        if not text:
+            self.dismiss(None)
+            return
+        when_text = self.query_one("#task-when", Input).value
+        reset_at = _next_five_hour_reset() if when_text.strip().lower() == "reset" else None
+        try:
+            not_before = parse_when(when_text, datetime.now(), reset_at=reset_at)
+        except ValueError as exc:
+            self.query_one("#task-error", Static).update(Text(str(exc)))
+            return
+        self.dismiss(TaskEdit(text, not_before))
 
     def action_cancel(self) -> None:
         self.dismiss(None)
@@ -116,7 +155,7 @@ class TasksModal(ModalScreen):
     def on_mount(self) -> None:
         table = self.query_one("#tasks-table", DataTable)
         table.cursor_type = "row"
-        table.add_columns("#", "Task")
+        table.add_columns("#", "When", "Task")
         self._refresh()
         table.focus()
 
@@ -138,7 +177,7 @@ class TasksModal(ModalScreen):
         for n, item in enumerate(items, start=1):
             lines = item.prompt_text.strip().splitlines() or [""]
             preview = lines[0][:PREVIEW_CHARS] + (" …" if len(lines) > 1 or len(lines[0]) > PREVIEW_CHARS else "")
-            table.add_row(str(n), Text(preview))
+            table.add_row(str(n), format_when(item.not_before, datetime.now()) or "—", Text(preview))
         if not items:
             return
         if select_item_id in self._item_ids:
@@ -153,9 +192,9 @@ class TasksModal(ModalScreen):
         return self._item_ids[row]
 
     def action_add(self) -> None:
-        def added(text: str | None) -> None:
-            if text:
-                item = self.storage.add_queue_item(self.queue_id, text)
+        def added(edit: TaskEdit | None) -> None:
+            if edit:
+                item = self.storage.add_queue_item(self.queue_id, edit.text, not_before=edit.not_before)
                 self._refresh(select_item_id=item.id)
 
         self.app.push_screen(TaskEditModal(), added)
@@ -166,12 +205,15 @@ class TasksModal(ModalScreen):
             return
         current = next(i for i in self.storage.list_pending_items(self.queue_id) if i.id == item_id)
 
-        def edited(text: str | None) -> None:
-            if text:
-                self.storage.update_item_text(item_id, text)
+        def edited(edit: TaskEdit | None) -> None:
+            if edit:
+                self.storage.update_item_text(item_id, edit.text)
+                self.storage.update_item_schedule(item_id, edit.not_before)
                 self._refresh(select_item_id=item_id)
 
-        self.app.push_screen(TaskEditModal(current.prompt_text, title="Edit task"), edited)
+        self.app.push_screen(
+            TaskEditModal(current.prompt_text, title="Edit task", not_before=current.not_before), edited
+        )
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         self.action_edit()

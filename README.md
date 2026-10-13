@@ -250,8 +250,10 @@ changed. Auto-commit only happens in conversations started with *Skip all
 permission checks*: the daemon runs git outside Claude's permission mode,
 so in an *Auto-accept edits* / *Plan only* conversation Claude could
 otherwise plant a git hook or config that ccc would execute for it. Every
-git call also disables hooks, fsmonitor, external diff/textconv and the
-pager. The queue detail shows a *Commit* column; Enter on a run opens
+git call also disables hooks, fsmonitor, signing programs, external
+diff/textconv and the pager; and if the repo's own config defines
+filters, includes or signing — or changes during the task — ccc runs no
+further git there and records why. The queue detail shows a *Commit* column; Enter on a run opens
 the commit's stat and coloured diff.
 
 ### Task queue

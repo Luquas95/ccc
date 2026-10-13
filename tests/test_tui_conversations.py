@@ -479,3 +479,18 @@ async def test_markdown_reply_and_expandable_tool_with_late_result(tmp_path, mon
         await pilot.pause()
         assert str(app.screen.query_one(".tool-result").render()) == "a.txt [b]"
         assert len(app.screen.query("#conversation-transcript Collapsible")) == 1  # filled in, not re-added
+
+
+@pytest.mark.asyncio
+async def test_status_shows_next_scheduled_task(tmp_path, monkeypatch):
+    from datetime import datetime, timedelta
+
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    storage = Storage(tmp_path / "history.db")
+    q = storage.create_queue("a", "/tmp/a", "s-a")
+    at = (datetime.now() + timedelta(hours=3)).replace(second=0, microsecond=0)
+    storage.add_queue_item(q.id, "later", not_before=at)
+    app = await _open(storage)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert f"Next task at {at:%H:%M}" in str(app.screen.query_one("#conversation-status").render())

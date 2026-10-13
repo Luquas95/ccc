@@ -27,7 +27,22 @@ _HARDENING = [
     "-c", "core.untrackedCache=false",
     "-c", "diff.external=",
     "-c", "core.pager=cat",
+    "-c", "commit.gpgSign=false",
+    "-c", "tag.gpgSign=false",
+    "-c", "log.showSignature=false",
+    "-c", "gpg.program=/bin/false",
+    "-c", "gpg.ssh.program=/bin/false",
+    "-c", "gpg.x509.program=/bin/false",
 ]
+
+# Repo-local config that can make git execute a program and that can't be
+# reliably neutralised with -c (filter driver names are arbitrary,
+# includes pull in more config). If any is present the daemon runs no
+# further git command in that repo.
+_RISKY_CONFIG_PREFIXES = (
+    "filter.", "include.", "includeif.", "gpg.", "commit.gpgsign", "tag.gpgsign",
+    "log.showsignature", "core.sshcommand", "credential.", "core.askpass",
+)
 
 
 def _git(cwd: str, *args: str) -> subprocess.CompletedProcess:
@@ -54,12 +69,27 @@ class Snapshot:
     head: str
     clean: bool
     on_branch: bool
+    config_fingerprint: str = ""
+    # Set when the repo's config is unsafe for the daemon to run git in.
+    blocked: str | None = None
 
 
 @dataclass
 class CommitOutcome:
     commit: str | None
     note: str
+
+
+def _local_config(cwd: str) -> str:
+    """The repo-local config as text. Reading config executes nothing;
+    --no-includes so include lines are seen, not followed."""
+    result = _git(cwd, "config", "--local", "--list", "--no-includes")
+    return result.stdout if result.returncode == 0 else ""
+
+
+def _risky_config(config_text: str) -> bool:
+    keys = (line.split("=", 1)[0].strip().lower() for line in config_text.splitlines())
+    return any(key.startswith(_RISKY_CONFIG_PREFIXES) for key in keys)
 
 
 def snapshot(cwd: str) -> Snapshot | None:
@@ -70,6 +100,10 @@ def snapshot(cwd: str) -> Snapshot | None:
         return None
     if inside.returncode != 0 or inside.stdout.strip() != "true":
         return None
+    config = _local_config(cwd)
+    if _risky_config(config):
+        # Checked before `git status`, which can already run clean filters.
+        return Snapshot("", False, False, config, blocked="repo config defines filters, includes or signing")
     head = _git(cwd, "rev-parse", "HEAD")
     status = _git(cwd, "status", "--porcelain")
     branch = _git(cwd, "symbolic-ref", "-q", "HEAD")
@@ -77,10 +111,18 @@ def snapshot(cwd: str) -> Snapshot | None:
         head=head.stdout.strip() if head.returncode == 0 else "",
         clean=status.returncode == 0 and status.stdout.strip() == "",
         on_branch=branch.returncode == 0,
+        config_fingerprint=config,
     )
 
 
 def commit_task(cwd: str, before: Snapshot, task_text: str, conversation: str) -> CommitOutcome:
+    if before.blocked:
+        return CommitOutcome(None, f"not committed: {before.blocked}")
+    config = _local_config(cwd)
+    if config != before.config_fingerprint:
+        return CommitOutcome(None, "not committed: the repo's git config changed during the task")
+    if _risky_config(config):
+        return CommitOutcome(None, "not committed: repo config defines filters, includes or signing")
     if not before.clean:
         return CommitOutcome(None, "not committed: there were uncommitted changes before the task")
     if not before.on_branch:
@@ -102,6 +144,8 @@ def commit_task(cwd: str, before: Snapshot, task_text: str, conversation: str) -
 
 
 def show(cwd: str, commit: str) -> str:
+    if _risky_config(_local_config(cwd)):
+        return "Not shown: this repo's git config defines filters, includes or signing, so ccc won't run git in it."
     result = _git(cwd, "show", "--stat", "--patch", "--no-color", "--no-ext-diff", "--no-textconv", commit)
     text = result.stdout if result.returncode == 0 else result.stderr
     if len(text) > SHOW_MAX_CHARS:

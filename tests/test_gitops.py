@@ -107,3 +107,44 @@ def test_claude_can_run_commands():
     assert not gitops.claude_can_run_commands(q(["--permission-mode", "acceptEdits"]))
     assert not gitops.claude_can_run_commands(q(["--permission-mode", "plan"]))
     assert not gitops.claude_can_run_commands(q([]))
+
+
+def test_signing_program_never_runs(repo, tmp_path):
+    marker = tmp_path / "pwned"
+    prog = tmp_path / "gpg.sh"
+    prog.write_text(f"#!/bin/sh\ntouch {marker}\nexit 1\n")
+    prog.chmod(0o755)
+    _git(repo, "config", "commit.gpgSign", "true")
+    _git(repo, "config", "gpg.program", str(prog))
+    _git(repo, "config", "log.showSignature", "true")
+    before = gitops.snapshot(str(repo))
+    (repo / "a.txt").write_text("changed\n")
+    outcome = gitops.commit_task(str(repo), before, "task", "c")
+    # Signing config present -> not auto-committed, and nothing executed.
+    assert outcome.commit is None and "config" in outcome.note
+    assert not marker.exists()
+
+
+def test_filter_or_include_in_repo_config_skips_commit(repo, tmp_path):
+    marker = tmp_path / "pwned"
+    _git(repo, "config", "filter.evil.clean", f"sh -c 'touch {marker}; cat'")
+    (repo / ".gitattributes").write_text("*.txt filter=evil\n")
+    before = gitops.snapshot(str(repo))
+    (repo / "a.txt").write_text("changed\n")
+    outcome = gitops.commit_task(str(repo), before, "task", "c")
+    assert outcome.commit is None and "config" in outcome.note
+    assert not marker.exists()
+
+
+def test_config_changed_during_task_skips_commit(repo):
+    before = gitops.snapshot(str(repo))
+    _git(repo, "config", "user.name", "Someone Else")
+    (repo / "a.txt").write_text("changed\n")
+    outcome = gitops.commit_task(str(repo), before, "task", "c")
+    assert outcome.commit is None and "changed during the task" in outcome.note
+
+
+def test_show_refuses_risky_repo(repo):
+    head = _git(repo, "rev-parse", "HEAD").strip()
+    _git(repo, "config", "include.path", "/tmp/elsewhere")
+    assert gitops.show(str(repo), head).startswith("Not shown")

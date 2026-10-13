@@ -235,7 +235,7 @@ class ConversationsScreen(SidebarScreen):
         pending = self.storage.list_pending_items(queue_id)
         events: list[TranscriptEvent] = self._cache[queue_id]["events"]
         self._update_header(queue)
-        self.query_one("#conversation-status", Static).update(self._status_text(queue, len(pending)))
+        self.query_one("#conversation-status", Static).update(self._status_text(queue, len(pending), pending[0].not_before if pending else None))
         self._rendered_key = (queue_id, len(events), tuple(i.id for i in pending))
 
         container = self.query_one("#conversation-transcript", VerticalScroll)
@@ -325,7 +325,7 @@ class ConversationsScreen(SidebarScreen):
         self.query_one("#conversation-header", Static).update(Content.assemble(*parts))
 
     @staticmethod
-    def _status_text(queue: Queue, pending: int) -> Content:
+    def _status_text(queue: Queue, pending: int, next_at: datetime | None = None) -> Content:
         if queue.status == QueueStatus.RUNNING:
             status = ("● Claude is working…", "bold green")
         elif queue.status == QueueStatus.WAITING_RETRY and queue.next_retry_at:
@@ -342,6 +342,9 @@ class ConversationsScreen(SidebarScreen):
             status = (f"✖ Blocked: {line} — press r to retry", "bold red")
         else:
             status = ("Ready", "dim")
+            if next_at is not None and next_at > datetime.now():
+                status = (f"Next task at {next_at:%H:%M}" if next_at.date() == datetime.now().date()
+                          else f"Next task at {next_at:%Y-%m-%d %H:%M}", "cyan")
         return Content.assemble(status, f"  ·  {pending} queued" if pending else "")
 
     async def _refresh_current(self) -> None:
@@ -361,7 +364,7 @@ class ConversationsScreen(SidebarScreen):
         events = self._cache[queue_id]["events"]
         key = (queue_id, len(events), tuple(i.id for i in pending))
         self._update_header(queue)
-        self.query_one("#conversation-status", Static).update(self._status_text(queue, len(pending)))
+        self.query_one("#conversation-status", Static).update(self._status_text(queue, len(pending), pending[0].not_before if pending else None))
         if key == self._rendered_key:
             return
         rendered = self._rendered_key

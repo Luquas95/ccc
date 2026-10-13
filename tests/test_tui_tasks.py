@@ -115,3 +115,71 @@ async def test_pause_and_auto_continue_toggles(tmp_path):
         await pilot.press("p")
         await pilot.pause()
         assert storage.get_queue(queue.id).paused is False
+
+
+@pytest.mark.asyncio
+async def test_add_task_with_time_and_when_column(tmp_path):
+    from datetime import datetime
+    from textual.widgets import Input
+
+    storage, queue = _setup(tmp_path, "one")
+    app = _host(TasksModal(storage, queue.id))
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        await pilot.press("a")
+        await pilot.pause()
+        app.screen.query_one("#task-text", TextArea).text = "nightly"
+        app.screen.query_one("#task-when", Input).value = "2099-01-02 03:04"
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        item = storage.list_pending_items(queue.id)[1]
+        assert item.prompt_text == "nightly" and item.not_before == datetime(2099, 1, 2, 3, 4)
+        cells = [str(c) for c in app.screen.query_one("#tasks-table", DataTable).get_row_at(1)]
+        assert "2099-01-02 03:04" in cells
+
+
+@pytest.mark.asyncio
+async def test_invalid_time_keeps_editor_open(tmp_path):
+    from textual.widgets import Input
+
+    storage, queue = _setup(tmp_path)
+    app = _host(TasksModal(storage, queue.id))
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        await pilot.press("a")
+        await pilot.pause()
+        app.screen.query_one("#task-text", TextArea).text = "x"
+        app.screen.query_one("#task-when", Input).value = "someday"
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert isinstance(app.screen, TaskEditModal)
+        assert "HH:MM" in str(app.screen.query_one("#task-error").render())
+        assert storage.list_pending_items(queue.id) == []
+
+
+@pytest.mark.asyncio
+async def test_reset_uses_usage_and_edit_can_clear_time(tmp_path, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from textual.widgets import Input
+    from ccc.usage_api import ProUsage, WindowUsage
+
+    reset_local = (datetime.now() + timedelta(hours=2)).replace(microsecond=0)
+    usage = ProUsage(WindowUsage(50, reset_local.astimezone().astimezone(timezone.utc)), None, [])
+    monkeypatch.setattr("ccc.tui.tasks.get_pro_usage", lambda force_refresh=False: usage)
+    storage, queue = _setup(tmp_path, "one")
+    app = _host(TasksModal(storage, queue.id))
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        await pilot.press("e")
+        await pilot.pause()
+        app.screen.query_one("#task-when", Input).value = "reset"
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert storage.list_pending_items(queue.id)[0].not_before == reset_local + timedelta(seconds=30)
+        await pilot.press("e")
+        await pilot.pause()
+        assert app.screen.query_one("#task-when", Input).value != ""
+        app.screen.query_one("#task-when", Input).value = ""
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert storage.list_pending_items(queue.id)[0].not_before is None
