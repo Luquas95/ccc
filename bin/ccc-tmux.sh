@@ -22,7 +22,7 @@ set -euo pipefail
 # one (see deploy/systemd/ccc-tui.service for why).
 TMUX_SOCKET="ccc"
 SESSION="ccc"
-PROJECT_DIR="/home/lukas/DEV/ccc"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN_CMD="while true; do $PROJECT_DIR/.venv/bin/ccc; sleep 1; done"
 
 if tmux -L "$TMUX_SOCKET" has-session -t "$SESSION" 2>/dev/null; then

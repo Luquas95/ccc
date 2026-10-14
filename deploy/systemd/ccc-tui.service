@@ -1,7 +1,8 @@
+# Template: bin/install.sh fills in @CCC_DIR@ (the ccc checkout).
 [Unit]
 Description=ccc TUI, always alive in a persistent tmux session
 After=ccc.service
-RequiresMountsFor=/mnt/AI
+RequiresMountsFor=@CCC_DIR@
 
 [Service]
 # The TUI gets its OWN tmux server (`-L ccc`), never the user's
@@ -16,7 +17,7 @@ RequiresMountsFor=/mnt/AI
 # `tmux -L ccc kill-server`), the script exits non-zero and
 # Restart=always brings everything back after RestartSec.
 Type=simple
-ExecStart=/home/lukas/DEV/ccc/bin/ccc-tui-supervise.sh
+ExecStart=@CCC_DIR@/bin/ccc-tui-supervise.sh
 ExecStop=/usr/bin/tmux -L ccc kill-session -t ccc
 Restart=always
 RestartSec=5

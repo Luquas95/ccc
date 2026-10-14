@@ -1,14 +1,15 @@
+# Template: bin/install.sh fills in @CCC_DIR@ (the ccc checkout).
 [Unit]
 Description=ccc queue daemon (executes queued Claude Code prompts)
 After=network-online.target
-# The project lives on a separate disk mounted with `nofail`; don't try to
-# start before it's there.
-RequiresMountsFor=/mnt/AI
+# Don't start before the filesystem holding ccc is mounted (matters when
+# it lives on a separate disk mounted with `nofail`).
+RequiresMountsFor=@CCC_DIR@
 
 [Service]
 Type=simple
-ExecStart=/home/lukas/DEV/ccc/.venv/bin/ccc-daemon
-Environment=PATH=/home/lukas/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=@CCC_DIR@/.venv/bin/ccc-daemon
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 Restart=on-failure
 RestartSec=5
 

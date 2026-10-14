@@ -1,14 +1,133 @@
 # ccc
 
-Prompt-queue tool for Claude Code. Queue prompts per project; a daemon
-runs them headless (`claude -p --resume`) one at a time per project,
-running multiple projects concurrently, and automatically retries when a
-usage-limit block resets — no need to be at the keyboard, no need to keep
-any terminal open. A separate TUI lets you look at and add to the queues
-whenever you want, without affecting whether they keep running.
+**A terminal home for your Claude Code work that keeps going without you.**
+Start conversations in any project, queue up tasks, and let a background
+daemon work through them — it waits out usage limits and carries on by
+itself, asks you (in the TUI or on Telegram) when Claude needs approval,
+commits each finished task, and lets you continue a conversation from your
+phone via Remote Control.
 
-History and analytics are kept in `~/.local/share/ccc/history.db`
-(SQLite).
+![Conversations](docs/screenshots/conversations.png)
+
+<table>
+<tr>
+<td><img src="docs/screenshots/new_conversation.png" alt="New conversation dialog"></td>
+<td><img src="docs/screenshots/tasks.png" alt="Task queue editor"></td>
+</tr>
+<tr>
+<td align="center">Start a conversation: directory + Claude Code options</td>
+<td align="center">Task queue: reorder, schedule, pause</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/approval.png" alt="Tool approval"></td>
+<td><img src="docs/screenshots/dashboard.png" alt="Dashboard"></td>
+</tr>
+<tr>
+<td align="center">Approve a tool call Claude is waiting on</td>
+<td align="center">Dashboard: what is running, waiting, blocked</td>
+</tr>
+</table>
+
+## What it does
+
+- **Conversations** — pick a directory, tick Claude Code options (model,
+  effort, permission mode, resume / continue / fork / from PR), then chat
+  in the TUI: Markdown replies, expandable tool calls, multi-line input.
+- **Task queue** — queue many prompts per conversation; they run one after
+  another in the same session. Reorder, edit, schedule (`23:00`, a date, or
+  "after the next usage reset"), pause.
+- **Usage limits** — reads your real Claude usage; waits for the reset and
+  continues by itself (or pauses for you), sends "continue" instead of
+  repeating an interrupted prompt; optional reserve so automation never
+  eats your whole limit.
+- **Remote Control** — conversations can run as a live
+  `claude --remote-control` session you can also drive from the Claude
+  mobile app / claude.ai.
+- **Approvals** — restricted conversations (*Auto-accept edits*, *Plan
+  only*) ask you in the TUI instead of silently failing.
+- **Telegram** — notifications when a queue finishes, needs you, fails or
+  hits a limit.
+- **Git** — each successful task is committed (in *Skip all permission
+  checks* conversations), with a diff viewer.
+- Search across conversations, Markdown export, archive/delete, daily
+  database backups, `?` shows every shortcut.
+
+## Requirements
+
+- Linux with `systemd --user` (for the always-on daemon; without it you can
+  still run `ccc-daemon` yourself)
+- Python **3.12+**
+- [Claude Code](https://code.claude.com/docs) CLI
+  (`claude`), installed and logged in (`claude` once, then `/login`) —
+  ccc uses your normal Claude subscription login, no API key
+- `tmux` (the always-on TUI and Remote Control conversations use it)
+- `git` (optional — for auto-commit and diffs)
+
+## Installation
+
+```bash
+git clone https://github.com/Luquas95/ccc.git ~/ccc
+cd ~/ccc
+bin/install.sh
+```
+
+`bin/install.sh` creates a virtualenv in the checkout, installs ccc into
+it, writes two `systemd --user` units for this location — `ccc.service`
+(the daemon that runs your tasks) and `ccc-tui.service` (the TUI, kept
+alive in its own tmux session) — and enables and starts them. Options:
+`--no-tui` (daemon only), `--no-start`, `--no-systemd` (just the
+virtualenv).
+
+So the services keep running after you log out or close SSH, enable
+lingering once:
+
+```bash
+loginctl enable-linger "$USER"
+```
+
+Check that everything runs:
+
+```bash
+systemctl --user status ccc ccc-tui
+journalctl --user -u ccc -f        # daemon log
+```
+
+## First steps
+
+1. **Open the TUI:** `bin/ccc-tmux.sh` (attaches to the always-on
+   session; detach with `Ctrl+B D`, it keeps running). Or run
+   `.venv/bin/ccc` directly. The sidebar should say *● daemon running*.
+2. **Start a conversation:** press `n`, choose a project directory, tick
+   the options you want, *Start*.
+3. **Talk to Claude:** type in the box at the bottom, `Enter` sends
+   (`Ctrl+J` for a new line). Add more tasks with `t`.
+4. Optional: set up [Telegram notifications](#telegram-notifications)
+   and a [usage reserve](#usage-limits-and-auto-continue).
+
+Press `?` anywhere for all keyboard shortcuts. You can also queue a
+prompt from the shell without opening the TUI:
+
+```bash
+~/ccc/.venv/bin/ccc add /path/to/project "do the thing"
+```
+
+## Updating
+
+```bash
+cd ~/ccc && git pull && bin/install.sh
+```
+
+Your data (`~/.local/share/ccc/`: history, settings, backups) is kept.
+
+## Uninstalling
+
+```bash
+systemctl --user disable --now ccc ccc-tui
+rm ~/.config/systemd/user/ccc.service ~/.config/systemd/user/ccc-tui.service
+systemctl --user daemon-reload
+rm -rf ~/ccc                    # the checkout
+rm -rf ~/.local/share/ccc       # history, settings, backups (optional)
+```
 
 ## Architecture: daemon vs. TUI
 
@@ -31,76 +150,25 @@ machine — there is no separate billing path. The `cost_usd` figures in
 the analytics screen are Anthropic's list-price-equivalent for
 observability, not an extra charge.
 
-## Install
+## Running notes
 
-    python3 -m venv .venv
-    .venv/bin/pip install -e ".[dev]"
+**The always-on TUI** runs in its own tmux server (`tmux -L ccc`), so it
+doesn't show up in plain `tmux ls`: attach with `bin/ccc-tmux.sh` or
+`tmux -L ccc attach -t ccc`. Quitting the TUI (`q`) just restarts it a
+second later; the daemon is unaffected either way. Using a separate tmux
+server is deliberate — if the unit started your default one, all your
+other tmux sessions would live in its cgroup and systemd-oomd killing it
+would take them all down. If the session dies anyway, the unit recreates
+it within ~5 s.
 
-## Running the daemon (systemd, recommended)
-
-```bash
-mkdir -p ~/.config/systemd/user
-cp deploy/systemd/ccc.service ~/.config/systemd/user/
-systemctl --user daemon-reload
-loginctl enable-linger "$USER"   # let it keep running after SSH logout
-systemctl --user enable --now ccc
-```
-
-Check on it:
-
-    systemctl --user status ccc
-    journalctl --user -u ccc -f
-
-Stop/disable it:
-
-    systemctl --user disable --now ccc
-
-### Encrypted home (ecryptfs)
-
-If your home directory is ecryptfs-encrypted, linger alone isn't enough:
-the user systemd manager starts at boot, before login, while
-`~/.config/systemd/user/` is still unreadable — so the units silently
-never start. Start them at login instead, e.g. with an XFCE/GNOME
-autostart entry (`~/.config/autostart/ccc-units.desktop`) that
-runs:
+**Encrypted home (ecryptfs):** linger alone isn't enough — the user
+systemd manager starts at boot, before login, while
+`~/.config/systemd/user/` is still unreadable, so the units silently never
+start. Start them at login instead, e.g. with an XFCE/GNOME autostart
+entry that runs:
 
     systemctl --user daemon-reload
     systemctl --user start ccc.service ccc-tui.service
-
-## Running the TUI (systemd + tmux, always attachable)
-
-The TUI can run the same way: a `ccc-tui` systemd unit boots a
-persistent tmux session named `ccc` at startup, with `ccc` running
-inside it in a restart loop — so it's always alive and ready. Quitting the
-TUI (`q`) just makes it reappear a second later in the same pane; the
-session is never left dead. Attach any time with `bin/ccc-tmux.sh`
-(or plain `tmux -L ccc attach -t ccc`) and detach
-(`Ctrl+B D`) or just close the terminal/SSH connection whenever — it
-keeps running either way.
-
-The TUI runs on its **own tmux server** (socket `-L ccc`), not
-your default one, so it doesn't show up in plain `tmux ls`. That's
-deliberate: if the unit started your default tmux server, all your other
-tmux sessions would live in this unit's cgroup and systemd-oomd killing
-it would take them all down. If the session dies anyway (oomd, crash,
-`kill-server`), the unit notices within ~5s and recreates it.
-
-```bash
-cp deploy/systemd/ccc-tui.service ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable --now ccc-tui
-```
-
-(Needs `loginctl enable-linger "$USER"` too, same as the daemon above, so
-it survives SSH logout — skip if you already ran that for the daemon.)
-
-Attach to it:
-
-    ./bin/ccc-tmux.sh
-
-Stop/disable it (kills the tmux session too):
-
-    systemctl --user disable --now ccc-tui
 
 ## Queueing prompts
 
@@ -359,4 +427,10 @@ copy a backup over `~/.local/share/ccc/history.db`, start them again.
 
 ## Tests
 
-    .venv/bin/pytest
+```bash
+.venv/bin/pip install -e ".[dev]"
+.venv/bin/pytest -q
+```
+
+README screenshots are rendered from made-up demo data, never from real
+conversations.
