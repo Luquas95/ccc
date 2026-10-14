@@ -114,7 +114,7 @@ sessions / Analytics — the current one highlighted, clickable), the
 screen's own list where it has one, and coloured action buttons at the
 bottom; content on the right sits in round-bordered panels.
 
-TUI keys, available on every screen: `d` dashboard, `c` conversations,
+TUI keys (`?` on any screen lists them all), available on every screen: `d` dashboard, `c` conversations,
 `s` live sessions, `v` analytics, `n` new conversation, `a` add prompt
 (path prefilled from the selected queue). Plus: `Enter` open queue detail / attach to a session,
 `r` retry a blocked queue or resume one paused at a usage limit (daemon

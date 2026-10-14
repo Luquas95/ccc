@@ -302,6 +302,7 @@ class SidebarScreen(Screen):
         ("v", "goto('analytics')", "Analytics"),
         ("a", "add_prompt", "Add prompt"),
         ("n", "new_conversation", "New conversation"),
+        ("question_mark", "key_help", "Keys"),
     ]
 
     def __init__(self, storage):
@@ -425,6 +426,11 @@ class SidebarScreen(Screen):
                 self.app.push_screen(screen)
         else:
             self.app.switch_screen(screen)
+
+    def action_key_help(self) -> None:
+        from ccc.tui.help import KeyHelpModal
+
+        self.app.push_screen(KeyHelpModal())
 
     def action_new_conversation(self) -> None:
         from ccc.tui.new_conversation import NewConversationModal
