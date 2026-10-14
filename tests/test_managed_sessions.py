@@ -69,17 +69,17 @@ def test_tmux_calls_use_own_socket_and_target(calls):
     assert ms.capture(q.id) == "pane text\n"
     ms.stop(q.id)
     for args, _ in calls:
-        assert args[:3] == ["tmux", "-L", ms.TMUX_SOCKET]
+        assert args[:5] == ["tmux", "-L", ms.TMUX_SOCKET, "-f", "/dev/null"]
     start_args = calls[1][0]
     assert "new-session" in start_args and "-c" in start_args and "/tmp/p" in start_args
     assert start_args[-1] == "claude --session-id sid-1 --remote-control 'my conv'"
-    assert ["kill-session", "-t", "q7"] in [args[3:] for args, _ in calls]
+    assert ["kill-session", "-t", "q7"] in [args[5:] for args, _ in calls]
 
 
 def test_paste_and_submit_uses_bracketed_paste(calls):
     result = ms.paste_and_submit(7, "line one\nline two")
     assert result.delivered
-    kinds = [args[3] for args, _ in calls]
+    kinds = [args[5] for args, _ in calls]
     assert kinds == ["load-buffer", "paste-buffer", "send-keys"]
     assert calls[0][1] == "line one\nline two"
     assert "-p" in calls[1][0] and "-d" in calls[1][0]
@@ -99,7 +99,7 @@ def test_stop_escalates_when_process_lingers(calls, monkeypatch):
     monkeypatch.setattr(ms, "STOP_GRACE_SECONDS", 0.05)
     monkeypatch.setattr(ms, "STOP_TERM_SECONDS", 0.05)
     ms.stop(7)
-    assert calls[0][0][3] == "display-message" and calls[1][0][3] == "kill-session"
+    assert calls[0][0][5] == "display-message" and calls[1][0][5] == "kill-session"
     assert signals == [15, 9]
 
 

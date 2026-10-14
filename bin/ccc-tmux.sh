@@ -20,6 +20,9 @@ set -euo pipefail
 
 # The TUI runs on its own tmux server/socket, separate from your default
 # one (see deploy/systemd/ccc-tui.service for why).
+# -f /dev/null when the server starts: no user tmux.conf, so no plugins.
+# tmux-continuum/resurrect would otherwise restore the user's sessions
+# (even re-launching `claude --continue` in them) into this server.
 TMUX_SOCKET="ccc"
 SESSION="ccc"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -30,5 +33,5 @@ if tmux -L "$TMUX_SOCKET" has-session -t "$SESSION" 2>/dev/null; then
     # another tmux session we attach with $TMUX unset (nested on purpose).
     TMUX= exec tmux -L "$TMUX_SOCKET" attach-session -t "$SESSION"
 else
-    TMUX= exec tmux -L "$TMUX_SOCKET" new-session -s "$SESSION" -c "$PROJECT_DIR" "$RUN_CMD"
+    TMUX= exec tmux -L "$TMUX_SOCKET" -f /dev/null new-session -s "$SESSION" -c "$PROJECT_DIR" "$RUN_CMD"
 fi

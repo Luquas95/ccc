@@ -8,13 +8,16 @@
 # Not meant to be run by hand — use bin/ccc-tmux.sh to attach.
 set -euo pipefail
 
+# -f /dev/null when the server starts: no user tmux.conf, so no plugins.
+# tmux-continuum/resurrect would otherwise restore the user's sessions
+# (even re-launching `claude --continue` in them) into this server.
 TMUX_SOCKET="ccc"
 SESSION="ccc"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN_CMD="while true; do $PROJECT_DIR/.venv/bin/ccc; sleep 1; done"
 
 if ! tmux -L "$TMUX_SOCKET" has-session -t "$SESSION" 2>/dev/null; then
-    tmux -L "$TMUX_SOCKET" new-session -d -s "$SESSION" -x 200 -y 50 -c "$PROJECT_DIR" "$RUN_CMD"
+    tmux -L "$TMUX_SOCKET" -f /dev/null new-session -d -s "$SESSION" -x 200 -y 50 -c "$PROJECT_DIR" "$RUN_CMD"
 fi
 
 while tmux -L "$TMUX_SOCKET" has-session -t "$SESSION" 2>/dev/null; do

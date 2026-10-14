@@ -35,7 +35,9 @@ def _run(args: list[str], input_text: str | None = None) -> subprocess.Completed
 
 
 def _tmux(*args: str, input_text: str | None = None) -> subprocess.CompletedProcess:
-    return _run(["tmux", "-L", TMUX_SOCKET, *args], input_text=input_text)
+    # -f /dev/null: the server must not load the user's tmux.conf — plugins
+    # like tmux-continuum would restore the user's own sessions into it.
+    return _run(["tmux", "-L", TMUX_SOCKET, "-f", "/dev/null", *args], input_text=input_text)
 
 
 def target(queue_id: int) -> str:
