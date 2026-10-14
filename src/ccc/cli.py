@@ -95,6 +95,8 @@ def main(argv: list[str] | None = None) -> None:
     add_parser.add_argument("project_path")
     add_parser.add_argument("prompt")
 
+    subparsers.add_parser("backup", help="Back up the ccc database now (the daemon also does it daily)")
+
     config_parser = subparsers.add_parser("config", help="Show or change ccc settings")
     config_sub = config_parser.add_subparsers(dest="setting", required=True)
     continue_parser = config_sub.add_parser(
@@ -114,6 +116,15 @@ def main(argv: list[str] | None = None) -> None:
     test_parser.set_defaults(value=None)
 
     args = parser.parse_args(argv)
+
+    if args.command == "backup":
+        from ccc import backup
+
+        db_path = default_db_path()
+        path = backup.backup_now(db_path, backup.default_backup_dir(db_path))
+        backup.prune(path.parent)
+        print(f"Backed up to {path}")
+        return
 
     if args.command == "config":
         config_command(str(default_db_path()), args.setting, args.value)

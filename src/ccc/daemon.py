@@ -4,6 +4,7 @@ import asyncio
 import logging
 import signal
 
+from ccc.backup import daily_backup, default_backup_dir
 from ccc.heartbeat import HEARTBEAT_SECONDS, beat
 from ccc.notify import Notifier
 from ccc.orchestrator import Orchestrator, RunFn
@@ -22,6 +23,21 @@ async def heartbeat_loop(storage: Storage, interval: float = HEARTBEAT_SECONDS) 
         await asyncio.sleep(interval)
 
 
+BACKUP_CHECK_SECONDS = 3600.0
+
+
+async def backup_loop(db_path: str, out_dir, interval: float = BACKUP_CHECK_SECONDS) -> None:
+    """Check hourly; daily_backup itself makes at most one backup a day."""
+    while True:
+        try:
+            path = await asyncio.to_thread(daily_backup, db_path, out_dir)
+            if path is not None:
+                logger.info("database backed up to %s", path)
+        except Exception:
+            logger.exception("database backup failed")
+        await asyncio.sleep(interval)
+
+
 async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     storage = Storage(db_path)
     orchestrator = Orchestrator(storage, run_fn=run_fn, notifier=Notifier(storage))
@@ -34,9 +50,11 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
         loop.add_signal_handler(sig, stop_event.set)
 
     heartbeat = asyncio.create_task(heartbeat_loop(storage))
+    backups = asyncio.create_task(backup_loop(db_path, default_backup_dir(db_path)))
     await stop_event.wait()
     logger.info("ccc daemon shutting down")
     heartbeat.cancel()
+    backups.cancel()
     await orchestrator.stop_all()
 
 

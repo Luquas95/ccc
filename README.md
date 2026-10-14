@@ -348,6 +348,15 @@ actively typing in).
 - New projects queued while the daemon is already running are picked up
   automatically (checked every ~5s), no restart needed.
 
+## Backups
+
+The daemon backs up the database once a day (checked hourly) to
+`~/.local/share/ccc/backups/history-YYYY-MM-DD.db` using SQLite's online
+backup, so the copy is consistent while it runs; the newest 14 are kept,
+files are private (600) since they include settings such as the Telegram
+token. `ccc backup` makes one immediately. To restore: stop the services,
+copy a backup over `~/.local/share/ccc/history.db`, start them again.
+
 ## Tests
 
     .venv/bin/pytest
