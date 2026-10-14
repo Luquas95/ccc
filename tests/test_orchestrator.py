@@ -780,3 +780,42 @@ async def test_permission_tool_attached_only_outside_yolo(storage, project_dir, 
     assert server["env"]["CCC_QUEUE_ID"] == str(edits.id)
     assert server["env"]["CCC_DB"] == storage.db_path
     assert storage.get_queue(edits.id).launch_flags == ["--permission-mode", "acceptEdits"]  # stored flags untouched
+
+
+# --- usage reserve ----------------------------------------------------------
+
+
+async def test_usage_reserve_holds_before_starting(storage, project_dir, fast_poll, monkeypatch):
+    reset = datetime.now().replace(microsecond=0) + timedelta(hours=1)
+    monkeypatch.setattr("ccc.orchestrator.get_pro_usage", lambda force_refresh=False: _five_hour_usage(85, reset))
+    storage.set_setting("usage_reserve", "80")
+    notifier = FakeNotifier()
+    sent = []
+    queue = enqueue_prompt(storage, project_dir, "work")
+    storage.set_queue_auto_continue(queue.id, False)  # reserve waits regardless
+    orch = Orchestrator(storage, run_fn=_limited_then_ok(sent), notifier=notifier)
+    await orch.start_all()
+    assert await _until(lambda: storage.get_queue(queue.id).status == QueueStatus.WAITING_RETRY)
+    await asyncio.sleep(0.15)
+    await orch.stop_all()
+    q = storage.get_queue(queue.id)
+    assert sent == [] and q.next_retry_at == reset + timedelta(seconds=30)
+    assert q.last_error == "usage reserve 80%"
+    assert len(notifier.texts) == 1 and "80% reserve" in notifier.texts[0]
+
+
+async def test_usage_reserve_off_or_below_runs(storage, project_dir, fast_poll, monkeypatch):
+    reset = datetime.now() + timedelta(hours=1)
+    monkeypatch.setattr("ccc.orchestrator.get_pro_usage", lambda force_refresh=False: _five_hour_usage(85, reset))
+    sent = []
+
+    async def ok(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
+        sent.append(prompt)
+        return RunResult(status=RunStatus.SUCCESS)
+
+    enqueue_prompt(storage, project_dir, "a")
+    storage.set_setting("usage_reserve", "90")
+    orch = Orchestrator(storage, run_fn=ok)
+    await orch.start_all()
+    assert await _until(lambda: sent == ["a"])
+    await orch.stop_all()

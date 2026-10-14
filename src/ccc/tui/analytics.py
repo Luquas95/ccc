@@ -157,6 +157,16 @@ class AnalyticsScreen(SidebarScreen):
         for gauge in gauges:
             await self._mount_gauge_row(container, gauge.label, gauge.percentage, f"resets {gauge.reset_text}")
 
+        from ccc.orchestrator import usage_reserve
+
+        reserve = usage_reserve(self.storage)
+        note = (
+            f"Your reserve: queued tasks wait while a window is at or above {reserve}%  (ccc config usage-reserve)"
+            if reserve
+            else "No usage reserve — queued tasks may use the whole limit  (ccc config usage-reserve 80)"
+        )
+        await container.mount(Static(note, id="usage-reserve-note", classes="muted"))
+
     async def _mount_model_usage_bars(self) -> None:
         container = self.query_one("#model-usage-gauges", Container)
         bars = build_model_token_bars(self.storage.total_tokens_by_model())

@@ -54,6 +54,27 @@ def config_command(db_path: str, setting: str, value: str | None) -> None:
             storage.set_setting(key, value.strip())
             print(f"{setting} saved.")
         return
+    if setting == "usage-reserve":
+        from ccc.orchestrator import RESERVE_KEY, usage_reserve
+
+        if value is None:
+            current = usage_reserve(storage)
+            print(f"{current}%" if current else "off")
+            return
+        if value.strip().lower() in ("off", "0", "none"):
+            storage.set_setting(RESERVE_KEY, "")
+            print("usage-reserve off.")
+            return
+        try:
+            percent = int(value.strip().rstrip("%"))
+        except ValueError:
+            percent = -1
+        if not 0 < percent < 100:
+            print("ccc: usage-reserve takes a number from 1 to 99, or off", file=sys.stderr)
+            sys.exit(1)
+        storage.set_setting(RESERVE_KEY, str(percent))
+        print(f"usage-reserve set to {percent}%: queued tasks wait while a usage window is at or above it.")
+        return
     if setting == "continue-text":
         if value is None:
             print(storage.get_setting("continue_text", DEFAULT_CONTINUE_TEXT))
@@ -85,6 +106,10 @@ def main(argv: list[str] | None = None) -> None:
     token_parser.add_argument("value", nargs="?")
     chat_parser = config_sub.add_parser("telegram-chat", help="Telegram chat id to notify (no value: show it)")
     chat_parser.add_argument("value", nargs="?")
+    reserve_parser = config_sub.add_parser(
+        "usage-reserve", help="Don't start queued tasks above this % of a usage window (1-99, or off)"
+    )
+    reserve_parser.add_argument("value", nargs="?")
     test_parser = config_sub.add_parser("telegram-test", help="Send a test notification")
     test_parser.set_defaults(value=None)
 

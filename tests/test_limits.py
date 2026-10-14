@@ -56,3 +56,11 @@ def test_after_rate_limit_uses_busiest_window_even_below_100():
 
 def test_after_rate_limit_with_past_reset_gives_none():
     assert retry_time_after_rate_limit(_usage(five=(100, NOW - timedelta(hours=1))), NOW) is None
+
+
+def test_threshold_treats_window_above_reserve_as_exhausted():
+    reset = NOW + timedelta(hours=1)
+    usage = _usage(five=(82, reset), week=(40, NOW + timedelta(days=2)))
+    assert exhausted_until(usage, NOW) is None
+    assert exhausted_until(usage, NOW, threshold=80) == reset + RESET_BUFFER
+    assert exhausted_until(usage, NOW, threshold=90) is None

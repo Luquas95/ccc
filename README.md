@@ -251,6 +251,11 @@ checkbox in the New conversation dialog, `o` in the Tasks editor).
   `ccc config continue-text` shows it, `ccc config
   continue-text "…"` changes it (default *Pokračuj tam, kde jsi skončil.*).
 - Waiting survives daemon restarts (the reset time is stored).
+- **Usage reserve:** `ccc config usage-reserve 80` keeps the top of your
+  limit for yourself — queued tasks don't start while the 5-hour or weekly
+  window is at or above 80%, and continue after that window resets (a
+  running task finishes). `ccc config usage-reserve off` turns it off
+  (default). The Analytics screen shows the current setting.
 
 ### Auto-commit and diffs
 

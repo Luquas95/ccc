@@ -339,6 +339,9 @@ class ConversationsScreen(SidebarScreen):
     def _status_text(queue: Queue, pending: int, next_at: datetime | None = None) -> Content:
         if queue.status == QueueStatus.RUNNING:
             status = ("● Claude is working…", "bold green")
+        elif queue.status == QueueStatus.WAITING_RETRY and queue.next_retry_at and (queue.last_error or "").startswith("usage reserve"):
+            percent = queue.last_error.removeprefix("usage reserve ").strip()
+            status = (f"‖ Holding for your usage reserve ({percent}) until {queue.next_retry_at:%H:%M}", "bold yellow")
         elif queue.status == QueueStatus.WAITING_RETRY and queue.next_retry_at:
             status = (f"‖ Waiting for usage limit reset until {queue.next_retry_at:%H:%M}", "bold yellow")
         elif queue.status == QueueStatus.PAUSED_LIMIT:

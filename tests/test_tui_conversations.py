@@ -494,3 +494,20 @@ async def test_status_shows_next_scheduled_task(tmp_path, monkeypatch):
     async with app.run_test() as pilot:
         await pilot.pause()
         assert f"Next task at {at:%H:%M}" in str(app.screen.query_one("#conversation-status").render())
+
+
+@pytest.mark.asyncio
+async def test_status_line_for_usage_reserve(tmp_path, monkeypatch):
+    from datetime import datetime, timedelta
+    from ccc.models import QueueStatus
+
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    storage = Storage(tmp_path / "history.db")
+    q = storage.create_queue("a", "/tmp/a", "s-a")
+    at = (datetime.now() + timedelta(hours=1)).replace(second=0, microsecond=0)
+    storage.update_queue_status(q.id, QueueStatus.WAITING_RETRY, next_retry_at=at, last_error="usage reserve 80%")
+    app = await _open(storage)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        status = str(app.screen.query_one("#conversation-status").render())
+        assert "usage reserve (80%)" in status and at.strftime("%H:%M") in status

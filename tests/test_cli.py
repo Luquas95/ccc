@@ -88,3 +88,19 @@ def test_config_telegram_test_without_config_fails(tmp_path, monkeypatch, capsys
     with _pytest.raises(SystemExit):
         cli.main(["config", "telegram-test"])
     assert "telegram-token" in capsys.readouterr().err
+
+
+def test_config_usage_reserve(tmp_path, monkeypatch, capsys):
+    import pytest as _pytest
+    from ccc import cli
+
+    db_path = tmp_path / "history.db"
+    monkeypatch.setattr(cli, "default_db_path", lambda: db_path)
+    cli.main(["config", "usage-reserve"])
+    assert "off" in capsys.readouterr().out
+    cli.main(["config", "usage-reserve", "80"])
+    assert Storage(db_path).get_setting("usage_reserve") == "80"
+    cli.main(["config", "usage-reserve", "off"])
+    assert Storage(db_path).get_setting("usage_reserve") is None or Storage(db_path).get_setting("usage_reserve") == ""
+    with _pytest.raises(SystemExit):
+        cli.main(["config", "usage-reserve", "150"])

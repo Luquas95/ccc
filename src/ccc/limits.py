@@ -24,10 +24,11 @@ def _local(dt: datetime) -> datetime:
     return dt.astimezone().replace(tzinfo=None) if dt.tzinfo else dt
 
 
-def exhausted_until(usage: ProUsage | None, now: datetime) -> datetime | None:
-    """If any limit window is used up, when the last of them resets (plus
-    RESET_BUFFER); None when nothing is exhausted or usage is unknown."""
-    resets = [_local(w.resets_at) + RESET_BUFFER for w in _windows(usage) if w.utilization_pct >= 100]
+def exhausted_until(usage: ProUsage | None, now: datetime, threshold: float = 100) -> datetime | None:
+    """If any limit window is at or above `threshold` percent (100 = used
+    up; lower = the user's reserve), when the last of them resets (plus
+    RESET_BUFFER); None when none is, or usage is unknown."""
+    resets = [_local(w.resets_at) + RESET_BUFFER for w in _windows(usage) if w.utilization_pct >= threshold]
     resets = [r for r in resets if r > now]
     return max(resets) if resets else None
 

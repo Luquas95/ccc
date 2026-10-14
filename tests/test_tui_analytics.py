@@ -164,3 +164,28 @@ def test_build_usage_gauges_with_data():
     gauges = build_usage_gauges(usage)
     assert [g.label for g in gauges] == ["5-hour", "Weekly (all models)", "Weekly · Opus"]
     assert [g.percentage for g in gauges] == [30.0, 47.0, 62.0]
+
+
+@pytest.mark.asyncio
+async def test_analytics_shows_usage_reserve(tmp_path, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    from textual.app import App as _App
+
+    from ccc.tui.analytics import AnalyticsScreen
+    from ccc.usage_api import ProUsage, WindowUsage
+
+    usage = ProUsage(WindowUsage(10, datetime.now(timezone.utc) + timedelta(hours=1)), None, [])
+    monkeypatch.setattr("ccc.tui.analytics.get_pro_usage", lambda: usage)
+    storage = Storage(tmp_path / "h.db")
+    storage.set_setting("usage_reserve", "75")
+
+    class Host(_App):
+        async def on_mount(self):
+            await self.push_screen(AnalyticsScreen(storage))
+
+    app = Host()
+    async with app.run_test(size=(140, 50)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        assert "75%" in str(app.screen.query_one("#usage-reserve-note").render())

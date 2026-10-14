@@ -157,6 +157,19 @@ def start_conversation(
     )
 
 
+RESERVE_KEY = "usage_reserve"
+
+
+def usage_reserve(storage) -> int | None:
+    """The user's usage reserve threshold in percent, or None when off."""
+    raw = storage.get_setting(RESERVE_KEY)
+    try:
+        value = int(raw) if raw else None
+    except ValueError:
+        return None
+    return value if value is not None and 0 < value < 100 else None
+
+
 def permission_tool_flags(queue_id: int, db_path: str) -> list[str]:
     """Attach ccc's permission MCP server (see permission_mcp) so tool
     approvals wait for the user instead of being denied in -p mode."""
@@ -290,11 +303,19 @@ class QueueRuntime:
                     continue
 
             if queue.delivery_mode in (DeliveryMode.HEADLESS, DeliveryMode.REMOTE_CONTROL):
-                # Don't even start Claude while a limit window is used up.
-                until = exhausted_until(await asyncio.to_thread(get_pro_usage), datetime.now())
+                # Don't even start Claude while a limit window is used up —
+                # or above the reserve the user keeps for themselves.
+                usage = await asyncio.to_thread(get_pro_usage)
+                until = exhausted_until(usage, datetime.now())
                 if until is not None:
                     self._hold_for_limit(queue, until)
                     continue
+                reserve = usage_reserve(self.storage)
+                if reserve is not None:
+                    until = exhausted_until(usage, datetime.now(), threshold=reserve)
+                    if until is not None:
+                        self._hold_for_reserve(queue, until, reserve)
+                        continue
 
             item = self.storage.claim_next_pending_item(queue.id)
             if item is None:
@@ -318,6 +339,15 @@ class QueueRuntime:
     def _notify(self, text: str) -> None:
         if self.notifier is not None:
             self.notifier.notify(text)
+
+    def _hold_for_reserve(self, queue: Queue, until: datetime, reserve: int) -> None:
+        """Usage is above the user's reserve: wait for the window's reset
+        and carry on by itself (a preference, not a hard limit)."""
+        note = f"usage reserve {reserve}%"
+        already = queue.status == QueueStatus.WAITING_RETRY and queue.last_error == note
+        self.storage.update_queue_status(queue.id, QueueStatus.WAITING_RETRY, next_retry_at=until, last_error=note)
+        if not already:
+            self._notify(f"‖ {queue.name}: usage above your {reserve}% reserve — waiting until {until:%H:%M}.")
 
     def _hold_for_limit(self, queue: Queue, until: datetime) -> None:
         """Usage limit: wait for the reset by itself (auto-continue) or
