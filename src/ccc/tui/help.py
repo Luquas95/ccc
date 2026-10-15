@@ -29,8 +29,12 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("r", "Retry a blocked queue / resume one paused at a limit"),
         ("q", "Quit the viewer (same as Ctrl+Q)"),
     ]),
+    ("Live sessions", [
+        ("enter", "Send the selected session a prompt"),
+        ("r", "Reload the session list"),
+    ]),
     ("Conversations", [
-        ("r", "Retry / resume the selected conversation"),
+        ("r", "Retry the blocked conversation / resume one paused at a limit"),
         ("t", "Tasks editor (queue, schedule, pause, auto-continue)"),
         ("p", "Approve a tool call Claude is waiting on"),
         ("x", "Archive / restore"),
