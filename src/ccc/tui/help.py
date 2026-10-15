@@ -19,12 +19,15 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("n", "New conversation"),
         ("a", "Add a prompt (path prefilled)"),
         ("question_mark", "This help"),
+        ("ctrl+p", "Settings (theme, Telegram, queues, presets, backup)"),
+        ("ctrl+t", "Screenshot (SVG into ~/Documents/ccc-screenshots)"),
+        ("ctrl+q", "Quit the viewer (queued work keeps running)"),
         ("escape", "Back / close"),
     ]),
     ("Dashboard", [
         ("enter", "Open the queue detail"),
         ("r", "Retry a blocked queue / resume one paused at a limit"),
-        ("q", "Quit the viewer (queued work keeps running)"),
+        ("q", "Quit the viewer (same as Ctrl+Q)"),
     ]),
     ("Conversations", [
         ("r", "Retry / resume the selected conversation"),
@@ -56,11 +59,15 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
     ("Queue detail", [
         ("enter", "Show the run's commit diff"),
     ]),
+    ("Settings (Ctrl+P)", [
+        ("ctrl+s", "Save"),
+        ("escape", "Cancel (the theme goes back too)"),
+    ]),
 ]
 
 _PRETTY = {
     "question_mark": "?", "escape": "Esc", "enter": "Enter", "slash": "/", "delete": "Del",
-    "ctrl+d": "Ctrl+D", "ctrl+j": "Ctrl+J", "ctrl+s": "Ctrl+S", "ctrl+up": "Ctrl+↑", "ctrl+down": "Ctrl+↓",
+    "ctrl+d": "Ctrl+D", "ctrl+p": "Ctrl+P", "ctrl+t": "Ctrl+T", "ctrl+q": "Ctrl+Q", "ctrl+j": "Ctrl+J", "ctrl+s": "Ctrl+S", "ctrl+up": "Ctrl+↑", "ctrl+down": "Ctrl+↓",
 }
 
 

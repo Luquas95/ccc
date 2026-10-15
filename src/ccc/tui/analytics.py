@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 from rich.text import Text
+from textual.binding import Binding
 from textual.containers import Container, Horizontal, VerticalScroll
 from textual.widgets import DataTable, ProgressBar, Sparkline, Static
 
@@ -66,11 +67,19 @@ def build_model_token_bars(totals: list[tuple[str, int]]) -> list[ModelTokenBar]
     return [ModelTokenBar(model, tokens, (tokens / max_tokens) * 100) for model, tokens in totals]
 
 
+def last_days_series(daily: list[tuple[str, int]], days: int = 30, today: date | None = None) -> list[int]:
+    """One value per calendar day, oldest first, 0 for days without runs —
+    otherwise a single busy day would stretch over the whole chart."""
+    by_day = dict(daily)
+    today = today or date.today()
+    return [by_day.get((today - timedelta(days=n)).isoformat(), 0) for n in range(days - 1, -1, -1)]
+
+
 class AnalyticsScreen(SidebarScreen):
     VIEW = "analytics"
     SUB_TITLE = "Analytics"
 
-    BINDINGS = [("escape", "back", "Back")]
+    BINDINGS = [Binding("escape", "back", "Back", show=False)]
 
     DEFAULT_CSS = """
     AnalyticsScreen #analytics-scroll {
@@ -122,9 +131,8 @@ class AnalyticsScreen(SidebarScreen):
 
         await self._mount_model_usage_bars()
 
-        daily = self.storage.daily_token_totals()
         sparkline = self.query_one("#tokens-sparkline", Sparkline)
-        sparkline.data = [v for _, v in daily] or [0]
+        sparkline.data = last_days_series(self.storage.daily_token_totals())
 
         table = self.query_one("#analytics-project-table", DataTable)
         table.cursor_type = "row"
@@ -161,9 +169,9 @@ class AnalyticsScreen(SidebarScreen):
 
         reserve = usage_reserve(self.storage)
         note = (
-            f"Your reserve: queued tasks wait while a window is at or above {reserve}%  (ccc config usage-reserve)"
+            f"Your reserve: queued tasks wait while a window is at or above {reserve}%  (change in Settings, Ctrl+P)"
             if reserve
-            else "No usage reserve — queued tasks may use the whole limit  (ccc config usage-reserve 80)"
+            else "No usage reserve — queued tasks may use the whole limit  (set one in Settings, Ctrl+P)"
         )
         await container.mount(Static(note, id="usage-reserve-note", classes="muted"))
 

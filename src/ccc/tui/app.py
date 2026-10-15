@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+from datetime import datetime
+from pathlib import Path
+
 from textual.app import App
+from textual.binding import Binding
 
 from ccc.storage import Storage
 from ccc.tui.dashboard import DashboardScreen
+
+# Where Ctrl+T saves a screenshot of the screen (SVG).
+SCREENSHOT_DIR = Path.home() / "Documents" / "ccc-screenshots"
 
 
 class CCContinueApp(App):
@@ -14,12 +21,43 @@ class CCContinueApp(App):
     opened and closed freely (e.g. inside a tmux window over SSH) without
     affecting whether queued prompts keep running."""
 
+    # No command palette (and with it no Maximize / Minimize): what it
+    # offered — quit, screenshot, theme — lives in the footer and Settings.
+    ENABLE_COMMAND_PALETTE = False
+    ESCAPE_TO_MINIMIZE = False
+
+    BINDINGS = [
+        Binding("ctrl+p", "settings", "Settings", priority=True),
+        Binding("ctrl+t", "take_screenshot", "Screenshot", priority=True),
+        Binding("ctrl+q", "quit", "Quit", priority=True),
+    ]
+
     def __init__(self, db_path: str):
         super().__init__()
         self.storage = Storage(db_path)
 
     async def on_mount(self) -> None:
-        await self.push_screen(DashboardScreen(self.storage))
+        from ccc.tui.settings import saved_theme
+
+        theme = saved_theme(self.storage, self.available_themes)
+        if theme:
+            self.theme = theme
+        for screen in self.initial_screens():
+            await self.push_screen(screen)
+
+    def initial_screens(self) -> list:
+        return [DashboardScreen(self.storage)]
+
+    def action_settings(self) -> None:
+        from ccc.tui.settings import SettingsModal
+
+        if not isinstance(self.screen, SettingsModal):
+            self.push_screen(SettingsModal(self.storage))
+
+    def action_take_screenshot(self) -> None:
+        SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
+        path = self.save_screenshot(f"ccc-{datetime.now():%Y-%m-%d_%H-%M-%S}.svg", str(SCREENSHOT_DIR))
+        self.notify(path, title="Screenshot saved")
 
 
 def run_app(db_path: str) -> None:

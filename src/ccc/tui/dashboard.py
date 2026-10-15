@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from rich.text import Text
+from textual.binding import Binding
 from textual.widgets import DataTable, Static
 
 from ccc.models import QueueStatus
@@ -32,8 +33,9 @@ class DashboardScreen(SidebarScreen):
     SUB_TITLE = "Dashboard"
 
     BINDINGS = [
-        ("r", "retry_queue", "Retry blocked"),
-        ("q", "quit", "Quit"),
+        # Retry has its sidebar button; Ctrl+Q quits everywhere.
+        Binding("r", "retry_queue", "Retry blocked", show=False),
+        Binding("q", "quit", "Quit", show=False),
     ]
 
     def __init__(self, storage: Storage):

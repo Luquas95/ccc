@@ -26,6 +26,30 @@ phone via Remote Control.
 <td align="center">Approve a tool call Claude is waiting on</td>
 <td align="center">Dashboard: what is running, waiting, blocked</td>
 </tr>
+<tr>
+<td><img src="docs/screenshots/settings.png" alt="Settings"></td>
+<td><img src="docs/screenshots/analytics.png" alt="Analytics"></td>
+</tr>
+<tr>
+<td align="center">Settings: theme, Telegram, queues, presets, backup</td>
+<td align="center">Analytics: account usage and token history</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/sessions.png" alt="Live sessions"></td>
+<td><img src="docs/screenshots/queue_detail.png" alt="Queue detail"></td>
+</tr>
+<tr>
+<td align="center">Live sessions: every Claude Code session on the machine</td>
+<td align="center">Queue detail: run history with commits</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/add_prompt.png" alt="Add prompt"></td>
+<td><img src="docs/screenshots/help.png" alt="Keyboard shortcuts"></td>
+</tr>
+<tr>
+<td align="center">Add a prompt to any project</td>
+<td align="center"><code>?</code> lists every shortcut</td>
+</tr>
 </table>
 
 ## What it does
@@ -49,8 +73,14 @@ phone via Remote Control.
   hits a limit.
 - **Git** — each successful task is committed (in *Skip all permission
   checks* conversations), with a diff viewer.
+- **Live sessions** — see every Claude Code session running on the machine
+  and send a prompt into one of them once it's idle.
+- **Analytics** — the account's real 5-hour / weekly usage, tokens per
+  model, per day and per project.
+- **Settings** (`Ctrl+P`) — colour theme, Telegram, continue text, usage
+  reserve, launch presets and database backup in one window.
 - Search across conversations, Markdown export, archive/delete, daily
-  database backups, `?` shows every shortcut.
+  database backups, screenshots (`Ctrl+T`), `?` shows every shortcut.
 
 ## Requirements
 
@@ -101,8 +131,9 @@ journalctl --user -u ccc -f        # daemon log
    the options you want, *Start*.
 3. **Talk to Claude:** type in the box at the bottom, `Enter` sends
    (`Ctrl+J` for a new line). Add more tasks with `t`.
-4. Optional: set up [Telegram notifications](#telegram-notifications)
-   and a [usage reserve](#usage-limits-and-auto-continue).
+4. Optional: press `Ctrl+P` (Settings) to pick a colour theme, set up
+   [Telegram notifications](#telegram-notifications) and a
+   [usage reserve](#usage-limits-and-auto-continue).
 
 Press `?` anywhere for all keyboard shortcuts. You can also queue a
 prompt from the shell without opening the TUI:
@@ -111,84 +142,77 @@ prompt from the shell without opening the TUI:
 ~/ccc/.venv/bin/ccc add /path/to/project "do the thing"
 ```
 
-## Updating
+## Using the TUI
 
-```bash
-cd ~/ccc && git pull && bin/install.sh
-```
+Every screen shares one layout. The **left sidebar** has the daemon state,
+the list of screens (current one highlighted, each with its key, also
+clickable), the screen's own list where it has one (conversations), and
+coloured action buttons with their keys at the bottom. Content sits on
+the right in round-bordered panels. The **bottom bar** only lists what
+the sidebar doesn't already show: the current screen's own actions, plus
+`?` Keys, `Ctrl+Q` Quit, `Ctrl+P` Settings and `Ctrl+T` Screenshot.
 
-Your data (`~/.local/share/ccc/`: history, settings, backups) is kept.
+| Screen | Key | What it shows |
+|---|---|---|
+| Dashboard | `d` | every conversation with status, queued tasks, today's tokens; `Enter` opens its detail (settings, remote-control link, run history, commit diffs) |
+| Conversations | `c` | the transcript of the selected conversation and a message box to continue it |
+| Live sessions | `s` | Claude Code sessions running on this machine, also those started outside ccc; `Enter` sends one a prompt, `r` refreshes |
+| Analytics | `v` | account usage (5-hour, weekly, per model), tokens by model / day / project |
 
-## Uninstalling
+### Keyboard shortcuts
 
-```bash
-systemctl --user disable --now ccc ccc-tui
-rm ~/.config/systemd/user/ccc.service ~/.config/systemd/user/ccc-tui.service
-systemctl --user daemon-reload
-rm -rf ~/ccc                    # the checkout
-rm -rf ~/.local/share/ccc       # history, settings, backups (optional)
-```
+`?` on any screen shows this list too. Keys without `Ctrl` don't work while
+you're typing in a text field; `Ctrl` keys work everywhere.
 
-## Architecture: daemon vs. TUI
+| Where | Key | |
+|---|---|---|
+| everywhere | `d` `c` `s` `v` | switch screen |
+| | `n` | new conversation |
+| | `a` | add a prompt (path prefilled from the selected conversation) |
+| | `?` | all shortcuts |
+| | `Ctrl+P` | [Settings](#settings) |
+| | `Ctrl+T` | screenshot of the screen (SVG in `~/Documents/ccc-screenshots/`) |
+| | `Ctrl+Q` | quit the viewer — queued work keeps running in the daemon |
+| | `Esc` | back / close a window |
+| Dashboard | `Enter` | queue detail (there: `Enter` on a run shows its commit diff) |
+| | `r` | retry a blocked queue / resume one paused at a usage limit |
+| Conversations | `Enter` / `Ctrl+J` | send the message / new line |
+| | `r` | retry / resume |
+| | `t` | [task queue editor](#task-queue) |
+| | `p` | [approve a tool call](#approving-tool-calls) Claude is waiting on |
+| | `x` / `h` | archive or restore / show archived |
+| | `Ctrl+D` | delete the conversation (asks first) |
+| | `/` | search all conversations |
+| | `e` | export as Markdown to `~/Documents/ccc-exports/` |
 
-- **`ccc-daemon`** is the only thing that ever executes prompts.
-  It's a headless asyncio process — no TUI, no TTY needed — so it can run
-  as a real `systemd --user` service that survives SSH logout, crashes
-  (auto-restart), and reboots.
-- **`ccc`** (the TUI) is a pure viewer/editor: it reads and writes
-  the same SQLite database, but never runs a prompt itself. Open it in a
-  tmux window when you want to look at something or queue a prompt
-  interactively; close it any time — the daemon keeps working regardless.
-- Both talk to the same SQLite file, safely: `queue_items` are claimed
-  with an atomic `UPDATE ... RETURNING`, so even if you ran two daemons
-  by mistake, a prompt is never executed twice.
+### Settings
 
-Headless runs authenticate the same way as your interactive sessions
-(OAuth login, not a separate API key) and draw from the **same shared**
-5-hour/weekly Pro usage pool as every other Claude Code session on this
-machine — there is no separate billing path. The `cost_usd` figures in
-the analytics screen are Anthropic's list-price-equivalent for
-observability, not an extra charge.
+`Ctrl+P` opens one window with everything you can change, grouped into
+sections. Edit what you need, then `Ctrl+S` / *Save*; `Esc` / *Cancel*
+throws the changes away (the buttons *Send test message*, *Turn off*,
+*Delete preset* and *Back up now* act immediately).
 
-## Running notes
+- **Appearance** — colour theme. It changes as soon as you pick one, so
+  you see it right away; it's remembered after Save.
+- **Telegram notifications** — bot token (hidden; leave the field empty to
+  keep the saved one) and chat id, with how to get them. *Send test
+  message* tries the values in the form before you save; *Turn off*
+  clears both right away.
+- **Queues** — the continue text auto-continue sends after a usage limit
+  and the usage reserve (Off or 50–95 %), see
+  [Usage limits](#usage-limits-and-auto-continue).
+- **New-conversation presets** — delete presets saved in the New
+  conversation window.
+- **Data** — where the database and its backups are, when the last backup
+  was made, and *Back up now*.
 
-**The always-on TUI** runs in its own tmux server (`tmux -L ccc`), so it
-doesn't show up in plain `tmux ls`: attach with `bin/ccc-tmux.sh` or
-`tmux -L ccc attach -t ccc`. Quitting the TUI (`q`) just restarts it a
-second later; the daemon is unaffected either way. Using a separate tmux
-server is deliberate — if the unit started your default one, all your
-other tmux sessions would live in its cgroup and systemd-oomd killing it
-would take them all down. If the session dies anyway, the unit recreates
-it within ~5 s.
+The same values can be set from the shell with `ccc config …` (see below).
 
-**Encrypted home (ecryptfs):** linger alone isn't enough — the user
-systemd manager starts at boot, before login, while
-`~/.config/systemd/user/` is still unreadable, so the units silently never
-start. Start them at login instead, e.g. with an XFCE/GNOME autostart
-entry that runs:
+### Screenshots
 
-    systemctl --user daemon-reload
-    systemctl --user start ccc.service ccc-tui.service
-
-## Queueing prompts
-
-Without opening anything:
-
-    .venv/bin/ccc add /path/to/project "do the thing"
-
-Every TUI screen shares one layout (modelled on the conversations view):
-a left sidebar with the **Views** list (Dashboard / Conversations / Live
-sessions / Analytics — the current one highlighted, clickable), the
-screen's own list where it has one, and coloured action buttons at the
-bottom; content on the right sits in round-bordered panels.
-
-TUI keys (`?` on any screen lists them all), available on every screen: `d` dashboard, `c` conversations,
-`s` live sessions, `v` analytics, `n` new conversation, `a` add prompt
-(path prefilled from the selected queue). Plus: `Enter` open queue detail / attach to a session,
-`r` retry a blocked queue or resume one paused at a usage limit (daemon
-picks it back up within ~5s; on the sessions screen `r` refreshes
-instead), `t` task queue editor (conversations view), `Esc` back, `q` quit on the
-dashboard (just closes the viewer — queued work is unaffected).
+`Ctrl+T` saves what the TUI shows as an SVG file in
+`~/Documents/ccc-screenshots/` (open it in any browser); the notification
+shows the path.
 
 ### Two delivery modes
 
@@ -290,7 +314,8 @@ limit** (waiting until HH:MM) and later **continues**.
 2. Send your bot any message, then open
    `https://api.telegram.org/bot<TOKEN>/getUpdates` and copy
    `"chat":{"id": …}`.
-3. Configure and test:
+3. Fill both in [Settings](#settings) (`Ctrl+P`) and press *Send test
+   message*, then *Save*. Or from the shell:
 
        ccc config telegram-token <TOKEN>
        ccc config telegram-chat <CHAT_ID>
@@ -315,12 +340,12 @@ checkbox in the New conversation dialog, `o` in the Tasks editor).
   itself. **Off:** it stops in `paused_limit` and waits for you — press `r`
   or just send another message.
 - If the limit cut a message off after it had reached the conversation,
-  the retry sends a short continue message instead of repeating it:
-  `ccc config continue-text` shows it, `ccc config
-  continue-text "…"` changes it (default *Pokračuj tam, kde jsi skončil.*).
+  the retry sends a short continue message instead of repeating it
+  (default *Pokračuj tam, kde jsi skončil.*). Change it in Settings, or
+  with `ccc config continue-text "…"` (without a value it prints it).
 - Waiting survives daemon restarts (the reset time is stored).
-- **Usage reserve:** `ccc config usage-reserve 80` keeps the top of your
-  limit for yourself — queued tasks don't start while the 5-hour or weekly
+- **Usage reserve:** set in Settings, or `ccc config usage-reserve 80` —
+  keeps the top of your limit for yourself — queued tasks don't start while the 5-hour or weekly
   window is at or above 80%, and continue after that window resets (a
   running task finishes). `ccc config usage-reserve off` turns it off
   (default). The Analytics screen shows the current setting.
@@ -404,6 +429,81 @@ the screen is open, the currently-shown queue's transcript is re-checked
 every ~2s for new messages (e.g. from a live-terminal session someone is
 actively typing in).
 
+### Live sessions
+
+The Live sessions screen (`s`) lists every Claude Code session on the
+machine (`claude agents --json`) — also the ones you started in a terminal
+outside ccc — with its status and directory. `Enter` on one sends it a
+prompt in [live-terminal mode](#two-delivery-modes); `r` refreshes the
+list. ccc's Dashboard and Conversations only show conversations ccc
+manages; a session from the terminal appears there once you send it a
+prompt this way.
+
+### Analytics
+
+Analytics (`v`) shows the account's real usage windows (the same numbers
+the daemon uses to wait for resets) with their reset times and your usage
+reserve, then what ccc itself ran: tokens per model, a 30-day chart and a
+per-project table (successes, errors, rate-limited runs).
+
+## Command line
+
+The commands live in the checkout's virtualenv (`~/ccc/.venv/bin/`); add
+that to your `PATH` or call them with the full path.
+
+| Command | |
+|---|---|
+| `ccc` | open the TUI |
+| `ccc add <dir> "<prompt>"` | queue a prompt for that directory's conversation |
+| `ccc backup` | back up the database now |
+| `ccc config continue-text ["…"]` | show / set the continue message |
+| `ccc config usage-reserve [N\|off]` | show / set the usage reserve |
+| `ccc config telegram-token [TOKEN]` | show (masked) / set the bot token |
+| `ccc config telegram-chat [ID]` | show / set the chat id |
+| `ccc config telegram-test` | send a test notification |
+| `ccc-daemon` | the daemon (normally run by `ccc.service`) |
+
+## Architecture: daemon vs. TUI
+
+- **`ccc-daemon`** is the only thing that ever executes prompts.
+  It's a headless asyncio process — no TUI, no TTY needed — so it can run
+  as a real `systemd --user` service that survives SSH logout, crashes
+  (auto-restart), and reboots.
+- **`ccc`** (the TUI) is a pure viewer/editor: it reads and writes
+  the same SQLite database, but never runs a prompt itself. Open it in a
+  tmux window when you want to look at something or queue a prompt
+  interactively; close it any time — the daemon keeps working regardless.
+- Both talk to the same SQLite file, safely: `queue_items` are claimed
+  with an atomic `UPDATE ... RETURNING`, so even if you ran two daemons
+  by mistake, a prompt is never executed twice.
+
+Headless runs authenticate the same way as your interactive sessions
+(OAuth login, not a separate API key) and draw from the **same shared**
+5-hour/weekly Pro usage pool as every other Claude Code session on this
+machine — there is no separate billing path. The `cost_usd` figures in
+the analytics screen are Anthropic's list-price-equivalent for
+observability, not an extra charge.
+
+## Running notes
+
+**The always-on TUI** runs in its own tmux server (`tmux -L ccc`), so it
+doesn't show up in plain `tmux ls`: attach with `bin/ccc-tmux.sh` or
+`tmux -L ccc attach -t ccc`. Quitting the TUI (`Ctrl+Q`) just restarts it a
+second later; the daemon is unaffected either way. Using a separate tmux
+server is deliberate — if the unit started your default one, all your
+other tmux sessions would live in its cgroup and systemd-oomd killing it
+would take them all down. If the session dies anyway, the unit recreates
+it within ~5 s.
+
+**Encrypted home (ecryptfs):** linger alone isn't enough — the user
+systemd manager starts at boot, before login, while
+`~/.config/systemd/user/` is still unreadable, so the units silently never
+start. Start them at login instead, e.g. with an XFCE/GNOME autostart
+entry that runs:
+
+    systemctl --user daemon-reload
+    systemctl --user start ccc.service ccc-tui.service
+
 ## Reliability notes
 
 - A queue only blocks (`blocked_error`) on a genuine hard error (bad
@@ -422,8 +522,26 @@ The daemon backs up the database once a day (checked hourly) to
 `~/.local/share/ccc/backups/history-YYYY-MM-DD.db` using SQLite's online
 backup, so the copy is consistent while it runs; the newest 14 are kept,
 files are private (600) since they include settings such as the Telegram
-token. `ccc backup` makes one immediately. To restore: stop the services,
+token. *Back up now* in Settings or `ccc backup` makes one immediately. To restore: stop the services,
 copy a backup over `~/.local/share/ccc/history.db`, start them again.
+
+## Updating
+
+```bash
+cd ~/ccc && git pull && bin/install.sh
+```
+
+Your data (`~/.local/share/ccc/`: history, settings, backups) is kept.
+
+## Uninstalling
+
+```bash
+systemctl --user disable --now ccc ccc-tui
+rm ~/.config/systemd/user/ccc.service ~/.config/systemd/user/ccc-tui.service
+systemctl --user daemon-reload
+rm -rf ~/ccc                    # the checkout
+rm -rf ~/.local/share/ccc       # history, settings, backups (optional)
+```
 
 ## Tests
 
