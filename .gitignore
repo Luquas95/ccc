@@ -4,3 +4,5 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 *.db
+# monthly analytics archive (personal data, see analytics_archive.py)
+/analytics/

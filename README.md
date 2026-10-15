@@ -528,9 +528,10 @@ you delete.
 
 ### Monthly archive (Obsidian)
 
-The current month lives in ccc — Analytics (`v`). When a month ends, the
-daemon archives it once (it checks hourly) as Markdown notes, Obsidian-
-friendly without any plugins (Obsidian draws the charts itself):
+Optional, off by default. The current month lives in ccc — Analytics
+(`v`). With a folder set, the daemon archives each month once when it ends
+(it checks hourly) as Markdown notes, Obsidian-friendly without any
+plugins (Obsidian draws the charts itself):
 
 | Note | What's in it |
 |---|---|
@@ -538,10 +539,9 @@ friendly without any plugins (Obsidian draws the charts itself):
 | `2026-10.md` | a month: total, calendar (click a day), chart per day, by model, by conversation |
 | `2026-10-15.md` | a day with usage: total, by model, by conversation |
 
-The folder is `~/.local/share/ccc/analytics` (next to the database) unless
-you set another one — e.g. inside your vault — in Settings → *Monthly
-analytics archive* or with `ccc config analytics-folder PATH`
-(`default` resets it). *Archive finished months now* /
+Turn it on by setting a folder — e.g. inside your vault — in Settings →
+*Monthly analytics archive* or with `ccc config analytics-folder PATH`
+(`off` turns it off again). *Archive finished months now* /
 `ccc archive-analytics` archive missing months at once. An archived note
 isn't rewritten later (delete it and ccc writes it again); files ccc didn't
 make (no `generator: ccc` in their properties) are never touched. Each note
@@ -558,7 +558,7 @@ that to your `PATH` or call them with the full path.
 | `ccc add <dir> "<prompt>"` | queue a prompt for that directory's conversation |
 | `ccc backup` | back up the database now |
 | `ccc archive-analytics` | archive finished months into the analytics folder now |
-| `ccc config analytics-folder [PATH\|default]` | show / set / reset the folder of the monthly archive |
+| `ccc config analytics-folder [PATH\|off]` | show / set / turn off the monthly archive folder |
 | `ccc config continue-text ["…"]` | show / set the continue message |
 | `ccc config usage-reserve [N\|off]` | show / set the usage reserve |
 | `ccc config telegram-token [TOKEN]` | show (masked) / set the bot token |

@@ -47,10 +47,10 @@ def config_command(db_path: str, setting: str, value: str | None) -> None:
         from ccc.analytics_archive import FOLDER_KEY, configured_folder
 
         if value is None:
-            print(configured_folder(storage))
-        elif value.strip().lower() == "default":
+            print(configured_folder(storage) or "(off)")
+        elif value.strip().lower() == "off":
             storage.set_setting(FOLDER_KEY, "")
-            print(f"analytics-folder back to the default: {configured_folder(storage)}")
+            print("analytics-folder removed: monthly archive off.")
         else:
             folder = str(Path(value.strip()).expanduser().resolve())
             storage.set_setting(FOLDER_KEY, folder)
@@ -161,7 +161,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     webhook_parser.add_argument("value", nargs="?")
     archive_parser = config_sub.add_parser(
-        "analytics-folder", help="Folder for the monthly analytics archive (no value: show it; default: reset)"
+        "analytics-folder", help="Folder for the monthly analytics archive (no value: show it; off: stop archiving)"
     )
     archive_parser.add_argument("value", nargs="?")
     discord_test_parser = config_sub.add_parser("discord-test", help="Send a test notification to Discord")
@@ -174,6 +174,9 @@ def main(argv: list[str] | None = None) -> None:
 
         storage = Storage(str(default_db_path()))
         folder = configured_folder(storage)
+        if folder is None:
+            print("ccc: set `ccc config analytics-folder PATH` first", file=sys.stderr)
+            sys.exit(1)
         added = archive(storage, folder)
         months = ", ".join(f"{y:04d}-{m:02d}" for y, m in added) or "nothing new"
         print(f"Archived: {months} ({folder})")

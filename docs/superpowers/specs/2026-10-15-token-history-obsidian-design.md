@@ -25,8 +25,9 @@ export bez pluginů; složku zatím vytvořit v ccc, uživatel ji přesune do va
 
 ## 4. Měsíční archiv (Markdown pro Obsidian, bez pluginů)
 *Upraveno podle uživatele: aktuální historie je jen v ccc; do `.md` se ukládá až uzavřený měsíc.*
-- Složka `analytics` u dat ccc (`~/.local/share/ccc/analytics`), přenastavitelná v Settings →
-  *Monthly analytics archive* / `ccc config analytics-folder PATH|default`.
+- Ve výchozím stavu vypnuto (zatím jen pro uživatele): zapne se nastavením složky v Settings →
+  *Monthly analytics archive* / `ccc config analytics-folder PATH|off`. U uživatele
+  `/mnt/AI/DEV/ccc/analytics` (v `.gitignore`).
 - Démon jednou za hodinu archivuje každý **skončený** měsíc s daty, který ve složce ještě není:
   `YYYY-MM.md` + `YYYY-MM-DD.md` jeho dnů (zapisuje se jednou, později se nepřepisuje; smazaný
   soubor se zapíše znovu). `ccc_analytics.md` (úvodní: součet a graf archivovaných měsíců,

@@ -52,8 +52,8 @@ def test_archive_is_written_once_and_foreign_files_left_alone(tmp_path):
     assert archive(s, out, today=date(2026, 12, 1)) == [(2026, 10)]
 
 
-def test_default_folder_is_next_to_the_database(tmp_path):
+def test_archive_is_off_until_a_folder_is_set(tmp_path):
     s = Storage(tmp_path / "h.db")
-    assert configured_folder(s) == tmp_path / "analytics"
+    assert configured_folder(s) is None
     s.set_setting(FOLDER_KEY, str(tmp_path / "vault" / "ccc"))
     assert configured_folder(s) == tmp_path / "vault" / "ccc"

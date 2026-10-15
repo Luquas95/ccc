@@ -21,7 +21,7 @@ from ccc.notify import (
     send_discord,
     send_telegram,
 )
-from ccc.analytics_archive import FOLDER_KEY as ARCHIVE_FOLDER_KEY, archive, default_folder
+from ccc.analytics_archive import FOLDER_KEY as ARCHIVE_FOLDER_KEY, archive
 from ccc.orchestrator import DEFAULT_CONTINUE_TEXT, RESERVE_KEY, usage_reserve
 from ccc.presets import delete_preset, list_presets
 from ccc.prompt_presets import MAX_PRESETS, load_prompt_presets, save_prompt_presets
@@ -231,12 +231,12 @@ class SettingsModal(ModalScreen):
         )
         archive_box = _section(
             "Monthly analytics archive",
-            _row("Folder", Input(s.get_setting(ARCHIVE_FOLDER_KEY) or "", placeholder=f"default: {default_folder(s)}",
+            _row("Folder", Input(s.get_setting(ARCHIVE_FOLDER_KEY) or "", placeholder="empty = off, e.g. ~/Documents/ccc_analytics",
                                  id="settings-archive-folder")),
             Static(
                 "The current month is here in Analytics (v). When a month ends, ccc archives it into this\n"
                 "folder as Markdown notes for Obsidian (no plugins): ccc_analytics.md with all months, one\n"
-                "note per month with a calendar and charts, one per day. Empty = the default folder.",
+                "note per month with a calendar and charts, one per day. Empty = no archive.",
                 classes="settings-hint",
             ),
             Horizontal(
@@ -465,8 +465,11 @@ class SettingsModal(ModalScreen):
         return str(Path(raw).expanduser()) if raw else ""
 
     def _archive_now(self) -> None:
-        folder = Path(self._archive_folder_value() or default_folder(self.storage))
         result = self.query_one("#archive-result", Static)
+        if not self._archive_folder_value():
+            result.update(Text("Fill in a folder first.", style="yellow"))
+            return
+        folder = Path(self._archive_folder_value())
         try:
             added = archive(self.storage, folder)
         except OSError as exc:

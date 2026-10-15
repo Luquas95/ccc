@@ -1,10 +1,10 @@
 """Monthly archive of the token history as Markdown notes (Obsidian-friendly,
 no plugins needed).
 
-The current month lives only in ccc (Analytics). When a month is over, the
-daemon archives it — once — into the analytics folder (default
-`~/.local/share/ccc/analytics`, next to the database; Settings can point it
-into an Obsidian vault):
+Off unless a folder is set (Settings → Monthly analytics archive, or
+`ccc config analytics-folder PATH`). The current month lives only in ccc
+(Analytics). When a month is over, the daemon archives it — once — into
+that folder:
 
 - `YYYY-MM.md` — the month: total, calendar with links to the days, chart per
   day, by model and by conversation,
@@ -213,10 +213,7 @@ def archive(storage, folder: str | Path, today: date | None = None) -> list[tupl
     return added
 
 
-def default_folder(storage) -> Path:
-    return Path(storage.db_path).parent / "analytics"
-
-
-def configured_folder(storage) -> Path:
+def configured_folder(storage) -> Path | None:
+    """The archive folder, or None when archiving is off (the default)."""
     folder = (storage.get_setting(FOLDER_KEY) or "").strip()
-    return Path(folder).expanduser() if folder else default_folder(storage)
+    return Path(folder).expanduser() if folder else None

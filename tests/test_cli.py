@@ -138,17 +138,19 @@ def test_config_discord(tmp_path, monkeypatch, capsys):
 
 
 def test_analytics_folder_and_archive(tmp_path, monkeypatch, capsys):
+    import pytest as _pytest
     from ccc import cli
 
     db_path = tmp_path / "history.db"
     monkeypatch.setattr(cli, "default_db_path", lambda: db_path)
-    cli.main(["archive-analytics"])  # default folder next to the database
-    assert (tmp_path / "analytics" / "ccc_analytics.md").exists()
+    with _pytest.raises(SystemExit):
+        cli.main(["archive-analytics"])  # off until a folder is set
+    assert not (tmp_path / "analytics").exists()
     out = tmp_path / "vault"
     cli.main(["config", "analytics-folder", str(out)])
     cli.main(["archive-analytics"])
     assert (out / "ccc_analytics.md").exists()
-    cli.main(["config", "analytics-folder", "default"])
+    cli.main(["config", "analytics-folder", "off"])
     capsys.readouterr()
     cli.main(["config", "analytics-folder"])
-    assert str(tmp_path / "analytics") in capsys.readouterr().out
+    assert "(off)" in capsys.readouterr().out

@@ -52,11 +52,11 @@ async def usage_loop(storage: Storage, interval: float = USAGE_POLL_SECONDS) -> 
 
 
 async def archive_loop(storage: Storage, interval: float = ARCHIVE_CHECK_SECONDS) -> None:
-    """Hourly: archive months that have ended into the analytics folder."""
+    """Hourly: archive months that have ended, when a folder is set."""
     while True:
         try:
             folder = configured_folder(storage)
-            added = await asyncio.to_thread(archive, storage, folder)
+            added = await asyncio.to_thread(archive, storage, folder) if folder else []
             for year, month in added:
                 logger.info("Analytics: %04d-%02d archived to %s", year, month, folder)
         except Exception:

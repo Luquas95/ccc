@@ -231,8 +231,8 @@ async def test_archive_folder_saved_and_archive_now(tmp_path):
     folder = tmp_path / "vault" / "ccc_analytics"
     async with app.run_test(size=(140, 45)) as pilot:
         modal = await _open_settings(pilot, app)
-        modal._archive_now()  # empty field: the default folder next to the database
-        assert (tmp_path / "analytics" / "ccc_analytics.md").exists()
+        modal._archive_now()  # empty field: archive is off, nothing written
+        assert not (tmp_path / "analytics").exists()
         modal.query_one("#settings-archive-folder", Input).value = str(folder)
         modal._archive_now()
         assert (folder / "ccc_analytics.md").exists()
