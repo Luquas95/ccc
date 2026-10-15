@@ -236,6 +236,11 @@ conversation with `Alt+1` … `Alt+9` (works while you're typing too).
     so you can finish it (e.g. add a file name) and send with Enter.
 - Without presets the bar is hidden; `Alt+N` without a preset just tells
   you so.
+- Most terminals (tmux, Termux, …) send `Alt+N` as the character macOS
+  types for Option+N (`Alt+6` = `§`). While you type in the message box,
+  such a character is typed normally when there's no preset on that
+  number — but with 6 or more presets, `§` (a plain key on the Czech
+  keyboard) runs preset 6.
 
 ![Preset prompt editor](docs/screenshots/prompt_preset.png)
 

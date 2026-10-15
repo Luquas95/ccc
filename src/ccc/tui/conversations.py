@@ -23,7 +23,7 @@ from ccc.tui.layout import (
     queue_label,
 )
 from ccc.tui.message_box import MessageBox
-from ccc.tui.prompt_presets import bar_item
+from ccc.tui.prompt_presets import ALT_DIGIT_CHARS, ALT_DIGIT_TEXT, bar_item
 
 
 # Where `e` writes a conversation exported as Markdown.
@@ -51,6 +51,8 @@ class ConversationsScreen(SidebarScreen):
         ("p", "approve", "Approve"),
         # Preset prompts (Settings); priority so they work while typing.
         *[Binding(f"alt+{n}", f"prompt_preset({n})", f"Preset {n}", show=False, priority=True) for n in range(1, 10)],
+        *[Binding(ALT_DIGIT_CHARS[n], f"prompt_preset({n}, True)", f"Preset {n}", show=False, priority=True)
+          for n in range(1, 10)],
     ]
 
     # Sidebar frame/buttons come from SidebarScreen (layout.SHARED_CSS);
@@ -457,13 +459,18 @@ class ConversationsScreen(SidebarScreen):
         if widget is not None and widget.has_class("prompt-preset-item") and widget.id:
             await self.action_prompt_preset(int(widget.id.removeprefix("prompt-preset-")))
 
-    async def action_prompt_preset(self, number: int) -> None:
+    async def action_prompt_preset(self, number: int, as_character: bool = False) -> None:
         presets = load_prompt_presets(self.storage)
+        box = self.query_one("#message-input", MessageBox)
+        if number > len(presets) and as_character and box.has_focus:
+            # No preset there: it was most likely a real "§" (Czech keyboard)
+            # or "•" being typed — type it.
+            box.insert(ALT_DIGIT_TEXT[number])
+            return
         if number > len(presets):
             self.notify(f"No preset on Alt+{number} — add one in Settings (Ctrl+P).", severity="warning")
             return
         preset = presets[number - 1]
-        box = self.query_one("#message-input", MessageBox)
         if not preset.send_now:
             box.insert(preset.text)
             box.focus()

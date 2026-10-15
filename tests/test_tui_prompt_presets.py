@@ -74,6 +74,19 @@ async def test_insert_preset_goes_to_cursor_and_is_not_sent(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_alt_digit_as_sent_by_tmux_and_termux_works(tmp_path):
+    # Esc+1 arrives as "¡" (Textual's mapping), not as "alt+1".
+    app, qid = _app(tmp_path, PRESETS)
+    async with app.run_test(size=(140, 45)) as pilot:
+        screen = await _conversations(pilot, app)
+        screen.query_one("#message-input", MessageBox).focus()
+        await pilot.press("¡")
+        await pilot.pause()
+        assert _pending_texts(app.storage, qid) == ["Pokračuj."]
+        assert screen.query_one("#message-input", MessageBox).text == ""
+
+
+@pytest.mark.asyncio
 async def test_send_preset_queues_it_and_keeps_the_draft(tmp_path):
     app, qid = _app(tmp_path, PRESETS)
     async with app.run_test(size=(140, 45)) as pilot:
@@ -190,3 +203,17 @@ async def test_bar_updates_after_settings_save(tmp_path):
         await pilot.pause()
         bar = screen.query_one("#prompt-presets-bar")
         assert bar.display and [str(w.render()) for w in bar.query(".prompt-preset-item")] == ["Alt+1 ✎ New"]
+
+
+@pytest.mark.asyncio
+async def test_section_sign_is_typed_when_no_preset_on_6(tmp_path):
+    # "§" is a plain key on the Czech keyboard and also what Alt+6 becomes.
+    app, qid = _app(tmp_path, PRESETS)
+    async with app.run_test(size=(140, 45)) as pilot:
+        screen = await _conversations(pilot, app)
+        box = screen.query_one("#message-input", MessageBox)
+        box.focus()
+        await pilot.press("§")
+        await pilot.pause()
+        assert box.text == "§"
+        assert _pending_texts(app.storage, qid) == []

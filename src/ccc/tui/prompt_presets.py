@@ -11,6 +11,16 @@ from textual.widgets import Checkbox, Input, Static, TextArea
 from ccc.prompt_presets import PromptPreset
 from ccc.tui.layout import MODAL_CSS
 
+# Most terminals (and tmux, Termux) send Alt+digit as Esc+digit, which
+# Textual turns into the character macOS Option+digit types ("\x1b1" -> "¡");
+# only terminals with the kitty keyboard protocol report a real "alt+1".
+ALT_DIGIT_CHARS = {
+    1: "inverted_exclamation_mark", 2: "trade_mark_sign", 3: "pound_sign", 4: "cent_sign", 5: "infinity",
+    6: "section_sign", 7: "pilcrow_sign", 8: "bullet", 9: "ª",
+}
+# The characters themselves, typed when there's no preset on that number.
+ALT_DIGIT_TEXT = {1: "¡", 2: "™", 3: "£", 4: "¢", 5: "∞", 6: "§", 7: "¶", 8: "•", 9: "ª"}
+
 SEND_MARK = "⏎"
 INSERT_MARK = "✎"
 

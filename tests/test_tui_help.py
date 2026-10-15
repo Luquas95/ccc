@@ -3,6 +3,7 @@ from textual.app import App
 
 from ccc.storage import Storage
 from ccc.tui.conversations import ConversationsScreen
+from ccc.tui.prompt_presets import ALT_DIGIT_CHARS
 from ccc.tui.dashboard import DashboardScreen
 from ccc.tui.help import KEY_HELP, KeyHelpModal
 from ccc.tui.tasks import TasksModal
@@ -25,7 +26,8 @@ def _documented(section):
 
 @pytest.mark.parametrize("section,cls,ignore", [
     ("Everywhere", DashboardScreen, {"r", "q", "enter"}),
-    ("Conversations", ConversationsScreen, {"d", "c", "s", "v", "a", "n", "question_mark"}),
+    # Alt+digit as it arrives through most terminals — documented as alt+N.
+    ("Conversations", ConversationsScreen, {"d", "c", "s", "v", "a", "n", "question_mark", *ALT_DIGIT_CHARS.values()}),
     ("Tasks editor (t)", TasksModal, set()),
 ])
 def test_help_lists_every_binding(section, cls, ignore):
