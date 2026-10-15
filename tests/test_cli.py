@@ -137,19 +137,18 @@ def test_config_discord(tmp_path, monkeypatch, capsys):
         cli.main(["config", "discord-test"])
 
 
-def test_obsidian_folder_and_export(tmp_path, monkeypatch, capsys):
-    import pytest as _pytest
+def test_analytics_folder_and_archive(tmp_path, monkeypatch, capsys):
     from ccc import cli
 
     db_path = tmp_path / "history.db"
     monkeypatch.setattr(cli, "default_db_path", lambda: db_path)
-    with _pytest.raises(SystemExit):
-        cli.main(["export-obsidian"])
-    out = tmp_path / "notes"
-    cli.main(["config", "obsidian-folder", str(out)])
-    cli.main(["export-obsidian"])
+    cli.main(["archive-analytics"])  # default folder next to the database
+    assert (tmp_path / "analytics" / "ccc_analytics.md").exists()
+    out = tmp_path / "vault"
+    cli.main(["config", "analytics-folder", str(out)])
+    cli.main(["archive-analytics"])
     assert (out / "ccc_analytics.md").exists()
-    cli.main(["config", "obsidian-folder", "off"])
+    cli.main(["config", "analytics-folder", "default"])
     capsys.readouterr()
-    cli.main(["config", "obsidian-folder"])
-    assert "(not set)" in capsys.readouterr().out
+    cli.main(["config", "analytics-folder"])
+    assert str(tmp_path / "analytics") in capsys.readouterr().out

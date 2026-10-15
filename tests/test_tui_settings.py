@@ -224,17 +224,17 @@ async def test_discord_test_and_turn_off(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_obsidian_folder_saved_and_export_now(tmp_path):
-    from ccc.obsidian_export import FOLDER_KEY
+async def test_archive_folder_saved_and_archive_now(tmp_path):
+    from ccc.analytics_archive import FOLDER_KEY
 
     app = _app(tmp_path)
     folder = tmp_path / "vault" / "ccc_analytics"
     async with app.run_test(size=(140, 45)) as pilot:
         modal = await _open_settings(pilot, app)
-        modal._obsidian_export()  # nothing filled in: no files
-        assert not folder.exists()
-        modal.query_one("#settings-obsidian-folder", Input).value = str(folder)
-        modal._obsidian_export()
+        modal._archive_now()  # empty field: the default folder next to the database
+        assert (tmp_path / "analytics" / "ccc_analytics.md").exists()
+        modal.query_one("#settings-archive-folder", Input).value = str(folder)
+        modal._archive_now()
         assert (folder / "ccc_analytics.md").exists()
         await pilot.press("ctrl+s")
         await pilot.pause()

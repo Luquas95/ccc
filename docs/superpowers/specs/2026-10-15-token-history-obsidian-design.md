@@ -23,18 +23,15 @@ export bez pluginů; složku zatím vytvořit v ccc, uživatel ji přesune do va
   měsíc (výchozí aktuální), `←`/`→` přepíná měsíc; v titulku měsíc a součet.
 - Graf: jeden sloupec na den měsíce. Smazané konverzace v tabulce s „(deleted)“.
 
-## 4. Export do Obsidianu (bez pluginů)
-- Složka z nastavení `obsidian_folder` (Settings → *Obsidian export*, `ccc config
-  obsidian-folder PATH|off`); prázdné = vypnuto. Ruční export `ccc export-obsidian` a tlačítko
-  *Export now*; démon exportuje každých 5 min.
-- Soubory (přepisují se jen při změně obsahu):
-  - `ccc_analytics.md` — úvodní: celkem, tabulka měsíců s odkazy, Mermaid graf po měsících,
-    kalendář aktuálního měsíce s odkazy na dny.
-  - `YYYY-MM.md` — součet, kalendář (dny s daty jako `[[YYYY-MM-DD|15]]` + tokeny), Mermaid
-    `xychart-beta` po dnech, tabulky podle modelů a konverzací.
-  - `YYYY-MM-DD.md` — jen dny s daty: součet, podle modelů, podle konverzací, odkaz na měsíc.
-  - Frontmatter s čísly (`tokens`, `date`/`month`), aby šly filtrovat ve vlastnostech Obsidianu.
-- Soubory, které ccc nevytvořil, nemaže ani nepřepisuje.
+## 4. Měsíční archiv (Markdown pro Obsidian, bez pluginů)
+*Upraveno podle uživatele: aktuální historie je jen v ccc; do `.md` se ukládá až uzavřený měsíc.*
+- Složka `analytics` u dat ccc (`~/.local/share/ccc/analytics`), přenastavitelná v Settings →
+  *Monthly analytics archive* / `ccc config analytics-folder PATH|default`.
+- Démon jednou za hodinu archivuje každý **skončený** měsíc s daty, který ve složce ještě není:
+  `YYYY-MM.md` + `YYYY-MM-DD.md` jeho dnů (zapisuje se jednou, později se nepřepisuje; smazaný
+  soubor se zapíše znovu). `ccc_analytics.md` (úvodní: součet a graf archivovaných měsíců,
+  odkazy) se přepíše, když přibude měsíc. Ruční `ccc archive-analytics` / tlačítko v Settings.
+- Frontmatter `generator: ccc`; soubory bez něj se nepřepisují.
 
 ## Testy
 Mazání (texty pryč, tokeny zůstávají, název v deleted_queues), token_entries / month_stats,

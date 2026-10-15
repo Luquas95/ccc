@@ -43,19 +43,18 @@ def config_command(db_path: str, setting: str, value: str | None) -> None:
             print("ccc: sending failed — check the token and chat id", file=sys.stderr)
             sys.exit(1)
         return
-    if setting == "obsidian-folder":
-        from ccc.obsidian_export import FOLDER_KEY
+    if setting == "analytics-folder":
+        from ccc.analytics_archive import FOLDER_KEY, configured_folder
 
         if value is None:
-            print(storage.get_setting(FOLDER_KEY) or "(not set)")
-        elif value.strip().lower() in ("off", "none"):
+            print(configured_folder(storage))
+        elif value.strip().lower() == "default":
             storage.set_setting(FOLDER_KEY, "")
-            print("obsidian-folder removed: no more export.")
+            print(f"analytics-folder back to the default: {configured_folder(storage)}")
         else:
             folder = str(Path(value.strip()).expanduser().resolve())
             storage.set_setting(FOLDER_KEY, folder)
-            print(f"obsidian-folder set to {folder} — the daemon exports there every 5 minutes "
-                  "(`ccc export-obsidian` does it now).")
+            print(f"analytics-folder set to {folder} — finished months are archived there.")
         return
     if setting == "discord-test":
         notifier = Notifier(storage)
@@ -136,7 +135,9 @@ def main(argv: list[str] | None = None) -> None:
     add_parser.add_argument("prompt")
 
     subparsers.add_parser("backup", help="Back up the ccc database now (the daemon also does it daily)")
-    subparsers.add_parser("export-obsidian", help="Write the token history notes into the Obsidian folder now")
+    subparsers.add_parser(
+        "archive-analytics", help="Archive finished months into the analytics folder now (the daemon does it hourly)"
+    )
 
     config_parser = subparsers.add_parser("config", help="Show or change ccc settings")
     config_sub = config_parser.add_subparsers(dest="setting", required=True)
@@ -159,25 +160,23 @@ def main(argv: list[str] | None = None) -> None:
         "discord-webhook", help="Discord channel webhook URL for notifications (no value: show it masked; off: remove)"
     )
     webhook_parser.add_argument("value", nargs="?")
-    obsidian_parser = config_sub.add_parser(
-        "obsidian-folder", help="Folder for the token history notes for Obsidian (no value: show it; off: stop)"
+    archive_parser = config_sub.add_parser(
+        "analytics-folder", help="Folder for the monthly analytics archive (no value: show it; default: reset)"
     )
-    obsidian_parser.add_argument("value", nargs="?")
+    archive_parser.add_argument("value", nargs="?")
     discord_test_parser = config_sub.add_parser("discord-test", help="Send a test notification to Discord")
     discord_test_parser.set_defaults(value=None)
 
     args = parser.parse_args(argv)
 
-    if args.command == "export-obsidian":
-        from ccc.obsidian_export import configured_folder, export
+    if args.command == "archive-analytics":
+        from ccc.analytics_archive import archive, configured_folder
 
         storage = Storage(str(default_db_path()))
         folder = configured_folder(storage)
-        if not folder:
-            print("ccc: set `ccc config obsidian-folder PATH` first", file=sys.stderr)
-            sys.exit(1)
-        written = export(storage, folder)
-        print(f"{written} note(s) updated in {folder}")
+        added = archive(storage, folder)
+        months = ", ".join(f"{y:04d}-{m:02d}" for y, m in added) or "nothing new"
+        print(f"Archived: {months} ({folder})")
         return
 
     if args.command == "backup":

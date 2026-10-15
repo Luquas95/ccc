@@ -77,7 +77,7 @@ phone via Remote Control.
   and send a prompt into one of them once it's idle.
 - **Analytics** — the account's real 5-hour / weekly usage; tokens per
   calendar month by day, model and conversation, history kept for good —
-  also as [Markdown notes for Obsidian](#token-history-in-obsidian) with
+  also as [monthly archive of Markdown notes for Obsidian](#monthly-archive-obsidian) with
   a calendar and charts.
 - **Preset prompts** — prompts you use often, on `Alt+1` … `Alt+9` in any
   conversation: each one is either sent right away or put into the message
@@ -217,8 +217,8 @@ throws the changes away, preset prompt edits included (the buttons *Send test me
   [Preset prompts](#preset-prompts).
 - **New-conversation presets** — delete presets saved in the New
   conversation window.
-- **Obsidian export** — the folder for the [token history
-  notes](#token-history-in-obsidian), *Export now*.
+- **Monthly analytics archive** — the folder of the [monthly
+  archive](#monthly-archive-obsidian), *Archive finished months now*.
 - **Data** — where the database and its backups are, when the last backup
   was made, and *Back up now*.
 
@@ -477,7 +477,7 @@ In the conversations view: `x` archives the selected conversation (hidden
 from the lists, still processed; `h` shows archived ones, `x` again
 restores), `Ctrl+D` deletes it after confirmation — its queued tasks and the texts
 of its runs go, its token numbers stay in the history (Analytics and the
-Obsidian notes show it as *deleted*), Claude Code's own transcript stays (so it can still be
+archive show it as *deleted*), Claude Code's own transcript stays (so it can still be
 picked under *Resume selected…*). A conversation Claude is working on
 can't be deleted until it finishes or you pause it.
 
@@ -526,24 +526,26 @@ and the replies of remote-control conversations; sessions started outside
 ccc aren't counted. The history is kept for good — also for conversations
 you delete.
 
-### Token history in Obsidian
+### Monthly archive (Obsidian)
 
-ccc can write the token history as Markdown notes into a folder of your
-Obsidian vault — no plugins needed (Obsidian draws the charts itself):
+The current month lives in ccc — Analytics (`v`). When a month ends, the
+daemon archives it once (it checks hourly) as Markdown notes, Obsidian-
+friendly without any plugins (Obsidian draws the charts itself):
 
 | Note | What's in it |
 |---|---|
-| `ccc_analytics.md` | start page: total, this month's calendar (click a day), all months with links, chart per month |
-| `2026-10.md` | a month: total, calendar, chart per day, by model, by conversation |
+| `ccc_analytics.md` | start page: total of the archived months, all months with links, chart per month |
+| `2026-10.md` | a month: total, calendar (click a day), chart per day, by model, by conversation |
 | `2026-10-15.md` | a day with usage: total, by model, by conversation |
 
-Set the folder in Settings → *Obsidian export* (or `ccc config
-obsidian-folder ~/path/to/vault/ccc_analytics`); *Export now* /
-`ccc export-obsidian` write the notes at once, then the daemon keeps them
-up to date every 5 minutes. The numbers live in the ccc database — the
-notes are a view: ccc overwrites notes it made (they carry `generator: ccc`
-in their properties) and never touches any other file. Each note also has
-its numbers as properties (`tokens`, `date` / `month`).
+The folder is `~/.local/share/ccc/analytics` (next to the database) unless
+you set another one — e.g. inside your vault — in Settings → *Monthly
+analytics archive* or with `ccc config analytics-folder PATH`
+(`default` resets it). *Archive finished months now* /
+`ccc archive-analytics` archive missing months at once. An archived note
+isn't rewritten later (delete it and ccc writes it again); files ccc didn't
+make (no `generator: ccc` in their properties) are never touched. Each note
+has its numbers as properties (`tokens`, `date` / `month`).
 
 ## Command line
 
@@ -555,8 +557,8 @@ that to your `PATH` or call them with the full path.
 | `ccc` | open the TUI |
 | `ccc add <dir> "<prompt>"` | queue a prompt for that directory's conversation |
 | `ccc backup` | back up the database now |
-| `ccc export-obsidian` | write the token history notes into the Obsidian folder now |
-| `ccc config obsidian-folder [PATH\|off]` | show / set / clear the folder for the Obsidian notes |
+| `ccc archive-analytics` | archive finished months into the analytics folder now |
+| `ccc config analytics-folder [PATH\|default]` | show / set / reset the folder of the monthly archive |
 | `ccc config continue-text ["…"]` | show / set the continue message |
 | `ccc config usage-reserve [N\|off]` | show / set the usage reserve |
 | `ccc config telegram-token [TOKEN]` | show (masked) / set the bot token |

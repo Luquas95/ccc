@@ -7,7 +7,7 @@ import signal
 from ccc.backup import daily_backup, default_backup_dir
 from ccc.heartbeat import HEARTBEAT_SECONDS, beat
 from ccc.notify import Notifier
-from ccc.obsidian_export import EXPORT_INTERVAL_SECONDS, configured_folder, export
+from ccc.analytics_archive import ARCHIVE_CHECK_SECONDS, archive, configured_folder
 from ccc.orchestrator import Orchestrator, RunFn
 from ccc.runner import execute
 from ccc.session_usage import USAGE_POLL_SECONDS, UsageCollector
@@ -51,17 +51,16 @@ async def usage_loop(storage: Storage, interval: float = USAGE_POLL_SECONDS) -> 
         await asyncio.sleep(interval)
 
 
-async def obsidian_loop(storage: Storage, interval: float = EXPORT_INTERVAL_SECONDS) -> None:
-    """Token history as Markdown notes for Obsidian, when a folder is set."""
+async def archive_loop(storage: Storage, interval: float = ARCHIVE_CHECK_SECONDS) -> None:
+    """Hourly: archive months that have ended into the analytics folder."""
     while True:
-        folder = configured_folder(storage)
-        if folder:
-            try:
-                written = await asyncio.to_thread(export, storage, folder)
-                if written:
-                    logger.info("Obsidian export: %d note(s) updated in %s", written, folder)
-            except Exception:
-                logger.exception("Obsidian export failed")
+        try:
+            folder = configured_folder(storage)
+            added = await asyncio.to_thread(archive, storage, folder)
+            for year, month in added:
+                logger.info("Analytics: %04d-%02d archived to %s", year, month, folder)
+        except Exception:
+            logger.exception("archiving analytics failed")
         await asyncio.sleep(interval)
 
 
@@ -79,13 +78,13 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     heartbeat = asyncio.create_task(heartbeat_loop(storage))
     backups = asyncio.create_task(backup_loop(db_path, default_backup_dir(db_path)))
     usage = asyncio.create_task(usage_loop(storage))
-    obsidian = asyncio.create_task(obsidian_loop(storage))
+    archives = asyncio.create_task(archive_loop(storage))
     await stop_event.wait()
     logger.info("ccc daemon shutting down")
     heartbeat.cancel()
     backups.cancel()
     usage.cancel()
-    obsidian.cancel()
+    archives.cancel()
     await orchestrator.stop_all()
 
 

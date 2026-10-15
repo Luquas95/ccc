@@ -21,7 +21,7 @@ from ccc.notify import (
     send_discord,
     send_telegram,
 )
-from ccc.obsidian_export import FOLDER_KEY as OBSIDIAN_FOLDER_KEY, export as obsidian_export
+from ccc.analytics_archive import FOLDER_KEY as ARCHIVE_FOLDER_KEY, archive, default_folder
 from ccc.orchestrator import DEFAULT_CONTINUE_TEXT, RESERVE_KEY, usage_reserve
 from ccc.presets import delete_preset, list_presets
 from ccc.prompt_presets import MAX_PRESETS, load_prompt_presets, save_prompt_presets
@@ -229,19 +229,19 @@ class SettingsModal(ModalScreen):
             Horizontal(Button("Delete preset", id="settings-preset-delete", classes="settings-danger",
                               disabled=not presets), classes="settings-actions"),
         )
-        obsidian = _section(
-            "Obsidian export",
-            _row("Folder", Input(s.get_setting(OBSIDIAN_FOLDER_KEY) or "", placeholder="empty = off, e.g. ~/Documents/ccc_analytics",
-                                 id="settings-obsidian-folder")),
+        archive_box = _section(
+            "Monthly analytics archive",
+            _row("Folder", Input(s.get_setting(ARCHIVE_FOLDER_KEY) or "", placeholder=f"default: {default_folder(s)}",
+                                 id="settings-archive-folder")),
             Static(
-                "Token history as Markdown notes: ccc_analytics.md (start page with calendar and months),\n"
-                "one note per month and per day — no plugins needed. Point it at a folder in your vault;\n"
-                "the daemon updates it every 5 minutes. Notes made by ccc are overwritten, others never.",
+                "The current month is here in Analytics (v). When a month ends, ccc archives it into this\n"
+                "folder as Markdown notes for Obsidian (no plugins): ccc_analytics.md with all months, one\n"
+                "note per month with a calendar and charts, one per day. Empty = the default folder.",
                 classes="settings-hint",
             ),
             Horizontal(
-                Button("Export now", id="settings-obsidian-export"),
-                Static("", id="obsidian-export-result", classes="settings-status"),
+                Button("Archive finished months now", id="settings-archive-now"),
+                Static("", id="archive-result", classes="settings-status"),
                 classes="settings-actions",
             ),
         )
@@ -252,7 +252,7 @@ class SettingsModal(ModalScreen):
             Horizontal(Button("Back up now", id="settings-backup"), classes="settings-actions"),
         )
         box = Container(
-            VerticalScroll(appearance, telegram, discord, queues, prompt_box, preset_box, obsidian, data, id="settings-scroll"),
+            VerticalScroll(appearance, telegram, discord, queues, prompt_box, preset_box, archive_box, data, id="settings-scroll"),
             Horizontal(
                 Static("Ctrl+S save  ·  Esc cancel", classes="modal-hint"),
                 Button("Cancel", id="settings-cancel", classes="modal-cancel"),
@@ -302,7 +302,7 @@ class SettingsModal(ModalScreen):
             "settings-discord-off": self._discord_off,
             "settings-preset-delete": self._delete_preset,
             "settings-backup": self._backup,
-            "settings-obsidian-export": self._obsidian_export,
+            "settings-archive-now": self._archive_now,
             "settings-prompt-add": self._add_prompt_preset,
             "settings-prompt-edit": self._edit_prompt_preset,
             "settings-prompt-delete": self._delete_prompt_preset,
@@ -460,22 +460,20 @@ class SettingsModal(ModalScreen):
             self.query_one("#settings-preset-delete", Button).disabled = True
         self.notify(f"Preset “{name}” deleted.")
 
-    def _obsidian_folder_value(self) -> str:
-        raw = self.query_one("#settings-obsidian-folder", Input).value.strip()
+    def _archive_folder_value(self) -> str:
+        raw = self.query_one("#settings-archive-folder", Input).value.strip()
         return str(Path(raw).expanduser()) if raw else ""
 
-    def _obsidian_export(self) -> None:
-        folder = self._obsidian_folder_value()
-        result = self.query_one("#obsidian-export-result", Static)
-        if not folder:
-            result.update(Text("Fill in a folder first.", style="yellow"))
-            return
+    def _archive_now(self) -> None:
+        folder = Path(self._archive_folder_value() or default_folder(self.storage))
+        result = self.query_one("#archive-result", Static)
         try:
-            written = obsidian_export(self.storage, folder)
+            added = archive(self.storage, folder)
         except OSError as exc:
-            result.update(Text(f"✖ Export failed: {exc.strerror or type(exc).__name__}", style="red"))
+            result.update(Text(f"✖ Archiving failed: {exc.strerror or type(exc).__name__}", style="red"))
             return
-        result.update(Text(f"✓ {written} note(s) updated in {folder}", style="green"))
+        months = ", ".join(f"{y:04d}-{m:02d}" for y, m in added) or "nothing new to archive"
+        result.update(Text(f"✓ {months} — {folder}", style="green"))
 
     def _backup(self) -> None:
         try:
@@ -507,7 +505,7 @@ class SettingsModal(ModalScreen):
         reserve = self.query_one("#settings-reserve", Select).value
         s.set_setting(RESERVE_KEY, "" if reserve == "off" else str(reserve))
         save_prompt_presets(s, self._prompt_presets)
-        s.set_setting(OBSIDIAN_FOLDER_KEY, self._obsidian_folder_value())
+        s.set_setting(ARCHIVE_FOLDER_KEY, self._archive_folder_value())
         self.notify("Settings saved.")
         self.dismiss(True)
 
