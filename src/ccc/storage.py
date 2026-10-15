@@ -102,6 +102,15 @@ CREATE TABLE IF NOT EXISTS run_model_usage (
     cache_creation_tokens INTEGER NOT NULL DEFAULT 0
 );
 
+-- Name of a deleted conversation, so its token history (kept in
+-- prompt_runs / run_model_usage / session_usage) still has a label.
+CREATE TABLE IF NOT EXISTS deleted_queues (
+    queue_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    project_path TEXT NOT NULL,
+    deleted_at TEXT NOT NULL
+);
+
 -- Token usage of interactive (remote-control) sessions, read from their
 -- transcripts by session_usage.UsageCollector: one row per model reply.
 CREATE TABLE IF NOT EXISTS session_usage (
@@ -427,15 +436,22 @@ class Storage:
             return self._row_to_queue(row) if row else None
 
     def delete_queue(self, queue_id: int) -> None:
-        """Remove a queue with its items, runs and token usage. Claude
-        Code's own transcript is left alone."""
+        """Remove a conversation: its queue, items and approvals, and the
+        texts of its runs. The token numbers stay (runs, per-model and
+        remote-control usage) under its old name in deleted_queues, so the
+        usage history doesn't change when a conversation is deleted.
+        Claude Code's own transcript is left alone."""
         with closing(self._connect()) as conn:
+            row = conn.execute("SELECT name, project_path FROM queues WHERE id = ?", (queue_id,)).fetchone()
+            if row is not None:
+                conn.execute(
+                    "INSERT OR REPLACE INTO deleted_queues (queue_id, name, project_path, deleted_at) VALUES (?, ?, ?, ?)",
+                    (queue_id, row["name"], row["project_path"], datetime.now().isoformat()),
+                )
             conn.execute(
-                "DELETE FROM run_model_usage WHERE prompt_run_id IN (SELECT id FROM prompt_runs WHERE queue_id = ?)",
+                "UPDATE prompt_runs SET prompt_text = '', result_text = NULL, error_text = NULL WHERE queue_id = ?",
                 (queue_id,),
             )
-            conn.execute("DELETE FROM prompt_runs WHERE queue_id = ?", (queue_id,))
-            conn.execute("DELETE FROM session_usage WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM queue_items WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM permission_requests WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM permission_allow WHERE queue_id = ?", (queue_id,))
@@ -723,6 +739,51 @@ class Storage:
                 "FROM session_usage WHERE queue_id = ?" + day_filter.format(col="at"), args
             ).fetchone()[0]
             return (runs or 0) + (replies or 0)
+
+    # --- token history (see token_stats) -------------------------------------
+
+    def token_entries(self, start: str | None = None, end: str | None = None) -> list[tuple[str, int, str, int]]:
+        """(day "YYYY-MM-DD", queue_id, model, tokens) per day, conversation
+        and model, from headless runs (per model; runs without a per-model
+        breakdown as "unknown") and remote-control replies. start/end are
+        "YYYY-MM-DD", end exclusive."""
+        def total(alias: str = "") -> str:
+            return " + ".join(f"{alias}{c}" for c in ("input_tokens", "output_tokens", "cache_read_tokens",
+                                                       "cache_creation_tokens"))
+
+        t, rt, mt = total(), total("r."), total("m.")
+        sql = (
+            "SELECT day, queue_id, model, SUM(t) FROM ("
+            f" SELECT substr(r.started_at, 1, 10) AS day, r.queue_id AS queue_id, m.model AS model, {mt} AS t"
+            " FROM run_model_usage m JOIN prompt_runs r ON r.id = m.prompt_run_id"
+            " UNION ALL"
+            f" SELECT substr(r.started_at, 1, 10), r.queue_id, 'unknown', {rt} FROM prompt_runs r"
+            " WHERE NOT EXISTS (SELECT 1 FROM run_model_usage m WHERE m.prompt_run_id = r.id)"
+            " UNION ALL"
+            f" SELECT substr(at, 1, 10), queue_id, model, {t} FROM session_usage"
+            ") WHERE t > 0 AND day >= ? AND day < ? GROUP BY day, queue_id, model ORDER BY day"
+        )
+        with closing(self._connect()) as conn:
+            rows = conn.execute(sql, (start or "0000", end or "9999")).fetchall()
+            return [(r[0], r[1], r[2], r[3]) for r in rows]
+
+    def run_status_counts(self, start: str | None = None, end: str | None = None) -> dict[int, tuple[int, int, int]]:
+        """{queue_id: (success, errors, rate_limited)} of runs started in [start, end)."""
+        with closing(self._connect()) as conn:
+            rows = conn.execute(
+                "SELECT queue_id, SUM(status = ?), SUM(status = ?), SUM(status = ?) FROM prompt_runs "
+                "WHERE substr(started_at, 1, 10) >= ? AND substr(started_at, 1, 10) < ? GROUP BY queue_id",
+                (RunStatus.SUCCESS.value, RunStatus.ERROR.value, RunStatus.RATE_LIMITED.value,
+                 start or "0000", end or "9999"),
+            ).fetchall()
+            return {r[0]: (r[1] or 0, r[2] or 0, r[3] or 0) for r in rows}
+
+    def conversation_names(self) -> dict[int, tuple[str, bool]]:
+        """{queue_id: (name, deleted)} for current and deleted conversations."""
+        with closing(self._connect()) as conn:
+            names = {r[0]: (r[1], True) for r in conn.execute("SELECT queue_id, name FROM deleted_queues")}
+            names.update({r[0]: (r[1], False) for r in conn.execute("SELECT id, name FROM queues")})
+            return names
 
     def blocked_seconds_total(self) -> float:
         with closing(self._connect()) as conn:

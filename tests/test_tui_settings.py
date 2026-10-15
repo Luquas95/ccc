@@ -221,3 +221,21 @@ async def test_discord_test_and_turn_off(tmp_path, monkeypatch):
         app.storage.set_setting(DISCORD_WEBHOOK_KEY, HOOK)
         modal._discord_off()
         assert app.storage.get_setting(DISCORD_WEBHOOK_KEY) == ""
+
+
+@pytest.mark.asyncio
+async def test_archive_folder_saved_and_archive_now(tmp_path):
+    from ccc.analytics_archive import FOLDER_KEY
+
+    app = _app(tmp_path)
+    folder = tmp_path / "vault" / "ccc_analytics"
+    async with app.run_test(size=(140, 45)) as pilot:
+        modal = await _open_settings(pilot, app)
+        modal._archive_now()  # empty field: archive is off, nothing written
+        assert not (tmp_path / "analytics").exists()
+        modal.query_one("#settings-archive-folder", Input).value = str(folder)
+        modal._archive_now()
+        assert (folder / "ccc_analytics.md").exists()
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert app.storage.get_setting(FOLDER_KEY) == str(folder)

@@ -69,6 +69,10 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("a", "Always allow this tool in this conversation"),
         ("n", "Deny"),
     ]),
+    ("Analytics", [
+        ("left", "Previous calendar month"),
+        ("right", "Next calendar month"),
+    ]),
     ("Queue detail", [
         ("enter", "Show the run's commit diff"),
     ]),
@@ -84,7 +88,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
 
 _PRETTY = {
     "question_mark": "?", "escape": "Esc", "enter": "Enter", "slash": "/", "delete": "Del",
-    "ctrl+d": "Ctrl+D", "ctrl+p": "Ctrl+P", "ctrl+t": "Ctrl+T", "ctrl+q": "Ctrl+Q",
+    "ctrl+d": "Ctrl+D", "ctrl+p": "Ctrl+P", "ctrl+t": "Ctrl+T", "ctrl+q": "Ctrl+Q", "left": "←", "right": "→",
     **{f"alt+{n}": f"Alt+{n}" for n in range(1, 10)}, "ctrl+j": "Ctrl+J", "ctrl+s": "Ctrl+S", "ctrl+up": "Ctrl+↑", "ctrl+down": "Ctrl+↓",
 }
 

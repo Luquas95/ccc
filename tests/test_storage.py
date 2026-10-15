@@ -383,7 +383,7 @@ def test_archive_and_find_queue(tmp_path):
     assert storage.find_queue(9999) is None
 
 
-def test_delete_queue_removes_everything(tmp_path):
+def test_delete_queue_removes_conversation_but_keeps_token_history(tmp_path):
     storage = Storage(tmp_path / "h.db")
     keep = storage.create_queue("keep", "/tmp/k", "sk")
     q = storage.create_queue("a", "/tmp/a", "s1")
@@ -396,10 +396,13 @@ def test_delete_queue_removes_everything(tmp_path):
     storage.add_queue_item(keep.id, "stays")
     storage.delete_queue(q.id)
     assert storage.find_queue(q.id) is None
-    assert storage.runs_for_queue(q.id) == []
     assert storage.list_pending_items(q.id) == []
-    assert storage.total_tokens_by_model() == []
     assert [i.prompt_text for i in storage.list_pending_items(keep.id)] == ["stays"]
+    # texts are gone, the numbers stay under the conversation's old name
+    assert [r.prompt_text for r in storage.runs_for_queue(q.id)] == [""]
+    assert storage.total_tokens_by_model() == [("m", 2)]
+    assert storage.conversation_names()[q.id] == ("a", True)
+    assert storage.conversation_names()[keep.id] == ("keep", False)
 
 
 def test_unseen_queue_ids(tmp_path):

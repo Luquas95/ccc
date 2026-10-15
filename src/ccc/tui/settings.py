@@ -3,6 +3,8 @@ notifications, how queues continue, launch presets and the database backup —
 everything `ccc config` can change, without leaving the TUI."""
 from __future__ import annotations
 
+from pathlib import Path
+
 from rich.text import Text
 from textual import work
 from textual.binding import Binding
@@ -19,6 +21,7 @@ from ccc.notify import (
     send_discord,
     send_telegram,
 )
+from ccc.analytics_archive import FOLDER_KEY as ARCHIVE_FOLDER_KEY, archive
 from ccc.orchestrator import DEFAULT_CONTINUE_TEXT, RESERVE_KEY, usage_reserve
 from ccc.presets import delete_preset, list_presets
 from ccc.prompt_presets import MAX_PRESETS, load_prompt_presets, save_prompt_presets
@@ -226,6 +229,22 @@ class SettingsModal(ModalScreen):
             Horizontal(Button("Delete preset", id="settings-preset-delete", classes="settings-danger",
                               disabled=not presets), classes="settings-actions"),
         )
+        archive_box = _section(
+            "Monthly analytics archive",
+            _row("Folder", Input(s.get_setting(ARCHIVE_FOLDER_KEY) or "", placeholder="empty = off, e.g. ~/Documents/ccc_analytics",
+                                 id="settings-archive-folder")),
+            Static(
+                "The current month is here in Analytics (v). When a month ends, ccc archives it into this\n"
+                "folder as Markdown notes for Obsidian (no plugins): ccc_analytics.md with all months, one\n"
+                "note per month with a calendar and charts, one per day. Empty = no archive.",
+                classes="settings-hint",
+            ),
+            Horizontal(
+                Button("Archive finished months now", id="settings-archive-now"),
+                Static("", id="archive-result", classes="settings-status"),
+                classes="settings-actions",
+            ),
+        )
         data = _section(
             "Data",
             Static(id="data-info", classes="settings-status"),
@@ -233,7 +252,7 @@ class SettingsModal(ModalScreen):
             Horizontal(Button("Back up now", id="settings-backup"), classes="settings-actions"),
         )
         box = Container(
-            VerticalScroll(appearance, telegram, discord, queues, prompt_box, preset_box, data, id="settings-scroll"),
+            VerticalScroll(appearance, telegram, discord, queues, prompt_box, preset_box, archive_box, data, id="settings-scroll"),
             Horizontal(
                 Static("Ctrl+S save  ·  Esc cancel", classes="modal-hint"),
                 Button("Cancel", id="settings-cancel", classes="modal-cancel"),
@@ -283,6 +302,7 @@ class SettingsModal(ModalScreen):
             "settings-discord-off": self._discord_off,
             "settings-preset-delete": self._delete_preset,
             "settings-backup": self._backup,
+            "settings-archive-now": self._archive_now,
             "settings-prompt-add": self._add_prompt_preset,
             "settings-prompt-edit": self._edit_prompt_preset,
             "settings-prompt-delete": self._delete_prompt_preset,
@@ -440,6 +460,24 @@ class SettingsModal(ModalScreen):
             self.query_one("#settings-preset-delete", Button).disabled = True
         self.notify(f"Preset “{name}” deleted.")
 
+    def _archive_folder_value(self) -> str:
+        raw = self.query_one("#settings-archive-folder", Input).value.strip()
+        return str(Path(raw).expanduser()) if raw else ""
+
+    def _archive_now(self) -> None:
+        result = self.query_one("#archive-result", Static)
+        if not self._archive_folder_value():
+            result.update(Text("Fill in a folder first.", style="yellow"))
+            return
+        folder = Path(self._archive_folder_value())
+        try:
+            added = archive(self.storage, folder)
+        except OSError as exc:
+            result.update(Text(f"✖ Archiving failed: {exc.strerror or type(exc).__name__}", style="red"))
+            return
+        months = ", ".join(f"{y:04d}-{m:02d}" for y, m in added) or "nothing new to archive"
+        result.update(Text(f"✓ {months} — {folder}", style="green"))
+
     def _backup(self) -> None:
         try:
             path = backup_now(self.storage.db_path, default_backup_dir(self.storage.db_path))
@@ -470,6 +508,7 @@ class SettingsModal(ModalScreen):
         reserve = self.query_one("#settings-reserve", Select).value
         s.set_setting(RESERVE_KEY, "" if reserve == "off" else str(reserve))
         save_prompt_presets(s, self._prompt_presets)
+        s.set_setting(ARCHIVE_FOLDER_KEY, self._archive_folder_value())
         self.notify("Settings saved.")
         self.dismiss(True)
 
