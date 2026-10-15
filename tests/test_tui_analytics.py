@@ -189,3 +189,12 @@ async def test_analytics_shows_usage_reserve(tmp_path, monkeypatch):
         await pilot.pause()
         await pilot.pause()
         assert "75%" in str(app.screen.query_one("#usage-reserve-note").render())
+
+
+def test_last_days_series_fills_missing_days_with_zero():
+    from datetime import date
+
+    from ccc.tui.analytics import last_days_series
+
+    series = last_days_series([("2026-10-13", 5), ("2026-10-15", 7)], days=4, today=date(2026, 10, 15))
+    assert series == [0, 5, 0, 7]

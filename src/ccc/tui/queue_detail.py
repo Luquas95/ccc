@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from rich.text import Text
+from textual.binding import Binding
 from textual.containers import Container, Horizontal, VerticalScroll
 from textual.content import Content
 from textual.screen import ModalScreen
@@ -125,7 +126,7 @@ class QueueDetailScreen(SidebarScreen):
 
     BINDINGS = [
         ("escape", "back", "Back"),
-        ("r", "retry_queue", "Retry blocked"),
+        Binding("r", "retry_queue", "Retry blocked", show=False),
     ]
 
     def __init__(self, storage: Storage, queue_id: int):

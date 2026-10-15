@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from rich.text import Text
+from textual.binding import Binding
 from textual.containers import Container, Horizontal
 from textual.content import Content
 from textual.screen import ModalScreen
@@ -27,8 +28,8 @@ class SessionPickerScreen(SidebarScreen):
     SUB_TITLE = "Live sessions"
 
     BINDINGS = [
-        ("escape", "back", "Back"),
-        ("r", "refresh", "Refresh"),
+        Binding("escape", "back", "Back", show=False),
+        Binding("r", "refresh", "Refresh", show=False),
     ]
 
     def __init__(self, storage: Storage):

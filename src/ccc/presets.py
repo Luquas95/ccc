@@ -80,3 +80,8 @@ def save_preset(storage, name: str, choice: LaunchChoice) -> None:
     presets = {n: _to_dict(c) for n, c in list_presets(storage).items()}
     presets[name] = _to_dict(choice)
     storage.set_setting(PRESETS_KEY, json.dumps(presets, ensure_ascii=False))
+
+
+def delete_preset(storage, name: str) -> None:
+    presets = {n: _to_dict(c) for n, c in list_presets(storage).items() if n != name}
+    storage.set_setting(PRESETS_KEY, json.dumps(presets, ensure_ascii=False))

@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from rich.text import Text
+from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Footer, Header, Rule, Static
@@ -147,6 +148,7 @@ SidebarScreen .sidebar-title {
 }
 SidebarScreen .sidebar-rule {
     color: yellow;
+    margin-bottom: 1;
 }
 SidebarScreen .sidebar-label {
     padding: 0 1 1 1;
@@ -295,14 +297,16 @@ class SidebarScreen(Screen):
 
     DEFAULT_CSS = SHARED_CSS
 
+    # The footer only shows what the sidebar doesn't: views and the
+    # sidebar buttons have their hotkey printed right next to them.
     BINDINGS = [
-        ("d", "goto('dashboard')", "Dashboard"),
-        ("c", "goto('conversations')", "Conversations"),
-        ("s", "goto('sessions')", "Live sessions"),
-        ("v", "goto('analytics')", "Analytics"),
-        ("a", "add_prompt", "Add prompt"),
-        ("n", "new_conversation", "New conversation"),
-        ("question_mark", "key_help", "Keys"),
+        Binding("d", "goto('dashboard')", "Dashboard", show=False),
+        Binding("c", "goto('conversations')", "Conversations", show=False),
+        Binding("s", "goto('sessions')", "Live sessions", show=False),
+        Binding("v", "goto('analytics')", "Analytics", show=False),
+        Binding("a", "add_prompt", "Add prompt", show=False),
+        Binding("n", "new_conversation", "New conversation", show=False),
+        Binding("question_mark", "key_help", "Keys"),
     ]
 
     def __init__(self, storage):
@@ -324,7 +328,7 @@ class SidebarScreen(Screen):
     # --- frame -----------------------------------------------------------
 
     def compose(self):
-        yield Header()
+        yield Header(icon=" ")
         nav_items = []
         for key, label, hotkey in VIEWS:
             item = Static(f"{label}  [dim]{hotkey}[/dim]", id=f"nav-{key}", classes="nav-item")
@@ -336,7 +340,6 @@ class SidebarScreen(Screen):
                 Static("ccc", classes="sidebar-title"),
                 Static("", id="daemon-state"),
                 Rule(classes="sidebar-rule"),
-                Static("Views", classes="sidebar-label"),
                 Vertical(*nav_items, id="sidebar-nav"),
                 Vertical(*self.compose_sidebar_section(), id="sidebar-section"),
                 *[self._make_button(b) for b in self.sidebar_buttons()],

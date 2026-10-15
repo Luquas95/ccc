@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from rich.text import Text
+from textual.binding import Binding
 from textual.containers import Vertical, VerticalScroll
 from textual.content import Content
 from textual.widgets import Collapsible, DataTable, Markdown, Static
@@ -36,8 +37,9 @@ class ConversationsScreen(SidebarScreen):
     SUB_TITLE = "Conversations"
 
     BINDINGS = [
-        ("escape", "back", "Back"),
-        ("r", "retry_queue", "Retry / resume"),
+        # Back = Dashboard (d) and Retry has its sidebar button.
+        Binding("escape", "back", "Back", show=False),
+        Binding("r", "retry_queue", "Retry / resume", show=False),
         ("t", "tasks", "Tasks"),
         ("x", "toggle_archive", "Archive"),
         ("h", "toggle_show_archived", "Show archived"),
