@@ -77,8 +77,12 @@ phone via Remote Control.
   and send a prompt into one of them once it's idle.
 - **Analytics** — the account's real 5-hour / weekly usage, tokens per
   model, per day and per project.
+- **Preset prompts** — prompts you use often, on `Alt+1` … `Alt+9` in any
+  conversation: each one is either sent right away or put into the message
+  box for you to finish.
 - **Settings** (`Ctrl+P`) — colour theme, Telegram, continue text, usage
-  reserve, launch presets and database backup in one window.
+  reserve, preset prompts, launch presets and database backup in one
+  window.
 - Search across conversations, Markdown export, archive/delete, daily
   database backups, screenshots (`Ctrl+T`), `?` shows every shortcut.
 
@@ -177,6 +181,7 @@ you're typing in a text field; `Ctrl` keys work everywhere.
 | Dashboard | `Enter` | queue detail (there: `Enter` on a run shows its commit diff) |
 | | `r` | retry a blocked queue / resume one paused at a usage limit |
 | Conversations | `Enter` / `Ctrl+J` | send the message / new line |
+| | `Alt+1` … `Alt+9` | [preset prompt](#preset-prompts) — send it or put it into the message box |
 | | `r` | retry / resume |
 | | `t` | [task queue editor](#task-queue) |
 | | `p` | [approve a tool call](#approving-tool-calls) Claude is waiting on |
@@ -189,7 +194,7 @@ you're typing in a text field; `Ctrl` keys work everywhere.
 
 `Ctrl+P` opens one window with everything you can change, grouped into
 sections. Edit what you need, then `Ctrl+S` / *Save*; `Esc` / *Cancel*
-throws the changes away (the buttons *Send test message*, *Turn off*,
+throws the changes away, preset prompt edits included (the buttons *Send test message*, *Turn off*,
 *Delete preset* and *Back up now* act immediately).
 
 - **Appearance** — colour theme. It changes as soon as you pick one, so
@@ -201,12 +206,38 @@ throws the changes away (the buttons *Send test message*, *Turn off*,
 - **Queues** — the continue text auto-continue sends after a usage limit
   and the usage reserve (Off or 50–95 %), see
   [Usage limits](#usage-limits-and-auto-continue).
+- **Preset prompts** — the list behind `Alt+1` … `Alt+9`, see
+  [Preset prompts](#preset-prompts).
 - **New-conversation presets** — delete presets saved in the New
   conversation window.
 - **Data** — where the database and its backups are, when the last backup
   was made, and *Back up now*.
 
 The same values can be set from the shell with `ccc config …` (see below).
+
+### Preset prompts
+
+Prompts you type again and again — "go on", "run the tests and fix what
+fails", "review this file: " — can be saved once and used in any
+conversation with `Alt+1` … `Alt+9` (works while you're typing too).
+
+- **Set them up** in Settings (`Ctrl+P`) → *Preset prompts*: *Add* /
+  *Edit* (or Enter on a row) opens a small editor with a **name** (shown in
+  the bar), the **prompt** (multi-line) and **Send right away (with
+  Enter)**. *Up* / *Down* change the order, which decides the number:
+  the first is `Alt+1`. Up to 9; saved with the rest of Settings.
+- **Use them:** under the message box a bar lists them, e.g.
+  `Alt+1 ⏎ Go on   Alt+2 ⏎ Run tests   Alt+3 ✎ Review file`. Press the key
+  or click the item.
+  - `⏎` **send** — the prompt goes to the conversation at once (queued
+    like a message sent with Enter). Whatever you had typed stays in the
+    box.
+  - `✎` **insert** — the prompt is put into the message box at the cursor,
+    so you can finish it (e.g. add a file name) and send with Enter.
+- Without presets the bar is hidden; `Alt+N` without a preset just tells
+  you so.
+
+![Preset prompt editor](docs/screenshots/prompt_preset.png)
 
 ### Screenshots
 

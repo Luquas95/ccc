@@ -40,6 +40,15 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("e", "Export the conversation as Markdown"),
         ("enter", "Send the message (in the message box)"),
         ("ctrl+j", "New line in the message box (Shift+Enter where supported)"),
+        ("alt+1", "Preset prompt 1–9 (⏎ sends it, ✎ puts it into the message box; set in Settings)"),
+        ("alt+2", "Preset prompt 2"),
+        ("alt+3", "Preset prompt 3"),
+        ("alt+4", "Preset prompt 4"),
+        ("alt+5", "Preset prompt 5"),
+        ("alt+6", "Preset prompt 6"),
+        ("alt+7", "Preset prompt 7"),
+        ("alt+8", "Preset prompt 8"),
+        ("alt+9", "Preset prompt 9"),
     ]),
     ("Tasks editor (t)", [
         ("a", "Add a task"),
@@ -59,6 +68,10 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
     ("Queue detail", [
         ("enter", "Show the run's commit diff"),
     ]),
+    ("Preset prompt editor (Settings → Add / Edit)", [
+        ("ctrl+s", "Save"),
+        ("escape", "Cancel"),
+    ]),
     ("Settings (Ctrl+P)", [
         ("ctrl+s", "Save"),
         ("escape", "Cancel (the theme goes back too)"),
@@ -67,7 +80,8 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
 
 _PRETTY = {
     "question_mark": "?", "escape": "Esc", "enter": "Enter", "slash": "/", "delete": "Del",
-    "ctrl+d": "Ctrl+D", "ctrl+p": "Ctrl+P", "ctrl+t": "Ctrl+T", "ctrl+q": "Ctrl+Q", "ctrl+j": "Ctrl+J", "ctrl+s": "Ctrl+S", "ctrl+up": "Ctrl+↑", "ctrl+down": "Ctrl+↓",
+    "ctrl+d": "Ctrl+D", "ctrl+p": "Ctrl+P", "ctrl+t": "Ctrl+T", "ctrl+q": "Ctrl+Q",
+    **{f"alt+{n}": f"Alt+{n}" for n in range(1, 10)}, "ctrl+j": "Ctrl+J", "ctrl+s": "Ctrl+S", "ctrl+up": "Ctrl+↑", "ctrl+down": "Ctrl+↓",
 }
 
 

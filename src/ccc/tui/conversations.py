@@ -5,12 +5,13 @@ from pathlib import Path
 
 from rich.text import Text
 from textual.binding import Binding
-from textual.containers import Vertical, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.content import Content
 from textual.widgets import Collapsible, DataTable, Markdown, Static
 
 from ccc.launch_options import describe_flags
 from ccc.models import DeliveryMode, Queue, QueueStatus
+from ccc.prompt_presets import load_prompt_presets
 from ccc.storage import Storage
 from ccc.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
 from ccc.tui.layout import (
@@ -22,6 +23,7 @@ from ccc.tui.layout import (
     queue_label,
 )
 from ccc.tui.message_box import MessageBox
+from ccc.tui.prompt_presets import bar_item
 
 
 # Where `e` writes a conversation exported as Markdown.
@@ -47,6 +49,8 @@ class ConversationsScreen(SidebarScreen):
         ("slash", "search", "Search"),
         ("e", "export", "Export"),
         ("p", "approve", "Approve"),
+        # Preset prompts (Settings); priority so they work while typing.
+        *[Binding(f"alt+{n}", f"prompt_preset({n})", f"Preset {n}", show=False, priority=True) for n in range(1, 10)],
     ]
 
     # Sidebar frame/buttons come from SidebarScreen (layout.SHARED_CSS);
@@ -64,6 +68,22 @@ class ConversationsScreen(SidebarScreen):
     ConversationsScreen #conversation-status {
         height: 1;
         padding: 0 1;
+    }
+    ConversationsScreen #prompt-presets-bar {
+        height: auto;
+        padding: 0 1;
+    }
+    ConversationsScreen #prompt-presets-bar .prompt-preset-item {
+        width: auto;
+        margin-right: 3;
+    }
+    ConversationsScreen #prompt-presets-legend {
+        width: 1fr;
+        content-align-horizontal: right;
+        color: $text-muted;
+    }
+    ConversationsScreen #prompt-presets-bar .prompt-preset-item:hover {
+        background: $boost;
     }
     ConversationsScreen #queued-messages {
         height: auto;
@@ -152,6 +172,7 @@ class ConversationsScreen(SidebarScreen):
         yield VerticalScroll(id="conversation-transcript")
         yield Static(id="conversation-status")
         yield MessageBox(placeholder="Message Claude… (Enter send · Ctrl+J new line · Esc back)", id="message-input")
+        yield Horizontal(id="prompt-presets-bar")
 
     async def on_mount(self) -> None:
         table = self.query_one("#conversation-queue-list", DataTable)
@@ -170,6 +191,7 @@ class ConversationsScreen(SidebarScreen):
         # set_interval accepts an async callback directly (confirmed live
         # with a standalone sandbox script — no run_worker wrapper needed).
         self.set_interval(2.0, self._refresh_current)
+        await self._refresh_prompt_presets_bar()
         if self._focus_input_on_mount:
             self.query_one("#message-input", MessageBox).focus()
 
@@ -397,16 +419,60 @@ class ConversationsScreen(SidebarScreen):
             await self._render_transcript(queue_id)
 
     async def on_message_box_submitted(self, event: MessageBox.Submitted) -> None:
-        text = event.text.strip()
+        if await self._enqueue_text(event.text):
+            event.box.text = ""
+
+    async def _enqueue_text(self, text: str) -> bool:
+        text = text.strip()
         if not text or self._current_queue_id is None:
-            return
+            return False
         # Pure storage write — the daemon picks it up on its next poll.
         self.storage.add_queue_item(self._current_queue_id, text)
         if self.storage.get_queue(self._current_queue_id).status == QueueStatus.PAUSED_LIMIT:
             # Writing to a conversation paused at a limit means "go on".
             self.storage.update_queue_status(self._current_queue_id, QueueStatus.IDLE)
-        event.box.text = ""
         await self._refresh_current()
+        return True
+
+    # --- preset prompts (Alt+1 … Alt+9) ----------------------------------
+
+    async def _refresh_prompt_presets_bar(self) -> None:
+        bar = self.query_one("#prompt-presets-bar", Horizontal)
+        await bar.remove_children()
+        presets = load_prompt_presets(self.storage)
+        await bar.mount_all(
+            Static(bar_item(n, p), id=f"prompt-preset-{n}", classes="prompt-preset-item")
+            for n, p in enumerate(presets, start=1)
+        )
+        if presets:
+            await bar.mount(Static("⏎ sends  ·  ✎ inserts", id="prompt-presets-legend"))
+        bar.display = bool(presets)
+
+    async def on_screen_resume(self) -> None:
+        # Back from Settings (or any window): presets may have changed.
+        await self._refresh_prompt_presets_bar()
+
+    async def on_click(self, event) -> None:
+        widget = event.widget
+        if widget is not None and widget.has_class("prompt-preset-item") and widget.id:
+            await self.action_prompt_preset(int(widget.id.removeprefix("prompt-preset-")))
+
+    async def action_prompt_preset(self, number: int) -> None:
+        presets = load_prompt_presets(self.storage)
+        if number > len(presets):
+            self.notify(f"No preset on Alt+{number} — add one in Settings (Ctrl+P).", severity="warning")
+            return
+        preset = presets[number - 1]
+        box = self.query_one("#message-input", MessageBox)
+        if not preset.send_now:
+            box.insert(preset.text)
+            box.focus()
+            return
+        if self._current_queue_id is None:
+            self.notify("Select a conversation first.", severity="warning")
+            return
+        await self._enqueue_text(preset.text)
+        self.notify(preset.name, title="Sent")
 
     def open_conversation(self, queue_id: int) -> None:
         # Already on this screen: just select it in place.
