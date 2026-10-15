@@ -104,3 +104,34 @@ def test_config_usage_reserve(tmp_path, monkeypatch, capsys):
     assert Storage(db_path).get_setting("usage_reserve") is None or Storage(db_path).get_setting("usage_reserve") == ""
     with _pytest.raises(SystemExit):
         cli.main(["config", "usage-reserve", "150"])
+
+
+def test_config_discord(tmp_path, monkeypatch, capsys):
+    import pytest as _pytest
+    from ccc import cli
+    from ccc.notify import DISCORD_WEBHOOK_KEY
+
+    db_path = tmp_path / "history.db"
+    monkeypatch.setattr(cli, "default_db_path", lambda: db_path)
+    hook = "https://discord.com/api/webhooks/123/SECRETTOKEN"
+    cli.main(["config", "discord-webhook", hook])
+    assert Storage(db_path).get_setting(DISCORD_WEBHOOK_KEY) == hook
+    capsys.readouterr()
+    cli.main(["config", "discord-webhook"])
+    out = capsys.readouterr().out
+    assert "SECRETTOKEN" not in out and "webhooks/123" in out  # masked
+
+    with _pytest.raises(SystemExit):
+        cli.main(["config", "discord-webhook", "https://evil.example/x"])
+    assert Storage(db_path).get_setting(DISCORD_WEBHOOK_KEY) == hook
+
+    sent = []
+    monkeypatch.setattr("ccc.notify.send_discord", lambda url, text: sent.append(url))
+    monkeypatch.setattr("ccc.notify.send_telegram", lambda *a: sent.append("telegram"))
+    cli.main(["config", "discord-test"])
+    assert sent == [hook]  # only Discord
+
+    cli.main(["config", "discord-webhook", "off"])
+    assert Storage(db_path).get_setting(DISCORD_WEBHOOK_KEY) == ""
+    with _pytest.raises(SystemExit):
+        cli.main(["config", "discord-test"])

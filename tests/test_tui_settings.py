@@ -173,3 +173,51 @@ async def test_ctrl_q_quits(tmp_path):
         await pilot.press("ctrl+q")
         await pilot.pause()
     assert app.return_code == 0
+
+
+HOOK = "https://discord.com/api/webhooks/123/SECRETTOKEN"
+
+
+@pytest.mark.asyncio
+async def test_discord_webhook_saved_kept_and_validated(tmp_path):
+    from ccc.notify import DISCORD_WEBHOOK_KEY
+
+    app = _app(tmp_path)
+    async with app.run_test(size=(140, 45)) as pilot:
+        modal = await _open_settings(pilot, app)
+        modal.query_one("#settings-discord-webhook", Input).value = "https://evil.example/x"
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert isinstance(app.screen, SettingsModal)  # refused, window stays
+        assert app.storage.get_setting(DISCORD_WEBHOOK_KEY) is None
+        modal.query_one("#settings-discord-webhook", Input).value = HOOK
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert app.storage.get_setting(DISCORD_WEBHOOK_KEY) == HOOK
+
+        modal = await _open_settings(pilot, app)
+        assert modal.query_one("#settings-discord-webhook", Input).value == ""  # never shown
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert app.storage.get_setting(DISCORD_WEBHOOK_KEY) == HOOK  # empty field keeps it
+
+
+@pytest.mark.asyncio
+async def test_discord_test_and_turn_off(tmp_path, monkeypatch):
+    from ccc.notify import DISCORD_WEBHOOK_KEY
+
+    sent = []
+    monkeypatch.setattr("ccc.tui.settings.send_discord", lambda url, text: sent.append(url))
+    app = _app(tmp_path)
+    async with app.run_test(size=(140, 45)) as pilot:
+        modal = await _open_settings(pilot, app)
+        modal._send_discord_test()  # nothing filled in
+        assert sent == []
+        modal.query_one("#settings-discord-webhook", Input).value = HOOK
+        modal._send_discord_test()
+        await pilot.pause(0.3)
+        await app.workers.wait_for_complete()
+        assert sent == [HOOK]
+        app.storage.set_setting(DISCORD_WEBHOOK_KEY, HOOK)
+        modal._discord_off()
+        assert app.storage.get_setting(DISCORD_WEBHOOK_KEY) == ""

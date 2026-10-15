@@ -1,4 +1,4 @@
-"""Settings window (Ctrl+P on any screen): look of the app, Telegram
+"""Settings window (Ctrl+P on any screen): look of the app, Telegram and Discord
 notifications, how queues continue, launch presets and the database backup —
 everything `ccc config` can change, without leaving the TUI."""
 from __future__ import annotations
@@ -11,7 +11,14 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Input, Select, Static
 
 from ccc.backup import backup_now, default_backup_dir
-from ccc.notify import TELEGRAM_CHAT_KEY, TELEGRAM_TOKEN_KEY, send_telegram
+from ccc.notify import (
+    DISCORD_WEBHOOK_KEY,
+    TELEGRAM_CHAT_KEY,
+    TELEGRAM_TOKEN_KEY,
+    is_discord_webhook,
+    send_discord,
+    send_telegram,
+)
 from ccc.orchestrator import DEFAULT_CONTINUE_TEXT, RESERVE_KEY, usage_reserve
 from ccc.presets import delete_preset, list_presets
 from ccc.prompt_presets import MAX_PRESETS, load_prompt_presets, save_prompt_presets
@@ -21,6 +28,8 @@ from ccc.tui.prompt_presets import PromptPresetModal, mode_label
 THEME_KEY = "tui_theme"
 RESERVE_CHOICES = [50, 60, 70, 75, 80, 85, 90, 95]
 TEST_MESSAGE = "✅ ccc: Telegram notifications work."
+DISCORD_TEST_MESSAGE = "✅ ccc: Discord notifications work."
+DISCORD_PLACEHOLDER = "https://discord.com/api/webhooks/…"
 
 
 def saved_theme(storage, available) -> str | None:
@@ -158,6 +167,29 @@ class SettingsModal(ModalScreen):
                 classes="settings-actions",
             ),
         )
+        discord_set = bool(s.get_setting(DISCORD_WEBHOOK_KEY))
+        discord = _section(
+            "Discord notifications",
+            Static(id="discord-state", classes="settings-hint"),
+            _row("Webhook URL", Input(
+                password=True,
+                placeholder="saved — paste a new one to replace it" if discord_set else DISCORD_PLACEHOLDER,
+                id="settings-discord-webhook",
+            )),
+            Static(
+                "In Discord: channel settings → Integrations → Webhooks →\n"
+                "New Webhook → Copy Webhook URL. Same messages as Telegram;\n"
+                "use either or both. Keep the URL private — anyone who has it\n"
+                "can post to the channel.",
+                classes="settings-hint",
+            ),
+            Horizontal(
+                Button("Send test message", id="settings-discord-test"),
+                Button("Turn off", id="settings-discord-off", classes="settings-danger"),
+                Static("", id="discord-test-result", classes="settings-status"),
+                classes="settings-actions",
+            ),
+        )
         queues = _section(
             "Queues",
             _row("Continue text", Input(s.get_setting("continue_text", DEFAULT_CONTINUE_TEXT) or DEFAULT_CONTINUE_TEXT,
@@ -201,7 +233,7 @@ class SettingsModal(ModalScreen):
             Horizontal(Button("Back up now", id="settings-backup"), classes="settings-actions"),
         )
         box = Container(
-            VerticalScroll(appearance, telegram, queues, prompt_box, preset_box, data, id="settings-scroll"),
+            VerticalScroll(appearance, telegram, discord, queues, prompt_box, preset_box, data, id="settings-scroll"),
             Horizontal(
                 Static("Ctrl+S save  ·  Esc cancel", classes="modal-hint"),
                 Button("Cancel", id="settings-cancel", classes="modal-cancel"),
@@ -217,6 +249,7 @@ class SettingsModal(ModalScreen):
         table.add_columns("Key", "Mode", "Name", "Prompt")
         self._refresh_prompt_presets()
         self._refresh_telegram_state()
+        self._refresh_discord_state()
         self._refresh_data_info()
         self.query_one("#settings-theme", Select).focus()
 
@@ -246,6 +279,8 @@ class SettingsModal(ModalScreen):
             "settings-cancel": self.action_cancel,
             "settings-telegram-test": self._send_test,
             "settings-telegram-off": self._telegram_off,
+            "settings-discord-test": self._send_discord_test,
+            "settings-discord-off": self._discord_off,
             "settings-preset-delete": self._delete_preset,
             "settings-backup": self._backup,
             "settings-prompt-add": self._add_prompt_preset,
@@ -345,6 +380,43 @@ class SettingsModal(ModalScreen):
             text = Text(f"✖ Sending failed ({type(exc).__name__}) — check the token and chat id.", style="red")
         self.app.call_from_thread(self.query_one("#telegram-test-result", Static).update, text)
 
+    # --- Discord -------------------------------------------------------------
+
+    def _refresh_discord_state(self) -> None:
+        on = is_discord_webhook(self.storage.get_setting(DISCORD_WEBHOOK_KEY) or "")
+        text = Text("● on", style="green") if on else Text("○ off — paste a channel webhook URL", style="yellow")
+        self.query_one("#discord-state", Static).update(text)
+
+    def _discord_value(self) -> str:
+        return self.query_one("#settings-discord-webhook", Input).value.strip() or (
+            self.storage.get_setting(DISCORD_WEBHOOK_KEY) or "")
+
+    def _send_discord_test(self) -> None:
+        url = self._discord_value()
+        result = self.query_one("#discord-test-result", Static)
+        if not is_discord_webhook(url):
+            result.update(Text("Paste a Discord webhook URL (https://discord.com/api/webhooks/…) first.", style="yellow"))
+            return
+        result.update(Text("Sending…", style="dim"))
+        self._send_discord_test_worker(url)
+
+    @work(thread=True, exclusive=True, group="discord-test")
+    def _send_discord_test_worker(self, url: str) -> None:
+        try:
+            send_discord(url, DISCORD_TEST_MESSAGE)
+            text = Text("✓ Sent — check the Discord channel.", style="green")
+        except Exception as exc:  # never show the exception text: it may contain the URL
+            text = Text(f"✖ Sending failed ({type(exc).__name__}) — check the webhook URL.", style="red")
+        self.app.call_from_thread(self.query_one("#discord-test-result", Static).update, text)
+
+    def _discord_off(self) -> None:
+        self.storage.set_setting(DISCORD_WEBHOOK_KEY, "")
+        field = self.query_one("#settings-discord-webhook", Input)
+        field.value = ""
+        field.placeholder = DISCORD_PLACEHOLDER
+        self._refresh_discord_state()
+        self.query_one("#discord-test-result", Static).update(Text("Discord notifications turned off.", style="dim"))
+
     def _telegram_off(self) -> None:
         self.storage.set_setting(TELEGRAM_TOKEN_KEY, "")
         self.storage.set_setting(TELEGRAM_CHAT_KEY, "")
@@ -381,11 +453,18 @@ class SettingsModal(ModalScreen):
 
     def action_save(self) -> None:
         s = self.storage
+        webhook = self.query_one("#settings-discord-webhook", Input).value.strip()
+        if webhook and not is_discord_webhook(webhook):
+            self.notify("That isn't a Discord webhook URL (https://discord.com/api/webhooks/…).",
+                        title="Not saved", severity="error")
+            return
         s.set_setting(THEME_KEY, self.app.theme)
         token = self.query_one("#settings-telegram-token", Input).value.strip()
         if token:
             s.set_setting(TELEGRAM_TOKEN_KEY, token)
         s.set_setting(TELEGRAM_CHAT_KEY, self.query_one("#settings-telegram-chat", Input).value.strip())
+        if webhook:
+            s.set_setting(DISCORD_WEBHOOK_KEY, webhook)
         continue_text = self.query_one("#settings-continue-text", Input).value.strip()
         s.set_setting("continue_text", continue_text or DEFAULT_CONTINUE_TEXT)
         reserve = self.query_one("#settings-reserve", Select).value

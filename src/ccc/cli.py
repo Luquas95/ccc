@@ -29,19 +29,45 @@ def add_command(db_path: str, project_path: str, prompt: str) -> None:
 def config_command(db_path: str, setting: str, value: str | None) -> None:
     from ccc.orchestrator import DEFAULT_CONTINUE_TEXT
 
-    from ccc.notify import TELEGRAM_CHAT_KEY, TELEGRAM_TOKEN_KEY, Notifier
+    from ccc.notify import DISCORD_WEBHOOK_KEY, TELEGRAM_CHAT_KEY, TELEGRAM_TOKEN_KEY, Notifier, is_discord_webhook
 
     storage = Storage(db_path)
     if setting == "telegram-test":
         notifier = Notifier(storage)
-        if not notifier.configured():
+        if not notifier.telegram_configured():
             print("ccc: set `ccc config telegram-token …` and `ccc config telegram-chat …` first", file=sys.stderr)
             sys.exit(1)
-        if notifier.send_now("✅ ccc: Telegram notifications work."):
+        if notifier.send_telegram_now("✅ ccc: Telegram notifications work."):
             print("Test message sent.")
         else:
             print("ccc: sending failed — check the token and chat id", file=sys.stderr)
             sys.exit(1)
+        return
+    if setting == "discord-test":
+        notifier = Notifier(storage)
+        if not notifier.discord_configured():
+            print("ccc: set `ccc config discord-webhook …` first", file=sys.stderr)
+            sys.exit(1)
+        if notifier.send_discord_now("✅ ccc: Discord notifications work."):
+            print("Test message sent.")
+        else:
+            print("ccc: sending failed — check the webhook URL", file=sys.stderr)
+            sys.exit(1)
+        return
+    if setting == "discord-webhook":
+        if value is None:
+            current = storage.get_setting(DISCORD_WEBHOOK_KEY)
+            # never print the secret part (the token after the webhook id)
+            print(current.rsplit("/", 1)[0] + "/…" if current else "(not set)")
+        elif value.strip().lower() in ("off", "none", ""):
+            storage.set_setting(DISCORD_WEBHOOK_KEY, "")
+            print("discord-webhook removed.")
+        elif not is_discord_webhook(value.strip()):
+            print("ccc: that isn't a Discord webhook URL (https://discord.com/api/webhooks/…)", file=sys.stderr)
+            sys.exit(1)
+        else:
+            storage.set_setting(DISCORD_WEBHOOK_KEY, value.strip())
+            print("discord-webhook saved.")
         return
     if setting in ("telegram-token", "telegram-chat"):
         key = TELEGRAM_TOKEN_KEY if setting == "telegram-token" else TELEGRAM_CHAT_KEY
@@ -114,6 +140,12 @@ def main(argv: list[str] | None = None) -> None:
     reserve_parser.add_argument("value", nargs="?")
     test_parser = config_sub.add_parser("telegram-test", help="Send a test notification")
     test_parser.set_defaults(value=None)
+    webhook_parser = config_sub.add_parser(
+        "discord-webhook", help="Discord channel webhook URL for notifications (no value: show it masked; off: remove)"
+    )
+    webhook_parser.add_argument("value", nargs="?")
+    discord_test_parser = config_sub.add_parser("discord-test", help="Send a test notification to Discord")
+    discord_test_parser.set_defaults(value=None)
 
     args = parser.parse_args(argv)
 
