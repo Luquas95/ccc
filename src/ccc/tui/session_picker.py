@@ -13,7 +13,7 @@ from ccc.storage import Storage
 from ccc.tui.layout import ADD_PROMPT_BUTTON, MODAL_CSS, SidebarButton, SidebarScreen, panel
 
 
-REFRESH_BUTTON = SidebarButton("sidebar-refresh", "Refresh (r)", "blue", "refresh")
+REFRESH_BUTTON = SidebarButton("sidebar-refresh", "Reload session list (r)", "blue", "refresh")
 
 SESSION_STATUS_STYLES = {"idle": "green", "busy": "yellow", "blocked": "bold red"}
 
@@ -29,7 +29,7 @@ class SessionPickerScreen(SidebarScreen):
 
     BINDINGS = [
         Binding("escape", "back", "Back", show=False),
-        Binding("r", "refresh", "Refresh", show=False),
+        Binding("r", "refresh", "Reload session list", show=False),
     ]
 
     def __init__(self, storage: Storage):

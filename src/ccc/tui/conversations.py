@@ -15,7 +15,6 @@ from ccc.prompt_presets import load_prompt_presets
 from ccc.storage import Storage
 from ccc.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
 from ccc.tui.layout import (
-    LIVE_SESSIONS_BUTTON,
     NEW_CONVERSATION_BUTTON,
     RETRY_BUTTON,
     ConfirmModal,
@@ -163,7 +162,7 @@ class ConversationsScreen(SidebarScreen):
         self._rendered_key: tuple | None = None
 
     def sidebar_buttons(self):
-        return [NEW_CONVERSATION_BUTTON, LIVE_SESSIONS_BUTTON, RETRY_BUTTON]
+        return [NEW_CONVERSATION_BUTTON, RETRY_BUTTON]
 
     def compose_sidebar_section(self):
         yield Static("Queues", classes="sidebar-label")

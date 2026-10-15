@@ -182,8 +182,7 @@ async def test_sidebar_buttons_show_full_label_text(tmp_path, monkeypatch):
         await pilot.pause()
         labels = {str(b.label) for b in app.screen.query(Button)}
         assert "New conversation (n)" in labels
-        assert "Live sessions (s)" in labels
-        assert "Retry / resume (r)" in labels
+        assert "Retry blocked queue (r)" in labels
 
 
 from textual.widgets import Input

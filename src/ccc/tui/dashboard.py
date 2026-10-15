@@ -9,8 +9,6 @@ from textual.widgets import DataTable, Static
 from ccc.models import QueueStatus
 from ccc.storage import Storage
 from ccc.tui.layout import (
-    ADD_PROMPT_BUTTON,
-    LIVE_SESSIONS_BUTTON,
     RETRY_BUTTON,
     SidebarScreen,
     panel,
@@ -42,7 +40,7 @@ class DashboardScreen(SidebarScreen):
         super().__init__(storage)
 
     def sidebar_buttons(self):
-        return [ADD_PROMPT_BUTTON, LIVE_SESSIONS_BUTTON, RETRY_BUTTON]
+        return [RETRY_BUTTON]
 
     def compose_main(self):
         yield panel(Static(id="dashboard-overview"), title="Overview")

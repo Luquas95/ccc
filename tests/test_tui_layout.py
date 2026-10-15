@@ -118,6 +118,25 @@ async def test_sidebar_buttons_stay_out_of_focus_chain(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_sidebar_buttons_are_only_the_views_own_actions(tmp_path):
+    # Switching views is the nav list's job — no "Live sessions" button,
+    # and no "Add prompt" on screens without a selected project.
+    app = _app(tmp_path)
+    expected = {
+        "d": ["Retry blocked queue (r)"],
+        "s": ["Add prompt (a)", "Reload session list (r)"],
+        "v": [],
+        "c": ["New conversation (n)", "Retry blocked queue (r)"],
+    }
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        for key, labels in expected.items():
+            await pilot.press(key)
+            await pilot.pause()
+            assert [str(b.label) for b in app.screen.query("#sidebar Button")] == labels, key
+
+
+@pytest.mark.asyncio
 async def test_add_prompt_prefills_selected_queue_path(tmp_path):
     app = _app(tmp_path)
     async with app.run_test() as pilot:

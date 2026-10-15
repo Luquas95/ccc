@@ -13,7 +13,6 @@ from ccc.orchestrator import enqueue_prompt
 from ccc.storage import Storage
 from ccc.tui.layout import (
     ADD_PROMPT_BUTTON,
-    LIVE_SESSIONS_BUTTON,
     MODAL_CSS,
     RETRY_BUTTON,
     SidebarScreen,
@@ -134,7 +133,7 @@ class QueueDetailScreen(SidebarScreen):
         self.queue_id = queue_id
 
     def sidebar_buttons(self):
-        return [ADD_PROMPT_BUTTON, LIVE_SESSIONS_BUTTON, RETRY_BUTTON]
+        return [ADD_PROMPT_BUTTON, RETRY_BUTTON]
 
     def compose_main(self):
         queue = self.storage.get_queue(self.queue_id)

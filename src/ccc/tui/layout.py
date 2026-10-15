@@ -38,8 +38,7 @@ VIEWS: list[tuple[str, str, str]] = [
 ]
 
 ADD_PROMPT_BUTTON = SidebarButton("sidebar-add-prompt", "Add prompt (a)", "green", "add_prompt")
-LIVE_SESSIONS_BUTTON = SidebarButton("sidebar-live-sessions", "Live sessions (s)", "blue", "pick_session")
-RETRY_BUTTON = SidebarButton("sidebar-retry", "Retry / resume (r)", "red", "retry_queue")
+RETRY_BUTTON = SidebarButton("sidebar-retry", "Retry blocked queue (r)", "red", "retry_queue")
 NEW_CONVERSATION_BUTTON = SidebarButton(
     "sidebar-new-conversation", "New conversation (n)", "green", "new_conversation"
 )
@@ -299,6 +298,8 @@ class SidebarScreen(Screen):
 
     # The footer only shows what the sidebar doesn't: views and the
     # sidebar buttons have their hotkey printed right next to them.
+    # The buttons are only the extra controls of the current view —
+    # switching views is the nav list's job, not a button's.
     BINDINGS = [
         Binding("d", "goto('dashboard')", "Dashboard", show=False),
         Binding("c", "goto('conversations')", "Conversations", show=False),
@@ -323,7 +324,7 @@ class SidebarScreen(Screen):
         return []
 
     def sidebar_buttons(self) -> list[SidebarButton]:
-        return [ADD_PROMPT_BUTTON, LIVE_SESSIONS_BUTTON]
+        return []
 
     # --- frame -----------------------------------------------------------
 
@@ -446,9 +447,6 @@ class SidebarScreen(Screen):
 
     def open_conversation(self, queue_id: int) -> None:
         self._navigate("conversations", self._make_view("conversations", select_queue_id=queue_id))
-
-    def action_pick_session(self) -> None:
-        self.action_goto("sessions")
 
     def action_add_prompt(self) -> None:
         from ccc.tui.queue_detail import AddPromptModal

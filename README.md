@@ -154,7 +154,8 @@ prompt from the shell without opening the TUI:
 Every screen shares one layout. The **left sidebar** has the daemon state,
 the list of screens (current one highlighted, each with its key, also
 clickable), the screen's own list where it has one (conversations), and
-coloured action buttons with their keys at the bottom. Content sits on
+coloured buttons with their keys at the bottom — only the extra actions of
+the current screen; screens are switched in the list above. Content sits on
 the right in round-bordered panels. The **bottom bar** only lists what
 the sidebar doesn't already show: the current screen's own actions, plus
 `?` Keys, `Ctrl+Q` Quit, `Ctrl+P` Settings and `Ctrl+T` Screenshot.
@@ -163,7 +164,7 @@ the sidebar doesn't already show: the current screen's own actions, plus
 |---|---|---|
 | Dashboard | `d` | every conversation with status, queued tasks, today's tokens; `Enter` opens its detail (settings, remote-control link, run history, commit diffs) |
 | Conversations | `c` | the transcript of the selected conversation and a message box to continue it |
-| Live sessions | `s` | Claude Code sessions running on this machine, also those started outside ccc; `Enter` sends one a prompt, `r` refreshes |
+| Live sessions | `s` | Claude Code sessions running on this machine, also those started outside ccc; `Enter` sends one a prompt, `r` reloads the list |
 | Analytics | `v` | account usage (5-hour, weekly, per model); tokens per calendar month (`←` `→`) by day, model and conversation |
 
 ### Keyboard shortcuts
@@ -183,9 +184,10 @@ you're typing in a text field; `Ctrl` keys work everywhere.
 | | `Esc` | back / close a window |
 | Dashboard | `Enter` | queue detail (there: `Enter` on a run shows its commit diff) |
 | | `r` | retry a blocked queue / resume one paused at a usage limit |
+| Live sessions | `Enter` / `r` | send the session a prompt / reload the session list |
 | Conversations | `Enter` / `Ctrl+J` | send the message / new line |
 | | `Alt+1` … `Alt+9` | [preset prompt](#preset-prompts) — send it or put it into the message box |
-| | `r` | retry / resume |
+| | `r` | retry the blocked conversation / resume one paused at a usage limit |
 | | `t` | [task queue editor](#task-queue) |
 | | `p` | [approve a tool call](#approving-tool-calls) Claude is waiting on |
 | | `x` / `h` | archive or restore / show archived |
