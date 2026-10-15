@@ -101,6 +101,21 @@ CREATE TABLE IF NOT EXISTS run_model_usage (
     cache_read_tokens INTEGER NOT NULL DEFAULT 0,
     cache_creation_tokens INTEGER NOT NULL DEFAULT 0
 );
+
+-- Token usage of interactive (remote-control) sessions, read from their
+-- transcripts by session_usage.UsageCollector: one row per model reply.
+CREATE TABLE IF NOT EXISTS session_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    queue_id INTEGER NOT NULL REFERENCES queues(id),
+    message_id TEXT NOT NULL,
+    model TEXT NOT NULL,
+    at TEXT NOT NULL,
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (queue_id, message_id)
+);
 """
 
 
@@ -412,7 +427,7 @@ class Storage:
             return self._row_to_queue(row) if row else None
 
     def delete_queue(self, queue_id: int) -> None:
-        """Remove a queue with its items, runs and per-model usage. Claude
+        """Remove a queue with its items, runs and token usage. Claude
         Code's own transcript is left alone."""
         with closing(self._connect()) as conn:
             conn.execute(
@@ -420,6 +435,7 @@ class Storage:
                 (queue_id,),
             )
             conn.execute("DELETE FROM prompt_runs WHERE queue_id = ?", (queue_id,))
+            conn.execute("DELETE FROM session_usage WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM queue_items WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM permission_requests WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM permission_allow WHERE queue_id = ?", (queue_id,))
@@ -630,8 +646,12 @@ class Storage:
         doesn't expose a per-model breakdown on every plan)."""
         with closing(self._connect()) as conn:
             rows = conn.execute(
-                "SELECT model, SUM(input_tokens + output_tokens + cache_read_tokens + cache_creation_tokens) "
-                "AS total FROM run_model_usage GROUP BY model ORDER BY total DESC"
+                "SELECT model, SUM(t) AS total FROM ("
+                " SELECT model, input_tokens + output_tokens + cache_read_tokens + cache_creation_tokens AS t"
+                " FROM run_model_usage UNION ALL"
+                " SELECT model, input_tokens + output_tokens + cache_read_tokens + cache_creation_tokens"
+                " FROM session_usage"
+                ") GROUP BY model ORDER BY total DESC"
             ).fetchall()
             return [(r[0], r[1] or 0) for r in rows]
 
@@ -658,12 +678,51 @@ class Storage:
         actually draws from, not a notional per-token dollar price."""
         with closing(self._connect()) as conn:
             rows = conn.execute(
-                "SELECT substr(started_at, 1, 10) AS day, "
-                "SUM(input_tokens + output_tokens + cache_read_tokens + cache_creation_tokens) "
-                "FROM prompt_runs WHERE started_at >= date('now', ?) GROUP BY day ORDER BY day",
-                (f"-{days} days",),
+                "SELECT day, SUM(t) FROM ("
+                " SELECT substr(started_at, 1, 10) AS day,"
+                " input_tokens + output_tokens + cache_read_tokens + cache_creation_tokens AS t"
+                " FROM prompt_runs WHERE started_at >= date('now', ?) UNION ALL"
+                " SELECT substr(at, 1, 10),"
+                " input_tokens + output_tokens + cache_read_tokens + cache_creation_tokens"
+                " FROM session_usage WHERE at >= date('now', ?)"
+                ") GROUP BY day ORDER BY day",
+                (f"-{days} days", f"-{days} days"),
             ).fetchall()
             return [(r[0], r[1] or 0) for r in rows]
+
+    def insert_session_usage(self, queue_id: int, records) -> int:
+        """Store model replies of an interactive session (see
+        session_usage); a reply already stored is ignored. Returns how many
+        were new."""
+        with closing(self._connect()) as conn:
+            before = conn.total_changes
+            conn.executemany(
+                "INSERT OR IGNORE INTO session_usage (queue_id, message_id, model, at, input_tokens, output_tokens, "
+                "cache_read_tokens, cache_creation_tokens) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (queue_id, r.message_id, r.model, r.at.isoformat(), r.input_tokens, r.output_tokens,
+                     r.cache_read_tokens, r.cache_creation_tokens)
+                    for r in records
+                ],
+            )
+            conn.commit()
+            return conn.total_changes - before
+
+    def queue_token_total(self, queue_id: int, day=None) -> int:
+        """All tokens a conversation used — headless runs plus replies of its
+        remote-control session — optionally only on one day."""
+        day_filter = " AND substr({col}, 1, 10) = ?" if day is not None else ""
+        args = (queue_id, day.isoformat()) if day is not None else (queue_id,)
+        with closing(self._connect()) as conn:
+            runs = conn.execute(
+                "SELECT SUM(input_tokens + output_tokens + cache_read_tokens + cache_creation_tokens) "
+                "FROM prompt_runs WHERE queue_id = ?" + day_filter.format(col="started_at"), args
+            ).fetchone()[0]
+            replies = conn.execute(
+                "SELECT SUM(input_tokens + output_tokens + cache_read_tokens + cache_creation_tokens) "
+                "FROM session_usage WHERE queue_id = ?" + day_filter.format(col="at"), args
+            ).fetchone()[0]
+            return (runs or 0) + (replies or 0)
 
     def blocked_seconds_total(self) -> float:
         with closing(self._connect()) as conn:

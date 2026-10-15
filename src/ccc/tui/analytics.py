@@ -139,10 +139,8 @@ class AnalyticsScreen(SidebarScreen):
         table.add_columns("Project", "Total tokens", "Success", "Errors", "Rate-limited")
         for queue in self.storage.list_queues():
             runs = self.storage.runs_for_queue(queue.id)
-            total_tokens = sum(
-                r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_creation_tokens
-                for r in runs
-            )
+            # Headless runs plus replies of a remote-control session.
+            total_tokens = self.storage.queue_token_total(queue.id)
             success = sum(1 for r in runs if r.status == RunStatus.SUCCESS)
             errors = sum(1 for r in runs if r.status == RunStatus.ERROR)
             limited = sum(1 for r in runs if r.status == RunStatus.RATE_LIMITED)

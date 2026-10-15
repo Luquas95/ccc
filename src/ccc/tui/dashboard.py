@@ -66,11 +66,7 @@ class DashboardScreen(SidebarScreen):
         waiting = self.storage.queues_waiting_for_approval()
         for queue in queues:
             pending = self.storage.count_pending_items(queue.id)
-            today_tokens = sum(
-                r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_creation_tokens
-                for r in self.storage.runs_for_queue(queue.id)
-                if r.started_at.date() == date.today()
-            )
+            today_tokens = self.storage.queue_token_total(queue.id, day=date.today())
             total_pending += pending
             total_tokens += today_tokens
             blocked += queue.status == QueueStatus.BLOCKED_ERROR
