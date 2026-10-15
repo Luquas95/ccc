@@ -8,13 +8,15 @@ from textual import work
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import Button, Input, Select, Static
+from textual.widgets import Button, DataTable, Input, Select, Static
 
 from ccc.backup import backup_now, default_backup_dir
 from ccc.notify import TELEGRAM_CHAT_KEY, TELEGRAM_TOKEN_KEY, send_telegram
 from ccc.orchestrator import DEFAULT_CONTINUE_TEXT, RESERVE_KEY, usage_reserve
 from ccc.presets import delete_preset, list_presets
+from ccc.prompt_presets import MAX_PRESETS, load_prompt_presets, save_prompt_presets
 from ccc.tui.layout import MODAL_CSS
+from ccc.tui.prompt_presets import PromptPresetModal, mode_label
 
 THEME_KEY = "tui_theme"
 RESERVE_CHOICES = [50, 60, 70, 75, 80, 85, 90, 95]
@@ -92,6 +94,16 @@ class SettingsModal(ModalScreen):
     SettingsModal .settings-status {
         padding-top: 1;
     }
+    SettingsModal #settings-prompt-presets {
+        height: auto;
+        max-height: 11;
+        margin-bottom: 1;
+    }
+    SettingsModal #settings-prompt-presets > .datatable--cursor {
+        background: blue;
+        color: white;
+        text-style: bold;
+    }
     SettingsModal .modal-hint {
         color: $text-muted;
         width: 1fr;
@@ -157,6 +169,22 @@ class SettingsModal(ModalScreen):
             )),
             Static("Queued tasks wait while a usage window (5 h / weekly) is at or above this.", classes="settings-hint"),
         )
+        self._prompt_presets = load_prompt_presets(s)
+        prompt_box = _section(
+            "Preset prompts",
+            Static("Alt+1 … Alt+9 in a conversation: ⏎ send sends it right away, ✎ insert only puts it "
+                   "into the message box at the cursor. Shown in the bar under the message box.",
+                   classes="settings-hint"),
+            DataTable(id="settings-prompt-presets", cursor_type="row"),
+            Horizontal(
+                Button("Add", id="settings-prompt-add"),
+                Button("Edit", id="settings-prompt-edit"),
+                Button("Delete", id="settings-prompt-delete", classes="settings-danger"),
+                Button("Up", id="settings-prompt-up"),
+                Button("Down", id="settings-prompt-down"),
+                classes="settings-actions",
+            ),
+        )
         presets = list_presets(s)
         preset_box = _section(
             "New-conversation presets",
@@ -173,7 +201,7 @@ class SettingsModal(ModalScreen):
             Horizontal(Button("Back up now", id="settings-backup"), classes="settings-actions"),
         )
         box = Container(
-            VerticalScroll(appearance, telegram, queues, preset_box, data, id="settings-scroll"),
+            VerticalScroll(appearance, telegram, queues, prompt_box, preset_box, data, id="settings-scroll"),
             Horizontal(
                 Static("Ctrl+S save  ·  Esc cancel", classes="modal-hint"),
                 Button("Cancel", id="settings-cancel", classes="modal-cancel"),
@@ -185,6 +213,9 @@ class SettingsModal(ModalScreen):
         yield box
 
     def on_mount(self) -> None:
+        table = self.query_one("#settings-prompt-presets", DataTable)
+        table.add_columns("Key", "Mode", "Name", "Prompt")
+        self._refresh_prompt_presets()
         self._refresh_telegram_state()
         self._refresh_data_info()
         self.query_one("#settings-theme", Select).focus()
@@ -217,9 +248,78 @@ class SettingsModal(ModalScreen):
             "settings-telegram-off": self._telegram_off,
             "settings-preset-delete": self._delete_preset,
             "settings-backup": self._backup,
+            "settings-prompt-add": self._add_prompt_preset,
+            "settings-prompt-edit": self._edit_prompt_preset,
+            "settings-prompt-delete": self._delete_prompt_preset,
+            "settings-prompt-up": lambda: self._move_prompt_preset(-1),
+            "settings-prompt-down": lambda: self._move_prompt_preset(1),
         }.get(event.button.id or "")
         if handler:
             handler()
+
+    # --- preset prompts (kept in the form until Save) ---------------------
+
+    def _refresh_prompt_presets(self, cursor: int | None = None) -> None:
+        table = self.query_one("#settings-prompt-presets", DataTable)
+        row = table.cursor_row if cursor is None else cursor
+        table.clear()
+        for number, preset in enumerate(self._prompt_presets, start=1):
+            first_line = preset.text.strip().splitlines()[0] if preset.text.strip() else ""
+            table.add_row(f"Alt+{number}", mode_label(preset), Text(preset.name),
+                          Text(first_line[:50] + ("…" if len(first_line) > 50 or "\n" in preset.text.strip() else "")))
+        if not self._prompt_presets:
+            table.add_row("", "", Text("no preset prompts yet — Add one", style="dim"), "")
+        elif row is not None:
+            table.move_cursor(row=max(0, min(row, len(self._prompt_presets) - 1)))
+        self.query_one("#settings-prompt-add", Button).disabled = len(self._prompt_presets) >= MAX_PRESETS
+        for button in ("edit", "delete", "up", "down"):
+            self.query_one(f"#settings-prompt-{button}", Button).disabled = not self._prompt_presets
+
+    def _selected_prompt_index(self) -> int | None:
+        row = self.query_one("#settings-prompt-presets", DataTable).cursor_row
+        return row if self._prompt_presets and 0 <= row < len(self._prompt_presets) else None
+
+    def _add_prompt_preset(self) -> None:
+        if len(self._prompt_presets) >= MAX_PRESETS:
+            return
+
+        def added(preset) -> None:
+            if preset is not None:
+                self._prompt_presets.append(preset)
+                self._refresh_prompt_presets(cursor=len(self._prompt_presets) - 1)
+
+        self.app.push_screen(PromptPresetModal(), added)
+
+    def _edit_prompt_preset(self) -> None:
+        index = self._selected_prompt_index()
+        if index is None:
+            return
+
+        def edited(preset) -> None:
+            if preset is not None:
+                self._prompt_presets[index] = preset
+                self._refresh_prompt_presets(cursor=index)
+
+        self.app.push_screen(PromptPresetModal(self._prompt_presets[index], f"Preset prompt Alt+{index + 1}"), edited)
+
+    def _delete_prompt_preset(self) -> None:
+        index = self._selected_prompt_index()
+        if index is not None:
+            del self._prompt_presets[index]
+            self._refresh_prompt_presets(cursor=index)
+
+    def _move_prompt_preset(self, step: int) -> None:
+        index = self._selected_prompt_index()
+        if index is None or not 0 <= index + step < len(self._prompt_presets):
+            return
+        p = self._prompt_presets
+        p[index], p[index + step] = p[index + step], p[index]
+        self._refresh_prompt_presets(cursor=index + step)
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        if event.data_table.id == "settings-prompt-presets":
+            event.stop()
+            self._edit_prompt_preset()
 
     def _telegram_values(self) -> tuple[str, str]:
         token = self.query_one("#settings-telegram-token", Input).value.strip() or (
@@ -290,6 +390,7 @@ class SettingsModal(ModalScreen):
         s.set_setting("continue_text", continue_text or DEFAULT_CONTINUE_TEXT)
         reserve = self.query_one("#settings-reserve", Select).value
         s.set_setting(RESERVE_KEY, "" if reserve == "off" else str(reserve))
+        save_prompt_presets(s, self._prompt_presets)
         self.notify("Settings saved.")
         self.dismiss(True)
 

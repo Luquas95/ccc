@@ -12,6 +12,12 @@ from textual.widgets import TextArea
 NEWLINE_KEYS = ("ctrl+j", "shift+enter")
 
 
+def _alt_digit_keys() -> frozenset[str]:
+    from ccc.tui.prompt_presets import ALT_DIGIT_CHARS
+
+    return frozenset(ALT_DIGIT_CHARS.values())
+
+
 class MessageBox(TextArea):
     DEFAULT_CSS = """
     MessageBox {
@@ -29,6 +35,13 @@ class MessageBox(TextArea):
     def __init__(self, placeholder: str = "", **kwargs):
         super().__init__(soft_wrap=True, show_line_numbers=False, tab_behavior="focus", **kwargs)
         self.placeholder = placeholder
+
+    def check_consume_key(self, key: str, character: str | None = None) -> bool:
+        # Alt+1 … Alt+9 arrive as "¡", "™", … — leave them to the preset
+        # prompt bindings instead of typing the character.
+        if key in _alt_digit_keys():
+            return False
+        return super().check_consume_key(key, character)
 
     async def _on_key(self, event: events.Key) -> None:
         if event.key == "enter":
