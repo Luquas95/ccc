@@ -9,6 +9,7 @@ from ccc.heartbeat import HEARTBEAT_SECONDS, beat
 from ccc.notify import Notifier
 from ccc.orchestrator import Orchestrator, RunFn
 from ccc.runner import execute
+from ccc.session_usage import USAGE_POLL_SECONDS, UsageCollector
 from ccc.storage import Storage
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,17 @@ async def backup_loop(db_path: str, out_dir, interval: float = BACKUP_CHECK_SECO
         await asyncio.sleep(interval)
 
 
+async def usage_loop(storage: Storage, interval: float = USAGE_POLL_SECONDS) -> None:
+    """Token usage of remote-control conversations, from their transcripts."""
+    collector = UsageCollector()
+    while True:
+        try:
+            await asyncio.to_thread(collector.collect, storage)
+        except Exception:
+            logger.exception("reading remote-control token usage failed")
+        await asyncio.sleep(interval)
+
+
 async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     storage = Storage(db_path)
     orchestrator = Orchestrator(storage, run_fn=run_fn, notifier=Notifier(storage))
@@ -51,10 +63,12 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
 
     heartbeat = asyncio.create_task(heartbeat_loop(storage))
     backups = asyncio.create_task(backup_loop(db_path, default_backup_dir(db_path)))
+    usage = asyncio.create_task(usage_loop(storage))
     await stop_event.wait()
     logger.info("ccc daemon shutting down")
     heartbeat.cancel()
     backups.cancel()
+    usage.cancel()
     await orchestrator.stop_all()
 
 

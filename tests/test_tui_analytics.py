@@ -198,3 +198,30 @@ def test_last_days_series_fills_missing_days_with_zero():
 
     series = last_days_series([("2026-10-13", 5), ("2026-10-15", 7)], days=4, today=date(2026, 10, 15))
     assert series == [0, 5, 0, 7]
+
+
+@pytest.mark.asyncio
+async def test_remote_control_replies_show_in_analytics_and_dashboard(tmp_path, monkeypatch):
+    from datetime import date, datetime
+
+    from textual.widgets import DataTable
+
+    from ccc.models import DeliveryMode
+    from ccc.session_usage import UsageRecord
+    from ccc.tui.app import CCContinueApp
+
+    monkeypatch.setattr("ccc.tui.analytics.get_pro_usage", lambda: None)
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    storage = Storage(tmp_path / "history.db")
+    q = storage.create_queue("phone-chat", str(tmp_path), "sess-rc", delivery_mode=DeliveryMode.REMOTE_CONTROL)
+    storage.insert_session_usage(q.id, [UsageRecord("m1", "claude-opus-5-5", datetime.now(), 1, 2, 3, 4)])
+    app = CCContinueApp(str(tmp_path / "history.db"))
+    async with app.run_test(size=(140, 45)) as pilot:
+        await pilot.pause()
+        dash = app.screen.query_one("#dashboard-table", DataTable)
+        assert "10" in [str(c) for c in dash.get_row_at(0)]
+        await pilot.press("v")
+        await pilot.pause()
+        table = app.screen.query_one("#analytics-project-table", DataTable)
+        assert [str(c) for c in table.get_row_at(0)][:2] == ["phone-chat", "10"]
+    assert date.today().isoformat() in dict(storage.daily_token_totals())

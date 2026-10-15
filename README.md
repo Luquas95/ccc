@@ -334,8 +334,12 @@ link appears in the conversation header and the queue detail. (Headless
   is queued first and sent after the reset (auto-continue) or when you
   press `r`.
 - Each such conversation keeps a Claude Code process in memory; archive
-  the ones you don't use. Runs aren't counted in the token analytics
-  (interactive sessions return no structured result).
+  the ones you don't use.
+- Token usage: an interactive session returns no structured result, so
+  the daemon reads the tokens of every reply (subagents included) from the
+  session's transcript every ~30 s and counts them in Analytics and the
+  dashboard — also replies to messages sent from the phone. Only replies
+  since the conversation was created in ccc count.
 
 ### Approving tool calls
 
@@ -511,7 +515,9 @@ prompt this way.
 Analytics (`v`) shows the account's real usage windows (the same numbers
 the daemon uses to wait for resets) with their reset times and your usage
 reserve, then what ccc itself ran: tokens per model, a 30-day chart and a
-per-project table (successes, errors, rate-limited runs).
+per-project table (successes, errors, rate-limited runs). Tokens include
+headless runs and the replies of remote-control conversations; sessions
+started outside ccc aren't counted.
 
 ## Command line
 
