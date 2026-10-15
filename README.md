@@ -3,7 +3,7 @@
 **A terminal home for your Claude Code work that keeps going without you.**
 Start conversations in any project, queue up tasks, and let a background
 daemon work through them — it waits out usage limits and carries on by
-itself, asks you (in the TUI or on Telegram) when Claude needs approval,
+itself, asks you (in the TUI, on Telegram or Discord) when Claude needs approval,
 commits each finished task, and lets you continue a conversation from your
 phone via Remote Control.
 
@@ -31,7 +31,7 @@ phone via Remote Control.
 <td><img src="docs/screenshots/analytics.png" alt="Analytics"></td>
 </tr>
 <tr>
-<td align="center">Settings: theme, Telegram, queues, presets, backup</td>
+<td align="center">Settings: theme, Telegram, Discord, queues, presets, backup</td>
 <td align="center">Analytics: account usage and token history</td>
 </tr>
 <tr>
@@ -69,7 +69,7 @@ phone via Remote Control.
   mobile app / claude.ai.
 - **Approvals** — restricted conversations (*Auto-accept edits*, *Plan
   only*) ask you in the TUI instead of silently failing.
-- **Telegram** — notifications when a queue finishes, needs you, fails or
+- **Telegram / Discord** — notifications when a queue finishes, needs you, fails or
   hits a limit.
 - **Git** — each successful task is committed (in *Skip all permission
   checks* conversations), with a diff viewer.
@@ -80,7 +80,7 @@ phone via Remote Control.
 - **Preset prompts** — prompts you use often, on `Alt+1` … `Alt+9` in any
   conversation: each one is either sent right away or put into the message
   box for you to finish.
-- **Settings** (`Ctrl+P`) — colour theme, Telegram, continue text, usage
+- **Settings** (`Ctrl+P`) — colour theme, Telegram, Discord, continue text, usage
   reserve, preset prompts, launch presets and database backup in one
   window.
 - Search across conversations, Markdown export, archive/delete, daily
@@ -136,7 +136,8 @@ journalctl --user -u ccc -f        # daemon log
 3. **Talk to Claude:** type in the box at the bottom, `Enter` sends
    (`Ctrl+J` for a new line). Add more tasks with `t`.
 4. Optional: press `Ctrl+P` (Settings) to pick a colour theme, set up
-   [Telegram notifications](#telegram-notifications) and a
+   [Telegram](#telegram-notifications) or [Discord](#discord-notifications)
+   notifications and a
    [usage reserve](#usage-limits-and-auto-continue).
 
 Press `?` anywhere for all keyboard shortcuts. You can also queue a
@@ -203,6 +204,10 @@ throws the changes away, preset prompt edits included (the buttons *Send test me
   keep the saved one) and chat id, with how to get them. *Send test
   message* tries the values in the form before you save; *Turn off*
   clears both right away.
+- **Discord notifications** — the channel's webhook URL (hidden; leave the
+  field empty to keep the saved one), with how to get it, *Send test
+  message* and *Turn off*. Only `https://discord.com/api/webhooks/…` URLs
+  are accepted.
 - **Queues** — the continue text auto-continue sends after a usage limit
   and the usage reserve (Off or 50–95 %), see
   [Usage limits](#usage-limits-and-auto-continue).
@@ -214,6 +219,13 @@ throws the changes away, preset prompt edits included (the buttons *Send test me
   was made, and *Back up now*.
 
 The same values can be set from the shell with `ccc config …` (see below).
+
+<details>
+<summary>The whole Settings window</summary>
+
+![Settings, all sections](docs/screenshots/settings_full.png)
+
+</details>
 
 ### Preset prompts
 
@@ -334,7 +346,7 @@ Claude's request waits — with no time limit — for you. The conversation
 shows `?` in the lists and *Waiting for your approval: Bash — press p*;
 `p` opens the request: `y` allow, `a` always allow that tool in this
 conversation, `n` deny (Claude is told and adapts), `Esc` decide later.
-A Telegram message tells you when a request is waiting. Conversations
+A Telegram / Discord message tells you when a request is waiting. Conversations
 with *Skip all permission checks* approve everything as before;
 remote-control ones are approved inside the session (phone / claude.ai).
 
@@ -359,6 +371,25 @@ limit** (waiting until HH:MM) and later **continues**.
 
 Without both values nothing is sent. The token is stored in the ccc
 database, shown masked, and never logged.
+
+### Discord notifications
+
+The same messages can go to a Discord channel — instead of Telegram or
+next to it (each channel works on its own).
+
+1. In Discord open the channel's settings → *Integrations* → *Webhooks* →
+   *New Webhook* → *Copy Webhook URL*.
+2. Paste it in [Settings](#settings) (`Ctrl+P`) → *Discord notifications*,
+   press *Send test message*, then *Save*. Or from the shell:
+
+       ccc config discord-webhook https://discord.com/api/webhooks/…
+       ccc config discord-test
+
+`ccc config discord-webhook off` (or *Turn off*) removes it. Keep the URL
+private: anyone who has it can post to the channel. It's stored in the ccc
+database, shown masked and never logged. Messages are cut to Discord's
+2000 characters and never ping anyone (`@everyone` in a reply stays plain
+text).
 
 ### Usage limits and auto-continue
 
@@ -496,7 +527,9 @@ that to your `PATH` or call them with the full path.
 | `ccc config usage-reserve [N\|off]` | show / set the usage reserve |
 | `ccc config telegram-token [TOKEN]` | show (masked) / set the bot token |
 | `ccc config telegram-chat [ID]` | show / set the chat id |
-| `ccc config telegram-test` | send a test notification |
+| `ccc config telegram-test` | send a test notification to Telegram |
+| `ccc config discord-webhook [URL\|off]` | show (masked) / set / remove the Discord webhook |
+| `ccc config discord-test` | send a test notification to Discord |
 | `ccc-daemon` | the daemon (normally run by `ccc.service`) |
 
 ## Architecture: daemon vs. TUI
@@ -558,7 +591,7 @@ The daemon backs up the database once a day (checked hourly) to
 `~/.local/share/ccc/backups/history-YYYY-MM-DD.db` using SQLite's online
 backup, so the copy is consistent while it runs; the newest 14 are kept,
 files are private (600) since they include settings such as the Telegram
-token. *Back up now* in Settings or `ccc backup` makes one immediately. To restore: stop the services,
+token and the Discord webhook. *Back up now* in Settings or `ccc backup` makes one immediately. To restore: stop the services,
 copy a backup over `~/.local/share/ccc/history.db`, start them again.
 
 ## Updating
