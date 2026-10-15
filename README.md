@@ -75,8 +75,10 @@ phone via Remote Control.
   checks* conversations), with a diff viewer.
 - **Live sessions** — see every Claude Code session running on the machine
   and send a prompt into one of them once it's idle.
-- **Analytics** — the account's real 5-hour / weekly usage, tokens per
-  model, per day and per project.
+- **Analytics** — the account's real 5-hour / weekly usage; tokens per
+  calendar month by day, model and conversation, history kept for good —
+  also as [Markdown notes for Obsidian](#token-history-in-obsidian) with
+  a calendar and charts.
 - **Preset prompts** — prompts you use often, on `Alt+1` … `Alt+9` in any
   conversation: each one is either sent right away or put into the message
   box for you to finish.
@@ -162,7 +164,7 @@ the sidebar doesn't already show: the current screen's own actions, plus
 | Dashboard | `d` | every conversation with status, queued tasks, today's tokens; `Enter` opens its detail (settings, remote-control link, run history, commit diffs) |
 | Conversations | `c` | the transcript of the selected conversation and a message box to continue it |
 | Live sessions | `s` | Claude Code sessions running on this machine, also those started outside ccc; `Enter` sends one a prompt, `r` refreshes |
-| Analytics | `v` | account usage (5-hour, weekly, per model), tokens by model / day / project |
+| Analytics | `v` | account usage (5-hour, weekly, per model); tokens per calendar month (`←` `→`) by day, model and conversation |
 
 ### Keyboard shortcuts
 
@@ -215,6 +217,8 @@ throws the changes away, preset prompt edits included (the buttons *Send test me
   [Preset prompts](#preset-prompts).
 - **New-conversation presets** — delete presets saved in the New
   conversation window.
+- **Obsidian export** — the folder for the [token history
+  notes](#token-history-in-obsidian), *Export now*.
 - **Data** — where the database and its backups are, when the last backup
   was made, and *Back up now*.
 
@@ -471,8 +475,9 @@ followed by `·N` queued tasks.
 
 In the conversations view: `x` archives the selected conversation (hidden
 from the lists, still processed; `h` shows archived ones, `x` again
-restores), `Ctrl+D` deletes it after confirmation — its queued tasks and
-run history go, Claude Code's own transcript stays (so it can still be
+restores), `Ctrl+D` deletes it after confirmation — its queued tasks and the texts
+of its runs go, its token numbers stay in the history (Analytics and the
+Obsidian notes show it as *deleted*), Claude Code's own transcript stays (so it can still be
 picked under *Resume selected…*). A conversation Claude is working on
 can't be deleted until it finishes or you pause it.
 
@@ -514,10 +519,31 @@ prompt this way.
 
 Analytics (`v`) shows the account's real usage windows (the same numbers
 the daemon uses to wait for resets) with their reset times and your usage
-reserve, then what ccc itself ran: tokens per model, a 30-day chart and a
-per-project table (successes, errors, rate-limited runs). Tokens include
-headless runs and the replies of remote-control conversations; sessions
-started outside ccc aren't counted.
+reserve, then what ccc itself used in a **calendar month** — `←` / `→`
+switch months: tokens per day, tokens by model and a per-conversation
+table (successes, errors, rate-limited runs). Tokens include headless runs
+and the replies of remote-control conversations; sessions started outside
+ccc aren't counted. The history is kept for good — also for conversations
+you delete.
+
+### Token history in Obsidian
+
+ccc can write the token history as Markdown notes into a folder of your
+Obsidian vault — no plugins needed (Obsidian draws the charts itself):
+
+| Note | What's in it |
+|---|---|
+| `ccc_analytics.md` | start page: total, this month's calendar (click a day), all months with links, chart per month |
+| `2026-10.md` | a month: total, calendar, chart per day, by model, by conversation |
+| `2026-10-15.md` | a day with usage: total, by model, by conversation |
+
+Set the folder in Settings → *Obsidian export* (or `ccc config
+obsidian-folder ~/path/to/vault/ccc_analytics`); *Export now* /
+`ccc export-obsidian` write the notes at once, then the daemon keeps them
+up to date every 5 minutes. The numbers live in the ccc database — the
+notes are a view: ccc overwrites notes it made (they carry `generator: ccc`
+in their properties) and never touches any other file. Each note also has
+its numbers as properties (`tokens`, `date` / `month`).
 
 ## Command line
 
@@ -529,6 +555,8 @@ that to your `PATH` or call them with the full path.
 | `ccc` | open the TUI |
 | `ccc add <dir> "<prompt>"` | queue a prompt for that directory's conversation |
 | `ccc backup` | back up the database now |
+| `ccc export-obsidian` | write the token history notes into the Obsidian folder now |
+| `ccc config obsidian-folder [PATH\|off]` | show / set / clear the folder for the Obsidian notes |
 | `ccc config continue-text ["…"]` | show / set the continue message |
 | `ccc config usage-reserve [N\|off]` | show / set the usage reserve |
 | `ccc config telegram-token [TOKEN]` | show (masked) / set the bot token |

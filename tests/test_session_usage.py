@@ -71,4 +71,4 @@ def test_daily_totals_and_delete_include_session_usage(tmp_path):
     assert dict(storage.daily_token_totals()) == {today: 100}
     assert storage.queue_token_total(rc.id, day=datetime.now().date()) == 100
     storage.delete_queue(rc.id)
-    assert storage.total_tokens_by_model() == []
+    assert storage.total_tokens_by_model() == [("claude-opus-5-5", 100)]  # history survives

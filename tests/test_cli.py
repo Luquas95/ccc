@@ -135,3 +135,21 @@ def test_config_discord(tmp_path, monkeypatch, capsys):
     assert Storage(db_path).get_setting(DISCORD_WEBHOOK_KEY) == ""
     with _pytest.raises(SystemExit):
         cli.main(["config", "discord-test"])
+
+
+def test_obsidian_folder_and_export(tmp_path, monkeypatch, capsys):
+    import pytest as _pytest
+    from ccc import cli
+
+    db_path = tmp_path / "history.db"
+    monkeypatch.setattr(cli, "default_db_path", lambda: db_path)
+    with _pytest.raises(SystemExit):
+        cli.main(["export-obsidian"])
+    out = tmp_path / "notes"
+    cli.main(["config", "obsidian-folder", str(out)])
+    cli.main(["export-obsidian"])
+    assert (out / "ccc_analytics.md").exists()
+    cli.main(["config", "obsidian-folder", "off"])
+    capsys.readouterr()
+    cli.main(["config", "obsidian-folder"])
+    assert "(not set)" in capsys.readouterr().out

@@ -43,6 +43,20 @@ def config_command(db_path: str, setting: str, value: str | None) -> None:
             print("ccc: sending failed — check the token and chat id", file=sys.stderr)
             sys.exit(1)
         return
+    if setting == "obsidian-folder":
+        from ccc.obsidian_export import FOLDER_KEY
+
+        if value is None:
+            print(storage.get_setting(FOLDER_KEY) or "(not set)")
+        elif value.strip().lower() in ("off", "none"):
+            storage.set_setting(FOLDER_KEY, "")
+            print("obsidian-folder removed: no more export.")
+        else:
+            folder = str(Path(value.strip()).expanduser().resolve())
+            storage.set_setting(FOLDER_KEY, folder)
+            print(f"obsidian-folder set to {folder} — the daemon exports there every 5 minutes "
+                  "(`ccc export-obsidian` does it now).")
+        return
     if setting == "discord-test":
         notifier = Notifier(storage)
         if not notifier.discord_configured():
@@ -122,6 +136,7 @@ def main(argv: list[str] | None = None) -> None:
     add_parser.add_argument("prompt")
 
     subparsers.add_parser("backup", help="Back up the ccc database now (the daemon also does it daily)")
+    subparsers.add_parser("export-obsidian", help="Write the token history notes into the Obsidian folder now")
 
     config_parser = subparsers.add_parser("config", help="Show or change ccc settings")
     config_sub = config_parser.add_subparsers(dest="setting", required=True)
@@ -144,10 +159,26 @@ def main(argv: list[str] | None = None) -> None:
         "discord-webhook", help="Discord channel webhook URL for notifications (no value: show it masked; off: remove)"
     )
     webhook_parser.add_argument("value", nargs="?")
+    obsidian_parser = config_sub.add_parser(
+        "obsidian-folder", help="Folder for the token history notes for Obsidian (no value: show it; off: stop)"
+    )
+    obsidian_parser.add_argument("value", nargs="?")
     discord_test_parser = config_sub.add_parser("discord-test", help="Send a test notification to Discord")
     discord_test_parser.set_defaults(value=None)
 
     args = parser.parse_args(argv)
+
+    if args.command == "export-obsidian":
+        from ccc.obsidian_export import configured_folder, export
+
+        storage = Storage(str(default_db_path()))
+        folder = configured_folder(storage)
+        if not folder:
+            print("ccc: set `ccc config obsidian-folder PATH` first", file=sys.stderr)
+            sys.exit(1)
+        written = export(storage, folder)
+        print(f"{written} note(s) updated in {folder}")
+        return
 
     if args.command == "backup":
         from ccc import backup

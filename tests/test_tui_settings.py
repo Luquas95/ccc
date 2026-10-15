@@ -221,3 +221,21 @@ async def test_discord_test_and_turn_off(tmp_path, monkeypatch):
         app.storage.set_setting(DISCORD_WEBHOOK_KEY, HOOK)
         modal._discord_off()
         assert app.storage.get_setting(DISCORD_WEBHOOK_KEY) == ""
+
+
+@pytest.mark.asyncio
+async def test_obsidian_folder_saved_and_export_now(tmp_path):
+    from ccc.obsidian_export import FOLDER_KEY
+
+    app = _app(tmp_path)
+    folder = tmp_path / "vault" / "ccc_analytics"
+    async with app.run_test(size=(140, 45)) as pilot:
+        modal = await _open_settings(pilot, app)
+        modal._obsidian_export()  # nothing filled in: no files
+        assert not folder.exists()
+        modal.query_one("#settings-obsidian-folder", Input).value = str(folder)
+        modal._obsidian_export()
+        assert (folder / "ccc_analytics.md").exists()
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert app.storage.get_setting(FOLDER_KEY) == str(folder)

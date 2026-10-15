@@ -9,8 +9,8 @@ from textual.binding import Binding
 from textual.containers import Container, Horizontal, VerticalScroll
 from textual.widgets import DataTable, ProgressBar, Sparkline, Static
 
-from ccc.models import RunStatus
 from ccc.storage import Storage
+from ccc.token_stats import month_bounds, month_stats, shift_month
 from ccc.tui.layout import SidebarScreen, panel
 from ccc.usage_api import ProUsage, get_pro_usage
 
@@ -67,19 +67,27 @@ def build_model_token_bars(totals: list[tuple[str, int]]) -> list[ModelTokenBar]
     return [ModelTokenBar(model, tokens, (tokens / max_tokens) * 100) for model, tokens in totals]
 
 
-def last_days_series(daily: list[tuple[str, int]], days: int = 30, today: date | None = None) -> list[int]:
-    """One value per calendar day, oldest first, 0 for days without runs —
+def month_series(by_day: dict[date, int], year: int, month: int) -> list[int]:
+    """One value per day of the calendar month, 0 for days without usage —
     otherwise a single busy day would stretch over the whole chart."""
-    by_day = dict(daily)
-    today = today or date.today()
-    return [by_day.get((today - timedelta(days=n)).isoformat(), 0) for n in range(days - 1, -1, -1)]
+    start, end = month_bounds(year, month)
+    return [by_day.get(start + timedelta(days=n), 0) for n in range((end - start).days)]
+
+
+def month_title(year: int, month: int) -> str:
+    return date(year, month, 1).strftime("%B %Y")
 
 
 class AnalyticsScreen(SidebarScreen):
     VIEW = "analytics"
     SUB_TITLE = "Analytics"
 
-    BINDINGS = [Binding("escape", "back", "Back", show=False)]
+    BINDINGS = [
+        Binding("escape", "back", "Back", show=False),
+        # priority: the tables would otherwise take the arrows.
+        Binding("left", "month(-1)", "Prev month", priority=True),
+        Binding("right", "month(1)", "Next month", priority=True),
+    ]
 
     DEFAULT_CSS = """
     AnalyticsScreen #analytics-scroll {
@@ -111,16 +119,19 @@ class AnalyticsScreen(SidebarScreen):
 
     def __init__(self, storage: Storage):
         super().__init__(storage)
+        today = date.today()
+        self.year, self.month = today.year, today.month
 
     def compose_main(self):
         yield VerticalScroll(
             panel(Container(id="pro-usage-gauges"), title="Claude Pro usage (account limits)"),
-            panel(Container(id="model-usage-gauges"), title="Tokens by model (this tool's own history)"),
-            panel(Sparkline([], id="tokens-sparkline"), title="Tokens per day (last 30 days)"),
+            panel(Sparkline([], id="tokens-sparkline"), title="Tokens per day", id="month-panel"),
+            panel(Container(id="model-usage-gauges"), title="Tokens by model", id="model-panel"),
             panel(
                 DataTable(id="analytics-project-table"),
                 Static(id="analytics-summary"),
-                title="Tokens per project",
+                title="Tokens per conversation",
+                id="project-panel",
             ),
             id="analytics-scroll",
         )
@@ -129,22 +140,10 @@ class AnalyticsScreen(SidebarScreen):
         self.run_worker(self.refresh_pro_usage(), exclusive=True)
         self.set_interval(30.0, lambda: self.run_worker(self.refresh_pro_usage(), exclusive=True))
 
-        await self._mount_model_usage_bars()
-
-        sparkline = self.query_one("#tokens-sparkline", Sparkline)
-        sparkline.data = last_days_series(self.storage.daily_token_totals())
-
         table = self.query_one("#analytics-project-table", DataTable)
         table.cursor_type = "row"
-        table.add_columns("Project", "Total tokens", "Success", "Errors", "Rate-limited")
-        for queue in self.storage.list_queues():
-            runs = self.storage.runs_for_queue(queue.id)
-            # Headless runs plus replies of a remote-control session.
-            total_tokens = self.storage.queue_token_total(queue.id)
-            success = sum(1 for r in runs if r.status == RunStatus.SUCCESS)
-            errors = sum(1 for r in runs if r.status == RunStatus.ERROR)
-            limited = sum(1 for r in runs if r.status == RunStatus.RATE_LIMITED)
-            table.add_row(Text(queue.name), f"{total_tokens:,}", str(success), str(errors), str(limited))
+        table.add_columns("Conversation", "Tokens", "Success", "Errors", "Rate-limited")
+        await self._render_month()
 
         blocked_seconds = self.storage.blocked_seconds_total()
         summary = self.query_one("#analytics-summary", Static)
@@ -173,11 +172,42 @@ class AnalyticsScreen(SidebarScreen):
         )
         await container.mount(Static(note, id="usage-reserve-note", classes="muted"))
 
-    async def _mount_model_usage_bars(self) -> None:
+    async def action_month(self, step: int) -> None:
+        year, month = shift_month(self.year, self.month, step)
+        today = date.today()
+        if (year, month) > (today.year, today.month):
+            return  # nothing in the future
+        self.year, self.month = year, month
+        await self._render_month()
+
+    async def _render_month(self) -> None:
+        """Chart, per-model bars and per-conversation table of the selected
+        calendar month (headless runs + remote-control replies, deleted
+        conversations included)."""
+        stats = month_stats(self.storage, self.year, self.month)
+        title = month_title(self.year, self.month)
+        self.query_one("#month-panel").border_title = (
+            f"Tokens per day — {title}: {stats.total:,} tokens  (← → month)"
+        )
+        self.query_one("#model-panel").border_title = f"Tokens by model — {title}"
+        self.query_one("#project-panel").border_title = f"Tokens per conversation — {title}"
+        self.query_one("#tokens-sparkline", Sparkline).data = month_series(stats.by_day, self.year, self.month)
+
+        table = self.query_one("#analytics-project-table", DataTable)
+        table.clear()
+        for c in stats.by_conversation:
+            name = Text(c.name + (" (deleted)" if c.deleted else ""), style="dim" if c.deleted else "")
+            table.add_row(name, f"{c.tokens:,}", str(c.success), str(c.errors), str(c.rate_limited))
+
         container = self.query_one("#model-usage-gauges", Container)
-        bars = build_model_token_bars(self.storage.total_tokens_by_model())
+        await container.remove_children()
+        await self._mount_model_usage_bars(stats.by_model)
+
+    async def _mount_model_usage_bars(self, totals: list[tuple[str, int]]) -> None:
+        container = self.query_one("#model-usage-gauges", Container)
+        bars = build_model_token_bars(totals)
         if not bars:
-            await container.mount(Static("No runs recorded yet."))
+            await container.mount(Static("No tokens recorded in this month."))
             return
         for bar in bars:
             await self._mount_gauge_row(container, bar.model, bar.relative_pct, f"{bar.tokens:,} tokens")

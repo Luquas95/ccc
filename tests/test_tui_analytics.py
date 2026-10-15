@@ -191,13 +191,48 @@ async def test_analytics_shows_usage_reserve(tmp_path, monkeypatch):
         assert "75%" in str(app.screen.query_one("#usage-reserve-note").render())
 
 
-def test_last_days_series_fills_missing_days_with_zero():
+def test_month_series_one_value_per_day_of_month():
     from datetime import date
 
-    from ccc.tui.analytics import last_days_series
+    from ccc.tui.analytics import month_series
 
-    series = last_days_series([("2026-10-13", 5), ("2026-10-15", 7)], days=4, today=date(2026, 10, 15))
-    assert series == [0, 5, 0, 7]
+    series = month_series({date(2026, 2, 1): 5, date(2026, 2, 28): 7, date(2026, 3, 1): 9}, 2026, 2)
+    assert len(series) == 28 and series[0] == 5 and series[-1] == 7 and sum(series) == 12
+
+
+@pytest.mark.asyncio
+async def test_arrows_switch_calendar_month(tmp_path, monkeypatch):
+    from datetime import date, datetime
+
+    from textual.widgets import DataTable
+
+    from ccc.models import PromptRun, RunStatus
+    from ccc.token_stats import shift_month
+    from ccc.tui.analytics import month_title
+    from ccc.tui.app import CCContinueApp
+
+    monkeypatch.setattr("ccc.tui.analytics.get_pro_usage", lambda: None)
+    storage = Storage(tmp_path / "history.db")
+    q = storage.create_queue("old-one", str(tmp_path), "s1")
+    py, pm = shift_month(date.today().year, date.today().month, -1)
+    when = datetime(py, pm, 3, 12, 0)
+    storage.insert_prompt_run(PromptRun(id=0, queue_id=q.id, queue_item_id=None, prompt_text="p", started_at=when,
+                                        finished_at=when, status=RunStatus.SUCCESS, input_tokens=42))
+    storage.delete_queue(q.id)
+    app = CCContinueApp(str(tmp_path / "history.db"))
+    async with app.run_test(size=(140, 45)) as pilot:
+        await pilot.pause()
+        await pilot.press("v")
+        await pilot.pause()
+        screen = app.screen
+        assert screen.query_one("#analytics-project-table", DataTable).row_count == 0
+        await pilot.press("right")  # no future months
+        await pilot.press("left")
+        await pilot.pause()
+        assert month_title(py, pm) in str(screen.query_one("#month-panel").border_title)
+        assert "42 tokens" in str(screen.query_one("#month-panel").border_title)
+        row = [str(c) for c in screen.query_one("#analytics-project-table", DataTable).get_row_at(0)]
+        assert row[:2] == ["old-one (deleted)", "42"]
 
 
 @pytest.mark.asyncio
