@@ -43,7 +43,7 @@ class ConversationsScreen(SidebarScreen):
         ("t", "tasks", "Tasks"),
         ("x", "toggle_archive", "Archive"),
         ("h", "toggle_show_archived", "Show archived"),
-        ("ctrl+d", "delete_conversation", "Delete"),
+        # No Ctrl+D (delete): it exits Claude Code — new key in #31.
         ("slash", "search", "Search"),
         ("e", "export", "Export conversation"),
         ("p", "approve", "Approve"),

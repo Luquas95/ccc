@@ -53,7 +53,7 @@ async def test_question_mark_opens_and_closes_help(tmp_path):
         await pilot.pause()
         assert isinstance(app.screen, KeyHelpModal)
         text = app.screen.plain_text
-        assert "Conversations" in text and "Ctrl+D" in text
+        assert "Conversations" in text and "Ctrl+J" in text
         await pilot.press("escape")
         await pilot.pause()
         assert isinstance(app.screen, DashboardScreen)

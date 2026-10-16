@@ -27,7 +27,7 @@ class CCContinueApp(App):
 
     BINDINGS = [
         Binding("ctrl+p", "settings", "Settings", priority=True),
-        Binding("ctrl+t", "take_screenshot", "Screenshot", priority=True),
+        # No Ctrl+T (screenshot): Claude Code's to-do list key — new key in #31.
         Binding("ctrl+q", "quit", "Quit", priority=True),
     ]
 
