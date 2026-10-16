@@ -16,7 +16,7 @@ import subprocess
 import time
 
 from ccc.live_delivery import DeliveryResult
-from ccc.models import Queue
+from ccc.models import DeliveryMode, Queue
 
 # Separate from the user's default tmux server and from the TUI's own one.
 TMUX_SOCKET = "ccc-sessions"
@@ -52,11 +52,30 @@ def build_interactive_command(queue: Queue, has_transcript: bool) -> list[str]:
         session = ["--resume", queue.session_id]
     else:
         session = ["--session-id", queue.session_id]
-    return ["claude", *session, "--remote-control", queue.name, *(queue.launch_flags or [])]
+    remote = ["--remote-control", queue.name] if queue.delivery_mode == DeliveryMode.REMOTE_CONTROL else []
+    return ["claude", *session, *remote, *(queue.launch_flags or [])]
 
 
 def is_running(queue_id: int) -> bool:
     return _tmux("has-session", "-t", target(queue_id)).returncode == 0
+
+
+# The server is shown inside ccc's own tmux window (tui.cli_pane) through a
+# nested client, so it must be invisible: no prefix (every key goes to
+# Claude; Ctrl+B is the outer tmux's), no status bar, mouse wheel scrolls
+# Claude's history, and Ctrl+] leaves (detaches) — Claude keeps running.
+DETACH_KEY = "C-]"
+TRANSPARENT_OPTIONS: tuple[tuple[str, ...], ...] = (
+    ("set-option", "-g", "prefix", "None"),
+    ("set-option", "-g", "prefix2", "None"),
+    ("set-option", "-g", "status", "off"),
+    ("set-option", "-g", "mouse", "on"),
+    ("set-option", "-g", "escape-time", "0"),
+    ("set-option", "-g", "set-clipboard", "on"),
+    ("set-option", "-g", "default-terminal", "tmux-256color"),
+    ("set-option", "-ga", "terminal-features", ",*:RGB"),
+    ("bind-key", "-n", DETACH_KEY, "detach-client"),
+)
 
 
 def start(queue: Queue, command: list[str]) -> None:
@@ -64,6 +83,14 @@ def start(queue: Queue, command: list[str]) -> None:
         "new-session", "-d", "-s", target(queue.id), "-x", "200", "-y", "50",
         "-c", queue.project_path, shlex.join(command),
     )
+    make_transparent()
+
+
+def make_transparent() -> None:
+    """Server-wide options (idempotent; the server may have been started
+    before ccc set them)."""
+    for args in TRANSPARENT_OPTIONS:
+        _tmux(*args)
 
 
 def _pid_alive(pid: int) -> bool:
