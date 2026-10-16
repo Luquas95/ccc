@@ -166,6 +166,25 @@ async def test_settings_add_edit_move_delete_saved_only_on_save(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("width", [80, 140])
+async def test_settings_preset_table_fits_the_row_with_ellipsis(tmp_path, width):
+    # No horizontal scrolling or hover-to-reveal: fixed columns, the
+    # prompt is cut with "…" to the space left (full text is in Edit).
+    long = PromptPreset("A rather long preset name", "word " * 60 + "\nsecond line", True)
+    app, _ = _app(tmp_path, [long])
+    async with app.run_test(size=(width, 40)) as pilot:
+        await pilot.pause()
+        await pilot.press("ctrl+p")
+        await pilot.pause()
+        table = app.screen.query_one("#settings-prompt-presets", DataTable)
+        assert table.max_scroll_x == 0
+        key, _mode, name, prompt = (str(cell) for cell in table.get_row_at(0))
+        assert key == "Alt+1"
+        assert name.endswith("…") and len(name) == 16
+        assert prompt.startswith("word word") and prompt.endswith("…")
+
+
+@pytest.mark.asyncio
 async def test_settings_cancel_discards_preset_changes(tmp_path):
     app, _ = _app(tmp_path, PRESETS)
     async with app.run_test(size=(140, 60)) as pilot:

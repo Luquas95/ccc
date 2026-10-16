@@ -510,3 +510,9 @@ async def test_status_line_for_usage_reserve(tmp_path, monkeypatch):
         await pilot.pause()
         status = str(app.screen.query_one("#conversation-status").render())
         assert "usage reserve (80%)" in status and at.strftime("%H:%M") in status
+
+
+def test_export_is_labelled_export_conversation():
+    # The footer shows the binding description; plain "Export" didn't say what.
+    descriptions = {b[0]: b[2] for b in ConversationsScreen.BINDINGS if isinstance(b, tuple)}
+    assert descriptions["e"] == "Export conversation"

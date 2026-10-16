@@ -30,6 +30,7 @@ class SessionPickerScreen(SidebarScreen):
     BINDINGS = [
         Binding("escape", "back", "Back", show=False),
         Binding("r", "refresh", "Reload session list", show=False),
+        Binding("a", "add_prompt", "Add prompt", show=False),
     ]
 
     def __init__(self, storage: Storage):
