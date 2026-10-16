@@ -28,7 +28,7 @@ class CCContinueApp(App):
     BINDINGS = [
         Binding("ctrl+p", "settings", "Settings", priority=True),
         # No Ctrl+T (screenshot): Claude Code's to-do list key — new key in #31.
-        Binding("ctrl+q", "quit", "Quit", priority=True),
+        Binding("ctrl+q", "quit", "Close", priority=True),
     ]
 
     def __init__(self, db_path: str):
@@ -50,6 +50,21 @@ class CCContinueApp(App):
 
     def initial_screens(self) -> list:
         return [DashboardScreen(self.storage)]
+
+    async def action_quit(self) -> None:
+        """Close ccc for you. In ccc's own tmux (the always-on instance)
+        that means detaching your terminal — quitting would only restart
+        the TUI a second later, and other devices stay attached; on ccc's
+        server Ctrl+Q is a tmux key doing just that (cli_pane), this is
+        the fallback (e.g. q on the Dashboard). Elsewhere: quit."""
+        from ccc import instance
+
+        if instance.inside_ccc_tmux():
+            import subprocess
+
+            subprocess.run(["tmux", "detach-client"], capture_output=True)
+            return
+        self.exit()
 
     def action_settings(self) -> None:
         from ccc.tui.settings import SettingsModal
