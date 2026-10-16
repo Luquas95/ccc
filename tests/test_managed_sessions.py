@@ -34,6 +34,8 @@ def test_start_makes_the_server_transparent(monkeypatch):
     assert ("set-option", "-g", "prefix", "None") in calls
     assert ("set-option", "-g", "status", "off") in calls
     assert ("bind-key", "-n", "C-]", "detach-client") in calls
+    # Programs in the session must not be able to set the clipboard (OSC 52).
+    assert not any("set-clipboard" in call for call in calls)
 
 
 def test_command_existing_session_resumes():

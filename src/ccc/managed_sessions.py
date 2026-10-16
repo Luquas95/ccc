@@ -64,6 +64,9 @@ def is_running(queue_id: int) -> bool:
 # nested client, so it must be invisible: no prefix (every key goes to
 # Claude; Ctrl+B is the outer tmux's), no status bar, mouse wheel scrolls
 # Claude's history, and Ctrl+] leaves (detaches) — Claude keeps running.
+# set-clipboard stays at tmux's default ("external"): "on" would let any
+# text shown in the session (tool output, file contents) write the user's
+# clipboard through an OSC 52 escape.
 DETACH_KEY = "C-]"
 TRANSPARENT_OPTIONS: tuple[tuple[str, ...], ...] = (
     ("set-option", "-g", "prefix", "None"),
@@ -71,7 +74,6 @@ TRANSPARENT_OPTIONS: tuple[tuple[str, ...], ...] = (
     ("set-option", "-g", "status", "off"),
     ("set-option", "-g", "mouse", "on"),
     ("set-option", "-g", "escape-time", "0"),
-    ("set-option", "-g", "set-clipboard", "on"),
     ("set-option", "-g", "default-terminal", "tmux-256color"),
     ("set-option", "-ga", "terminal-features", ",*:RGB"),
     ("bind-key", "-n", DETACH_KEY, "detach-client"),
