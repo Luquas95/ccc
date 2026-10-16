@@ -10,7 +10,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-TMUX_SOCKET = "ccc"
+# Overridable so tests (and a second, separate ccc) never touch the real one.
+TMUX_SOCKET = os.environ.get("CCC_TMUX_SOCKET", "ccc")
 SESSION = "ccc"
 PROJECT_DIR = Path(__file__).resolve().parents[2]
 

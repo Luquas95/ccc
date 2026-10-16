@@ -331,6 +331,8 @@ terminal, nothing is emulated:
 | `Ctrl+B` `→` / `←` (or click) | into Claude / back to ccc |
 | `Ctrl+B` `z` | Claude over the whole window (on windows under 100 columns this happens by itself) |
 | `Ctrl+]` | close the pane — Claude keeps running, `Enter` opens it again |
+| select with the mouse | copies to your device's clipboard (OSC 52 — works over SSH, in Termux and Linux terminals) |
+| `Ctrl+Shift+C` / `Ctrl+Shift+V` | copy the selection / paste the last copy (Linux terminals paste from the clipboard themselves) |
 
 Selecting another conversation switches the pane; a dialog, Settings or
 another screen closes it while it's open. Should the TUI ever run

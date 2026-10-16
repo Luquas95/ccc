@@ -17,6 +17,8 @@ import shlex
 import subprocess
 import sys
 
+from ccc import instance
+
 PANE_OPTION = "@ccc-cli"
 BAR_OPTION = "@ccc-bar"
 TITLE_OPTION = "@ccc-title"
@@ -45,7 +47,7 @@ SIDEBAR_COLUMNS = 32
 NARROW_COLUMNS = 100
 # ccc's own tmux server (bin/ccc-tui-supervise.sh) — only there do we
 # change session options such as the mouse.
-CCC_SOCKET = "ccc"
+CCC_SOCKET = instance.TMUX_SOCKET
 
 
 def available() -> bool:
@@ -145,6 +147,31 @@ def _on_ccc_server() -> bool:
     return os.path.basename(os.environ.get("TMUX", "").split(",")[0]) == CCC_SOCKET
 
 
+# Copy & paste on ccc's server, the same in ccc and in Claude Code:
+# - selecting with the mouse copies to your device's clipboard (OSC 52,
+#   over SSH too — Termux and Linux terminals support it) when you let
+#   go; the pane leaves copy mode, so typing and pasting go to it again;
+# - Ctrl+Shift+C copies the selection; without one it does nothing (it
+#   must never reach Claude as Ctrl+C = interrupt);
+# - Ctrl+Shift+V pastes the last copy (where the terminal doesn't paste
+#   by itself — Linux terminals do, from the clipboard).
+# set-clipboard stays "external" (tmux's default): only tmux's own copies
+# reach the clipboard, never an escape sequence printed into a pane (a
+# traceback quoting a conversation name, say). Copies made in Claude Code
+# come in as a command instead (clipboard_bridge: load-buffer -w).
+CLIPBOARD_COMMANDS: tuple[tuple[str, ...], ...] = (
+    ("set-option", "-s", "set-clipboard", "external"),
+    ("set-option", "-s", "extended-keys", "on"),
+    ("set-option", "-as", "terminal-features", ",*:clipboard:extkeys"),
+    *[("bind-key", "-T", table, "MouseDragEnd1Pane", "send-keys", "-X", "copy-pipe-and-cancel")
+      for table in ("copy-mode", "copy-mode-vi")],
+    *[("bind-key", "-T", table, "C-S-c", "send-keys", "-X", "copy-pipe-and-cancel")
+      for table in ("copy-mode", "copy-mode-vi")],
+    ("bind-key", "-n", "C-S-c", "if-shell", "-F", "#{pane_in_mode}", "send-keys -X copy-pipe-and-cancel", ""),
+    ("bind-key", "-n", "C-S-v", "paste-buffer", "-p"),
+)
+
+
 def style_window() -> None:
     """On ccc's own server: pane title bars (and the mouse) from the start,
     not only once Claude Code opens — a title row appearing and staying
@@ -156,6 +183,8 @@ def style_window() -> None:
     for name, value in BORDER_OPTIONS:
         _tmux("set-option", "-w", "-t", _own_pane(), name, value)
     _tmux("set-option", "-p", "-t", _own_pane(), TITLE_OPTION, "ccc")
+    for command in CLIPBOARD_COMMANDS:
+        _tmux(*command)
 
 
 def open(queue_id: int, title: str = "", db_path: str | None = None) -> str | None:

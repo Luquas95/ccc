@@ -13,6 +13,7 @@ from textual.app import App
 from textual.containers import Horizontal
 from textual.widgets import Static
 
+from ccc import clipboard_bridge
 from ccc.cli_input import apply_preset
 from ccc.prompt_presets import load_prompt_presets
 from ccc.storage import Storage
@@ -24,7 +25,8 @@ KEYS = Text.assemble(
     ("Ctrl+P", "bold cyan"), " Settings   ",
     ("Ctrl+B z", "bold cyan"), " Claude full window   ",
     ("Ctrl+]", "bold cyan"), " close Claude   ",
-    ("?", "bold cyan"), " all keys (in ccc)",
+    ("mouse select", "bold cyan"), " copy   ",
+    ("Ctrl+Shift+V", "bold cyan"), " paste",
 )
 REFRESH_SECONDS = 2.0
 
@@ -70,6 +72,10 @@ class CliBar(App):
             self.theme = theme
         await self.refresh_presets()
         self.set_interval(REFRESH_SECONDS, self.refresh_presets)
+        # Copies made in Claude Code → your device's clipboard.
+        current = cli_pane.find() if cli_pane.available() else None
+        if current is not None:
+            clipboard_bridge.start(current[1])
 
     async def refresh_presets(self) -> None:
         presets = load_prompt_presets(self.storage)

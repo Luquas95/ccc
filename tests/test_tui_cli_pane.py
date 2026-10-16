@@ -118,7 +118,7 @@ def test_bar_opens_across_the_window_and_keys_are_bound(tmux):
     assert bar_split[-1].endswith("-m ccc.tui.cli_bar /data/h.db")
     bar = cli_pane.find_bar()
     assert bar is not None and bar != pane
-    bound = {c[2]: c for c in tmux.calls if c[0] == "bind-key"}
+    bound = {c[2]: c for c in tmux.calls if c[0] == "bind-key" and c[1] == "-n" and c[2] not in ("C-S-c", "C-S-v")}
     assert set(bound) == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p"}
     assert f"select-pane -t {pane}" in bound["M-0"][6]
     assert "#{e|<|:#{window_width},100}" in bound["M-0"][6]  # numeric, not string compare
@@ -174,3 +174,21 @@ def test_sidebar_width_matches_the_menu():
 
     width = int(_re.search(r"#sidebar \{\s*width: (\d+);", SHARED_CSS).group(1))
     assert cli_pane.SIDEBAR_COLUMNS == width
+
+
+def test_copy_and_paste_keys_on_the_ccc_server(tmux):
+    cli_pane.style_window()
+    # Never "on": a pane must not be able to set the clipboard by printing OSC 52.
+    assert ("set-option", "-s", "set-clipboard", "external") in tmux.calls
+    assert not any(c[:3] == ("set-option", "-s", "set-clipboard") and c[3] == "on" for c in tmux.calls)
+    assert ("bind-key", "-T", "copy-mode", "MouseDragEnd1Pane", "send-keys", "-X", "copy-pipe-and-cancel") in tmux.calls
+    assert ("bind-key", "-n", "C-S-v", "paste-buffer", "-p") in tmux.calls
+    # Ctrl+Shift+C outside a selection does nothing — never Ctrl+C (interrupt) to Claude.
+    root_copy = next(c for c in tmux.calls if c[:3] == ("bind-key", "-n", "C-S-c"))
+    assert root_copy[3:] == ("if-shell", "-F", "#{pane_in_mode}", "send-keys -X copy-pipe-and-cancel", "")
+
+
+def test_clipboard_left_alone_on_a_foreign_tmux(tmux, monkeypatch):
+    monkeypatch.setenv("TMUX", "/tmp/tmux-1000/default,123,0")
+    cli_pane.style_window()
+    assert not any("set-clipboard" in c or "C-S-v" in c for c in tmux.calls)
