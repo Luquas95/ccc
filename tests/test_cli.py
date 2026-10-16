@@ -179,3 +179,20 @@ def test_ccc_tui_and_ccc_inside_its_own_tmux_run_the_tui(monkeypatch, tmp_path):
     monkeypatch.setenv("TMUX", "/tmp/tmux-1000/ccc,123,0")
     cli.main([])
     assert calls == ["tui", "tui"]
+
+
+def test_ccc_preset_types_into_claude_or_reports(monkeypatch, tmp_path, capsys):
+    import pytest as _pytest
+
+    from ccc import cli
+
+    monkeypatch.setattr(cli, "default_db_path", lambda: tmp_path / "h.db")
+    calls, told = [], []
+    monkeypatch.setattr("ccc.cli_input.apply_preset", lambda storage, q, n: calls.append((q, n)) or None)
+    monkeypatch.setattr(cli, "_tell_tmux_client", lambda client, msg, socket=None: told.append((client, msg)))
+    cli.main(["preset", "2", "--queue", "7", "--client", "/dev/pts/3"])
+    assert calls == [(7, 2)] and told == []
+    monkeypatch.setattr("ccc.cli_input.apply_preset", lambda storage, q, n: "No preset on Alt+2")
+    with _pytest.raises(SystemExit):
+        cli.main(["preset", "2", "--queue", "7", "--client", "/dev/pts/3"])
+    assert told == [("/dev/pts/3", "No preset on Alt+2")]

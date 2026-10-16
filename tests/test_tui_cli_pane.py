@@ -1,3 +1,4 @@
+import re
 import subprocess
 
 import pytest
@@ -6,29 +7,32 @@ from ccc.tui import cli_pane
 
 
 class FakeTmux:
-    """Records tmux calls; panes: {pane_id: queue id or ""}."""
+    """Records tmux calls; panes: {pane_id: {option: value}}."""
 
-    def __init__(self, panes=None, width=200):
+    def __init__(self, width=200):
         self.calls = []
-        self.panes = panes if panes is not None else {"%0": ""}
+        self.panes = {"%0": {}}
         self.width = width
+        self.next_id = 1
 
     def __call__(self, *args):
         self.calls.append(args)
-        out, code = "", 0
+        out = ""
         if args[0] == "list-panes":
-            out = "\n".join(f"{p} {q}" for p, q in self.panes.items())
+            option = re.search(r"#\{(@[\w-]+)\}", args[-1]).group(1)
+            out = "\n".join(f"{p} {o.get(option, '')}" for p, o in self.panes.items())
         elif args[0] == "display-message":
             out = str(self.width)
         elif args[0] == "split-window":
-            pane = f"%{len(self.panes)}"
-            self.panes[pane] = ""
+            pane = f"%{self.next_id}"
+            self.next_id += 1
+            self.panes[pane] = {}
             out = pane
-        elif args[0] == "set-option" and args[1] == "-p" and args[4] == "@ccc-cli":
-            self.panes[args[3]] = args[5]
+        elif args[0] == "set-option" and args[1] == "-p":
+            self.panes[args[3]][args[4]] = args[5]
         elif args[0] == "kill-pane":
             self.panes.pop(args[2], None)
-        return subprocess.CompletedProcess(args, code, out + "\n", "")
+        return subprocess.CompletedProcess(args, 0, out + "\n", "")
 
 
 @pytest.fixture
@@ -101,3 +105,52 @@ def test_close_kills_only_the_cli_pane(tmux):
     cli_pane.close()
     assert ("kill-pane", "-t", pane) in tmux.calls
     assert cli_pane.find() is None
+
+
+def test_bar_opens_across_the_window_and_keys_are_bound(tmux):
+    pane = cli_pane.open(4, "Kompas", "/data/h.db")
+    split = [c for c in tmux.calls if c[0] == "split-window"]
+    assert len(split) == 2
+    bar_split = split[1]
+    assert bar_split[1:3] == ("-v", "-f") and bar_split[bar_split.index("-l") + 1] == "2"
+    assert bar_split[-1].endswith("-m ccc.tui.cli_bar /data/h.db")
+    bar = cli_pane.find_bar()
+    assert bar is not None and bar != pane
+    bound = {c[2]: c for c in tmux.calls if c[0] == "bind-key"}
+    assert set(bound) == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p"}
+    assert f"select-pane -t {pane}" in bound["M-0"][6]
+    assert "#{e|<|:#{window_width},100}" in bound["M-0"][6]  # numeric, not string compare
+    assert "preset 3 --queue 4 --db /data/h.db" in bound["M-3"][7] and "#{socket_path}" in bound["M-3"][7]
+    # Switching conversations keeps the one bar, rebinds for the new one.
+    tmux.calls.clear()
+    cli_pane.open(9, "Other", "/data/h.db")
+    assert not any(c[0] == "split-window" for c in tmux.calls)
+    assert any(c[0] == "bind-key" and c[2] == "M-1" and "--queue 9" in c[7] for c in tmux.calls)
+
+
+def test_layout_is_restored_when_the_window_resizes(tmux):
+    cli_pane.open(4, "Kompas", "/data/h.db")
+    bar = cli_pane.find_bar()
+    hook = next(c for c in tmux.calls if c[0] == "set-hook")
+    assert hook[1:5] == ("-w", "-t", "%0", "window-resized")
+    assert hook[5] == f"resize-pane -t %0 -x 34 ; resize-pane -t {bar} -y 2"
+
+
+def test_close_removes_bar_and_keys(tmux):
+    cli_pane.open(4, "Kompas", "/data/h.db")
+    cli_pane.close()
+    assert ("set-hook", "-uw", "-t", "%0", "window-resized") in tmux.calls
+    assert cli_pane.find() is None and cli_pane.find_bar() is None
+    unbound = {c[2] for c in tmux.calls if c[0] == "unbind-key"}
+    assert unbound == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p"}
+
+
+def test_no_keys_bound_on_a_foreign_tmux(tmux, monkeypatch):
+    monkeypatch.setenv("TMUX", "/tmp/tmux-1000/default,123,0")
+    cli_pane.open(4, "Kompas", "/data/h.db")
+    assert not any(c[0] == "bind-key" for c in tmux.calls)
+
+
+def test_bindings_never_take_claude_code_keys():
+    keys = {b[2] for b in cli_pane.key_bindings("%0", "%1", 1, "/data/h.db")}
+    assert not keys & {"Tab", "BTab", "C-t", "C-d", "C-c", "C-o", "C-r", "C-b", "M-p", "M-o", "M-t", "M-v"}

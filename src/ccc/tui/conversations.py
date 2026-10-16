@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import subprocess
 import sys
 from datetime import datetime
@@ -43,7 +44,7 @@ class ConversationsScreen(SidebarScreen):
         ("t", "tasks", "Tasks"),
         ("x", "toggle_archive", "Archive"),
         ("h", "toggle_show_archived", "Show archived"),
-        ("ctrl+d", "delete_conversation", "Delete"),
+        # No Ctrl+D (delete): it exits Claude Code — new key in #31.
         ("slash", "search", "Search"),
         ("e", "export", "Export conversation"),
         ("p", "approve", "Approve"),
@@ -62,6 +63,11 @@ class ConversationsScreen(SidebarScreen):
         margin-bottom: 1;
     }
     ConversationsScreen.-cli-open #main {
+        display: none;
+    }
+    /* The bar under Claude Code (cli_bar) shows keys and presets across
+       the whole window; ccc's own footer wouldn't fit its sidebar. */
+    ConversationsScreen.-cli-open Footer {
         display: none;
     }
     ConversationsScreen #cli-hint {
@@ -185,9 +191,9 @@ class ConversationsScreen(SidebarScreen):
         yield DataTable(id="conversation-queue-list", classes="sidebar-list")
         # Fits the 34-column sidebar ccc keeps while Claude Code is open.
         yield Static("Claude Code: right pane\n"
-                     "Enter / click → type in it\n"
-                     "Ctrl+B ← / click → ccc\n"
-                     "Ctrl+B z  full window\n"
+                     "Alt+0  Claude ↔ ccc\n"
+                     "Enter / click → into Claude\n"
+                     "Alt+1…9  preset prompts\n"
                      "Ctrl+]  close the pane\n"
                      "Green bar = where you type", id="cli-hint")
 
@@ -289,7 +295,7 @@ class ConversationsScreen(SidebarScreen):
             self._cli_closed_for = queue.id
             want = False
         if want:
-            want = cli_pane.open(queue.id, queue.name) is not None
+            want = cli_pane.open(queue.id, queue.name, self.storage.db_path) is not None
         elif shown is not None:
             cli_pane.close()
         self._cli_open_for = queue.id if want else None
@@ -560,6 +566,14 @@ class ConversationsScreen(SidebarScreen):
             await self.action_prompt_preset(int(widget.id.removeprefix("prompt-preset-")))
 
     async def action_prompt_preset(self, number: int, as_character: bool = False) -> None:
+        if self._cli_queue() is not None and not self.query_one("#message-input", MessageBox).has_focus:
+            # An interactive conversation: the preset goes into its Claude Code.
+            from ccc.cli_input import apply_preset
+
+            error = await asyncio.to_thread(apply_preset, self.storage, self._current_queue_id, number)
+            if error:
+                self.notify(error, severity="warning")
+            return
         presets = load_prompt_presets(self.storage)
         box = self.query_one("#message-input", MessageBox)
         if number > len(presets) and as_character and box.has_focus:

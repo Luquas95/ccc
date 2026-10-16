@@ -41,7 +41,8 @@ async def test_footer_shows_only_what_the_sidebar_does_not(tmp_path):
     async with app.run_test(size=(140, 45)) as pilot:
         await pilot.pause()
         keys = _footer_keys(app)
-        assert {"ctrl+p", "ctrl+t", "ctrl+q", "question_mark"} <= keys
+        assert {"ctrl+p", "ctrl+q", "question_mark"} <= keys
+        assert not keys & {"ctrl+t", "ctrl+d"}  # Claude Code's keys (#31)
         assert not keys & {"d", "c", "s", "v", "a", "n", "r", "q"}
         await pilot.press("c")
         await pilot.pause()
@@ -156,12 +157,12 @@ async def test_delete_preset_and_backup(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_ctrl_t_saves_a_screenshot(tmp_path, monkeypatch):
+async def test_screenshot_saves_svg(tmp_path, monkeypatch):
     app = _app(tmp_path)
     app.storage.set_setting("export_folder", str(tmp_path / "out"))
     async with app.run_test(size=(140, 45)) as pilot:
         await pilot.pause()
-        await pilot.press("ctrl+t")
+        app.action_take_screenshot()  # no key until #31
         await pilot.pause()
         assert len(list((tmp_path / "out" / "screenshots").glob("ccc-*.svg"))) == 1
 

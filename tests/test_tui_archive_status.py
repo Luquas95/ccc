@@ -99,20 +99,20 @@ async def test_archive_hides_and_h_shows_archived(storage):
 
 
 @pytest.mark.asyncio
-async def test_ctrl_d_asks_then_deletes(storage):
+async def test_delete_asks_then_deletes(storage):
     a = storage.create_queue("a", "/tmp/a", "sa")
     b = storage.create_queue("b", "/tmp/b", "sb")
     app = _host(ConversationsScreen(storage, select_queue_id=b.id))
     async with app.run_test() as pilot:
         await pilot.pause()
         app.screen.query_one("#conversation-queue-list").focus()
-        await pilot.press("ctrl+d")
+        app.screen.action_delete_conversation()  # no key until #31
         await pilot.pause()
         assert isinstance(app.screen, ConfirmModal)
         await pilot.press("escape")
         await pilot.pause()
         assert storage.find_queue(b.id) is not None
-        await pilot.press("ctrl+d")
+        app.screen.action_delete_conversation()  # no key until #31
         await pilot.pause()
         await pilot.press("y")
         await pilot.pause()
@@ -129,7 +129,7 @@ async def test_running_conversation_cannot_be_deleted(storage):
     async with app.run_test() as pilot:
         await pilot.pause()
         app.screen.query_one("#conversation-queue-list").focus()
-        await pilot.press("ctrl+d")
+        app.screen.action_delete_conversation()  # no key until #31
         await pilot.pause()
         assert isinstance(app.screen, ConfirmModal)
         assert "working" in str(app.screen.query_one("#confirm-text").render())

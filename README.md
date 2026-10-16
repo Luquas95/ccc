@@ -86,7 +86,7 @@ phone via Remote Control.
   reserve, preset prompts, launch presets and database backup in one
   window.
 - Search across conversations, Markdown export, archive/delete, daily
-  database backups, screenshots (`Ctrl+T`), `?` shows every shortcut.
+  database backups, screenshots, `?` shows every shortcut.
 
 ## Requirements
 
@@ -161,7 +161,7 @@ coloured buttons with their keys at the bottom — only the extra actions of
 the current screen; screens are switched in the list above. Content sits on
 the right in round-bordered panels. The **bottom bar** only lists what
 the sidebar doesn't already show: the current screen's own actions, plus
-`?` Keys, `Ctrl+Q` Quit, `Ctrl+P` Settings and `Ctrl+T` Screenshot.
+`?` Keys, `Ctrl+Q` Quit and `Ctrl+P` Settings.
 
 | Screen | Key | What it shows |
 |---|---|---|
@@ -181,7 +181,6 @@ you're typing in a text field; `Ctrl` keys work everywhere.
 | | `n` | new conversation |
 | | `?` | all shortcuts |
 | | `Ctrl+P` | [Settings](#settings) |
-| | `Ctrl+T` | screenshot of the screen (SVG in `screenshots/` of the [export folder](#settings)) |
 | | `Ctrl+Q` | quit the viewer — queued work keeps running in the daemon |
 | | `Esc` | back / close a window |
 | Dashboard | `Enter` | queue detail (there: `Enter` on a run shows its commit diff, `a` adds a prompt with the queue's path prefilled) |
@@ -194,7 +193,6 @@ you're typing in a text field; `Ctrl` keys work everywhere.
 | | `t` | [task queue editor](#task-queue) |
 | | `p` | [approve a tool call](#approving-tool-calls) Claude is waiting on |
 | | `x` / `h` | archive or restore / show archived |
-| | `Ctrl+D` | delete the conversation (asks first) |
 | | `/` | search all conversations |
 | | `e` | export as Markdown to `conversations/` of the [export folder](#settings) |
 
@@ -223,7 +221,7 @@ throws the changes away, preset prompt edits included (the buttons *Send test me
 - **New-conversation presets** — delete presets saved in the New
   conversation window.
 - **Exports** — the export folder: exported conversations (`e`) go to its
-  `conversations/`, screenshots (`Ctrl+T`) to `screenshots/`. Empty =
+  `conversations/`, screenshots to `screenshots/`. Empty =
   `ccc` in your documents folder, whatever it's called in your language
   (`~/Documents/ccc`, `~/Dokumenty/ccc`, … from `~/.config/user-dirs.dirs`),
   or `~/ccc-exports` where there's none (servers, Termux). *After export*
@@ -274,8 +272,10 @@ conversation with `Alt+1` … `Alt+9` (works while you're typing too).
 
 ### Screenshots
 
-`Ctrl+T` saves what the TUI shows as an SVG file in `screenshots/` of the
-export folder (open it in any browser); the notification shows the path.
+A screenshot saves what the TUI shows as an SVG file in `screenshots/`
+of the export folder (open it in any browser); the notification shows the
+path. Its key (formerly `Ctrl+T`, Claude Code's to-do list key) is being
+chosen in [#31](https://github.com/Luquas95/ccc/issues/31).
 
 ### Two delivery modes
 
@@ -504,7 +504,8 @@ followed by `·N` queued tasks.
 
 In the conversations view: `x` archives the selected conversation (hidden
 from the lists, still processed; `h` shows archived ones, `x` again
-restores), `Ctrl+D` deletes it after confirmation — its queued tasks and the texts
+restores). Deleting (its key, formerly `Ctrl+D` — which exits Claude Code —
+is being chosen in [#31](https://github.com/Luquas95/ccc/issues/31)) asks first; its queued tasks and the texts
 of its runs go, its token numbers stay in the history (Analytics and the
 archive show it as *deleted*), Claude Code's own transcript stays (so it can still be
 picked under *Resume selected…*). A conversation Claude is working on
