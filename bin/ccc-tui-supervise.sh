@@ -5,7 +5,7 @@
 # that session exists. Exits non-zero as soon as the session is gone, so
 # systemd's Restart=always recreates it.
 #
-# Not meant to be run by hand — use bin/ccc-tmux.sh to attach.
+# Not meant to be run by hand — `ccc` attaches to it.
 set -euo pipefail
 
 # -f /dev/null when the server starts: no user tmux.conf, so no plugins.
@@ -14,7 +14,7 @@ set -euo pipefail
 TMUX_SOCKET="ccc"
 SESSION="ccc"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RUN_CMD="while true; do $PROJECT_DIR/.venv/bin/ccc; sleep 1; done"
+RUN_CMD="while true; do $PROJECT_DIR/.venv/bin/ccc tui; sleep 1; done"
 
 if ! tmux -L "$TMUX_SOCKET" has-session -t "$SESSION" 2>/dev/null; then
     tmux -L "$TMUX_SOCKET" -f /dev/null new-session -d -s "$SESSION" -x 200 -y 50 -c "$PROJECT_DIR" "$RUN_CMD"
