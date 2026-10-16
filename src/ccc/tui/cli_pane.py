@@ -17,6 +17,8 @@ import shlex
 import subprocess
 import sys
 
+from ccc import instance
+
 PANE_OPTION = "@ccc-cli"
 BAR_OPTION = "@ccc-bar"
 TITLE_OPTION = "@ccc-title"
@@ -45,7 +47,7 @@ SIDEBAR_COLUMNS = 32
 NARROW_COLUMNS = 100
 # ccc's own tmux server (bin/ccc-tui-supervise.sh) — only there do we
 # change session options such as the mouse.
-CCC_SOCKET = "ccc"
+CCC_SOCKET = instance.TMUX_SOCKET
 
 
 def available() -> bool:
@@ -153,12 +155,12 @@ def _on_ccc_server() -> bool:
 #   must never reach Claude as Ctrl+C = interrupt);
 # - Ctrl+Shift+V pastes the last copy (where the terminal doesn't paste
 #   by itself — Linux terminals do, from the clipboard).
-# set-clipboard "on" here accepts OSC 52 only from ccc's own panes: ccc,
-# the bar and the nested client, through which only the session server's
-# own copies come — its programs can't (managed_sessions keeps that
-# server at "external").
+# set-clipboard stays "external" (tmux's default): only tmux's own copies
+# reach the clipboard, never an escape sequence printed into a pane (a
+# traceback quoting a conversation name, say). Copies made in Claude Code
+# come in as a command instead (clipboard_bridge: load-buffer -w).
 CLIPBOARD_COMMANDS: tuple[tuple[str, ...], ...] = (
-    ("set-option", "-s", "set-clipboard", "on"),
+    ("set-option", "-s", "set-clipboard", "external"),
     ("set-option", "-s", "extended-keys", "on"),
     ("set-option", "-as", "terminal-features", ",*:clipboard:extkeys"),
     *[("bind-key", "-T", table, "MouseDragEnd1Pane", "send-keys", "-X", "copy-pipe-and-cancel")

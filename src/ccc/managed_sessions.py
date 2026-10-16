@@ -19,7 +19,9 @@ from ccc.live_delivery import DeliveryResult
 from ccc.models import DeliveryMode, Queue
 
 # Separate from the user's default tmux server and from the TUI's own one.
-TMUX_SOCKET = "ccc-sessions"
+# Overridable (CCC_SESSIONS_SOCKET) so test runs never share it with the
+# real conversations: server-wide options and key bindings live here.
+TMUX_SOCKET = os.environ.get("CCC_SESSIONS_SOCKET", "ccc-sessions")
 
 _REMOTE_URL_RE = re.compile(r"https://claude\.ai/code/session_[A-Za-z0-9]+")
 _SESSION_SELECTING_FLAGS = ("--resume", "--from-pr")
@@ -82,14 +84,11 @@ TRANSPARENT_OPTIONS: tuple[tuple[str, ...], ...] = (
     ("set-option", "-g", "default-terminal", "tmux-256color"),
     ("set-option", "-ga", "terminal-features", ",*:RGB"),
     ("bind-key", "-n", DETACH_KEY, "detach-client"),
-    # Mouse selections in Claude Code: copied (to the clipboard of the
-    # terminal the client runs in — ccc's pane, which passes it on, see
-    # tui.cli_pane) when you let go, leaving copy mode for typing.
-    ("set-option", "-ga", "terminal-features", ",*:clipboard"),
-    *[("bind-key", "-T", table, "MouseDragEnd1Pane", "send-keys", "-X", "copy-pipe-and-cancel")
-      for table in ("copy-mode", "copy-mode-vi")],
-    *[("bind-key", "-T", table, "C-S-c", "send-keys", "-X", "copy-pipe-and-cancel")
-      for table in ("copy-mode", "copy-mode-vi")],
+    # tmux copy mode (mouse, Ctrl+Shift+C): copy into a paste buffer and
+    # leave copy mode. clipboard_bridge takes new buffers — these and
+    # Claude Code's own copies — to your device's clipboard.
+    *[("bind-key", "-T", table, key, "send-keys", "-X", "copy-pipe-and-cancel")
+      for table in ("copy-mode", "copy-mode-vi") for key in ("MouseDragEnd1Pane", "C-S-c")],
 )
 
 

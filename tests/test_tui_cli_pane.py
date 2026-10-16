@@ -178,7 +178,9 @@ def test_sidebar_width_matches_the_menu():
 
 def test_copy_and_paste_keys_on_the_ccc_server(tmux):
     cli_pane.style_window()
-    assert ("set-option", "-s", "set-clipboard", "on") in tmux.calls
+    # Never "on": a pane must not be able to set the clipboard by printing OSC 52.
+    assert ("set-option", "-s", "set-clipboard", "external") in tmux.calls
+    assert not any(c[:3] == ("set-option", "-s", "set-clipboard") and c[3] == "on" for c in tmux.calls)
     assert ("bind-key", "-T", "copy-mode", "MouseDragEnd1Pane", "send-keys", "-X", "copy-pipe-and-cancel") in tmux.calls
     assert ("bind-key", "-n", "C-S-v", "paste-buffer", "-p") in tmux.calls
     # Ctrl+Shift+C outside a selection does nothing — never Ctrl+C (interrupt) to Claude.
