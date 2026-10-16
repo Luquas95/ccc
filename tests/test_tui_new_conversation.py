@@ -193,3 +193,19 @@ async def test_preset_select_applies_and_save_as_preset(tmp_path):
         assert isinstance(app.screen, NewConversationModal)
     presets = list_presets(storage)
     assert "effort_xhigh" in presets["haiku-xhigh"].selection
+
+
+@pytest.mark.asyncio
+async def test_clicked_option_stays_readable(tmp_path):
+    # Textual's ToggleButton:focus adds a tall border; on the dialog's
+    # 1-row checkboxes it covered the row — a grey box, label gone.
+    storage = Storage(tmp_path / "h.db")
+    app = _host(NewConversationModal(storage, browse_root=tmp_path), [])
+    async with app.run_test(size=(160, 50)) as pilot:
+        await pilot.pause()
+        await pilot.click("#opt-model_sonnet")
+        await pilot.pause()
+        box = app.screen.query_one("#opt-model_sonnet", Checkbox)
+        assert box.has_focus and box.value
+        assert box.styles.border_top[0] in ("", "none")
+        assert box.content_region.height == 1

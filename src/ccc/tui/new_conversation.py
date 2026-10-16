@@ -105,6 +105,18 @@ class NewConversationModal(ModalScreen):
         height: 1;
         background: transparent;
     }
+    /* Textual's ToggleButton:focus adds a tall border; on these 1-row
+       checkboxes it covers the whole row — a grey box, the label gone.
+       Keep them borderless and mark focus on the label instead. */
+    NewConversationModal Checkbox:focus {
+        border: none;
+        background-tint: transparent;
+    }
+    NewConversationModal Checkbox:focus > .toggle--label {
+        color: $text;
+        background: $boost;
+        text-style: underline;
+    }
     NewConversationModal Checkbox > .toggle--button {
         color: $surface-lighten-2;
         background: $surface-lighten-1;
