@@ -33,6 +33,10 @@ RESERVE_CHOICES = [50, 60, 70, 75, 80, 85, 90, 95]
 TEST_MESSAGE = "✅ ccc: Telegram notifications work."
 DISCORD_TEST_MESSAGE = "✅ ccc: Discord notifications work."
 DISCORD_PLACEHOLDER = "https://discord.com/api/webhooks/…"
+# Preset prompt table: fixed columns, the prompt gets the rest of the row
+# and ends in "…" when it doesn't fit — the full text is in Edit.
+PRESET_COLUMNS = (("Key", 5), ("Mode", 8), ("Name", 16))
+MIN_PROMPT_WIDTH = 10
 
 
 def saved_theme(storage, available) -> str | None:
@@ -108,6 +112,7 @@ class SettingsModal(ModalScreen):
     }
     SettingsModal #settings-prompt-presets {
         height: auto;
+        overflow-x: hidden;
         max-height: 11;
         margin-bottom: 1;
     }
@@ -264,8 +269,6 @@ class SettingsModal(ModalScreen):
         yield box
 
     def on_mount(self) -> None:
-        table = self.query_one("#settings-prompt-presets", DataTable)
-        table.add_columns("Key", "Mode", "Name", "Prompt")
         self._refresh_prompt_presets()
         self._refresh_telegram_state()
         self._refresh_discord_state()
@@ -317,11 +320,19 @@ class SettingsModal(ModalScreen):
     def _refresh_prompt_presets(self, cursor: int | None = None) -> None:
         table = self.query_one("#settings-prompt-presets", DataTable)
         row = table.cursor_row if cursor is None else cursor
-        table.clear()
+        table.clear(columns=True)
+        prompt_width = self._prompt_column_width(table)
+        for label, width in PRESET_COLUMNS:
+            table.add_column(label, width=width)
+        table.add_column("Prompt", width=prompt_width)
+        name_width = dict(PRESET_COLUMNS)["Name"]
         for number, preset in enumerate(self._prompt_presets, start=1):
-            first_line = preset.text.strip().splitlines()[0] if preset.text.strip() else ""
-            table.add_row(f"Alt+{number}", mode_label(preset), Text(preset.name),
-                          Text(first_line[:50] + ("…" if len(first_line) > 50 or "\n" in preset.text.strip() else "")))
+            text = preset.text.strip()
+            first_line = text.splitlines()[0] if text else ""
+            if "\n" in text:
+                first_line += " …"
+            table.add_row(f"Alt+{number}", mode_label(preset), _fit(preset.name, name_width),
+                          _fit(first_line, prompt_width))
         if not self._prompt_presets:
             table.add_row("", "", Text("no preset prompts yet — Add one", style="dim"), "")
         elif row is not None:
@@ -329,6 +340,18 @@ class SettingsModal(ModalScreen):
         self.query_one("#settings-prompt-add", Button).disabled = len(self._prompt_presets) >= MAX_PRESETS
         for button in ("edit", "delete", "up", "down"):
             self.query_one(f"#settings-prompt-{button}", Button).disabled = not self._prompt_presets
+
+    @staticmethod
+    def _prompt_column_width(table: DataTable) -> int:
+        """What's left of the table's width after the fixed columns (each
+        column also takes cell_padding on both sides)."""
+        fixed = sum(width for _, width in PRESET_COLUMNS)
+        padding = 2 * table.cell_padding * (len(PRESET_COLUMNS) + 1)
+        return max(MIN_PROMPT_WIDTH, table.scrollable_content_region.width - fixed - padding)
+
+    def on_resize(self) -> None:
+        # The prompt column follows the window width.
+        self.call_after_refresh(self._refresh_prompt_presets)
 
     def _selected_prompt_index(self) -> int | None:
         row = self.query_one("#settings-prompt-presets", DataTable).cursor_row
@@ -515,3 +538,10 @@ class SettingsModal(ModalScreen):
     def action_cancel(self) -> None:
         self.app.theme = self._original_theme
         self.dismiss(False)
+
+
+def _fit(text: str, width: int) -> Text:
+    """One line, cut to width with "…" at the end."""
+    cell = Text(text, no_wrap=True, overflow="ellipsis")
+    cell.truncate(width, overflow="ellipsis")
+    return cell
