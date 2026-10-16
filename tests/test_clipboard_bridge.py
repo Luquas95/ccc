@@ -10,6 +10,13 @@ def test_changed_buffer_parses_only_the_notification():
     assert clipboard_bridge.changed_buffer("%output %1 hello") is None
 
 
+def test_ccc_own_paste_buffers_never_reach_the_clipboard():
+    # paste_and_submit loads queued prompts / presets as "ccc-<id>".
+    assert clipboard_bridge.changed_buffer("%paste-buffer-changed ccc-19") is None
+    assert clipboard_bridge.changed_buffer("%paste-buffer-changed mybuf") is None
+    assert clipboard_bridge.changed_buffer("%paste-buffer-changed buffer12x") is None
+
+
 def test_forward_loads_into_ccc_with_clipboard(monkeypatch):
     calls = []
 
