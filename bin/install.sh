@@ -6,7 +6,7 @@
 #   - enables and starts them.
 #
 # Usage: bin/install.sh [--no-tui] [--no-start] [--no-systemd] [--units-dir DIR]
-#   --no-tui      only the daemon unit (run the TUI yourself with .venv/bin/ccc)
+#   --no-tui      only the daemon unit (`ccc` then starts the TUI session itself)
 #   --no-start    enable the units but don't start them now
 #   --no-systemd  only create the venv; don't touch systemd at all
 #   --units-dir   write the units somewhere else to inspect them (systemd is
@@ -55,7 +55,7 @@ say "Installing ccc into the virtualenv"
 "$CCC_DIR/.venv/bin/pip" install --quiet -e "$CCC_DIR"
 
 if [ "$SYSTEMD" = 0 ]; then
-    say "Done. Start the daemon with $CCC_DIR/.venv/bin/ccc-daemon and the TUI with $CCC_DIR/.venv/bin/ccc"
+    say "Done. Start the daemon with $CCC_DIR/.venv/bin/ccc-daemon and open ccc with $CCC_DIR/.venv/bin/ccc"
     exit 0
 fi
 
@@ -87,4 +87,4 @@ else
     warn "systemd --user isn't available here; units written but not enabled."
 fi
 
-say "All set. Open the TUI: $CCC_DIR/bin/ccc-tmux.sh   (or .venv/bin/ccc)"
+say "All set. Open ccc: $CCC_DIR/.venv/bin/ccc"

@@ -130,9 +130,12 @@ journalctl --user -u ccc -f        # daemon log
 
 ## First steps
 
-1. **Open the TUI:** `bin/ccc-tmux.sh` (attaches to the always-on
-   session; detach with `Ctrl+B D`, it keeps running). Or run
-   `.venv/bin/ccc` directly. The sidebar should say *● daemon running*.
+1. **Open ccc:** `ccc`. There's only ever one ccc: the always-on TUI
+   (the `ccc-tui` service); `ccc` attaches to it from any terminal, local
+   or over SSH, so you always see the same screen. Detach with
+   `Ctrl+B D` — it keeps running. If the service isn't running, `ccc`
+   starts that one instance itself. The sidebar should say
+   *● daemon running*.
 2. **Start a conversation:** press `n`, choose a project directory, tick
    the options you want, *Start*.
 3. **Talk to Claude:** type in the box at the bottom, `Enter` sends
@@ -319,7 +322,7 @@ restarting the TUI, and messages from the task queue are pasted into it
 when Claude is idle.
 
 ccc shows it in a pane next to its sidebar — ccc runs in tmux (the
-`ccc-tui` service, attach with `bin/ccc-tmux.sh`), so that's a real
+`ccc-tui` service, opened with `ccc`), so that's a real
 terminal, nothing is emulated:
 
 | Keys | |
@@ -330,9 +333,9 @@ terminal, nothing is emulated:
 | `Ctrl+]` | close the pane — Claude keeps running, `Enter` opens it again |
 
 Selecting another conversation switches the pane; a dialog, Settings or
-another screen closes it while it's open. When ccc runs outside tmux
-(plain `ccc` in a terminal), `Enter` opens Claude Code full screen and
-`Ctrl+]` comes back.
+another screen closes it while it's open. Should the TUI ever run
+outside tmux (`ccc tui` started by hand), `Enter` opens Claude Code full
+screen and `Ctrl+]` comes back.
 
 Conversations queued with `a` / `ccc add` (and older ones) still run
 headless as `claude -p --resume … <your attributes>`: type in the box
@@ -618,8 +621,9 @@ observability, not an extra charge.
 ## Running notes
 
 **The always-on TUI** runs in its own tmux server (`tmux -L ccc`), so it
-doesn't show up in plain `tmux ls`: attach with `bin/ccc-tmux.sh` or
-`tmux -L ccc attach -t ccc`. Quitting the TUI (`Ctrl+Q`) just restarts it a
+doesn't show up in plain `tmux ls`: attach with `ccc` (or
+`tmux -L ccc attach -t ccc`; `bin/ccc-tmux.sh` still works and does the
+same). `ccc tui` runs the TUI itself — that's what the service runs. Quitting the TUI (`Ctrl+Q`) just restarts it a
 second later; the daemon is unaffected either way. Using a separate tmux
 server is deliberate — if the unit started your default one, all your
 other tmux sessions would live in its cgroup and systemd-oomd killing it

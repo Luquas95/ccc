@@ -154,3 +154,28 @@ def test_analytics_folder_and_archive(tmp_path, monkeypatch, capsys):
     capsys.readouterr()
     cli.main(["config", "analytics-folder"])
     assert "(off)" in capsys.readouterr().out
+
+
+def test_plain_ccc_attaches_to_the_one_instance(monkeypatch):
+    from ccc import cli, instance
+
+    calls = []
+    monkeypatch.setattr(instance, "attach", lambda: calls.append("attach"))
+    monkeypatch.setattr("ccc.tui.app.run_app", lambda db: calls.append("tui"))
+    cli.main([])
+    assert calls == ["attach"]
+
+
+def test_ccc_tui_and_ccc_inside_its_own_tmux_run_the_tui(monkeypatch, tmp_path):
+    from ccc import cli, instance
+
+    calls = []
+    monkeypatch.setattr(instance, "attach", lambda: calls.append("attach"))
+    monkeypatch.setattr("ccc.tui.app.run_app", lambda db: calls.append("tui"))
+    monkeypatch.setattr(cli, "default_db_path", lambda: tmp_path / "h.db")
+    cli.main(["tui"])
+    # The service's own loop (even an old one running plain `ccc`) must
+    # never attach to itself.
+    monkeypatch.setenv("TMUX", "/tmp/tmux-1000/ccc,123,0")
+    cli.main([])
+    assert calls == ["tui", "tui"]

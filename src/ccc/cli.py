@@ -133,6 +133,9 @@ def main(argv: list[str] | None = None) -> None:
     )
     add_parser.add_argument("project_path")
     add_parser.add_argument("prompt")
+    subparsers.add_parser(
+        "tui", help="Run the TUI itself (what the ccc-tui service runs; plain `ccc` attaches to it)"
+    )
 
     subparsers.add_parser("backup", help="Back up the ccc database now (the daemon also does it daily)")
     subparsers.add_parser(
@@ -203,9 +206,15 @@ def main(argv: list[str] | None = None) -> None:
             sys.exit(1)
         return
 
-    from ccc.tui.app import run_app
+    from ccc import instance
 
-    run_app(str(default_db_path()))
+    if args.command == "tui" or instance.inside_ccc_tmux():
+        # Inside ccc's own tmux server `ccc` is the instance itself.
+        from ccc.tui.app import run_app
+
+        run_app(str(default_db_path()))
+        return
+    instance.attach()
 
 
 if __name__ == "__main__":
