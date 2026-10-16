@@ -110,6 +110,9 @@ async def test_dialog_on_top_gets_the_whole_window(storage, pane):
         app.push_screen(ConfirmModal("t", "x"))
         await pilot.pause()
         assert pane.shown is None
+        conversations = next(s for s in app.screen_stack if isinstance(s, ConversationsScreen))
+        await conversations._refresh_current()  # the 2-second refresh, under the dialog
+        assert pane.shown is None
         await pilot.press("escape")
         await pilot.pause()
         assert pane.shown == ids["cli"]

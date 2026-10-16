@@ -276,7 +276,8 @@ class ConversationsScreen(SidebarScreen):
         if not cli_pane.available():
             return
         queue = self._cli_queue()
-        want = queue is not None and self.is_current and queue.id != self._cli_closed_for
+        # app.screen, not is_current: that is also true under a dialog.
+        want = queue is not None and self.app.screen is self and queue.id != self._cli_closed_for
         shown = cli_pane.find()
         if want and shown is None and self._cli_open_for == queue.id:
             # It was open and is gone: you closed it (Ctrl+]).
