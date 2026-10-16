@@ -105,18 +105,24 @@ def attach_to_session(
 
 def start_conversation(
     storage, project_path, selection, *, name=None, session_id=None, pr=None, auto_continue=True,
-    remote_control=False,
+    remote_control=False, interactive=True,
 ) -> Queue:
     """Create the queue behind a conversation started from the TUI's
     New conversation dialog (see launch_options for what selection
-    holds). Raises ValueError with a message fit to show the user."""
+    holds): an interactive Claude Code CLI (shown in ccc, see
+    tui.cli_pane), with --remote-control when asked; interactive=False
+    gives a headless `claude -p` queue. Raises ValueError with a message
+    fit to show the user."""
     if not Path(project_path).is_dir():
         raise ValueError(f"'{project_path}' is not an existing directory")
     mode = session_mode(selection)
     fork = FORK in selection and mode != SESSION_NEW
     flags = persistent_flags(selection)
     name = (name or "").strip() or Path(project_path).name or project_path
-    delivery = DeliveryMode.REMOTE_CONTROL if remote_control else DeliveryMode.HEADLESS
+    if remote_control:
+        delivery = DeliveryMode.REMOTE_CONTROL
+    else:
+        delivery = DeliveryMode.INTERACTIVE if interactive else DeliveryMode.HEADLESS
 
     if mode == SESSION_NEW:
         return storage.create_queue(
@@ -246,12 +252,12 @@ class QueueRuntime:
             queue = self.storage.find_queue(self.queue.id)
             if queue is None:
                 logger.info("Queue %s was deleted, stopping its runtime", self.queue.id)
-                if self.queue.delivery_mode == DeliveryMode.REMOTE_CONTROL:
+                if self.queue.delivery_mode.managed:
                     await asyncio.to_thread(managed_sessions.stop, self.queue.id)
                 return
             self.queue = queue
 
-            if queue.delivery_mode == DeliveryMode.REMOTE_CONTROL:
+            if queue.delivery_mode.managed:
                 if queue.archived:
                     # Archiving frees the interactive process; nothing runs.
                     if await asyncio.to_thread(managed_sessions.is_running, queue.id):
@@ -302,7 +308,7 @@ class QueueRuntime:
                     await self._wait_for_wake_or_poll(min(remaining, POLL_INTERVAL_SECONDS))
                     continue
 
-            if queue.delivery_mode in (DeliveryMode.HEADLESS, DeliveryMode.REMOTE_CONTROL):
+            if queue.delivery_mode == DeliveryMode.HEADLESS or queue.delivery_mode.managed:
                 # Don't even start Claude while a limit window is used up —
                 # or above the reserve the user keeps for themselves.
                 usage = await asyncio.to_thread(get_pro_usage)
@@ -368,7 +374,7 @@ class QueueRuntime:
         if queue.delivery_mode == DeliveryMode.LIVE_TERMINAL:
             await self._process_live_terminal_item(queue, item)
             return
-        if queue.delivery_mode == DeliveryMode.REMOTE_CONTROL:
+        if queue.delivery_mode.managed:
             await self._process_managed_item(queue, item)
             return
 
@@ -519,7 +525,7 @@ class QueueRuntime:
         if not await asyncio.to_thread(managed_sessions.is_running, queue.id):
             has_transcript = find_transcript_path(queue.session_id) is not None
             command = managed_sessions.build_interactive_command(queue, has_transcript)
-            logger.info("Starting remote-control session for '%s'", queue.name)
+            logger.info("Starting interactive session for '%s'", queue.name)
             await asyncio.to_thread(managed_sessions.start, queue, command)
             self._managed_was_blocked = False
             self._managed_started_at = asyncio.get_running_loop().time()
@@ -584,7 +590,7 @@ class QueueRuntime:
             text = self.storage.get_setting("continue_text", DEFAULT_CONTINUE_TEXT) or DEFAULT_CONTINUE_TEXT
         result = await asyncio.to_thread(managed_sessions.paste_and_submit, queue.id, text)
         if not result.delivered:
-            self._record_error_run(queue, item, result.error or "delivery to the remote-control session failed")
+            self._record_error_run(queue, item, result.error or "delivery to the interactive session failed")
             return
         now = datetime.now()
         self.storage.insert_prompt_run(
@@ -596,7 +602,7 @@ class QueueRuntime:
                 started_at=now,
                 finished_at=now,
                 status=RunStatus.SUCCESS,
-                result_text="Delivered to the remote-control session — the reply is in the transcript.",
+                result_text="Delivered to the interactive session — the reply is in the transcript.",
             )
         )
         self.storage.set_item_status(item.id, ItemStatus.DONE)

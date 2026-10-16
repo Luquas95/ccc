@@ -108,7 +108,8 @@ def _rc(storage, project_dir, **kw):
 async def test_start_conversation_remote_control_mode(storage, project_dir):
     q = _rc(storage, project_dir)
     assert q.delivery_mode == DeliveryMode.REMOTE_CONTROL
-    assert start_conversation(storage, project_dir, DEFAULT_SELECTION).delivery_mode == DeliveryMode.HEADLESS
+    assert start_conversation(storage, project_dir, DEFAULT_SELECTION).delivery_mode == DeliveryMode.INTERACTIVE
+    assert start_conversation(storage, project_dir, DEFAULT_SELECTION, interactive=False).delivery_mode == DeliveryMode.HEADLESS
 
 
 async def test_daemon_starts_process_and_reads_url_and_trust(storage, project_dir, tmux):
@@ -141,7 +142,7 @@ async def test_delivers_only_when_idle(storage, project_dir, tmux):
 
     await _run_orch(storage, body)
     runs = storage.runs_for_queue(q.id)
-    assert runs and "remote-control" in runs[0].result_text
+    assert runs and "interactive session" in runs[0].result_text
 
 
 async def test_blocked_session_queues_continue_and_waits(storage, project_dir, tmux):

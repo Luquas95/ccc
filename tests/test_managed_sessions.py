@@ -19,6 +19,26 @@ def test_command_new_session_uses_session_id():
     ]
 
 
+def test_interactive_command_has_no_remote_control():
+    q = _queue(delivery_mode=DeliveryMode.INTERACTIVE)
+    assert ms.build_interactive_command(q, has_transcript=False) == [
+        "claude", "--session-id", "sid-1", "--model", "haiku",
+    ]
+
+
+def test_start_makes_the_server_transparent(monkeypatch):
+    calls = []
+    monkeypatch.setattr(ms, "_tmux", lambda *args, input_text=None: calls.append(args))
+    ms.start(_queue(delivery_mode=DeliveryMode.INTERACTIVE), ["claude"])
+    assert calls[0][:4] == ("new-session", "-d", "-s", "q7")
+    assert ("set-option", "-g", "prefix", "None") in calls
+    assert ("set-option", "-g", "status", "off") in calls
+    assert ("bind-key", "-n", "C-]", "detach-client") in calls
+    # Programs in the session must not be able to set the clipboard (OSC 52),
+    # also on a server that was started with another value.
+    assert [c for c in calls if "set-clipboard" in c] == [("set-option", "-g", "set-clipboard", "external")]
+
+
 def test_command_existing_session_resumes():
     assert ms.build_interactive_command(_queue(), has_transcript=True)[1:3] == ["--resume", "sid-1"]
 

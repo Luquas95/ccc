@@ -98,11 +98,11 @@ class UsageCollector:
         return main[:1] + sorted(subagents)
 
     def collect(self, storage) -> int:
-        """Read new replies of every remote-control conversation; returns how
+        """Read new replies of every interactive conversation; returns how
         many were stored."""
         stored = 0
         for queue in storage.list_queues():
-            if queue.delivery_mode != DeliveryMode.REMOTE_CONTROL:
+            if not queue.delivery_mode.managed:
                 continue
             for path in self._transcripts(queue.session_id):
                 offset = self._offsets.get(path, 0)

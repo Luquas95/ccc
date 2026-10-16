@@ -355,8 +355,8 @@ from ccc.orchestrator import start_conversation
 
 
 def test_start_new_conversation_creates_fresh_queue_per_launch(storage, project_dir):
-    a = start_conversation(storage, str(project_dir), toggle(DEFAULT_SELECTION, "model_haiku", True))
-    b = start_conversation(storage, str(project_dir), DEFAULT_SELECTION, name="second")
+    a = start_conversation(storage, str(project_dir), toggle(DEFAULT_SELECTION, "model_haiku", True), interactive=False)
+    b = start_conversation(storage, str(project_dir), DEFAULT_SELECTION, name="second", interactive=False)
     assert a.id != b.id and a.session_id != b.session_id
     assert a.launch_flags == ["--dangerously-skip-permissions", "--model", "haiku"]
     assert not a.always_resume and a.first_run_flags is None and b.name == "second"
@@ -364,15 +364,15 @@ def test_start_new_conversation_creates_fresh_queue_per_launch(storage, project_
 
 def test_start_rejects_missing_directory(storage, tmp_path):
     with pytest.raises(ValueError):
-        start_conversation(storage, str(tmp_path / "nope"), DEFAULT_SELECTION)
+        start_conversation(storage, str(tmp_path / "nope"), DEFAULT_SELECTION, interactive=False)
 
 
 def test_resume_reuses_existing_queue_unless_fork(storage, project_dir):
     sel = toggle(DEFAULT_SELECTION, SESSION_RESUME, True)
-    first = start_conversation(storage, str(project_dir), sel, session_id="abc")
+    first = start_conversation(storage, str(project_dir), sel, session_id="abc", interactive=False)
     assert first.always_resume and first.session_id == "abc"
-    assert start_conversation(storage, str(project_dir), sel, session_id="abc").id == first.id
-    fork = start_conversation(storage, str(project_dir), toggle(sel, FORK, True), session_id="abc")
+    assert start_conversation(storage, str(project_dir), sel, session_id="abc", interactive=False).id == first.id
+    fork = start_conversation(storage, str(project_dir), toggle(sel, FORK, True), session_id="abc", interactive=False)
     assert fork.id != first.id and fork.first_run_flags == ["--resume", "abc", "--fork-session"]
 
 
@@ -381,24 +381,24 @@ def test_continue_picks_latest_session_of_directory(storage, project_dir, monkey
     from datetime import datetime
     monkeypatch.setattr("ccc.orchestrator.list_sessions_for_directory",
                         lambda path: [SessionSummary("newest", datetime.now(), "hi", 2)])
-    q = start_conversation(storage, str(project_dir), toggle(DEFAULT_SELECTION, SESSION_CONTINUE, True))
+    q = start_conversation(storage, str(project_dir), toggle(DEFAULT_SELECTION, SESSION_CONTINUE, True), interactive=False)
     assert q.session_id == "newest"
     monkeypatch.setattr("ccc.orchestrator.list_sessions_for_directory", lambda path: [])
     with pytest.raises(ValueError):
-        start_conversation(storage, str(project_dir), toggle(DEFAULT_SELECTION, SESSION_CONTINUE, True), name="x")
+        start_conversation(storage, str(project_dir), toggle(DEFAULT_SELECTION, SESSION_CONTINUE, True), name="x", interactive=False)
 
 
 def test_from_pr_needs_value(storage, project_dir):
     sel = toggle(DEFAULT_SELECTION, SESSION_FROM_PR, True)
     with pytest.raises(ValueError):
-        start_conversation(storage, str(project_dir), sel, pr="  ")
-    q = start_conversation(storage, str(project_dir), sel, pr="42")
+        start_conversation(storage, str(project_dir), sel, pr="  ", interactive=False)
+    q = start_conversation(storage, str(project_dir), sel, pr="42", interactive=False)
     assert q.first_run_flags == ["--from-pr", "42"]
 
 
 async def test_first_run_adopts_returned_session_id(storage, project_dir):
     q = start_conversation(storage, str(project_dir),
-                           toggle(toggle(DEFAULT_SELECTION, SESSION_RESUME, True), FORK, True), session_id="orig")
+                           toggle(toggle(DEFAULT_SELECTION, SESSION_RESUME, True), FORK, True), session_id="orig", interactive=False)
     storage.add_queue_item(q.id, "hello")
     calls = []
 
@@ -736,7 +736,7 @@ async def test_no_git_commands_for_conversations_without_command_permission(stor
     async def ok(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
         return RunResult(status=RunStatus.SUCCESS)
 
-    q = start_conversation(storage, str(repo), toggle(DEFAULT_SELECTION, "perm_accept_edits", True))
+    q = start_conversation(storage, str(repo), toggle(DEFAULT_SELECTION, "perm_accept_edits", True), interactive=False)
     storage.add_queue_item(q.id, "edit things")
     orch = Orchestrator(storage, run_fn=ok)
     await orch.start_all()
@@ -762,9 +762,9 @@ async def test_permission_tool_attached_only_outside_yolo(storage, project_dir, 
         seen[prompt] = launch_flags
         return RunResult(status=RunStatus.SUCCESS)
 
-    yolo = start_conversation(storage, project_dir, DEFAULT_SELECTION)
+    yolo = start_conversation(storage, project_dir, DEFAULT_SELECTION, interactive=False)
     storage.add_queue_item(yolo.id, "yolo")
-    edits = start_conversation(storage, project_dir, toggle(DEFAULT_SELECTION, "perm_accept_edits", True))
+    edits = start_conversation(storage, project_dir, toggle(DEFAULT_SELECTION, "perm_accept_edits", True), interactive=False)
     storage.add_queue_item(edits.id, "edits")
     orch = Orchestrator(storage, run_fn=capture)
     await orch.start_all()

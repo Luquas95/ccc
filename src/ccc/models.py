@@ -44,6 +44,15 @@ class DeliveryMode(str, Enum):
     # managed_sessions) and pastes queued prompts into it; the conversation
     # is also reachable from the Claude mobile app / claude.ai.
     REMOTE_CONTROL = "remote_control"
+    # Same as REMOTE_CONTROL without --remote-control: a plain interactive
+    # Claude Code CLI that ccc runs in tmux and shows next to its own
+    # window (tui.cli_pane) — every CLI feature works, slash commands too.
+    INTERACTIVE = "interactive"
+
+    @property
+    def managed(self) -> bool:
+        """An interactive `claude` process that ccc itself keeps running."""
+        return self in (DeliveryMode.REMOTE_CONTROL, DeliveryMode.INTERACTIVE)
 
 
 @dataclass
