@@ -178,7 +178,7 @@ you're typing in a text field; `Ctrl` keys work everywhere.
 | | `n` | new conversation |
 | | `?` | all shortcuts |
 | | `Ctrl+P` | [Settings](#settings) |
-| | `Ctrl+T` | screenshot of the screen (SVG in `~/Documents/ccc-screenshots/`) |
+| | `Ctrl+T` | screenshot of the screen (SVG in `screenshots/` of the [export folder](#settings)) |
 | | `Ctrl+Q` | quit the viewer — queued work keeps running in the daemon |
 | | `Esc` | back / close a window |
 | Dashboard | `Enter` | queue detail (there: `Enter` on a run shows its commit diff, `a` adds a prompt with the queue's path prefilled) |
@@ -193,7 +193,7 @@ you're typing in a text field; `Ctrl` keys work everywhere.
 | | `x` / `h` | archive or restore / show archived |
 | | `Ctrl+D` | delete the conversation (asks first) |
 | | `/` | search all conversations |
-| | `e` | export as Markdown to `~/Documents/ccc-exports/` |
+| | `e` | export as Markdown to `conversations/` of the [export folder](#settings) |
 
 ### Settings
 
@@ -219,6 +219,11 @@ throws the changes away, preset prompt edits included (the buttons *Send test me
   [Preset prompts](#preset-prompts).
 - **New-conversation presets** — delete presets saved in the New
   conversation window.
+- **Exports** — the export folder: exported conversations (`e`) go to its
+  `conversations/`, screenshots (`Ctrl+T`) to `screenshots/`. Empty =
+  `ccc` in your documents folder, whatever it's called in your language
+  (`~/Documents/ccc`, `~/Dokumenty/ccc`, … from `~/.config/user-dirs.dirs`),
+  or `~/ccc` where there's none (servers, Termux).
 - **Monthly analytics archive** — the folder of the [monthly
   archive](#monthly-archive-obsidian), *Archive finished months now*.
 - **Data** — where the database and its backups are, when the last backup
@@ -264,9 +269,8 @@ conversation with `Alt+1` … `Alt+9` (works while you're typing too).
 
 ### Screenshots
 
-`Ctrl+T` saves what the TUI shows as an SVG file in
-`~/Documents/ccc-screenshots/` (open it in any browser); the notification
-shows the path.
+`Ctrl+T` saves what the TUI shows as an SVG file in `screenshots/` of the
+export folder (open it in any browser); the notification shows the path.
 
 ### Two delivery modes
 
@@ -491,7 +495,7 @@ message box under the transcript is multi-line: Enter sends, Ctrl+J (or
 Shift+Enter where the terminal reports it) starts a new line. In the
 conversations view `/` searches every conversation (archived too) and
 Enter on a hit opens it; `e` exports the selected conversation as
-Markdown to `~/Documents/ccc-exports/`. The sidebar shows whether the
+Markdown to `conversations/` of the export folder. The sidebar shows whether the
 daemon is running. The New conversation dialog remembers your last
 choice and can save it as a named preset.
 

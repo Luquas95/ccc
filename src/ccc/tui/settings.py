@@ -22,6 +22,7 @@ from ccc.notify import (
     send_telegram,
 )
 from ccc.analytics_archive import FOLDER_KEY as ARCHIVE_FOLDER_KEY, archive
+from ccc.export_paths import FOLDER_KEY as EXPORT_FOLDER_KEY, default_export_folder, home_short
 from ccc.orchestrator import DEFAULT_CONTINUE_TEXT, RESERVE_KEY, usage_reserve
 from ccc.presets import delete_preset, list_presets
 from ccc.prompt_presets import MAX_PRESETS, load_prompt_presets, save_prompt_presets
@@ -234,6 +235,15 @@ class SettingsModal(ModalScreen):
             Horizontal(Button("Delete preset", id="settings-preset-delete", classes="settings-danger",
                               disabled=not presets), classes="settings-actions"),
         )
+        exports = _section(
+            "Exports",
+            _row("Export folder", Input(s.get_setting(EXPORT_FOLDER_KEY) or "",
+                                        placeholder=f"empty = {home_short(default_export_folder())}",
+                                        id="settings-export-folder")),
+            Static("Exported conversations (e) go to conversations/, screenshots (Ctrl+T) to screenshots/\n"
+                   "inside it. Empty = ccc in your documents folder (~/ccc where there is none).",
+                   classes="settings-hint"),
+        )
         archive_box = _section(
             "Monthly analytics archive",
             _row("Folder", Input(s.get_setting(ARCHIVE_FOLDER_KEY) or "", placeholder="empty = off, e.g. ~/Documents/ccc_analytics",
@@ -257,7 +267,7 @@ class SettingsModal(ModalScreen):
             Horizontal(Button("Back up now", id="settings-backup"), classes="settings-actions"),
         )
         box = Container(
-            VerticalScroll(appearance, telegram, discord, queues, prompt_box, preset_box, archive_box, data, id="settings-scroll"),
+            VerticalScroll(appearance, telegram, discord, queues, prompt_box, preset_box, exports, archive_box, data, id="settings-scroll"),
             Horizontal(
                 Static("Ctrl+S save  ·  Esc cancel", classes="modal-hint"),
                 Button("Cancel", id="settings-cancel", classes="modal-cancel"),
@@ -483,6 +493,10 @@ class SettingsModal(ModalScreen):
             self.query_one("#settings-preset-delete", Button).disabled = True
         self.notify(f"Preset “{name}” deleted.")
 
+    def _export_folder_value(self) -> str:
+        raw = self.query_one("#settings-export-folder", Input).value.strip()
+        return str(Path(raw).expanduser()) if raw else ""
+
     def _archive_folder_value(self) -> str:
         raw = self.query_one("#settings-archive-folder", Input).value.strip()
         return str(Path(raw).expanduser()) if raw else ""
@@ -531,6 +545,7 @@ class SettingsModal(ModalScreen):
         reserve = self.query_one("#settings-reserve", Select).value
         s.set_setting(RESERVE_KEY, "" if reserve == "off" else str(reserve))
         save_prompt_presets(s, self._prompt_presets)
+        s.set_setting(EXPORT_FOLDER_KEY, self._export_folder_value())
         s.set_setting(ARCHIVE_FOLDER_KEY, self._archive_folder_value())
         self.notify("Settings saved.")
         self.dismiss(True)

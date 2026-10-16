@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
 
 from rich.text import Text
 from textual.binding import Binding
@@ -24,9 +23,6 @@ from ccc.tui.layout import (
 from ccc.tui.message_box import MessageBox
 from ccc.tui.prompt_presets import ALT_DIGIT_CHARS, ALT_DIGIT_TEXT, bar_item
 
-
-# Where `e` writes a conversation exported as Markdown.
-EXPORT_DIR = Path.home() / "Documents" / "ccc-exports"
 
 # Newest transcript events mounted when a conversation is opened; older
 # ones are summarised in one line (Markdown + tool widgets cost ~15ms each).
@@ -593,11 +589,12 @@ class ConversationsScreen(SidebarScreen):
         self.app.push_screen(SearchModal(self.storage), chosen)
 
     def action_export(self) -> None:
+        from ccc.export_paths import CONVERSATIONS, export_dir
         from ccc.search import export_markdown
 
         if self._current_queue_id is None:
             return
-        path = export_markdown(self.storage, self._current_queue_id, EXPORT_DIR)
+        path = export_markdown(self.storage, self._current_queue_id, export_dir(self.storage, CONVERSATIONS))
         self.notify(f"Exported to {path}", title="Export conversation")
 
     def action_approve(self) -> None:
