@@ -169,6 +169,10 @@ CLIPBOARD_COMMANDS: tuple[tuple[str, ...], ...] = (
       for table in ("copy-mode", "copy-mode-vi")],
     ("bind-key", "-n", "C-S-c", "if-shell", "-F", "#{pane_in_mode}", "send-keys -X copy-pipe-and-cancel", ""),
     ("bind-key", "-n", "C-S-v", "paste-buffer", "-p"),
+    # Ctrl+Q closes ccc for the terminal that pressed it: detach that
+    # client (ccc keeps running; `ccc` opens it again). Quitting the TUI
+    # would only restart it. Not a Claude Code key.
+    ("bind-key", "-n", "C-q", "detach-client"),
 )
 
 

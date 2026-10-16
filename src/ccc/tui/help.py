@@ -19,13 +19,13 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("n", "New conversation"),
         ("question_mark", "This help"),
         ("ctrl+p", "Settings (theme, Telegram, queues, presets, backup)"),
-        ("ctrl+q", "Quit the viewer (queued work keeps running)"),
+        ("ctrl+q", "Close ccc (it keeps running; `ccc` opens it again)"),
         ("escape", "Back / close"),
     ]),
     ("Dashboard", [
         ("enter", "Open the queue detail"),
         ("r", "Retry a blocked queue / resume one paused at a limit"),
-        ("q", "Quit the viewer (same as Ctrl+Q)"),
+        ("q", "Close ccc (same as Ctrl+Q)"),
     ]),
     ("Live sessions", [
         ("enter", "Send the selected session a prompt"),

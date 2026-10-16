@@ -118,7 +118,7 @@ def test_bar_opens_across_the_window_and_keys_are_bound(tmux):
     assert bar_split[-1].endswith("-m ccc.tui.cli_bar /data/h.db")
     bar = cli_pane.find_bar()
     assert bar is not None and bar != pane
-    bound = {c[2]: c for c in tmux.calls if c[0] == "bind-key" and c[1] == "-n" and c[2] not in ("C-S-c", "C-S-v")}
+    bound = {c[2]: c for c in tmux.calls if c[0] == "bind-key" and c[1] == "-n" and c[2] not in ("C-S-c", "C-S-v", "C-q")}
     assert set(bound) == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p"}
     assert f"select-pane -t {pane}" in bound["M-0"][6]
     assert "#{e|<|:#{window_width},100}" in bound["M-0"][6]  # numeric, not string compare
@@ -192,3 +192,8 @@ def test_clipboard_left_alone_on_a_foreign_tmux(tmux, monkeypatch):
     monkeypatch.setenv("TMUX", "/tmp/tmux-1000/default,123,0")
     cli_pane.style_window()
     assert not any("set-clipboard" in c or "C-S-v" in c for c in tmux.calls)
+
+
+def test_ctrl_q_detaches_the_terminal_on_the_ccc_server(tmux):
+    cli_pane.style_window()
+    assert ("bind-key", "-n", "C-q", "detach-client") in tmux.calls

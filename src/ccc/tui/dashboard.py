@@ -31,9 +31,9 @@ class DashboardScreen(SidebarScreen):
     SUB_TITLE = "Dashboard"
 
     BINDINGS = [
-        # Retry has its sidebar button; Ctrl+Q quits everywhere.
+        # Retry has its sidebar button; Ctrl+Q closes ccc everywhere.
         Binding("r", "retry_queue", "Retry blocked", show=False),
-        Binding("q", "quit", "Quit", show=False),
+        Binding("q", "quit", "Close", show=False),
     ]
 
     def __init__(self, storage: Storage):
@@ -122,5 +122,5 @@ class DashboardScreen(SidebarScreen):
             self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
             self.refresh_table()
 
-    def action_quit(self) -> None:
-        self.app.exit()
+    async def action_quit(self) -> None:
+        await self.app.action_quit()

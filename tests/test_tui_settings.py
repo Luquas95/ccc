@@ -185,7 +185,7 @@ async def test_export_folder_saved_from_settings(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_ctrl_q_quits(tmp_path):
+async def test_ctrl_q_quits_outside_ccc_tmux(tmp_path):
     app = _app(tmp_path)
     async with app.run_test(size=(140, 45)) as pilot:
         await pilot.pause()
@@ -258,3 +258,20 @@ async def test_archive_folder_saved_and_archive_now(tmp_path):
         await pilot.press("ctrl+s")
         await pilot.pause()
         assert app.storage.get_setting(FOLDER_KEY) == str(folder)
+
+
+@pytest.mark.asyncio
+async def test_ctrl_q_detaches_inside_ccc_tmux(tmp_path, monkeypatch):
+    # The always-on instance: quitting would only restart the TUI.
+    import subprocess
+
+    calls = []
+    monkeypatch.setenv("TMUX", "/tmp/tmux-1000/ccc,1,0")
+    monkeypatch.setattr(subprocess, "run", lambda args, capture_output=True: calls.append(args))
+    app = _app(tmp_path)
+    async with app.run_test(size=(140, 45)) as pilot:
+        await pilot.pause()
+        await pilot.press("ctrl+q")
+        await pilot.pause()
+        assert calls == [["tmux", "detach-client"]]
+        assert app.is_running

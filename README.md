@@ -161,7 +161,7 @@ coloured buttons with their keys at the bottom — only the extra actions of
 the current screen; screens are switched in the list above. Content sits on
 the right in round-bordered panels. The **bottom bar** only lists what
 the sidebar doesn't already show: the current screen's own actions, plus
-`?` Keys, `Ctrl+Q` Quit and `Ctrl+P` Settings.
+`?` Keys, `Ctrl+Q` Close and `Ctrl+P` Settings.
 
 | Screen | Key | What it shows |
 |---|---|---|
@@ -181,7 +181,7 @@ you're typing in a text field; `Ctrl` keys work everywhere.
 | | `n` | new conversation |
 | | `?` | all shortcuts |
 | | `Ctrl+P` | [Settings](#settings) |
-| | `Ctrl+Q` | quit the viewer — queued work keeps running in the daemon |
+| | `Ctrl+Q` | close ccc in this terminal — it keeps running (as does queued work); `ccc` opens it again |
 | | `Esc` | back / close a window |
 | Dashboard | `Enter` | queue detail (there: `Enter` on a run shows its commit diff, `a` adds a prompt with the queue's path prefilled) |
 | | `r` | retry a blocked queue / resume one paused at a usage limit |
@@ -626,8 +626,9 @@ observability, not an extra charge.
 **The always-on TUI** runs in its own tmux server (`tmux -L ccc`), so it
 doesn't show up in plain `tmux ls`: attach with `ccc` (or
 `tmux -L ccc attach -t ccc`; `bin/ccc-tmux.sh` still works and does the
-same). `ccc tui` runs the TUI itself — that's what the service runs. Quitting the TUI (`Ctrl+Q`) just restarts it a
-second later; the daemon is unaffected either way. Using a separate tmux
+same). `ccc tui` runs the TUI itself — that's what the service runs. `Ctrl+Q`
+detaches your terminal (other devices stay attached); should the TUI itself
+quit, it's back a second later. The daemon is unaffected either way. Using a separate tmux
 server is deliberate — if the unit started your default one, all your
 other tmux sessions would live in its cgroup and systemd-oomd killing it
 would take them all down. If the session dies anyway, the unit recreates
