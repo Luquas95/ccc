@@ -14,6 +14,16 @@ import subprocess
 import sys
 
 PANE_OPTION = "@ccc-cli"
+TITLE_OPTION = "@ccc-title"
+# On ccc's own server: a title bar on each pane, and the pane you type in
+# marked — otherwise nothing shows whether keys go to ccc or to Claude.
+BORDER_OPTIONS: tuple[tuple[str, str], ...] = (
+    ("pane-border-status", "top"),
+    ("pane-border-format",
+     f"#{{?pane_active,#[fg=black#,bg=green#,bold] ⌨ typing here #[default],}} #{{{TITLE_OPTION}}} "),
+    ("pane-active-border-style", "fg=green,bold"),
+    ("pane-border-style", "fg=brightblack"),
+)
 # ccc keeps this many columns (its sidebar) while the pane is open.
 SIDEBAR_COLUMNS = 34
 # Narrower windows (phone): the pane takes the whole window when focused.
@@ -65,7 +75,7 @@ def _on_ccc_server() -> bool:
     return os.path.basename(os.environ.get("TMUX", "").split(",")[0]) == CCC_SOCKET
 
 
-def open(queue_id: int) -> str | None:
+def open(queue_id: int, title: str = "") -> str | None:
     """Show the conversation in the pane (create it, or switch what it
     shows). Returns the pane id, None if tmux refused."""
     command = attach_command(queue_id)
@@ -86,7 +96,11 @@ def open(queue_id: int) -> str | None:
         if _on_ccc_server():
             # Click a pane to switch to it; the wheel scrolls Claude.
             _tmux("set-option", "-t", _own_pane(), "mouse", "on")
+            for name, value in BORDER_OPTIONS:
+                _tmux("set-option", "-w", "-t", _own_pane(), name, value)
+            _tmux("set-option", "-p", "-t", _own_pane(), TITLE_OPTION, "ccc")
     _tmux("set-option", "-p", "-t", pane, PANE_OPTION, str(queue_id))
+    _tmux("set-option", "-p", "-t", pane, TITLE_OPTION, f"Claude Code · {title}" if title else "Claude Code")
     return pane
 
 

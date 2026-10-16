@@ -20,7 +20,7 @@ class FakePane:
     def find(self):
         return ("%1", self.shown) if self.shown is not None else None
 
-    def open(self, queue_id):
+    def open(self, queue_id, title=""):
         self.shown = queue_id
         return "%1"
 

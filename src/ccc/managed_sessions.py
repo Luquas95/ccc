@@ -76,6 +76,8 @@ TRANSPARENT_OPTIONS: tuple[tuple[str, ...], ...] = (
     ("set-option", "-g", "status", "off"),
     ("set-option", "-g", "mouse", "on"),
     ("set-option", "-g", "escape-time", "0"),
+    # Claude Code asks for it (focus tracking).
+    ("set-option", "-g", "focus-events", "on"),
     ("set-option", "-g", "set-clipboard", "external"),
     ("set-option", "-g", "default-terminal", "tmux-256color"),
     ("set-option", "-ga", "terminal-features", ",*:RGB"),
@@ -154,18 +156,62 @@ def parse_remote_url(pane_text: str) -> str | None:
     return match.group(0) if match else None
 
 
+# Claude Code's folder-trust dialog: (question, the "yes" choice) for each
+# wording seen so far. Newer versions ask "Quick safety check: Is this a
+# project you created or one you trust?" with "No, exit" pre-selected.
+TRUST_DIALOGS: tuple[tuple[str, str], ...] = (
+    ("Do you trust the files in this folder?", "Yes, proceed"),
+    ("Is this a project you created or one you trust?", "Yes, I trust this folder"),
+)
+TRUST_SELECT_ATTEMPTS = 4
+TRUST_SELECT_PAUSE_SECONDS = 0.3
+
+
+def _trust_dialog(pane_text: str) -> tuple[str, str] | None:
+    for question, yes in TRUST_DIALOGS:
+        if question in pane_text and yes in pane_text:
+            return question, yes
+    return None
+
+
 def needs_trust_confirmation(pane_text: str) -> bool:
     """True only while interactive Claude shows its folder-trust dialog
     (headless -p skips it; the user picked the folder in ccc, so the
-    daemon accepts it). Deliberately narrow: the question AND its "Yes,
-    proceed" choice must be on screen, so Claude merely quoting the phrase,
-    or any other prompt — tool permission questions in particular — never
+    daemon accepts it). Deliberately narrow: the question AND its "yes"
+    choice must be on screen, so Claude merely quoting the phrase, or any
+    other prompt — tool permission questions in particular — never
     matches. Callers additionally limit this to just after startup."""
-    return "Do you trust the files in this folder?" in pane_text and "Yes, proceed" in pane_text
+    return _trust_dialog(pane_text) is not None
 
 
-def confirm(queue_id: int) -> None:
-    _tmux("send-keys", "-t", target(queue_id), "Enter")
+def trust_choice_selected(pane_text: str) -> bool | None:
+    """Whether the dialog's cursor (❯) is on its "yes" choice; None when
+    there's no trust dialog. Only lines from the question down count —
+    the scrollback above may hold old "❯ prompt" lines."""
+    dialog = _trust_dialog(pane_text)
+    if dialog is None:
+        return None
+    question, yes = dialog
+    lines = pane_text.splitlines()
+    start = max(i for i, line in enumerate(lines) if question in line)
+    selected = next((line for line in lines[start:] if "❯" in line), "")
+    return yes in selected
+
+
+def confirm(queue_id: int, sleep=time.sleep) -> bool:
+    """Accept the folder-trust dialog: move the cursor to the "yes" choice
+    and press Enter only once the screen shows it selected — Enter on a
+    pre-selected "No, exit" would quit Claude. True if confirmed."""
+    for _ in range(TRUST_SELECT_ATTEMPTS):
+        selected = trust_choice_selected(capture(queue_id))
+        if selected is None:
+            return False
+        if selected:
+            _tmux("send-keys", "-t", target(queue_id), "Enter")
+            return True
+        _tmux("send-keys", "-t", target(queue_id), "Down")
+        sleep(TRUST_SELECT_PAUSE_SECONDS)
+    return False
 
 
 def paste_and_submit(queue_id: int, text: str) -> DeliveryResult:

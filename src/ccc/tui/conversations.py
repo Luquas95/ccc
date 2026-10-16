@@ -183,8 +183,13 @@ class ConversationsScreen(SidebarScreen):
     def compose_sidebar_section(self):
         yield Static("Queues", classes="sidebar-label")
         yield DataTable(id="conversation-queue-list", classes="sidebar-list")
-        yield Static("Claude Code is on the right.\nCtrl+B → type there · Ctrl+B ← back\n"
-                     "Ctrl+B z full window · Ctrl+] close", id="cli-hint")
+        # Fits the 34-column sidebar ccc keeps while Claude Code is open.
+        yield Static("Claude Code: right pane\n"
+                     "Enter / click → type in it\n"
+                     "Ctrl+B ← / click → ccc\n"
+                     "Ctrl+B z  full window\n"
+                     "Ctrl+]  close the pane\n"
+                     "Green bar = where you type", id="cli-hint")
 
     def compose_main(self):
         yield Static(id="conversation-header")
@@ -284,7 +289,7 @@ class ConversationsScreen(SidebarScreen):
             self._cli_closed_for = queue.id
             want = False
         if want:
-            want = cli_pane.open(queue.id) is not None
+            want = cli_pane.open(queue.id, queue.name) is not None
         elif shown is not None:
             cli_pane.close()
         self._cli_open_for = queue.id if want else None
