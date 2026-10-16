@@ -129,3 +129,58 @@ def test_stop_does_not_signal_a_process_that_exited(calls, monkeypatch):
     monkeypatch.setattr(ms, "_signal", lambda pid, sig: signals.append(sig))
     ms.stop(7)
     assert signals == []
+
+
+NEW_TRUST = """❯ Spusť pomocí nástroje Bash příkaz: echo hi
+──────────────────────────
+ Accessing workspace:
+ /mnt/AI/DEV/Kompas
+ Quick safety check: Is this a project you created or one you trust? (Like your own code)
+ Claude Code'll be able to read, edit, and execute files here.
+ {no}No, exit
+ {yes}Yes, I trust this folder
+ Enter to confirm · Esc to cancel
+"""
+
+
+def _new_trust(selected_yes):
+    return NEW_TRUST.format(no="  " if selected_yes else "❯ ", yes="❯ " if selected_yes else "  ")
+
+
+def test_new_trust_dialog_is_recognised():
+    assert ms.needs_trust_confirmation(_new_trust(False))
+    # Old "❯ prompt" lines in the scrollback above the dialog don't count.
+    assert ms.trust_choice_selected(_new_trust(False)) is False
+    assert ms.trust_choice_selected(_new_trust(True)) is True
+    assert ms.trust_choice_selected("❯ just a prompt") is None
+
+
+def test_confirm_moves_to_yes_before_enter(monkeypatch):
+    screens = [_new_trust(False), _new_trust(True)]
+    sent = []
+    monkeypatch.setattr(ms, "capture", lambda qid: screens[0])
+
+    def tmux(*args, input_text=None):
+        sent.append(args[-1])
+        if args[-1] == "Down":
+            screens.pop(0)
+
+    monkeypatch.setattr(ms, "_tmux", tmux)
+    assert ms.confirm(19, sleep=lambda s: None) is True
+    assert sent == ["Down", "Enter"]
+
+
+def test_confirm_never_presses_enter_on_no(monkeypatch):
+    sent = []
+    monkeypatch.setattr(ms, "capture", lambda qid: _new_trust(False))  # cursor never moves
+    monkeypatch.setattr(ms, "_tmux", lambda *args, input_text=None: sent.append(args[-1]))
+    assert ms.confirm(19, sleep=lambda s: None) is False
+    assert "Enter" not in sent
+
+
+def test_old_trust_dialog_still_confirmed(monkeypatch):
+    sent = []
+    monkeypatch.setattr(ms, "capture", lambda qid: "Do you trust the files in this folder?\n❯ 1. Yes, proceed\n  2. No")
+    monkeypatch.setattr(ms, "_tmux", lambda *args, input_text=None: sent.append(args[-1]))
+    assert ms.confirm(19, sleep=lambda s: None) is True
+    assert sent == ["Enter"]

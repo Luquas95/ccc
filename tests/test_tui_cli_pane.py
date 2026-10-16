@@ -24,7 +24,7 @@ class FakeTmux:
             pane = f"%{len(self.panes)}"
             self.panes[pane] = ""
             out = pane
-        elif args[0] == "set-option" and args[1] == "-p":
+        elif args[0] == "set-option" and args[1] == "-p" and args[4] == "@ccc-cli":
             self.panes[args[3]] = args[5]
         elif args[0] == "kill-pane":
             self.panes.pop(args[2], None)
@@ -57,6 +57,14 @@ def test_open_splits_next_to_ccc_keeping_the_sidebar(tmux):
     assert "-d" in split  # ccc keeps the keyboard until focus()
     assert cli_pane.find() == (pane, 4)
     assert ("set-option", "-t", "%0", "mouse", "on") in tmux.calls
+    # You can see which pane you type in, and what each one is.
+    assert ("set-option", "-w", "-t", "%0", "pane-border-status", "top") in tmux.calls
+    assert ("set-option", "-p", "-t", "%0", "@ccc-title", "ccc") in tmux.calls
+
+
+def test_open_titles_the_pane_with_the_conversation(tmux):
+    pane = cli_pane.open(4, "Kompas")
+    assert ("set-option", "-p", "-t", pane, "@ccc-title", "Claude Code · Kompas") in tmux.calls
 
 
 def test_open_switches_the_existing_pane(tmux):
@@ -73,7 +81,7 @@ def test_open_switches_the_existing_pane(tmux):
 def test_mouse_left_alone_on_a_foreign_tmux(tmux, monkeypatch):
     monkeypatch.setenv("TMUX", "/tmp/tmux-1000/default,123,0")
     cli_pane.open(4)
-    assert not any(c[0] == "set-option" and "mouse" in c for c in tmux.calls)
+    assert not any(c[0] == "set-option" and ("mouse" in c or "pane-border-status" in c) for c in tmux.calls)
 
 
 def test_focus_zooms_on_narrow_windows(tmux):
