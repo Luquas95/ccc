@@ -68,7 +68,7 @@ async def test_no_results_message(storage):
 
 @pytest.mark.asyncio
 async def test_e_exports_current_conversation(storage, tmp_path, monkeypatch):
-    monkeypatch.setattr("ccc.tui.conversations.EXPORT_DIR", tmp_path / "exports")
+    storage.set_setting("export_folder", str(tmp_path / "exports"))
     beta = storage.list_queues()[1]
     app = _host(ConversationsScreen(storage, select_queue_id=beta.id))
     async with app.run_test(size=(140, 40)) as pilot:
@@ -76,5 +76,5 @@ async def test_e_exports_current_conversation(storage, tmp_path, monkeypatch):
         app.screen.query_one("#conversation-queue-list").focus()
         await pilot.press("e")
         await pilot.pause()
-    files = list((tmp_path / "exports").glob("beta-*.md"))
+    files = list((tmp_path / "exports" / "conversations").glob("beta-*.md"))
     assert len(files) == 1 and "the [magic] word" in files[0].read_text()

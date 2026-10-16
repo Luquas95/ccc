@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
 
 from textual.app import App
 from textual.binding import Binding
 
+from ccc.export_paths import SCREENSHOTS, export_dir
 from ccc.storage import Storage
 from ccc.tui.dashboard import DashboardScreen
-
-# Where Ctrl+T saves a screenshot of the screen (SVG).
-SCREENSHOT_DIR = Path.home() / "Documents" / "ccc-screenshots"
 
 
 class CCContinueApp(App):
@@ -55,8 +52,8 @@ class CCContinueApp(App):
             self.push_screen(SettingsModal(self.storage))
 
     def action_take_screenshot(self) -> None:
-        SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
-        path = self.save_screenshot(f"ccc-{datetime.now():%Y-%m-%d_%H-%M-%S}.svg", str(SCREENSHOT_DIR))
+        folder = export_dir(self.storage, SCREENSHOTS)
+        path = self.save_screenshot(f"ccc-{datetime.now():%Y-%m-%d_%H-%M-%S}.svg", str(folder))
         self.notify(path, title="Screenshot saved")
 
 

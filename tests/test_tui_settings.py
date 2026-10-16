@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from textual.widgets import Input, Select
 
@@ -5,7 +7,6 @@ from ccc.notify import TELEGRAM_CHAT_KEY, TELEGRAM_TOKEN_KEY
 from ccc.orchestrator import RESERVE_KEY
 from ccc.presets import LaunchChoice, list_presets, save_preset
 from ccc.storage import Storage
-from ccc.tui import app as app_module
 from ccc.tui.app import CCContinueApp
 from ccc.tui.dashboard import DashboardScreen
 from ccc.tui.settings import THEME_KEY, SettingsModal
@@ -156,13 +157,28 @@ async def test_delete_preset_and_backup(tmp_path):
 
 @pytest.mark.asyncio
 async def test_ctrl_t_saves_a_screenshot(tmp_path, monkeypatch):
-    monkeypatch.setattr(app_module, "SCREENSHOT_DIR", tmp_path / "shots")
     app = _app(tmp_path)
+    app.storage.set_setting("export_folder", str(tmp_path / "out"))
     async with app.run_test(size=(140, 45)) as pilot:
         await pilot.pause()
         await pilot.press("ctrl+t")
         await pilot.pause()
-        assert len(list((tmp_path / "shots").glob("ccc-*.svg"))) == 1
+        assert len(list((tmp_path / "out" / "screenshots").glob("ccc-*.svg"))) == 1
+
+
+@pytest.mark.asyncio
+async def test_export_folder_saved_from_settings(tmp_path):
+    from ccc.export_paths import export_folder
+
+    app = _app(tmp_path)
+    async with app.run_test(size=(140, 45)) as pilot:
+        await pilot.pause()
+        await pilot.press("ctrl+p")
+        await pilot.pause()
+        app.screen.query_one("#settings-export-folder", Input).value = "~/my-exports"
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+    assert export_folder(app.storage) == Path.home() / "my-exports"
 
 
 @pytest.mark.asyncio

@@ -20,7 +20,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("a", "Add a prompt (path prefilled)"),
         ("question_mark", "This help"),
         ("ctrl+p", "Settings (theme, Telegram, queues, presets, backup)"),
-        ("ctrl+t", "Screenshot (SVG into ~/Documents/ccc-screenshots)"),
+        ("ctrl+t", "Screenshot (SVG into screenshots/ of the export folder, see Settings)"),
         ("ctrl+q", "Quit the viewer (queued work keeps running)"),
         ("escape", "Back / close"),
     ]),
