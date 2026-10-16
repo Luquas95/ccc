@@ -10,11 +10,16 @@ read-only tmux control client and loads each new paste buffer into ccc's
 server with `load-buffer -w`, which tmux itself sends to the clipboard of
 ccc's client (OSC 52 — over SSH, in Termux and Linux terminals).
 
+Programs Claude runs in a session could make such a buffer too — but they
+can run `tmux load-buffer -w` on ccc's server directly anyway; what this
+keeps out is text that's only printed.
+
 Runs in the bar process (tui.cli_bar), i.e. while a Claude Code pane is
 open."""
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import threading
 
@@ -22,14 +27,20 @@ from ccc import instance, managed_sessions
 
 NOTIFICATION = "%paste-buffer-changed "
 RETRY_SECONDS = 1.0
+# Only copies: tmux names those itself (buffer0, buffer1, …) — copy mode and
+# Claude Code's own mouse copies. Never named buffers: ccc pastes queued
+# prompts and presets into Claude through "ccc-<id>" buffers, and those
+# must not overwrite your clipboard.
+COPY_BUFFER = re.compile(r"buffer\d+")
 
 
 def changed_buffer(line: str) -> str | None:
-    """The buffer name of a control-mode `%paste-buffer-changed` line."""
+    """The buffer name of a control-mode `%paste-buffer-changed` line, if
+    it's a copy (see COPY_BUFFER)."""
     line = line.rstrip("\n")
     if line.startswith(NOTIFICATION):
         name = line[len(NOTIFICATION):].strip()
-        return name or None
+        return name if COPY_BUFFER.fullmatch(name) else None
     return None
 
 
