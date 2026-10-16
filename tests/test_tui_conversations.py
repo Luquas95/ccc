@@ -492,7 +492,9 @@ async def test_status_shows_next_scheduled_task(tmp_path, monkeypatch):
     app = await _open(storage)
     async with app.run_test() as pilot:
         await pilot.pause()
-        assert f"Next task at {at:%H:%M}" in str(app.screen.query_one("#conversation-status").render())
+        status = str(app.screen.query_one("#conversation-status").render())
+        # Late in the day "+3 h" is tomorrow and the date is shown too.
+        assert "Next task at" in status and f"{at:%H:%M}" in status
 
 
 @pytest.mark.asyncio

@@ -41,6 +41,10 @@ class CCContinueApp(App):
         theme = saved_theme(self.storage, self.available_themes)
         if theme:
             self.theme = theme
+        from ccc.tui import cli_pane
+
+        # Same frame in every view (see cli_pane.style_window).
+        cli_pane.style_window()
         for screen in self.initial_screens():
             await self.push_screen(screen)
 

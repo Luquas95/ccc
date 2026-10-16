@@ -5,8 +5,9 @@ tmux client attached to the conversation's session on the ccc-sessions
 server (see attach_cli), so every Claude Code feature works.
 
 Only one such pane exists; it's marked with the @ccc-cli pane option
-holding the conversation (queue) id it shows. Under it, across the whole
-window, runs the bar (cli_bar: preset prompts and keys; @ccc-bar). On
+holding the conversation (queue) id it shows. In the same column as the
+Claude Code pane, above it, runs the bar (cli_bar: preset prompts and keys;
+@ccc-bar). On
 ccc's own tmux server the keys that switch between ccc and Claude and run
 ccc's presets are bound while the pane is open — see key_bindings()."""
 from __future__ import annotations
@@ -37,8 +38,9 @@ BORDER_OPTIONS: tuple[tuple[str, str], ...] = (
     ("pane-active-border-style", "fg=green,bold"),
     ("pane-border-style", "fg=brightblack"),
 )
-# ccc keeps this many columns (its sidebar) while the pane is open.
-SIDEBAR_COLUMNS = 34
+# ccc keeps exactly its sidebar (layout.SHARED_CSS #sidebar width) while
+# the pane is open, so the menu doesn't move or change size.
+SIDEBAR_COLUMNS = 32
 # Narrower windows (phone): the pane takes the whole window when focused.
 NARROW_COLUMNS = 100
 # ccc's own tmux server (bin/ccc-tui-supervise.sh) — only there do we
@@ -143,6 +145,19 @@ def _on_ccc_server() -> bool:
     return os.path.basename(os.environ.get("TMUX", "").split(",")[0]) == CCC_SOCKET
 
 
+def style_window() -> None:
+    """On ccc's own server: pane title bars (and the mouse) from the start,
+    not only once Claude Code opens — a title row appearing and staying
+    would shift all of ccc down by a row when switching views."""
+    if not (available() and _on_ccc_server()):
+        return
+    # Click a pane to switch to it; the wheel scrolls Claude.
+    _tmux("set-option", "-t", _own_pane(), "mouse", "on")
+    for name, value in BORDER_OPTIONS:
+        _tmux("set-option", "-w", "-t", _own_pane(), name, value)
+    _tmux("set-option", "-p", "-t", _own_pane(), TITLE_OPTION, "ccc")
+
+
 def open(queue_id: int, title: str = "", db_path: str | None = None) -> str | None:
     """Show the conversation in the pane (create it, or switch what it
     shows) and, with db_path, the bar under it. Returns the pane id, None
@@ -162,17 +177,12 @@ def open(queue_id: int, title: str = "", db_path: str | None = None) -> str | No
         if result.returncode != 0:
             return None
         pane = result.stdout.strip()
-        if _on_ccc_server():
-            # Click a pane to switch to it; the wheel scrolls Claude.
-            _tmux("set-option", "-t", _own_pane(), "mouse", "on")
-            for name, value in BORDER_OPTIONS:
-                _tmux("set-option", "-w", "-t", _own_pane(), name, value)
-            _tmux("set-option", "-p", "-t", _own_pane(), TITLE_OPTION, "ccc")
+        style_window()
     _tmux("set-option", "-p", "-t", pane, PANE_OPTION, str(queue_id))
     _tmux("set-option", "-p", "-t", pane, TITLE_OPTION, f"Claude Code · {title}" if title else "Claude Code")
     if db_path is not None and find_bar() is None:
-        # -f: across the whole window, under ccc and Claude both.
-        result = _tmux("split-window", "-v", "-f", "-d", "-l", str(BAR_ROWS), "-t", _own_pane(),
+        # -b: above Claude Code, in its column — ccc's column stays as is.
+        result = _tmux("split-window", "-v", "-b", "-d", "-l", str(BAR_ROWS), "-t", pane,
                        "-P", "-F", "#{pane_id}", bar_command(db_path))
         if result.returncode == 0:
             bar = result.stdout.strip()
@@ -181,8 +191,12 @@ def open(queue_id: int, title: str = "", db_path: str | None = None) -> str | No
     if _on_ccc_server() and db_path is not None:
         for binding in key_bindings(_own_pane(), pane, queue_id, db_path):
             _tmux(*binding)
-    fit = fit_command(_own_pane(), find_bar())
-    _tmux("set-hook", "-w", "-t", _own_pane(), "window-resized", fit)
+    bar = find_bar()
+    _tmux("set-hook", "-w", "-t", _own_pane(), "window-resized", fit_command(_own_pane(), bar))
+    # And now: split-window -l counts the border row too, the bar got 1 row.
+    _tmux("resize-pane", "-t", _own_pane(), "-x", str(SIDEBAR_COLUMNS))
+    if bar is not None:
+        _tmux("resize-pane", "-t", bar, "-y", str(BAR_ROWS))
     return pane
 
 
