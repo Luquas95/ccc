@@ -96,10 +96,6 @@ class DashboardScreen(SidebarScreen):
             return None
         return queues[table.cursor_row]
 
-    def default_project_path(self) -> str:
-        queue = self._selected_queue()
-        return queue.project_path if queue else ""
-
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         # DataTable owns the "enter" key itself (action select_cursor),
         # so listen for its message instead of a screen-level binding.

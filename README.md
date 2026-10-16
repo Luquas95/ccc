@@ -176,15 +176,15 @@ you're typing in a text field; `Ctrl` keys work everywhere.
 |---|---|---|
 | everywhere | `d` `c` `s` `v` | switch screen |
 | | `n` | new conversation |
-| | `a` | add a prompt (path prefilled from the selected conversation) |
 | | `?` | all shortcuts |
 | | `Ctrl+P` | [Settings](#settings) |
 | | `Ctrl+T` | screenshot of the screen (SVG in `~/Documents/ccc-screenshots/`) |
 | | `Ctrl+Q` | quit the viewer — queued work keeps running in the daemon |
 | | `Esc` | back / close a window |
-| Dashboard | `Enter` | queue detail (there: `Enter` on a run shows its commit diff) |
+| Dashboard | `Enter` | queue detail (there: `Enter` on a run shows its commit diff, `a` adds a prompt with the queue's path prefilled) |
 | | `r` | retry a blocked queue / resume one paused at a usage limit |
 | Live sessions | `Enter` / `r` | send the session a prompt / reload the session list |
+| | `a` | add a prompt to a project's queue |
 | Conversations | `Enter` / `Ctrl+J` | send the message / new line |
 | | `Alt+1` … `Alt+9` | [preset prompt](#preset-prompts) — send it or put it into the message box |
 | | `r` | retry the blocked conversation / resume one paused at a usage limit |

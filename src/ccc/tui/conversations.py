@@ -488,11 +488,6 @@ class ConversationsScreen(SidebarScreen):
         self.run_worker(self._show_queue(queue_id), exclusive=True, group="show-queue")
         self.query_one("#message-input", MessageBox).focus()
 
-    def default_project_path(self) -> str:
-        if self._current_queue_id is None:
-            return ""
-        return self.storage.get_queue(self._current_queue_id).project_path
-
     def action_retry_queue(self) -> None:
         if self._current_queue_id is None:
             return
