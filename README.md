@@ -308,27 +308,45 @@ conversations view). The dialog has:
   | Effort (*one*) | high · xhigh · max |
   | Other | Fallback to Sonnet when overloaded · Claude in Chrome · Safe mode |
 
-After **Start** the conversation opens in the conversations view; type in
-the box under the transcript and press Enter. Each message is queued and
-run by the daemon as `claude -p --resume … <your attributes>`, so
-conversations started here also keep going across usage limits and with
-the TUI closed. While a message waits it shows as a grey *queued* bubble;
-the status line says whether Claude is working, waiting for a limit reset,
-or blocked.
+After **Start** you're in the real **Claude Code CLI** — the same as
+running `claude` in a terminal, with every feature: slash commands, tool
+approvals, `Shift+Tab`, `Esc Esc`, history, images, the whole look. The
+daemon keeps that interactive `claude` running in a hidden tmux server
+(`tmux -L ccc-sessions`, session `q<id>`), so it survives closing or
+restarting the TUI, and messages from the task queue are pasted into it
+when Claude is idle.
 
-Because runs are headless, Claude can't ask you to approve a tool mid-run
-and interactive slash commands aren't available — choose the permission
-mode up front. Resuming a session that already has a conversation in
-ccc just switches to it (unless you fork). A fork / from-PR
-conversation adopts the new session id Claude Code returns on its first
-run.
+ccc shows it in a pane next to its sidebar — ccc runs in tmux (the
+`ccc-tui` service, attach with `bin/ccc-tmux.sh`), so that's a real
+terminal, nothing is emulated:
+
+| Keys | |
+|---|---|
+| `Enter` on a conversation | open its Claude Code / put the keyboard there |
+| `Ctrl+B` `→` / `←` (or click) | into Claude / back to ccc |
+| `Ctrl+B` `z` | Claude over the whole window (on windows under 100 columns this happens by itself) |
+| `Ctrl+]` | close the pane — Claude keeps running, `Enter` opens it again |
+
+Selecting another conversation switches the pane; a dialog, Settings or
+another screen closes it while it's open. When ccc runs outside tmux
+(plain `ccc` in a terminal), `Enter` opens Claude Code full screen and
+`Ctrl+]` comes back.
+
+Conversations queued with `a` / `ccc add` (and older ones) still run
+headless as `claude -p --resume … <your attributes>`: type in the box
+under the transcript; such runs can't ask you to approve a tool mid-run
+and have no slash commands, so choose the permission mode up front.
+Resuming a session that already has a conversation in ccc just switches
+to it (unless you fork). A fork / from-PR conversation adopts the new
+session id Claude Code returns.
+
+Every open interactive conversation keeps a `claude` process running;
+archive (`x`) the ones you're done with.
 
 ### Remote control (phone / claude.ai)
 
-*Remote control* in the New conversation dialog is ticked by default.
-Such a conversation doesn't run headless message by message: the daemon
-keeps an interactive `claude --remote-control <name>` running for it in a
-hidden tmux server (`tmux -L ccc-sessions`, session `q<id>`), so
+*Remote control* in the New conversation dialog adds
+`--remote-control <name>` to the conversation's interactive `claude`, so
 you can also continue it from the Claude mobile app or claude.ai — the
 link appears in the conversation header and the queue detail. (Headless
 `claude -p` silently ignores `--remote-control`; it needs a live process.)

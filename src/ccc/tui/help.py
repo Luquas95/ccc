@@ -34,6 +34,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("a", "Add a prompt to a project's queue"),
     ]),
     ("Conversations", [
+        ("enter", "Open the conversation's Claude Code CLI (in the list) / send the message (in the box)"),
         ("r", "Retry the blocked conversation / resume one paused at a limit"),
         ("t", "Tasks editor (queue, schedule, pause, auto-continue)"),
         ("p", "Approve a tool call Claude is waiting on"),
@@ -42,7 +43,6 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("ctrl+d", "Delete the conversation (asks first)"),
         ("slash", "Search all conversations"),
         ("e", "Export the conversation as Markdown"),
-        ("enter", "Send the message (in the message box)"),
         ("ctrl+j", "New line in the message box (Shift+Enter where supported)"),
         ("alt+1", "Preset prompt 1–9 (⏎ sends it, ✎ puts it into the message box; set in Settings)"),
         ("alt+2", "Preset prompt 2"),

@@ -128,7 +128,8 @@ async def test_remote_control_checkbox_default_on(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_remote_control_unticked_gives_headless(tmp_path):
+async def test_remote_control_unticked_gives_interactive_cli(tmp_path):
+    # Every new conversation is the real Claude Code CLI (issue #12).
     from ccc.models import DeliveryMode
 
     storage = Storage(tmp_path / "h.db")
@@ -141,7 +142,7 @@ async def test_remote_control_unticked_gives_headless(tmp_path):
         await pilot.pause()
         await pilot.click("#launch-start")
         await pilot.pause()
-    assert storage.get_queue(results[0]).delivery_mode == DeliveryMode.HEADLESS
+    assert storage.get_queue(results[0]).delivery_mode == DeliveryMode.INTERACTIVE
 
 
 @pytest.mark.asyncio

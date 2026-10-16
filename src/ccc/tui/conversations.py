@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 from datetime import datetime
 
 from rich.text import Text
@@ -13,6 +15,7 @@ from ccc.models import DeliveryMode, Queue, QueueStatus
 from ccc.prompt_presets import load_prompt_presets
 from ccc.storage import Storage
 from ccc.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
+from ccc.tui import cli_pane
 from ccc.tui.layout import (
     NEW_CONVERSATION_BUTTON,
     RETRY_BUTTON,
@@ -57,6 +60,18 @@ class ConversationsScreen(SidebarScreen):
         height: auto;
         padding: 0 1;
         margin-bottom: 1;
+    }
+    ConversationsScreen.-cli-open #main {
+        display: none;
+    }
+    ConversationsScreen #cli-hint {
+        height: auto;
+        padding: 0 1 1 1;
+        color: $text-muted;
+        display: none;
+    }
+    ConversationsScreen.-cli-open #cli-hint {
+        display: block;
     }
     ConversationsScreen #conversation-transcript {
         width: 1fr;
@@ -156,6 +171,11 @@ class ConversationsScreen(SidebarScreen):
         # What the transcript pane currently shows (queue, event count,
         # pending item ids) — re-render only when this changes.
         self._rendered_key: tuple | None = None
+        # Interactive conversations show their Claude Code CLI in a tmux
+        # pane next to ccc (cli_pane): which conversation it was opened for,
+        # and one whose pane you closed (Ctrl+]) — not reopened until Enter.
+        self._cli_open_for: int | None = None
+        self._cli_closed_for: int | None = None
 
     def sidebar_buttons(self):
         return [NEW_CONVERSATION_BUTTON, RETRY_BUTTON]
@@ -163,6 +183,8 @@ class ConversationsScreen(SidebarScreen):
     def compose_sidebar_section(self):
         yield Static("Queues", classes="sidebar-label")
         yield DataTable(id="conversation-queue-list", classes="sidebar-list")
+        yield Static("Claude Code is on the right.\nCtrl+B → type there · Ctrl+B ← back\n"
+                     "Ctrl+B z full window · Ctrl+] close", id="cli-hint")
 
     def compose_main(self):
         yield Static(id="conversation-header")
@@ -190,7 +212,8 @@ class ConversationsScreen(SidebarScreen):
         self.set_interval(2.0, self._refresh_current)
         await self._refresh_prompt_presets_bar()
         if self._focus_input_on_mount:
-            self.query_one("#message-input", MessageBox).focus()
+            if not self._focus_cli():
+                self.query_one("#message-input", MessageBox).focus()
 
     def _rebuild_queue_list(self) -> None:
         table = self.query_one("#conversation-queue-list", DataTable)
@@ -233,8 +256,78 @@ class ConversationsScreen(SidebarScreen):
     async def _show_queue(self, queue_id: int) -> None:
         self._current_queue_id = queue_id
         self.storage.mark_seen(queue_id)
+        self._sync_cli_pane()
         self._load_transcript(queue_id)
         await self._render_transcript(queue_id)
+
+    # --- Claude Code pane (interactive conversations) ----------------------
+
+    def _cli_queue(self) -> Queue | None:
+        """The selected conversation, when it runs as an interactive CLI."""
+        if self._current_queue_id is None:
+            return None
+        queue = self.storage.find_queue(self._current_queue_id)
+        return queue if queue is not None and queue.delivery_mode.managed and not queue.archived else None
+
+    def _sync_cli_pane(self) -> None:
+        """Open, switch or close the Claude Code pane to match the selected
+        conversation. Closed while another window (dialog, Settings) is on
+        top, so that one gets the whole width."""
+        if not cli_pane.available():
+            return
+        queue = self._cli_queue()
+        want = queue is not None and self.is_current and queue.id != self._cli_closed_for
+        shown = cli_pane.find()
+        if want and shown is None and self._cli_open_for == queue.id:
+            # It was open and is gone: you closed it (Ctrl+]).
+            self._cli_closed_for = queue.id
+            want = False
+        if want:
+            want = cli_pane.open(queue.id) is not None
+        elif shown is not None:
+            cli_pane.close()
+        self._cli_open_for = queue.id if want else None
+        self.set_class(want, "-cli-open")
+
+    def _focus_cli(self) -> bool:
+        """Put the keyboard into the selected conversation's Claude Code
+        (the pane, or full screen outside tmux). False if it isn't one."""
+        queue = self._cli_queue()
+        if queue is None:
+            return False
+        self._cli_closed_for = None
+        if cli_pane.available():
+            self._sync_cli_pane()
+            cli_pane.focus()
+        else:
+            self._open_cli_full_screen(queue.id)
+        return True
+
+    def _open_cli_full_screen(self, queue_id: int) -> None:
+        """Outside tmux there's no window to split: ccc steps aside and the
+        CLI takes the terminal until Ctrl+]."""
+        try:
+            with self.app.suspend():
+                subprocess.run([sys.executable, "-m", "ccc.attach_cli", str(queue_id)])
+        except Exception as exc:  # SuspendNotSupported (e.g. textual serve)
+            self.notify(f"Can't open Claude Code here ({type(exc).__name__}).", severity="error")
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        if event.data_table.id != "conversation-queue-list":
+            return
+        if not self._focus_cli():
+            self.query_one("#message-input", MessageBox).focus()
+
+    def on_screen_suspend(self) -> None:
+        # A dialog / Settings / another view on top: give it the window.
+        if cli_pane.available() and cli_pane.find() is not None:
+            cli_pane.close()
+        self._cli_open_for = None
+        self.remove_class("-cli-open")
+
+    def on_unmount(self) -> None:
+        if cli_pane.available():
+            cli_pane.close()
 
     def _load_transcript(self, queue_id: int) -> bool:
         """Read new transcript lines into the cache. Returns True if any new
@@ -343,6 +436,10 @@ class ConversationsScreen(SidebarScreen):
         ]
         if queue.delivery_mode == DeliveryMode.REMOTE_CONTROL:
             parts += ["\n", ("remote control: ", "bold"), (queue.remote_control_url or "starting…", "cyan")]
+        if queue.delivery_mode.managed:
+            parts += ["\n", ("Claude Code CLI: ", "bold"),
+                      ("Enter in the list opens it" + ("" if cli_pane.available() else " (full screen, Ctrl+] back)"),
+                       "cyan")]
         if queue.first_run_flags:
             parts += ["  ·  ", ("first run: " + " ".join(queue.first_run_flags), "yellow")]
         self.query_one("#conversation-header", Static).update(Content.assemble(*parts))
@@ -392,6 +489,7 @@ class ConversationsScreen(SidebarScreen):
             self._move_cursor_to_current()
         if self._current_queue_id is None:
             return
+        self._sync_cli_pane()
         queue_id = self._current_queue_id
         self._load_transcript(queue_id)
         queue = self.storage.get_queue(queue_id)
@@ -448,6 +546,7 @@ class ConversationsScreen(SidebarScreen):
     async def on_screen_resume(self) -> None:
         # Back from Settings (or any window): presets may have changed.
         await self._refresh_prompt_presets_bar()
+        self._sync_cli_pane()
 
     async def on_click(self, event) -> None:
         widget = event.widget
@@ -481,8 +580,12 @@ class ConversationsScreen(SidebarScreen):
         self._rebuild_queue_list()
         self._current_queue_id = queue_id
         self._move_cursor_to_current()
-        self.run_worker(self._show_queue(queue_id), exclusive=True, group="show-queue")
-        self.query_one("#message-input", MessageBox).focus()
+        self.run_worker(self._open_and_focus(queue_id), exclusive=True, group="show-queue")
+
+    async def _open_and_focus(self, queue_id: int) -> None:
+        await self._show_queue(queue_id)
+        if not self._focus_cli():
+            self.query_one("#message-input", MessageBox).focus()
 
     def action_retry_queue(self) -> None:
         if self._current_queue_id is None:
