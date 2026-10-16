@@ -210,3 +210,21 @@ async def test_trust_prompt_not_confirmed_after_startup_window(storage, project_
 
     await _run_orch(storage, body)
     assert tmux.confirmed == 0
+
+
+async def test_trust_dialog_confirmed_while_a_message_waits(storage, project_dir, tmux, monkeypatch):
+    # Kompas, 2026-10-16: a message was queued, so the daemon sat waiting
+    # for Claude to go idle — but Claude sat on the folder-trust dialog,
+    # which only the main loop answered. Both waited forever.
+    monkeypatch.setattr("ccc.orchestrator.MAINTENANCE_INTERVAL_SECONDS", 0)
+    q = _rc(storage, project_dir)
+    storage.add_queue_item(q.id, "/model")
+    tmux.status = "busy"  # the dialog: Claude isn't idle
+    tmux.pane_text = "Do you trust the files in this folder?\n❯ 1. Yes, proceed"
+
+    async def body():
+        assert await _until(lambda: tmux.confirmed == 1, timeout=3)
+        tmux.status = "idle"
+        assert await _until(lambda: tmux.pasted == ["/model"], timeout=3)
+
+    await _run_orch(storage, body)

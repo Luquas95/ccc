@@ -580,6 +580,10 @@ class QueueRuntime:
             if not await asyncio.to_thread(managed_sessions.is_running, queue.id):
                 await self._maintain_managed_session(current, force=True)
             else:
+                # Keep maintaining while waiting: Claude may sit on the
+                # folder-trust dialog (not idle) — answered only here, or
+                # this wait and the dialog wait for each other forever.
+                await self._maintain_managed_session(current)
                 session = await self._managed_agent(current)
                 if session is not None and session.status == "idle":
                     break
