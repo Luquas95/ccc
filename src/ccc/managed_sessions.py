@@ -82,6 +82,14 @@ TRANSPARENT_OPTIONS: tuple[tuple[str, ...], ...] = (
     ("set-option", "-g", "default-terminal", "tmux-256color"),
     ("set-option", "-ga", "terminal-features", ",*:RGB"),
     ("bind-key", "-n", DETACH_KEY, "detach-client"),
+    # Mouse selections in Claude Code: copied (to the clipboard of the
+    # terminal the client runs in — ccc's pane, which passes it on, see
+    # tui.cli_pane) when you let go, leaving copy mode for typing.
+    ("set-option", "-ga", "terminal-features", ",*:clipboard"),
+    *[("bind-key", "-T", table, "MouseDragEnd1Pane", "send-keys", "-X", "copy-pipe-and-cancel")
+      for table in ("copy-mode", "copy-mode-vi")],
+    *[("bind-key", "-T", table, "C-S-c", "send-keys", "-X", "copy-pipe-and-cancel")
+      for table in ("copy-mode", "copy-mode-vi")],
 )
 
 

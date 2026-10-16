@@ -37,6 +37,8 @@ def test_start_makes_the_server_transparent(monkeypatch):
     # Programs in the session must not be able to set the clipboard (OSC 52),
     # also on a server that was started with another value.
     assert [c for c in calls if "set-clipboard" in c] == [("set-option", "-g", "set-clipboard", "external")]
+    # Its own mouse copies do go out (to ccc's pane, which passes them on).
+    assert ("set-option", "-ga", "terminal-features", ",*:clipboard") in calls
 
 
 def test_command_existing_session_resumes():

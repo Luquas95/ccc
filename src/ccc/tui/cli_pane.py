@@ -145,6 +145,31 @@ def _on_ccc_server() -> bool:
     return os.path.basename(os.environ.get("TMUX", "").split(",")[0]) == CCC_SOCKET
 
 
+# Copy & paste on ccc's server, the same in ccc and in Claude Code:
+# - selecting with the mouse copies to your device's clipboard (OSC 52,
+#   over SSH too — Termux and Linux terminals support it) when you let
+#   go; the pane leaves copy mode, so typing and pasting go to it again;
+# - Ctrl+Shift+C copies the selection; without one it does nothing (it
+#   must never reach Claude as Ctrl+C = interrupt);
+# - Ctrl+Shift+V pastes the last copy (where the terminal doesn't paste
+#   by itself — Linux terminals do, from the clipboard).
+# set-clipboard "on" here accepts OSC 52 only from ccc's own panes: ccc,
+# the bar and the nested client, through which only the session server's
+# own copies come — its programs can't (managed_sessions keeps that
+# server at "external").
+CLIPBOARD_COMMANDS: tuple[tuple[str, ...], ...] = (
+    ("set-option", "-s", "set-clipboard", "on"),
+    ("set-option", "-s", "extended-keys", "on"),
+    ("set-option", "-as", "terminal-features", ",*:clipboard:extkeys"),
+    *[("bind-key", "-T", table, "MouseDragEnd1Pane", "send-keys", "-X", "copy-pipe-and-cancel")
+      for table in ("copy-mode", "copy-mode-vi")],
+    *[("bind-key", "-T", table, "C-S-c", "send-keys", "-X", "copy-pipe-and-cancel")
+      for table in ("copy-mode", "copy-mode-vi")],
+    ("bind-key", "-n", "C-S-c", "if-shell", "-F", "#{pane_in_mode}", "send-keys -X copy-pipe-and-cancel", ""),
+    ("bind-key", "-n", "C-S-v", "paste-buffer", "-p"),
+)
+
+
 def style_window() -> None:
     """On ccc's own server: pane title bars (and the mouse) from the start,
     not only once Claude Code opens — a title row appearing and staying
@@ -156,6 +181,8 @@ def style_window() -> None:
     for name, value in BORDER_OPTIONS:
         _tmux("set-option", "-w", "-t", _own_pane(), name, value)
     _tmux("set-option", "-p", "-t", _own_pane(), TITLE_OPTION, "ccc")
+    for command in CLIPBOARD_COMMANDS:
+        _tmux(*command)
 
 
 def open(queue_id: int, title: str = "", db_path: str | None = None) -> str | None:

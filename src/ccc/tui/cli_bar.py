@@ -24,7 +24,8 @@ KEYS = Text.assemble(
     ("Ctrl+P", "bold cyan"), " Settings   ",
     ("Ctrl+B z", "bold cyan"), " Claude full window   ",
     ("Ctrl+]", "bold cyan"), " close Claude   ",
-    ("?", "bold cyan"), " all keys (in ccc)",
+    ("mouse select", "bold cyan"), " copy   ",
+    ("Ctrl+Shift+V", "bold cyan"), " paste",
 )
 REFRESH_SECONDS = 2.0
 
