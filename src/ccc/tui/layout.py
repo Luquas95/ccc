@@ -358,6 +358,9 @@ class SidebarScreen(Screen):
         # addition to each screen's own on_mount.
         self.refresh_daemon_state()
         self.set_interval(2.0, self.refresh_daemon_state)
+        if getattr(self.app, "footer_strip", False):
+            # The keys are in the strip under the whole window (footer_strip).
+            self.query_one(Footer).display = False
 
     def refresh_daemon_state(self) -> None:
         from ccc.heartbeat import daemon_alive

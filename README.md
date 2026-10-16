@@ -161,7 +161,9 @@ coloured buttons with their keys at the bottom — only the extra actions of
 the current screen; screens are switched in the list above. Content sits on
 the right in round-bordered panels. The **bottom bar** only lists what
 the sidebar doesn't already show: the current screen's own actions, plus
-`?` Keys, `Ctrl+Q` Close and `Ctrl+P` Settings.
+`?` Keys, `Ctrl+Q` Close and `Ctrl+P` Settings. In the always-on instance (`ccc`) that bar is its own row
+across the whole window, the same in every view — also when Claude Code
+is open next to ccc's menu.
 
 | Screen | Key | What it shows |
 |---|---|---|

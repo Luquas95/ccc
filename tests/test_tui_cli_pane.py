@@ -110,8 +110,8 @@ def test_close_kills_only_the_cli_pane(tmux):
 def test_bar_opens_across_the_window_and_keys_are_bound(tmux):
     pane = cli_pane.open(4, "Kompas", "/data/h.db")
     split = [c for c in tmux.calls if c[0] == "split-window"]
-    assert len(split) == 2
-    bar_split = split[1]
+    assert len(split) == 3  # Claude, the key strip (once), the bar
+    bar_split = next(c for c in split if c[2] == "-b")
     # Above Claude Code, in its column — ccc's sidebar column is untouched.
     assert bar_split[1:3] == ("-v", "-b") and bar_split[bar_split.index("-l") + 1] == "2"
     assert bar_split[bar_split.index("-t") + 1] == pane
@@ -133,16 +133,19 @@ def test_bar_opens_across_the_window_and_keys_are_bound(tmux):
 def test_layout_is_restored_when_the_window_resizes(tmux):
     cli_pane.open(4, "Kompas", "/data/h.db")
     bar = cli_pane.find_bar()
-    hook = next(c for c in tmux.calls if c[0] == "set-hook")
+    strip = cli_pane.find_strip()
+    hook = [c for c in tmux.calls if c[0] == "set-hook"][-1]
     assert hook[1:5] == ("-w", "-t", "%0", "window-resized")
-    assert hook[5] == f"resize-pane -t %0 -x 32 ; resize-pane -t {bar} -y 2"
+    assert hook[5] == f"resize-pane -t %0 -x 32 ; resize-pane -t {bar} -y 2 ; resize-pane -t {strip} -y 1"
     assert ("resize-pane", "-t", bar, "-y", "2") in tmux.calls  # applied right away too
 
 
 def test_close_removes_bar_and_keys(tmux):
     cli_pane.open(4, "Kompas", "/data/h.db")
     cli_pane.close()
-    assert ("set-hook", "-uw", "-t", "%0", "window-resized") in tmux.calls
+    # Only the key strip is kept in shape now.
+    strip = cli_pane.find_strip()
+    assert [c for c in tmux.calls if c[0] == "set-hook"][-1][5] == f"resize-pane -t {strip} -y 1"
     assert cli_pane.find() is None and cli_pane.find_bar() is None
     unbound = {c[2] for c in tmux.calls if c[0] == "unbind-key"}
     assert unbound == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p"}
@@ -164,7 +167,16 @@ def test_title_bars_from_the_start_on_the_ccc_server(tmux):
     # later shifted all of ccc down a row (and stayed after switching views).
     cli_pane.style_window()
     assert ("set-option", "-w", "-t", "%0", "pane-border-status", "top") in tmux.calls
-    assert not any(c[0] == "split-window" for c in tmux.calls)
+    # The only split then: the key strip across the window.
+    assert [c[1:6] for c in tmux.calls if c[0] == "split-window"] == [("-v", "-f", "-d", "-l", "1")]
+
+
+def test_key_strip_is_created_once(tmux):
+    cli_pane.style_window()
+    cli_pane.style_window()
+    strips = [c for c in tmux.calls if c[0] == "split-window"]
+    assert len(strips) == 1 and strips[0][-1].endswith("-m ccc.tui.footer_strip %0")
+    assert cli_pane.find_strip() is not None
 
 
 def test_sidebar_width_matches_the_menu():
