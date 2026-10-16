@@ -299,13 +299,13 @@ class SidebarScreen(Screen):
     # The footer only shows what the sidebar doesn't: views and the
     # sidebar buttons have their hotkey printed right next to them.
     # The buttons are only the extra controls of the current view —
-    # switching views is the nav list's job, not a button's.
+    # switching views is the nav list's job, not a button's. A view's own
+    # keys (like "a" for its Add prompt button) live in that view only.
     BINDINGS = [
         Binding("d", "goto('dashboard')", "Dashboard", show=False),
         Binding("c", "goto('conversations')", "Conversations", show=False),
         Binding("s", "goto('sessions')", "Live sessions", show=False),
         Binding("v", "goto('analytics')", "Analytics", show=False),
-        Binding("a", "add_prompt", "Add prompt", show=False),
         Binding("n", "new_conversation", "New conversation", show=False),
         Binding("question_mark", "key_help", "Keys"),
     ]

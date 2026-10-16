@@ -126,6 +126,7 @@ class QueueDetailScreen(SidebarScreen):
     BINDINGS = [
         ("escape", "back", "Back"),
         Binding("r", "retry_queue", "Retry blocked", show=False),
+        Binding("a", "add_prompt", "Add prompt", show=False),
     ]
 
     def __init__(self, storage: Storage, queue_id: int):

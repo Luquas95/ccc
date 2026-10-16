@@ -137,17 +137,42 @@ async def test_sidebar_buttons_are_only_the_views_own_actions(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_add_prompt_prefills_selected_queue_path(tmp_path):
+async def test_add_prompt_prefills_queue_detail_path(tmp_path):
     app = _app(tmp_path)
     async with app.run_test() as pilot:
         await pilot.pause()
+        await pilot.press("enter")
+        await pilot.pause()
+        assert isinstance(app.screen, QueueDetailScreen)
         await pilot.press("a")
         await pilot.pause()
         assert isinstance(app.screen, AddPromptModal)
         assert app.screen.query_one("#add-prompt-path", Input).value == "/tmp/proj-a"
         await pilot.press("escape")
         await pilot.pause()
-        assert isinstance(app.screen, DashboardScreen)
+        assert isinstance(app.screen, QueueDetailScreen)
+
+
+@pytest.mark.asyncio
+async def test_a_works_only_in_views_with_add_prompt(tmp_path):
+    # Keys belong to the view that uses them: "a" is Live sessions' and
+    # queue detail's Add prompt, nothing on the other views.
+    app = _app(tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        for view, screen_type in (("d", DashboardScreen), ("v", AnalyticsScreen), ("c", ConversationsScreen)):
+            await pilot.press(view)
+            await pilot.pause()
+            if screen_type is ConversationsScreen:
+                app.screen.set_focus(None)
+            await pilot.press("a")
+            await pilot.pause()
+            assert isinstance(app.screen, screen_type), view
+        await pilot.press("s")
+        await pilot.pause()
+        await pilot.press("a")
+        await pilot.pause()
+        assert isinstance(app.screen, AddPromptModal)
 
 
 @pytest.mark.asyncio

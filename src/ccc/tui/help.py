@@ -17,7 +17,6 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("s", "Live sessions"),
         ("v", "Analytics"),
         ("n", "New conversation"),
-        ("a", "Add a prompt (path prefilled)"),
         ("question_mark", "This help"),
         ("ctrl+p", "Settings (theme, Telegram, queues, presets, backup)"),
         ("ctrl+t", "Screenshot (SVG into ~/Documents/ccc-screenshots)"),
@@ -32,6 +31,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
     ("Live sessions", [
         ("enter", "Send the selected session a prompt"),
         ("r", "Reload the session list"),
+        ("a", "Add a prompt to a project's queue"),
     ]),
     ("Conversations", [
         ("r", "Retry the blocked conversation / resume one paused at a limit"),
@@ -75,6 +75,8 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
     ]),
     ("Queue detail", [
         ("enter", "Show the run's commit diff"),
+        ("a", "Add a prompt (this queue's path prefilled)"),
+        ("r", "Retry a blocked queue / resume one paused at a limit"),
     ]),
     ("Preset prompt editor (Settings → Add / Edit)", [
         ("ctrl+s", "Save"),

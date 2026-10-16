@@ -5,6 +5,11 @@ from ccc.tui.app import CCContinueApp
 from ccc.tui.queue_detail import QueueDetailScreen
 
 
+@pytest.fixture(autouse=True)
+def _offline(monkeypatch):
+    monkeypatch.setattr("ccc.tui.session_picker.discover_sessions", lambda: [])
+
+
 @pytest.mark.asyncio
 async def test_add_prompt_modal_queues_item(tmp_path):
     db_path = str(tmp_path / "history.db")
@@ -13,6 +18,8 @@ async def test_add_prompt_modal_queues_item(tmp_path):
     app = CCContinueApp(db_path)
 
     async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("s")  # "a" belongs to Live sessions / queue detail
         await pilot.pause()
         await pilot.press("a")
         await pilot.pause()
@@ -35,6 +42,8 @@ async def test_add_prompt_modal_shows_error_for_missing_directory(tmp_path):
     app = CCContinueApp(db_path)
 
     async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("s")  # "a" belongs to Live sessions / queue detail
         await pilot.pause()
         await pilot.press("a")
         await pilot.pause()
