@@ -65,15 +65,6 @@ class ConversationsScreen(SidebarScreen):
     ConversationsScreen.-cli-open #main {
         display: none;
     }
-    ConversationsScreen #cli-hint {
-        height: auto;
-        padding: 0 1 1 1;
-        color: $text-muted;
-        display: none;
-    }
-    ConversationsScreen.-cli-open #cli-hint {
-        display: block;
-    }
     ConversationsScreen #conversation-transcript {
         width: 1fr;
         height: 1fr;
@@ -184,13 +175,8 @@ class ConversationsScreen(SidebarScreen):
     def compose_sidebar_section(self):
         yield Static("Queues", classes="sidebar-label")
         yield DataTable(id="conversation-queue-list", classes="sidebar-list")
-        # Fits the 34-column sidebar ccc keeps while Claude Code is open.
-        yield Static("Claude Code: right pane\n"
-                     "Alt+0  Claude ↔ ccc\n"
-                     "Enter / click → into Claude\n"
-                     "Alt+1…9  preset prompts\n"
-                     "Ctrl+]  close the pane\n"
-                     "Green bar = where you type", id="cli-hint")
+        # No Claude Code key hints here: the menu keeps its size in every
+        # view — they're in the bar above Claude Code (cli_bar).
 
     def compose_main(self):
         yield Static(id="conversation-header")

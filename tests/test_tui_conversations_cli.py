@@ -158,3 +158,19 @@ async def test_alt_digit_types_preset_into_claude(storage, pane, monkeypatch):
         await pilot.pause()
         assert applied == [(ids["cli"], 2)]
         assert app.screen.query_one("Footer").display  # ccc's frame stays the same in every view
+
+
+@pytest.mark.asyncio
+async def test_menu_keeps_its_size_with_claude_open(storage, pane):
+    # Key hints live in the bar above Claude Code, never in the menu.
+    ids = _ids(storage)
+    app = _host(ConversationsScreen(storage, select_queue_id=ids["headless"]))
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        table = app.screen.query_one("#conversation-queue-list")
+        closed = table.region
+        await app.screen._show_queue(ids["cli"])
+        await pilot.pause()
+        assert app.screen.has_class("-cli-open")
+        assert table.region == closed
+        assert not app.screen.query("#cli-hint")
