@@ -176,9 +176,11 @@ async def test_export_folder_saved_from_settings(tmp_path):
         await pilot.press("ctrl+p")
         await pilot.pause()
         app.screen.query_one("#settings-export-folder", Input).value = "~/my-exports"
+        app.screen.query_one("#settings-export-send", Select).value = "both"
         await pilot.press("ctrl+s")
         await pilot.pause()
     assert export_folder(app.storage) == Path.home() / "my-exports"
+    assert app.storage.get_setting("export_send") == "both"
 
 
 @pytest.mark.asyncio

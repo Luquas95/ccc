@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 
 from textual.app import App
 from textual.binding import Binding
@@ -8,6 +9,7 @@ from textual.binding import Binding
 from ccc.export_paths import SCREENSHOTS, export_dir
 from ccc.storage import Storage
 from ccc.tui.dashboard import DashboardScreen
+from ccc.tui.exports import send_export
 
 
 class CCContinueApp(App):
@@ -55,6 +57,7 @@ class CCContinueApp(App):
         folder = export_dir(self.storage, SCREENSHOTS)
         path = self.save_screenshot(f"ccc-{datetime.now():%Y-%m-%d_%H-%M-%S}.svg", str(folder))
         self.notify(path, title="Screenshot saved")
+        send_export(self, self.storage, Path(path))
 
 
 def run_app(db_path: str) -> None:

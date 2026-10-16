@@ -151,3 +151,92 @@ def test_invalid_stored_webhook_is_ignored(tmp_path):
     notifier = Notifier(storage, discord_sender=lambda *a: pytest.fail("must not send"))
     assert not notifier.configured()
     assert notifier.send_now("hi") is False
+
+
+# --- files (exports) ----------------------------------------------------------
+
+from email import message_from_bytes  # noqa: E402
+from email.policy import HTTP  # noqa: E402
+
+from ccc.notify import send_discord_file, send_telegram_file  # noqa: E402
+
+
+def _capture_multipart(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b"{}"
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["ua"] = request.get_header("User-agent")
+        raw = f"Content-Type: {request.get_header('Content-type')}\r\n\r\n".encode() + request.data
+        parts = message_from_bytes(raw, policy=HTTP).iter_parts()
+        captured["parts"] = {p.get_param("name", header="content-disposition"): p for p in parts}
+        return FakeResponse()
+
+    monkeypatch.setattr("ccc.notify.urllib.request.urlopen", fake_urlopen)
+    return captured
+
+
+def test_send_telegram_file_uploads_document(monkeypatch, tmp_path):
+    captured = _capture_multipart(monkeypatch)
+    path = tmp_path / "chat-1.md"
+    path.write_text("# Ahoj\nžluťoučký kůň")
+    send_telegram_file("1:t", "99", path, "c" * 2000)
+    assert captured["url"] == "https://api.telegram.org/bot1:t/sendDocument"
+    parts = captured["parts"]
+    assert parts["chat_id"].get_content().strip() == "99"
+    assert len(parts["caption"].get_content().strip()) <= 1024
+    assert parts["document"].get_filename() == "chat-1.md"
+    assert parts["document"].get_payload(decode=True) == path.read_bytes()
+
+
+def test_send_discord_file_uploads_attachment(monkeypatch, tmp_path):
+    captured = _capture_multipart(monkeypatch)
+    path = tmp_path / "shot.svg"
+    path.write_text("<svg/>")
+    send_discord_file(HOOK, path, "ccc: shot.svg @everyone")
+    parts = captured["parts"]
+    payload = json.loads(parts["payload_json"].get_content())
+    assert payload["content"] == "ccc: shot.svg @everyone"
+    assert payload["allowed_mentions"] == {"parse": []}
+    assert parts["files[0]"].get_filename() == "shot.svg"
+    assert parts["files[0]"].get_payload(decode=True) == b"<svg/>"
+    assert captured["ua"] and "Python-urllib" not in captured["ua"]
+
+
+def test_file_sending_needs_config_and_respects_size(monkeypatch, tmp_path):
+    sent = []
+    monkeypatch.setattr("ccc.notify.send_telegram_file", lambda *a: sent.append(a))
+    storage = Storage(tmp_path / "h.db")
+    path = tmp_path / "x.md"
+    path.write_text("x")
+    notifier = Notifier(storage)
+    assert notifier.send_file_telegram_now(path, "c") is False  # not set up
+    storage.set_setting(TELEGRAM_TOKEN_KEY, "t")
+    storage.set_setting(TELEGRAM_CHAT_KEY, "c")
+    assert notifier.send_file_telegram_now(path, "c") is True
+    monkeypatch.setattr("ccc.notify.TELEGRAM_MAX_FILE_BYTES", 0)
+    assert notifier.send_file_telegram_now(path, "c") is False
+    assert len(sent) == 1
+
+
+def test_file_sending_failure_never_logs_the_secret(monkeypatch, tmp_path, caplog):
+    def boom(url, path, text):
+        raise RuntimeError(f"failed {url}")
+
+    monkeypatch.setattr("ccc.notify.send_discord_file", boom)
+    storage = Storage(tmp_path / "h.db")
+    storage.set_setting(DISCORD_WEBHOOK_KEY, HOOK)
+    path = tmp_path / "x.md"
+    path.write_text("x")
+    assert Notifier(storage).send_file_discord_now(path, "c") is False
+    assert HOOK not in caplog.text and "Discord" in caplog.text

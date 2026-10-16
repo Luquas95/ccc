@@ -78,3 +78,23 @@ async def test_e_exports_current_conversation(storage, tmp_path, monkeypatch):
         await pilot.pause()
     files = list((tmp_path / "exports" / "conversations").glob("beta-*.md"))
     assert len(files) == 1 and "the [magic] word" in files[0].read_text()
+
+
+@pytest.mark.asyncio
+async def test_export_is_also_sent_when_settings_say_so(storage, tmp_path, monkeypatch):
+    sent = []
+    monkeypatch.setattr("ccc.notify.send_telegram_file", lambda token, chat, path, caption: sent.append((path.name, caption)))
+    storage.set_setting("export_folder", str(tmp_path / "exports"))
+    storage.set_setting("export_send", "telegram")
+    storage.set_setting("telegram_token", "t")
+    storage.set_setting("telegram_chat", "c")
+    beta = storage.list_queues()[1]
+    app = _host(ConversationsScreen(storage, select_queue_id=beta.id))
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        app.screen.query_one("#conversation-queue-list").focus()
+        await pilot.press("e")
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+    assert len(sent) == 1 and sent[0][0].startswith("beta-") and sent[0][1] == f"ccc: {sent[0][0]}"
+    assert len(list((tmp_path / "exports" / "conversations").glob("beta-*.md"))) == 1

@@ -11,8 +11,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import mimetypes
 import re
 import urllib.request
+import uuid
+from pathlib import Path
 from typing import Callable
 
 logger = logging.getLogger(__name__)
@@ -20,9 +23,12 @@ logger = logging.getLogger(__name__)
 TELEGRAM_TOKEN_KEY = "telegram_token"
 TELEGRAM_CHAT_KEY = "telegram_chat"
 TELEGRAM_MAX_CHARS = 4096
+TELEGRAM_MAX_CAPTION = 1024
+TELEGRAM_MAX_FILE_BYTES = 50 * 1024 * 1024  # bots upload up to 50 MB
 
 DISCORD_WEBHOOK_KEY = "discord_webhook"
 DISCORD_MAX_CHARS = 2000
+DISCORD_MAX_FILE_BYTES = 20 * 1024 * 1024  # default per-file limit, 20 MiB
 # Discord (Cloudflare) rejects urllib's default "Python-urllib/x.y" agent.
 USER_AGENT = "ccc-notifier (https://github.com/Luquas95/ccc, 1.0)"
 _DISCORD_WEBHOOK_RE = re.compile(r"^https://(?:(?:ptb|canary)\.)?(?:discord|discordapp)\.com/api/webhooks/\S+$")
@@ -43,6 +49,40 @@ def send_telegram(token: str, chat_id: str, text: str) -> None:
         response.read()
 
 
+def _multipart(fields: dict[str, str], file_field: str, path: Path) -> tuple[bytes, str]:
+    """multipart/form-data body with text fields and one file; returns
+    (body, Content-Type header)."""
+    boundary = uuid.uuid4().hex
+    parts = []
+    for name, value in fields.items():
+        parts.append(
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode("utf-8")
+        )
+    filename = path.name.replace('"', "")
+    content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    parts.append(
+        f'--{boundary}\r\nContent-Disposition: form-data; name="{file_field}"; filename="{filename}"\r\n'
+        f"Content-Type: {content_type}\r\n\r\n".encode("utf-8")
+    )
+    parts.append(path.read_bytes())
+    parts.append(f"\r\n--{boundary}--\r\n".encode("utf-8"))
+    return b"".join(parts), f"multipart/form-data; boundary={boundary}"
+
+
+def send_telegram_file(token: str, chat_id: str, path: Path, caption: str) -> None:
+    body, content_type = _multipart(
+        {"chat_id": chat_id, "caption": caption[:TELEGRAM_MAX_CAPTION]}, "document", path
+    )
+    request = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendDocument",
+        data=body,
+        headers={"Content-Type": content_type},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=60) as response:
+        response.read()
+
+
 def is_discord_webhook(url: str) -> bool:
     return bool(_DISCORD_WEBHOOK_RE.match(url or ""))
 
@@ -57,6 +97,19 @@ def send_discord(webhook_url: str, text: str) -> None:
         method="POST",
     )
     with urllib.request.urlopen(request, timeout=15) as response:
+        response.read()
+
+
+def send_discord_file(webhook_url: str, path: Path, text: str) -> None:
+    payload = json.dumps({"content": text[:DISCORD_MAX_CHARS], "allowed_mentions": {"parse": []}})
+    body, content_type = _multipart({"payload_json": payload}, "files[0]", path)
+    request = urllib.request.Request(
+        webhook_url,
+        data=body,
+        headers={"Content-Type": content_type, "User-Agent": USER_AGENT},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=60) as response:
         response.read()
 
 
@@ -108,6 +161,28 @@ class Notifier:
         except Exception as exc:
             # Only the exception type: its text may contain the webhook URL.
             logger.warning("Discord notification failed (%s)", type(exc).__name__)
+            return False
+
+    def send_file_telegram_now(self, path: Path, caption: str) -> bool:
+        config = self._telegram_config()
+        if config is None or path.stat().st_size > TELEGRAM_MAX_FILE_BYTES:
+            return False
+        try:
+            send_telegram_file(config[0], config[1], path, caption)
+            return True
+        except Exception as exc:
+            logger.warning("Telegram file upload failed (%s)", type(exc).__name__)
+            return False
+
+    def send_file_discord_now(self, path: Path, text: str) -> bool:
+        url = self._discord_webhook()
+        if url is None or path.stat().st_size > DISCORD_MAX_FILE_BYTES:
+            return False
+        try:
+            send_discord_file(url, path, text)
+            return True
+        except Exception as exc:
+            logger.warning("Discord file upload failed (%s)", type(exc).__name__)
             return False
 
     def send_now(self, text: str) -> bool:

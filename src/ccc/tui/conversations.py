@@ -591,11 +591,13 @@ class ConversationsScreen(SidebarScreen):
     def action_export(self) -> None:
         from ccc.export_paths import CONVERSATIONS, export_dir
         from ccc.search import export_markdown
+        from ccc.tui.exports import send_export
 
         if self._current_queue_id is None:
             return
         path = export_markdown(self.storage, self._current_queue_id, export_dir(self.storage, CONVERSATIONS))
         self.notify(f"Exported to {path}", title="Export conversation")
+        send_export(self.app, self.storage, path)
 
     def action_approve(self) -> None:
         from ccc.tui.permissions import PermissionModal
