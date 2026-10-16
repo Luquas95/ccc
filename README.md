@@ -223,7 +223,9 @@ throws the changes away, preset prompt edits included (the buttons *Send test me
   `conversations/`, screenshots (`Ctrl+T`) to `screenshots/`. Empty =
   `ccc` in your documents folder, whatever it's called in your language
   (`~/Documents/ccc`, `~/Dokumenty/ccc`, … from `~/.config/user-dirs.dirs`),
-  or `~/ccc` where there's none (servers, Termux).
+  or `~/ccc-exports` where there's none (servers, Termux). *After export*
+  can also send each export to Telegram and/or Discord (set up above) —
+  handy when ccc runs on another machine and you're in over SSH / tmux.
 - **Monthly analytics archive** — the folder of the [monthly
   archive](#monthly-archive-obsidian), *Archive finished months now*.
 - **Data** — where the database and its backups are, when the last backup

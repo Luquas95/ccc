@@ -22,7 +22,9 @@ from ccc.notify import (
     send_telegram,
 )
 from ccc.analytics_archive import FOLDER_KEY as ARCHIVE_FOLDER_KEY, archive
-from ccc.export_paths import FOLDER_KEY as EXPORT_FOLDER_KEY, default_export_folder, home_short
+from ccc.export_paths import (
+    FOLDER_KEY as EXPORT_FOLDER_KEY, SEND_CHOICES, SEND_KEY as EXPORT_SEND_KEY, default_export_folder, home_short,
+)
 from ccc.orchestrator import DEFAULT_CONTINUE_TEXT, RESERVE_KEY, usage_reserve
 from ccc.presets import delete_preset, list_presets
 from ccc.prompt_presets import MAX_PRESETS, load_prompt_presets, save_prompt_presets
@@ -241,7 +243,14 @@ class SettingsModal(ModalScreen):
                                         placeholder=f"empty = {home_short(default_export_folder())}",
                                         id="settings-export-folder")),
             Static("Exported conversations (e) go to conversations/, screenshots (Ctrl+T) to screenshots/\n"
-                   "inside it. Empty = ccc in your documents folder (~/ccc where there is none).",
+                   "inside it. Empty = ccc in your documents folder (~/ccc-exports where there is none).",
+                   classes="settings-hint"),
+            _row("After export", Select(
+                [(label, value or "folder") for value, label in SEND_CHOICES],
+                value=s.get_setting(EXPORT_SEND_KEY) or "folder", allow_blank=False, id="settings-export-send",
+            )),
+            Static("Sending puts the file on your phone when ccc runs elsewhere (server, tmux over SSH).\n"
+                   "Uses the Telegram / Discord set up above.",
                    classes="settings-hint"),
         )
         archive_box = _section(
@@ -546,6 +555,8 @@ class SettingsModal(ModalScreen):
         s.set_setting(RESERVE_KEY, "" if reserve == "off" else str(reserve))
         save_prompt_presets(s, self._prompt_presets)
         s.set_setting(EXPORT_FOLDER_KEY, self._export_folder_value())
+        send = self.query_one("#settings-export-send", Select).value
+        s.set_setting(EXPORT_SEND_KEY, "" if send == "folder" else str(send))
         s.set_setting(ARCHIVE_FOLDER_KEY, self._archive_folder_value())
         self.notify("Settings saved.")
         self.dismiss(True)

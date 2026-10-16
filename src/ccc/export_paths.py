@@ -3,8 +3,11 @@ screenshots (Ctrl+T), each in its own subfolder of one export folder.
 
 The folder is the "Export folder" setting; empty means the default —
 ccc/ in your documents folder, whatever it's called in your language
-(XDG user dirs: "Documents", "Dokumenty", …), or ~/ccc where there's none
-(servers, Termux)."""
+(XDG user dirs: "Documents", "Dokumenty", …), or ~/ccc-exports where
+there's none (servers, Termux — not ~/ccc, where `git clone` puts this repo).
+
+A saved export can also be sent to Telegram and/or Discord (the "After
+export" setting), so it reaches you when ccc runs on another machine."""
 from __future__ import annotations
 
 import os
@@ -14,6 +17,18 @@ from pathlib import Path
 FOLDER_KEY = "export_folder"
 CONVERSATIONS = "conversations"
 SCREENSHOTS = "screenshots"
+FALLBACK_NAME = "ccc-exports"
+
+SEND_KEY = "export_send"
+TELEGRAM = "telegram"
+DISCORD = "discord"
+# (setting value, label) — the file is always saved to the folder first.
+SEND_CHOICES = [
+    ("", "Only save to the folder"),
+    (TELEGRAM, "Also send to Telegram"),
+    (DISCORD, "Also send to Discord"),
+    ("both", "Also send to Telegram and Discord"),
+]
 
 
 def documents_dir(home: Path | None = None, config_home: Path | None = None) -> Path | None:
@@ -45,7 +60,8 @@ def documents_dir(home: Path | None = None, config_home: Path | None = None) -> 
 
 def default_export_folder(home: Path | None = None, config_home: Path | None = None) -> Path:
     home = home or Path.home()
-    return (documents_dir(home, config_home) or home) / "ccc"
+    documents = documents_dir(home, config_home)
+    return documents / "ccc" if documents else home / FALLBACK_NAME
 
 
 def export_folder(storage) -> Path:
@@ -67,3 +83,11 @@ def export_dir(storage, kind: str) -> Path:
     path = export_folder(storage) / kind
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def send_targets(storage) -> list[str]:
+    """Channels a saved export also goes to: [], [TELEGRAM], [DISCORD] or both."""
+    value = storage.get_setting(SEND_KEY) or ""
+    if value == "both":
+        return [TELEGRAM, DISCORD]
+    return [value] if value in (TELEGRAM, DISCORD) else []
