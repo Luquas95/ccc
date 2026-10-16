@@ -1,0 +1,111 @@
+"""`python -m ccc.tui.cli_bar DB_PATH` — the bar under the Claude Code pane
+(see cli_pane): the preset prompts (click one, or Alt+1 … Alt+9 anywhere)
+and the keys that work while Claude Code is open, across the whole window
+width — ccc itself is narrowed to its sidebar then, so its own bottom bar
+doesn't fit. It's only this bar, not a second ccc."""
+from __future__ import annotations
+
+import subprocess
+import sys
+
+from rich.text import Text
+from textual.app import App
+from textual.containers import Horizontal
+from textual.widgets import Static
+
+from ccc.cli_input import apply_preset
+from ccc.prompt_presets import load_prompt_presets
+from ccc.storage import Storage
+from ccc.tui import cli_pane
+from ccc.tui.prompt_presets import bar_item
+
+KEYS = Text.assemble(
+    ("Alt+0", "bold cyan"), " Claude ↔ ccc   ",
+    ("Ctrl+P", "bold cyan"), " Settings   ",
+    ("Ctrl+B z", "bold cyan"), " Claude full window   ",
+    ("Ctrl+]", "bold cyan"), " close Claude   ",
+    ("?", "bold cyan"), " all keys (in ccc)",
+)
+REFRESH_SECONDS = 2.0
+
+
+class CliBar(App):
+    CSS = """
+    Screen {
+        background: $panel;
+    }
+    #bar-presets {
+        height: 1;
+        padding: 0 1;
+    }
+    #bar-presets .bar-preset {
+        width: auto;
+        margin-right: 3;
+    }
+    #bar-presets .bar-preset:hover {
+        background: $boost;
+    }
+    #bar-keys {
+        height: 1;
+        padding: 0 1;
+        color: $text-muted;
+    }
+    """
+    ENABLE_COMMAND_PALETTE = False
+
+    def __init__(self, db_path: str):
+        super().__init__()
+        self.storage = Storage(db_path)
+        self._shown: list | None = None
+
+    def compose(self):
+        yield Horizontal(id="bar-presets")
+        yield Static(KEYS, id="bar-keys")
+
+    async def on_mount(self) -> None:
+        from ccc.tui.settings import saved_theme
+
+        theme = saved_theme(self.storage, self.available_themes)
+        if theme:
+            self.theme = theme
+        await self.refresh_presets()
+        self.set_interval(REFRESH_SECONDS, self.refresh_presets)
+
+    async def refresh_presets(self) -> None:
+        presets = load_prompt_presets(self.storage)
+        if presets == self._shown:
+            return
+        self._shown = presets
+        row = self.query_one("#bar-presets", Horizontal)
+        await row.remove_children()
+        if presets:
+            await row.mount_all(
+                Static(bar_item(n, p), id=f"bar-preset-{n}", classes="bar-preset")
+                for n, p in enumerate(presets, start=1)
+            )
+        else:
+            await row.mount(Static(Text("No preset prompts — add them in Settings (Ctrl+P)", style="dim")))
+
+    def on_click(self, event) -> None:
+        widget = event.widget
+        if widget is None or not (widget.id or "").startswith("bar-preset-"):
+            return
+        current = cli_pane.find()
+        if current is None:
+            return
+        pane, queue_id = current
+        error = apply_preset(self.storage, queue_id, int(widget.id.removeprefix("bar-preset-")))
+        if error:
+            subprocess.run(["tmux", "display-message", "-d", "4000", error], capture_output=True)
+        # Back to Claude: the bar is only clicked, never typed in.
+        subprocess.run(["tmux", "select-pane", "-t", pane], capture_output=True)
+
+
+def main() -> None:
+    if len(sys.argv) != 2:
+        sys.exit("usage: python -m ccc.tui.cli_bar DB_PATH")
+    CliBar(sys.argv[1]).run()
+
+
+if __name__ == "__main__":
+    main()

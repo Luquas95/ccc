@@ -5,7 +5,10 @@ tmux client attached to the conversation's session on the ccc-sessions
 server (see attach_cli), so every Claude Code feature works.
 
 Only one such pane exists; it's marked with the @ccc-cli pane option
-holding the conversation (queue) id it shows."""
+holding the conversation (queue) id it shows. Under it, across the whole
+window, runs the bar (cli_bar: preset prompts and keys; @ccc-bar). On
+ccc's own tmux server the keys that switch between ccc and Claude and run
+ccc's presets are bound while the pane is open — see key_bindings()."""
 from __future__ import annotations
 
 import os
@@ -14,7 +17,17 @@ import subprocess
 import sys
 
 PANE_OPTION = "@ccc-cli"
+BAR_OPTION = "@ccc-bar"
 TITLE_OPTION = "@ccc-title"
+# Rows of the bar under Claude Code: preset prompts, keys.
+BAR_ROWS = 2
+# Keys bound on ccc's server while the pane is open (root table: they
+# work in every pane, before the pane's program sees them). None of them
+# is a Claude Code key: Alt+digits and Ctrl+P are unused there; Tab
+# (autocomplete), Ctrl+T (to-dos) and Ctrl+D (exit) are Claude's.
+SWITCH_KEY = "M-0"
+PRESET_KEYS = tuple(f"M-{n}" for n in range(1, 10))
+SETTINGS_KEY = "C-p"
 # On ccc's own server: a title bar on each pane, and the pane you type in
 # marked — otherwise nothing shows whether keys go to ccc or to Claude.
 BORDER_OPTIONS: tuple[tuple[str, str], ...] = (
@@ -51,6 +64,61 @@ def attach_command(queue_id: int) -> str:
     return shlex.join([sys.executable, "-m", "ccc.attach_cli", str(queue_id)])
 
 
+def bar_command(db_path: str) -> str:
+    return shlex.join([sys.executable, "-m", "ccc.tui.cli_bar", str(db_path)])
+
+
+def key_bindings(main: str, cli: str, queue_id: int, db_path: str) -> list[tuple[str, ...]]:
+    """tmux commands binding ccc's keys for the open Claude Code pane:
+    - Alt+0 switches between ccc (`main`) and Claude (`cli`; on narrow
+      windows Claude then takes the whole window),
+    - Alt+1 … Alt+9 type a preset into Claude (`ccc preset`); in ccc's
+      own pane they go to ccc as before,
+    - Ctrl+P opens ccc's Settings from anywhere."""
+    in_ccc = f"#{{==:#{{pane_id}},{main}}}"
+    # e|<| compares numbers; plain #{<:} compares strings ("80" > "100").
+    to_claude = f"select-pane -t {cli} ; if-shell -F '#{{e|<|:#{{window_width}},{NARROW_COLUMNS}}}' 'resize-pane -Z -t {cli}'"
+    bindings = [("bind-key", "-n", SWITCH_KEY, "if-shell", "-F", in_ccc, to_claude, f"select-pane -t {main}")]
+    for number, key in enumerate(PRESET_KEYS, start=1):
+        preset = shlex.join([sys.executable, "-m", "ccc.cli", "preset", str(number),
+                             "--queue", str(queue_id), "--db", str(db_path)])
+        # Errors are shown on the client that pressed the key, on this server.
+        bindings.append((
+            "bind-key", "-n", key, "if-shell", "-F", in_ccc, f"send-keys {key}",
+            f"run-shell -b \"{preset} --client '#{{client_tty}}' --socket '#{{socket_path}}'\"",
+        ))
+    bindings.append(("bind-key", "-n", SETTINGS_KEY, "if-shell", "-F", in_ccc, f"send-keys {SETTINGS_KEY}",
+                     f"select-pane -t {main} ; send-keys -t {main} {SETTINGS_KEY}"))
+    return bindings
+
+
+def fit_command(main: str, bar: str | None) -> str:
+    """tmux command putting the layout back: ccc at its sidebar width, the
+    bar at its rows. tmux rescales panes proportionally when the window
+    changes size (e.g. attaching from a phone, then a desktop), so this
+    runs from the window-resized hook too."""
+    command = f"resize-pane -t {main} -x {SIDEBAR_COLUMNS}"
+    if bar is not None:
+        command += f" ; resize-pane -t {bar} -y {BAR_ROWS}"
+    return command
+
+
+def unbind_keys() -> None:
+    for key in (SWITCH_KEY, *PRESET_KEYS, SETTINGS_KEY):
+        _tmux("unbind-key", "-n", key)
+
+
+def find_bar() -> str | None:
+    result = _tmux("list-panes", "-t", _own_pane(), "-F", f"#{{pane_id}} #{{{BAR_OPTION}}}")
+    if result.returncode != 0:
+        return None
+    for line in result.stdout.splitlines():
+        pane, _, flag = line.partition(" ")
+        if flag.strip() == "1":
+            return pane
+    return None
+
+
 def find() -> tuple[str, int] | None:
     """(pane id, queue id) of the open Claude Code pane, if any."""
     result = _tmux("list-panes", "-t", _own_pane(), "-F", f"#{{pane_id}} #{{{PANE_OPTION}}}")
@@ -75,9 +143,10 @@ def _on_ccc_server() -> bool:
     return os.path.basename(os.environ.get("TMUX", "").split(",")[0]) == CCC_SOCKET
 
 
-def open(queue_id: int, title: str = "") -> str | None:
+def open(queue_id: int, title: str = "", db_path: str | None = None) -> str | None:
     """Show the conversation in the pane (create it, or switch what it
-    shows). Returns the pane id, None if tmux refused."""
+    shows) and, with db_path, the bar under it. Returns the pane id, None
+    if tmux refused."""
     command = attach_command(queue_id)
     current = find()
     if current is not None:
@@ -101,6 +170,19 @@ def open(queue_id: int, title: str = "") -> str | None:
             _tmux("set-option", "-p", "-t", _own_pane(), TITLE_OPTION, "ccc")
     _tmux("set-option", "-p", "-t", pane, PANE_OPTION, str(queue_id))
     _tmux("set-option", "-p", "-t", pane, TITLE_OPTION, f"Claude Code · {title}" if title else "Claude Code")
+    if db_path is not None and find_bar() is None:
+        # -f: across the whole window, under ccc and Claude both.
+        result = _tmux("split-window", "-v", "-f", "-d", "-l", str(BAR_ROWS), "-t", _own_pane(),
+                       "-P", "-F", "#{pane_id}", bar_command(db_path))
+        if result.returncode == 0:
+            bar = result.stdout.strip()
+            _tmux("set-option", "-p", "-t", bar, BAR_OPTION, "1")
+            _tmux("set-option", "-p", "-t", bar, TITLE_OPTION, "ccc · presets & keys")
+    if _on_ccc_server() and db_path is not None:
+        for binding in key_bindings(_own_pane(), pane, queue_id, db_path):
+            _tmux(*binding)
+    fit = fit_command(_own_pane(), find_bar())
+    _tmux("set-hook", "-w", "-t", _own_pane(), "window-resized", fit)
     return pane
 
 
@@ -117,7 +199,15 @@ def focus() -> None:
 
 
 def close() -> None:
-    """Close the pane (Claude keeps running in its session)."""
+    """Close the pane and its bar (Claude keeps running in its session);
+    the keys go back to ccc."""
     current = find()
     if current is not None:
         _tmux("kill-pane", "-t", current[0])
+    bar = find_bar()
+    if bar is not None:
+        _tmux("kill-pane", "-t", bar)
+    if current is not None or bar is not None:
+        _tmux("set-hook", "-uw", "-t", _own_pane(), "window-resized")
+        if _on_ccc_server():
+            unbind_keys()

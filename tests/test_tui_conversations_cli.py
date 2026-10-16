@@ -20,7 +20,8 @@ class FakePane:
     def find(self):
         return ("%1", self.shown) if self.shown is not None else None
 
-    def open(self, queue_id, title=""):
+    def open(self, queue_id, title="", db_path=None):
+        self.db_path = db_path
         self.shown = queue_id
         return "%1"
 
@@ -142,3 +143,18 @@ async def test_outside_tmux_enter_opens_full_screen(storage, monkeypatch, tmp_pa
         await pilot.pause()
         assert opened == [ids["cli"]]
         assert app.focused.id == "message-input"
+
+
+@pytest.mark.asyncio
+async def test_alt_digit_types_preset_into_claude(storage, pane, monkeypatch):
+    applied = []
+    monkeypatch.setattr("ccc.cli_input.apply_preset", lambda s, q, n: applied.append((q, n)) or None)
+    ids = _ids(storage)
+    app = _host(ConversationsScreen(storage, select_queue_id=ids["cli"]))
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        app.screen.query_one("#conversation-queue-list").focus()
+        await pilot.press("alt+2")
+        await pilot.pause()
+        assert applied == [(ids["cli"], 2)]
+        assert not app.screen.query_one("Footer").display  # the bar under Claude shows the keys

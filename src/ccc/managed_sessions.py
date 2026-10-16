@@ -214,16 +214,18 @@ def confirm(queue_id: int, sleep=time.sleep) -> bool:
     return False
 
 
-def paste_and_submit(queue_id: int, text: str) -> DeliveryResult:
+def paste_and_submit(queue_id: int, text: str, submit: bool = True) -> DeliveryResult:
     """Paste the prompt as ONE bracketed paste (plain send-keys would turn
     each newline into Enter and submit a multi-line prompt line by line),
-    then press Enter to send it."""
+    then press Enter to send it — or, with submit=False, leave it in
+    Claude's input line."""
     buffer = f"ccc-{queue_id}"
     steps = [
         (("load-buffer", "-b", buffer, "-"), text),
         (("paste-buffer", "-p", "-d", "-b", buffer, "-t", target(queue_id)), None),
-        (("send-keys", "-t", target(queue_id), "Enter"), None),
     ]
+    if submit:
+        steps.append((("send-keys", "-t", target(queue_id), "Enter"), None))
     for args, input_text in steps:
         result = _tmux(*args, input_text=input_text)
         if result.returncode != 0:

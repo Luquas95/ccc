@@ -21,6 +21,19 @@ def default_db_path() -> Path:
     return data_dir / "history.db"
 
 
+def _tell_tmux_client(client: str | None, message: str, socket: str | None = None) -> None:
+    """Show a message in the tmux status line of that client (Alt+N
+    pressed in the Claude Code pane has no ccc screen to notify on)."""
+    if not client:
+        return
+    import subprocess
+
+    from ccc import instance
+
+    server = ["-S", socket] if socket else ["-L", instance.TMUX_SOCKET]
+    subprocess.run(["tmux", *server, "display-message", "-c", client, "-d", "4000", message], capture_output=True)
+
+
 def add_command(db_path: str, project_path: str, prompt: str) -> None:
     storage = Storage(db_path)
     enqueue_prompt(storage, project_path, prompt)
@@ -136,6 +149,14 @@ def main(argv: list[str] | None = None) -> None:
     subparsers.add_parser(
         "tui", help="Run the TUI itself (what the ccc-tui service runs; plain `ccc` attaches to it)"
     )
+    preset_parser = subparsers.add_parser(
+        "preset", help="Type preset prompt N into an interactive conversation's Claude Code (Alt+N in its pane)"
+    )
+    preset_parser.add_argument("number", type=int)
+    preset_parser.add_argument("--queue", type=int, required=True)
+    preset_parser.add_argument("--db", default=None, help="ccc database (default: the usual one)")
+    preset_parser.add_argument("--client", default=None, help="tmux client to show an error on")
+    preset_parser.add_argument("--socket", default=None, help="that client's tmux server socket")
 
     subparsers.add_parser("backup", help="Back up the ccc database now (the daemon also does it daily)")
     subparsers.add_parser(
@@ -183,6 +204,16 @@ def main(argv: list[str] | None = None) -> None:
         added = archive(storage, folder)
         months = ", ".join(f"{y:04d}-{m:02d}" for y, m in added) or "nothing new"
         print(f"Archived: {months} ({folder})")
+        return
+
+    if args.command == "preset":
+        from ccc.cli_input import apply_preset
+
+        error = apply_preset(Storage(args.db or str(default_db_path())), args.queue, args.number)
+        if error:
+            _tell_tmux_client(args.client, error, args.socket)
+            print(f"ccc preset: {error}", file=sys.stderr)
+            sys.exit(1)
         return
 
     if args.command == "backup":
