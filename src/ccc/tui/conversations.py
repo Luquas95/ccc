@@ -65,11 +65,6 @@ class ConversationsScreen(SidebarScreen):
     ConversationsScreen.-cli-open #main {
         display: none;
     }
-    /* The bar under Claude Code (cli_bar) shows keys and presets across
-       the whole window; ccc's own footer wouldn't fit its sidebar. */
-    ConversationsScreen.-cli-open Footer {
-        display: none;
-    }
     ConversationsScreen #cli-hint {
         height: auto;
         padding: 0 1 1 1;

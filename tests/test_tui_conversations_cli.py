@@ -157,4 +157,4 @@ async def test_alt_digit_types_preset_into_claude(storage, pane, monkeypatch):
         await pilot.press("alt+2")
         await pilot.pause()
         assert applied == [(ids["cli"], 2)]
-        assert not app.screen.query_one("Footer").display  # the bar under Claude shows the keys
+        assert app.screen.query_one("Footer").display  # ccc's frame stays the same in every view

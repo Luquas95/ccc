@@ -92,7 +92,7 @@ def test_focus_zooms_on_narrow_windows(tmux):
     pane = cli_pane.open(4)
     cli_pane.focus()
     assert ("select-pane", "-t", pane) in tmux.calls
-    assert not any(c[0] == "resize-pane" for c in tmux.calls)
+    assert not any(c[0] == "resize-pane" and "-Z" in c for c in tmux.calls)
     tmux.width = 80
     cli_pane.focus()
     assert ("resize-pane", "-Z", "-t", pane) in tmux.calls
@@ -112,7 +112,9 @@ def test_bar_opens_across_the_window_and_keys_are_bound(tmux):
     split = [c for c in tmux.calls if c[0] == "split-window"]
     assert len(split) == 2
     bar_split = split[1]
-    assert bar_split[1:3] == ("-v", "-f") and bar_split[bar_split.index("-l") + 1] == "2"
+    # Above Claude Code, in its column — ccc's sidebar column is untouched.
+    assert bar_split[1:3] == ("-v", "-b") and bar_split[bar_split.index("-l") + 1] == "2"
+    assert bar_split[bar_split.index("-t") + 1] == pane
     assert bar_split[-1].endswith("-m ccc.tui.cli_bar /data/h.db")
     bar = cli_pane.find_bar()
     assert bar is not None and bar != pane
@@ -133,7 +135,8 @@ def test_layout_is_restored_when_the_window_resizes(tmux):
     bar = cli_pane.find_bar()
     hook = next(c for c in tmux.calls if c[0] == "set-hook")
     assert hook[1:5] == ("-w", "-t", "%0", "window-resized")
-    assert hook[5] == f"resize-pane -t %0 -x 34 ; resize-pane -t {bar} -y 2"
+    assert hook[5] == f"resize-pane -t %0 -x 32 ; resize-pane -t {bar} -y 2"
+    assert ("resize-pane", "-t", bar, "-y", "2") in tmux.calls  # applied right away too
 
 
 def test_close_removes_bar_and_keys(tmux):
@@ -154,3 +157,20 @@ def test_no_keys_bound_on_a_foreign_tmux(tmux, monkeypatch):
 def test_bindings_never_take_claude_code_keys():
     keys = {b[2] for b in cli_pane.key_bindings("%0", "%1", 1, "/data/h.db")}
     assert not keys & {"Tab", "BTab", "C-t", "C-d", "C-c", "C-o", "C-r", "C-b", "M-p", "M-o", "M-t", "M-v"}
+
+
+def test_title_bars_from_the_start_on_the_ccc_server(tmux):
+    # Set when the TUI starts, not when Claude opens: a title row showing up
+    # later shifted all of ccc down a row (and stayed after switching views).
+    cli_pane.style_window()
+    assert ("set-option", "-w", "-t", "%0", "pane-border-status", "top") in tmux.calls
+    assert not any(c[0] == "split-window" for c in tmux.calls)
+
+
+def test_sidebar_width_matches_the_menu():
+    import re as _re
+
+    from ccc.tui.layout import SHARED_CSS
+
+    width = int(_re.search(r"#sidebar \{\s*width: (\d+);", SHARED_CSS).group(1))
+    assert cli_pane.SIDEBAR_COLUMNS == width
