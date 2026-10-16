@@ -46,7 +46,7 @@ class ConversationsScreen(SidebarScreen):
         ("h", "toggle_show_archived", "Show archived"),
         ("ctrl+d", "delete_conversation", "Delete"),
         ("slash", "search", "Search"),
-        ("e", "export", "Export"),
+        ("e", "export", "Export conversation"),
         ("p", "approve", "Approve"),
         # Preset prompts (Settings); priority so they work while typing.
         *[Binding(f"alt+{n}", f"prompt_preset({n})", f"Preset {n}", show=False, priority=True) for n in range(1, 10)],
@@ -603,7 +603,7 @@ class ConversationsScreen(SidebarScreen):
         if self._current_queue_id is None:
             return
         path = export_markdown(self.storage, self._current_queue_id, EXPORT_DIR)
-        self.notify(f"Exported to {path}", title="Export")
+        self.notify(f"Exported to {path}", title="Export conversation")
 
     def action_approve(self) -> None:
         from ccc.tui.permissions import PermissionModal
