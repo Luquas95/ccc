@@ -21,6 +21,8 @@ from ccc import instance
 
 PANE_OPTION = "@ccc-cli"
 BAR_OPTION = "@ccc-bar"
+# ccc's key list as a 1-row pane under everything (footer_strip).
+STRIP_OPTION = "@ccc-strip"
 TITLE_OPTION = "@ccc-title"
 # Rows of the bar under Claude Code: preset prompts, keys.
 BAR_ROWS = 2
@@ -96,15 +98,56 @@ def key_bindings(main: str, cli: str, queue_id: int, db_path: str) -> list[tuple
     return bindings
 
 
-def fit_command(main: str, bar: str | None) -> str:
-    """tmux command putting the layout back: ccc at its sidebar width, the
-    bar at its rows. tmux rescales panes proportionally when the window
-    changes size (e.g. attaching from a phone, then a desktop), so this
-    runs from the window-resized hook too."""
-    command = f"resize-pane -t {main} -x {SIDEBAR_COLUMNS}"
+def fit_command(main: str, bar: str | None, strip: str | None = None, sidebar: bool = True) -> str:
+    """tmux command putting the layout back: ccc at its sidebar width (with
+    Claude Code open), the bar and the key strip at their rows. tmux
+    rescales panes proportionally when the window changes size (e.g.
+    attaching from a phone, then a desktop), so this runs from the
+    window-resized hook too."""
+    commands = [f"resize-pane -t {main} -x {SIDEBAR_COLUMNS}"] if sidebar else []
     if bar is not None:
-        command += f" ; resize-pane -t {bar} -y {BAR_ROWS}"
-    return command
+        commands.append(f"resize-pane -t {bar} -y {BAR_ROWS}")
+    if strip is not None:
+        commands.append(f"resize-pane -t {strip} -y 1")
+    return " ; ".join(commands)
+
+
+def strip_command(main: str) -> str:
+    return shlex.join([sys.executable, "-m", "ccc.tui.footer_strip", main])
+
+
+def _find_flag(option: str) -> str | None:
+    result = _tmux("list-panes", "-t", _own_pane(), "-F", f"#{{pane_id}} #{{{option}}}")
+    if result.returncode != 0:
+        return None
+    for line in result.stdout.splitlines():
+        pane, _, flag = line.partition(" ")
+        if flag.strip() == "1":
+            return pane
+    return None
+
+
+def find_strip() -> str | None:
+    return _find_flag(STRIP_OPTION)
+
+
+def ensure_strip() -> str | None:
+    """The key strip under the window (created once; it survives TUI
+    restarts in the same window)."""
+    strip = find_strip()
+    if strip is None:
+        result = _tmux("split-window", "-v", "-f", "-d", "-l", "1", "-t", _own_pane(),
+                       "-P", "-F", "#{pane_id}", strip_command(_own_pane()))
+        if result.returncode != 0:
+            return None
+        strip = result.stdout.strip()
+        _tmux("set-option", "-p", "-t", strip, STRIP_OPTION, "1")
+        _tmux("set-option", "-p", "-t", strip, TITLE_OPTION, "ccc · keys")
+    _tmux("resize-pane", "-t", strip, "-y", "1")
+    if find() is None:
+        _tmux("set-hook", "-w", "-t", _own_pane(), "window-resized",
+              fit_command(_own_pane(), None, strip, sidebar=False))
+    return strip
 
 
 def unbind_keys() -> None:
@@ -113,14 +156,7 @@ def unbind_keys() -> None:
 
 
 def find_bar() -> str | None:
-    result = _tmux("list-panes", "-t", _own_pane(), "-F", f"#{{pane_id}} #{{{BAR_OPTION}}}")
-    if result.returncode != 0:
-        return None
-    for line in result.stdout.splitlines():
-        pane, _, flag = line.partition(" ")
-        if flag.strip() == "1":
-            return pane
-    return None
+    return _find_flag(BAR_OPTION)
 
 
 def find() -> tuple[str, int] | None:
@@ -189,6 +225,7 @@ def style_window() -> None:
     _tmux("set-option", "-p", "-t", _own_pane(), TITLE_OPTION, "ccc")
     for command in CLIPBOARD_COMMANDS:
         _tmux(*command)
+    ensure_strip()
 
 
 def open(queue_id: int, title: str = "", db_path: str | None = None) -> str | None:
@@ -225,7 +262,7 @@ def open(queue_id: int, title: str = "", db_path: str | None = None) -> str | No
         for binding in key_bindings(_own_pane(), pane, queue_id, db_path):
             _tmux(*binding)
     bar = find_bar()
-    _tmux("set-hook", "-w", "-t", _own_pane(), "window-resized", fit_command(_own_pane(), bar))
+    _tmux("set-hook", "-w", "-t", _own_pane(), "window-resized", fit_command(_own_pane(), bar, find_strip()))
     # And now: split-window -l counts the border row too, the bar got 1 row.
     _tmux("resize-pane", "-t", _own_pane(), "-x", str(SIDEBAR_COLUMNS))
     if bar is not None:
@@ -255,6 +292,11 @@ def close() -> None:
     if bar is not None:
         _tmux("kill-pane", "-t", bar)
     if current is not None or bar is not None:
-        _tmux("set-hook", "-uw", "-t", _own_pane(), "window-resized")
+        strip = find_strip()
+        if strip is not None:
+            _tmux("set-hook", "-w", "-t", _own_pane(), "window-resized",
+                  fit_command(_own_pane(), None, strip, sidebar=False))
+        else:
+            _tmux("set-hook", "-uw", "-t", _own_pane(), "window-resized")
         if _on_ccc_server():
             unbind_keys()

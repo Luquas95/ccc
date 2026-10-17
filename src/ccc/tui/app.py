@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -43,10 +44,29 @@ class CCContinueApp(App):
             self.theme = theme
         from ccc.tui import cli_pane
 
-        # Same frame in every view (see cli_pane.style_window).
+        # Same frame in every view (see cli_pane.style_window); there the
+        # key list is the strip under the window (footer_strip).
         cli_pane.style_window()
+        self.footer_strip = cli_pane.available() and cli_pane.find_strip() is not None
+        if self.footer_strip:
+            self.set_interval(0.3, self.publish_footer)
         for screen in self.initial_screens():
             await self.push_screen(screen)
+
+    footer_strip = False
+    _published_footer: str | None = None
+
+    def publish_footer(self) -> None:
+        """Hand the current screen's keys to the strip under the window."""
+        import subprocess
+
+        from ccc.tui.footer_strip import FOOTER_OPTION, encode, footer_items
+
+        value = encode(footer_items(self))
+        if value != self._published_footer:
+            self._published_footer = value
+            subprocess.run(["tmux", "set-option", "-w", "-t", os.environ["TMUX_PANE"], FOOTER_OPTION, value],
+                           capture_output=True)
 
     def initial_screens(self) -> list:
         return [DashboardScreen(self.storage)]
