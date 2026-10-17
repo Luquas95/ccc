@@ -111,9 +111,9 @@ def test_bar_opens_across_the_window_and_keys_are_bound(tmux):
     pane = cli_pane.open(4, "Kompas", "/data/h.db")
     split = [c for c in tmux.calls if c[0] == "split-window"]
     assert len(split) == 3  # Claude, the key strip (once), the bar
-    bar_split = next(c for c in split if c[2] == "-b")
-    # Above Claude Code, in its column — ccc's sidebar column is untouched.
-    assert bar_split[1:3] == ("-v", "-b") and bar_split[bar_split.index("-l") + 1] == "2"
+    bar_split = next(c for c in split if c[-1].endswith("/data/h.db"))
+    # Under Claude Code, in its column — ccc's sidebar column is untouched.
+    assert bar_split[1:3] == ("-v", "-d") and "-b" not in bar_split and bar_split[bar_split.index("-l") + 1] == "2"
     assert bar_split[bar_split.index("-t") + 1] == pane
     assert bar_split[-1].endswith("-m ccc.tui.cli_bar /data/h.db")
     bar = cli_pane.find_bar()

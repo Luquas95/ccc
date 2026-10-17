@@ -6,7 +6,7 @@ server (see attach_cli), so every Claude Code feature works.
 
 Only one such pane exists; it's marked with the @ccc-cli pane option
 holding the conversation (queue) id it shows. In the same column as the
-Claude Code pane, above it, runs the bar (cli_bar: preset prompts and keys;
+Claude Code pane, under it, runs the bar (cli_bar: preset prompts and keys;
 @ccc-bar). On
 ccc's own tmux server the keys that switch between ccc and Claude and run
 ccc's presets are bound while the pane is open — see key_bindings()."""
@@ -251,8 +251,8 @@ def open(queue_id: int, title: str = "", db_path: str | None = None) -> str | No
     _tmux("set-option", "-p", "-t", pane, PANE_OPTION, str(queue_id))
     _tmux("set-option", "-p", "-t", pane, TITLE_OPTION, f"Claude Code · {title}" if title else "Claude Code")
     if db_path is not None and find_bar() is None:
-        # -b: above Claude Code, in its column — ccc's column stays as is.
-        result = _tmux("split-window", "-v", "-b", "-d", "-l", str(BAR_ROWS), "-t", pane,
+        # Under Claude Code, in its column — ccc's column stays as is.
+        result = _tmux("split-window", "-v", "-d", "-l", str(BAR_ROWS), "-t", pane,
                        "-P", "-F", "#{pane_id}", bar_command(db_path))
         if result.returncode == 0:
             bar = result.stdout.strip()
