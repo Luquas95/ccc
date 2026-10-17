@@ -236,3 +236,22 @@ async def test_archiving_the_last_conversation_shows_no_conversation(storage, pa
         # Only the banner in the main column (the presets row too is hidden).
         main = app.screen.query_one("#main")
         assert [w.id for w in main.children if w.display] == ["no-conversation"]
+
+
+@pytest.mark.asyncio
+async def test_restore_from_archive_keeps_the_claude_pane_open(storage, pane):
+    from ccc.tui.archive import ArchiveScreen
+
+    ids = _ids(storage)
+    storage.set_queue_archived(ids["cli"], True)
+    app = _host(ArchiveScreen(storage, select_queue_id=ids["cli"]))
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        app.screen.action_restore_and_open()
+        for _ in range(5):
+            await pilot.pause()
+        assert type(app.screen) is ConversationsScreen
+        # The Archive screen going away must not close Conversations' pane.
+        assert pane.shown == ids["cli"] and pane.closed == 0
+        await app.screen._refresh_current()
+        assert pane.shown == ids["cli"]

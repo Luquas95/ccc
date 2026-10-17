@@ -350,14 +350,19 @@ class ConversationsScreen(SidebarScreen):
 
     def on_screen_suspend(self) -> None:
         # A dialog / Settings / another view on top: give it the window.
-        if cli_pane.available() and cli_pane.find() is not None:
-            cli_pane.close()
-        self._cli_open_for = None
+        self._close_own_cli_pane()
         self.remove_class("-cli-open")
 
     def on_unmount(self) -> None:
-        if cli_pane.available():
+        self._close_own_cli_pane()
+
+    def _close_own_cli_pane(self) -> None:
+        """Close the pane only if this screen opened it: going from Archive
+        to Conversations, Archive is unmounted after Conversations opened
+        its pane — closing it then looked like Ctrl+], and it stayed shut."""
+        if self._cli_open_for is not None and cli_pane.available():
             cli_pane.close()
+        self._cli_open_for = None
 
     def _load_transcript(self, queue_id: int) -> bool:
         """Read new transcript lines into the cache. Returns True if any new
