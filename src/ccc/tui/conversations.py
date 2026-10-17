@@ -72,7 +72,7 @@ class ConversationsScreen(SidebarScreen):
         width: 1fr;
         height: 1fr;
         background: black;
-        color: white;
+        color: green;
         text-style: bold;
         content-align: center middle;
     }
