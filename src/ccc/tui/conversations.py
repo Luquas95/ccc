@@ -176,7 +176,7 @@ class ConversationsScreen(SidebarScreen):
         yield Static("Queues", classes="sidebar-label")
         yield DataTable(id="conversation-queue-list", classes="sidebar-list")
         # No Claude Code key hints here: the menu keeps its size in every
-        # view — they're in the bar above Claude Code (cli_bar).
+        # view — they are in the bar under Claude Code (cli_bar).
 
     def compose_main(self):
         yield Static(id="conversation-header")
