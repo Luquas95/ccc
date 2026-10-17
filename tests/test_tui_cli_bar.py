@@ -20,10 +20,8 @@ async def test_bar_shows_presets_and_keys(storage):
         await pilot.pause()
         items = [str(w.render()) for w in app.query(".bar-preset")]
         assert len(items) == 2 and "Alt+1" in items[0] and "Go on" in items[0]
-        keys = str(app.query_one("#bar-keys", Static).render())
-        assert "Ctrl+B z" in keys
-        # In ccc's key strip instead; copy & paste aren't listed.
-        assert not any(k in keys for k in ("Alt+0", "Ctrl+P", "Ctrl+]", "copy", "paste"))
+        # Only presets: the keys are in ccc's key strip at the bottom.
+        assert not app.query("#bar-keys")
 
 
 @pytest.mark.asyncio

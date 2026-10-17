@@ -1,8 +1,7 @@
 """`python -m ccc.tui.cli_bar DB_PATH` — the bar under the Claude Code pane
-(see cli_pane): the preset prompts (click one, or Alt+1 … Alt+9 anywhere)
-and the keys that work while Claude Code is open, across the whole window
-width — ccc itself is narrowed to its sidebar then, so its own bottom bar
-doesn't fit. It's only this bar, not a second ccc."""
+(see cli_pane): the preset prompts (click one, or Alt+1 … Alt+9 anywhere).
+The keys that work while Claude Code is open are in ccc's key strip at
+the bottom (footer_strip). It's only this bar, not a second ccc."""
 from __future__ import annotations
 
 import subprocess
@@ -20,11 +19,6 @@ from ccc.storage import Storage
 from ccc.tui import cli_pane
 from ccc.tui.prompt_presets import bar_item
 
-# Alt+0, Ctrl+] and Ctrl+P are in ccc's key strip at the bottom
-# (footer_strip); copy & paste work without being listed.
-KEYS = Text.assemble(
-    ("Ctrl+B z", "bold cyan"), " Claude full window",
-)
 REFRESH_SECONDS = 2.0
 
 
@@ -44,11 +38,6 @@ class CliBar(App):
     #bar-presets .bar-preset:hover {
         background: $boost;
     }
-    #bar-keys {
-        height: 1;
-        padding: 0 1;
-        color: $text-muted;
-    }
     """
     ENABLE_COMMAND_PALETTE = False
 
@@ -59,7 +48,6 @@ class CliBar(App):
 
     def compose(self):
         yield Horizontal(id="bar-presets")
-        yield Static(KEYS, id="bar-keys")
 
     async def on_mount(self) -> None:
         from ccc.tui.settings import saved_theme
