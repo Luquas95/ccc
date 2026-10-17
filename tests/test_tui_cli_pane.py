@@ -171,6 +171,14 @@ def test_title_bars_from_the_start_on_the_ccc_server(tmux):
     assert [c[1:6] for c in tmux.calls if c[0] == "split-window"] == [("-v", "-f", "-d", "-l", "1")]
 
 
+def test_style_window_removes_a_bar_left_without_claude(tmux):
+    cli_pane.open(4, "Kompas", "/data/h.db")
+    del tmux.panes[cli_pane.find()[0]]  # Claude's pane ended by itself
+    cli_pane.style_window()
+    assert cli_pane.find_bar() is None
+    assert cli_pane.find_strip() is not None
+
+
 def test_key_strip_is_created_once(tmux):
     cli_pane.style_window()
     cli_pane.style_window()

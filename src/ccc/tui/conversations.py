@@ -25,6 +25,7 @@ from ccc.tui.layout import (
     queue_label,
 )
 from ccc.tui.message_box import MessageBox
+from ccc.tui.pixel_text import PixelBanner
 from ccc.tui.prompt_presets import ALT_DIGIT_CHARS, ALT_DIGIT_TEXT, bar_item
 
 
@@ -65,6 +66,25 @@ class ConversationsScreen(SidebarScreen):
     ConversationsScreen.-cli-open #main {
         display: none;
     }
+    /* An archived interactive conversation has no Claude Code to show. */
+    ConversationsScreen #no-conversation {
+        display: none;
+        width: 1fr;
+        height: 1fr;
+        background: black;
+        color: white;
+        text-style: bold;
+        content-align: center middle;
+    }
+    ConversationsScreen.-no-conversation #main {
+        background: black;
+    }
+    ConversationsScreen.-no-conversation #main > * {
+        display: none;
+    }
+    ConversationsScreen.-no-conversation #main > #no-conversation {
+        display: block;
+    }
     ConversationsScreen #conversation-transcript {
         width: 1fr;
         height: 1fr;
@@ -76,6 +96,9 @@ class ConversationsScreen(SidebarScreen):
     ConversationsScreen #prompt-presets-bar {
         height: auto;
         padding: 0 1;
+    }
+    ConversationsScreen #prompt-presets-bar.-empty {
+        display: none;
     }
     ConversationsScreen #prompt-presets-bar .prompt-preset-item {
         width: auto;
@@ -184,6 +207,7 @@ class ConversationsScreen(SidebarScreen):
         yield Static(id="conversation-status")
         yield MessageBox(placeholder="Message Claude… (Enter send · Ctrl+J new line · Esc back)", id="message-input")
         yield Horizontal(id="prompt-presets-bar")
+        yield PixelBanner("NO CONVERSATION", id="no-conversation")
 
     async def on_mount(self) -> None:
         table = self.query_one("#conversation-queue-list", DataTable)
@@ -199,6 +223,8 @@ class ConversationsScreen(SidebarScreen):
             # right panel is deterministically populated on open.
             self._move_cursor_to_current()
             await self._show_queue(self._current_queue_id)
+        else:
+            self._sync_cli_pane()
         # set_interval accepts an async callback directly (confirmed live
         # with a standalone sandbox script — no run_worker wrapper needed).
         self.set_interval(2.0, self._refresh_current)
@@ -265,6 +291,10 @@ class ConversationsScreen(SidebarScreen):
         """Open, switch or close the Claude Code pane to match the selected
         conversation. Closed while another window (dialog, Settings) is on
         top, so that one gets the whole width."""
+        queue = self.storage.find_queue(self._current_queue_id) if self._current_queue_id is not None else None
+        # Nothing selected (the last one archived), or an archived
+        # interactive one: no Claude Code to show.
+        self.set_class(queue is None or (queue.delivery_mode.managed and queue.archived), "-no-conversation")
         if not cli_pane.available():
             return
         queue = self._cli_queue()
@@ -277,7 +307,10 @@ class ConversationsScreen(SidebarScreen):
             want = False
         if want:
             want = cli_pane.open(queue.id, queue.name, self.storage.db_path) is not None
-        elif shown is not None:
+        elif shown is not None or cli_pane.find_bar() is not None:
+            # Also when Claude's pane ended by itself (archived: its
+            # session was stopped; Ctrl+]): the bar under it would stay
+            # and take the whole column.
             cli_pane.close()
         self._cli_open_for = queue.id if want else None
         self.set_class(want, "-cli-open")
@@ -480,9 +513,9 @@ class ConversationsScreen(SidebarScreen):
             # New/removed conversation, or a marker / pending count changed.
             self._rebuild_queue_list()
             self._move_cursor_to_current()
+        self._sync_cli_pane()
         if self._current_queue_id is None:
             return
-        self._sync_cli_pane()
         queue_id = self._current_queue_id
         self._load_transcript(queue_id)
         queue = self.storage.get_queue(queue_id)
@@ -534,7 +567,9 @@ class ConversationsScreen(SidebarScreen):
         )
         if presets:
             await bar.mount(Static("⏎ sends  ·  ✎ inserts", id="prompt-presets-legend"))
-        bar.display = bool(presets)
+        # A class, not bar.display: an inline display would beat the
+        # -no-conversation rule hiding everything in #main.
+        bar.set_class(not presets, "-empty")
 
     async def on_screen_resume(self) -> None:
         # Back from Settings (or any window): presets may have changed.

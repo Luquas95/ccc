@@ -226,6 +226,10 @@ def style_window() -> None:
     for command in CLIPBOARD_COMMANDS:
         _tmux(*command)
     ensure_strip()
+    if find() is None and find_bar() is not None:
+        # Left by a Claude Code pane that ended without ccc closing it
+        # (e.g. ccc restarted meanwhile): it would take Claude's column.
+        close()
 
 
 def open(queue_id: int, title: str = "", db_path: str | None = None) -> str | None:
