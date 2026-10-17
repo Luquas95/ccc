@@ -1,6 +1,7 @@
 """The Archive view: archived conversations, read only. x restores one
 (back to Conversations, its interactive Claude Code started again by the
-daemon), Enter restores it and opens it there."""
+daemon), Enter restores it and opens it there, Delete deletes it (asks
+first)."""
 from __future__ import annotations
 
 from textual.widgets import DataTable
@@ -20,6 +21,9 @@ class ArchiveScreen(ConversationsScreen):
 
     BINDINGS = [
         ("x", "toggle_archive", "Restore"),
+        # Safe here: no Claude Code runs next to the Archive (Ctrl+D is
+        # Claude's exit, #31).
+        ("delete", "delete_conversation", "Delete"),
     ]
 
     DEFAULT_CSS = """

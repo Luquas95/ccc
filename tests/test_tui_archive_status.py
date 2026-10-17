@@ -191,3 +191,36 @@ async def test_dashboard_hides_archived_and_marks_new(storage):
         await pilot.pause()
         names = _names(app.screen.query_one("#dashboard-table", DataTable))
         assert names == ["◆ a"]
+
+
+@pytest.mark.asyncio
+async def test_delete_key_in_archive_asks_then_deletes(storage):
+    from ccc.tui.archive import ArchiveScreen
+
+    b = storage.create_queue("b", "/tmp/b", "sb")
+    storage.set_queue_archived(b.id, True)
+    app = _host(ArchiveScreen(storage))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("delete")
+        await pilot.pause()
+        assert isinstance(app.screen, ConfirmModal)
+        await pilot.press("y")
+        await pilot.pause()
+        assert storage.find_queue(b.id) is None
+        assert _names(app.screen.query_one("#conversation-queue-list", DataTable)) == []
+        assert app.screen.has_class("-no-conversation")
+
+
+@pytest.mark.asyncio
+async def test_no_delete_key_in_conversations(storage):
+    # Claude Code runs next to it there; deleting stays in the Archive.
+    b = storage.create_queue("b", "/tmp/b", "sb")
+    app = _host(ConversationsScreen(storage, select_queue_id=b.id))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.screen.query_one("#conversation-queue-list").focus()
+        await pilot.press("delete")
+        await pilot.pause()
+        assert not isinstance(app.screen, ConfirmModal)
+        assert storage.find_queue(b.id) is not None

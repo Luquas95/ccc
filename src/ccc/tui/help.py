@@ -55,6 +55,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
     ("Archive", [
         ("x", "Restore the conversation"),
         ("enter", "Restore it and open it in Conversations"),
+        ("delete", "Delete the conversation from ccc (asks first; Claude Code's transcript stays)"),
         ("slash", "Search all conversations"),
         ("e", "Export the conversation as Markdown"),
     ]),

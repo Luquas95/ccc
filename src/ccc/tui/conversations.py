@@ -471,7 +471,7 @@ class ConversationsScreen(SidebarScreen):
         ]
         if queue.archived:
             # Nothing runs for it: no remote control, no CLI to open.
-            parts += ["\n", ("archived: ", "bold"), ("x restores it, Enter restores and opens it", "cyan")]
+            parts += ["\n", ("archived: ", "bold"), ("x restores it, Enter restores and opens it, Delete deletes it", "cyan")]
         elif queue.delivery_mode == DeliveryMode.REMOTE_CONTROL:
             parts += ["\n", ("remote control: ", "bold"), (queue.remote_control_url or "starting…", "cyan")]
         if queue.delivery_mode.managed and not queue.archived:
@@ -719,6 +719,7 @@ class ConversationsScreen(SidebarScreen):
         self._rebuild_queue_list()
         self._move_cursor_to_current()
         if self._current_queue_id is None:
+            self._sync_cli_pane()  # the NO CONVERSATION banner
             container = self.query_one("#conversation-transcript", VerticalScroll)
             await container.remove_children()
             await container.mount(Static("No conversation yet."))

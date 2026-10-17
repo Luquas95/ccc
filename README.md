@@ -179,7 +179,7 @@ you're typing in a text field; `Ctrl` keys work everywhere.
 
 | Where | Key | |
 |---|---|---|
-| everywhere | `d` `c` `s` `v` | switch screen |
+| everywhere | `d` `c` `h` `s` `v` | switch screen (`h` = Archive) |
 | | `n` | new conversation |
 | | `?` | all shortcuts |
 | | `Ctrl+P` | [Settings](#settings) |
@@ -194,9 +194,11 @@ you're typing in a text field; `Ctrl` keys work everywhere.
 | | `r` | retry the blocked conversation / resume one paused at a usage limit |
 | | `t` | [task queue editor](#task-queue) |
 | | `p` | [approve a tool call](#approving-tool-calls) Claude is waiting on |
-| | `x` / `h` | archive or restore / show archived |
+| | `x` | archive — it moves to the Archive (`h`) |
 | | `/` | search all conversations |
 | | `e` | export as Markdown to `conversations/` of the [export folder](#settings) |
+| Archive | `x` / `Enter` | restore / restore and open it in Conversations |
+| | `Delete` | delete the conversation from ccc (asks first; Claude Code's own transcript stays) |
 
 ### Settings
 
