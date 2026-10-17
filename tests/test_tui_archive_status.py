@@ -76,7 +76,9 @@ async def test_list_shows_markers_and_pending_count_and_clears_new_when_opened(s
 
 
 @pytest.mark.asyncio
-async def test_archive_hides_and_h_shows_archived(storage):
+async def test_archive_moves_it_to_the_archive_view_and_x_restores(storage):
+    from ccc.tui.archive import ArchiveScreen
+
     storage.create_queue("a", "/tmp/a", "sa")
     b = storage.create_queue("b", "/tmp/b", "sb")
     app = _host(ConversationsScreen(storage, select_queue_id=b.id))
@@ -88,14 +90,54 @@ async def test_archive_hides_and_h_shows_archived(storage):
         assert storage.get_queue(b.id).archived is True
         table = app.screen.query_one("#conversation-queue-list", DataTable)
         assert [n.strip() for n in _names(table)] == ["a"]
-        await pilot.press("h")
+        await pilot.press("h")  # the Archive tab
         await pilot.pause()
-        assert len(_names(table)) == 2
-        table.move_cursor(row=1)
-        await pilot.pause()
+        assert isinstance(app.screen, ArchiveScreen)
+        assert app.screen.query_one("#nav-archive").has_class("-active")
+        table = app.screen.query_one("#conversation-queue-list", DataTable)
+        assert [n.strip() for n in _names(table)] == ["b"]
         await pilot.press("x")
         await pilot.pause()
         assert storage.get_queue(b.id).archived is False
+        assert _names(table) == []
+        assert app.screen.has_class("-no-conversation")  # the archive is empty
+
+
+@pytest.mark.asyncio
+async def test_enter_in_archive_restores_and_opens_in_conversations(storage):
+    from ccc.tui.archive import ArchiveScreen
+
+    storage.create_queue("a", "/tmp/a", "sa")
+    b = storage.create_queue("b", "/tmp/b", "sb")
+    storage.set_queue_archived(b.id, True)
+    app = _host(ArchiveScreen(storage))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert app.screen._current_queue_id == b.id
+        assert app.focused.id == "conversation-queue-list"
+        # Conversation-only keys are off here.
+        assert app.screen.check_action("tasks", ()) is False
+        await pilot.press("enter")
+        await pilot.pause()
+        assert storage.get_queue(b.id).archived is False
+        assert type(app.screen) is ConversationsScreen
+        assert app.screen._current_queue_id == b.id
+
+
+@pytest.mark.asyncio
+async def test_search_hit_in_archive_opens_the_archive_view(storage):
+    from ccc.tui.archive import ArchiveScreen
+
+    storage.create_queue("a", "/tmp/a", "sa")
+    b = storage.create_queue("b", "/tmp/b", "sb")
+    storage.set_queue_archived(b.id, True)
+    app = _host(ConversationsScreen(storage))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.screen.open_conversation(b.id)
+        await pilot.pause()
+        assert isinstance(app.screen, ArchiveScreen)
+        assert app.screen._current_queue_id == b.id
 
 
 @pytest.mark.asyncio

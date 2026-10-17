@@ -27,7 +27,7 @@ def _documented(section):
 @pytest.mark.parametrize("section,cls,ignore", [
     ("Everywhere", DashboardScreen, {"r", "q", "enter"}),
     # Alt+digit as it arrives through most terminals — documented as alt+N.
-    ("Conversations", ConversationsScreen, {"d", "c", "s", "v", "a", "n", "question_mark", *ALT_DIGIT_CHARS.values()}),
+    ("Conversations", ConversationsScreen, {"d", "c", "h", "s", "v", "a", "n", "question_mark", *ALT_DIGIT_CHARS.values()}),
     ("Tasks editor (t)", TasksModal, set()),
 ])
 def test_help_lists_every_binding(section, cls, ignore):

@@ -189,33 +189,30 @@ async def test_archiving_closes_the_bar_left_by_the_ended_pane(storage, pane):
     async with app.run_test(size=(140, 40)) as pilot:
         await pilot.pause()
         assert pane.shown == ids["cli"] and pane.bar
-        app.screen._show_archived = True  # stays selected after archiving
         app.screen.action_toggle_archive()
         pane.shown = None  # the daemon stopped Claude: its pane ended
         await app.screen._refresh_current()
         await pilot.pause()
         assert not pane.bar  # no bar left over the whole column
-        assert app.screen.has_class("-no-conversation")
-        banner = app.screen.query_one("#no-conversation")
-        assert banner.display and banner.region.width > 0
-        assert not app.screen.query_one("#conversation-transcript").display
-        assert "█" in str(banner.render())
-        app.screen.action_toggle_archive()  # restored
-        await app.screen._refresh_current()
+        assert app.screen._current_queue_id == ids["headless"]  # the next one
         assert not app.screen.has_class("-no-conversation")
 
 
 @pytest.mark.asyncio
-async def test_archived_headless_conversation_keeps_its_transcript(storage, pane):
+async def test_archive_view_shows_an_archived_interactive_transcript(storage, pane):
+    from ccc.tui.archive import ArchiveScreen
+
     ids = _ids(storage)
-    storage.set_queue_archived(ids["headless"], True)
-    app = _host(ConversationsScreen(storage))
+    storage.set_queue_archived(ids["cli"], True)
+    app = _host(ArchiveScreen(storage, select_queue_id=ids["cli"]))
     async with app.run_test(size=(140, 40)) as pilot:
-        app.screen._show_archived = True
-        await app.screen._show_queue(ids["headless"])
         await pilot.pause()
+        assert pane.shown is None  # nothing runs for an archived one
         assert not app.screen.has_class("-no-conversation")
-        assert not app.screen.query_one("#no-conversation").display
+        assert app.screen.query_one("#conversation-transcript").display
+        assert not app.screen.query_one("#message-input").display
+        header = str(app.screen.query_one("#conversation-header").render())
+        assert "x restores it" in header and "Claude Code CLI" not in header
 
 
 @pytest.mark.asyncio
@@ -233,7 +230,9 @@ async def test_archiving_the_last_conversation_shows_no_conversation(storage, pa
         assert app.screen._current_queue_id is None
         assert not pane.bar
         assert app.screen.has_class("-no-conversation")
-        assert app.screen.query_one("#no-conversation").display
+        banner = app.screen.query_one("#no-conversation")
+        assert banner.display and banner.region.width > 0
+        assert "█" in str(banner.render())
         # Only the banner in the main column (the presets row too is hidden).
         main = app.screen.query_one("#main")
         assert [w.id for w in main.children if w.display] == ["no-conversation"]

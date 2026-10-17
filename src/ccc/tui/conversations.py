@@ -37,6 +37,9 @@ MAX_RENDERED_EVENTS = 60
 class ConversationsScreen(SidebarScreen):
     VIEW = "conversations"
     SUB_TITLE = "Conversations"
+    # Which conversations the list shows: the active ones here, the
+    # archived ones in the Archive view (tui.archive).
+    ARCHIVED = False
 
     BINDINGS = [
         # Back = Dashboard (d) and Retry has its sidebar button.
@@ -44,7 +47,6 @@ class ConversationsScreen(SidebarScreen):
         Binding("r", "retry_queue", "Retry / resume", show=False),
         ("t", "tasks", "Tasks"),
         ("x", "toggle_archive", "Archive"),
-        ("h", "toggle_show_archived", "Show archived"),
         # No Ctrl+D (delete): it exits Claude Code — new key in #31.
         ("slash", "search", "Search"),
         ("e", "export", "Export conversation"),
@@ -182,7 +184,6 @@ class ConversationsScreen(SidebarScreen):
         # tool_use_id -> the result widget of a rendered tool call, so a
         # result arriving later can be filled in.
         self._tool_results: dict[str, Static] = {}
-        self._show_archived = False
         # What the transcript pane currently shows (queue, event count,
         # pending item ids) — re-render only when this changes.
         self._rendered_key: tuple | None = None
@@ -252,7 +253,7 @@ class ConversationsScreen(SidebarScreen):
             (q.id, queue_label(q, q.id in unseen and q.id != self._current_queue_id,
                                self.storage.count_pending_items(q.id), needs_approval=q.id in waiting))
             for q in self.storage.list_queues()
-            if self._show_archived or not q.archived
+            if q.archived == self.ARCHIVED
         ]
 
     def _move_cursor_to_current(self) -> None:
@@ -287,14 +288,17 @@ class ConversationsScreen(SidebarScreen):
         queue = self.storage.find_queue(self._current_queue_id)
         return queue if queue is not None and queue.delivery_mode.managed and not queue.archived else None
 
+    def _shows_nothing(self, queue: Queue | None) -> bool:
+        """Nothing selected (the last one archived), or an archived
+        interactive one: no Claude Code to show."""
+        return queue is None or (queue.delivery_mode.managed and queue.archived)
+
     def _sync_cli_pane(self) -> None:
         """Open, switch or close the Claude Code pane to match the selected
         conversation. Closed while another window (dialog, Settings) is on
         top, so that one gets the whole width."""
         queue = self.storage.find_queue(self._current_queue_id) if self._current_queue_id is not None else None
-        # Nothing selected (the last one archived), or an archived
-        # interactive one: no Claude Code to show.
-        self.set_class(queue is None or (queue.delivery_mode.managed and queue.archived), "-no-conversation")
+        self.set_class(self._shows_nothing(queue), "-no-conversation")
         if not cli_pane.available():
             return
         queue = self._cli_queue()
@@ -460,9 +464,12 @@ class ConversationsScreen(SidebarScreen):
             (queue.name, "bold"), "  ", (queue.project_path, "dim"), "  ·  ", describe_flags(queue.launch_flags),
             "  ·  ", ("auto-continue on", "green") if queue.auto_continue else ("auto-continue off", "yellow"),
         ]
-        if queue.delivery_mode == DeliveryMode.REMOTE_CONTROL:
+        if queue.archived:
+            # Nothing runs for it: no remote control, no CLI to open.
+            parts += ["\n", ("archived: ", "bold"), ("x restores it, Enter restores and opens it", "cyan")]
+        elif queue.delivery_mode == DeliveryMode.REMOTE_CONTROL:
             parts += ["\n", ("remote control: ", "bold"), (queue.remote_control_url or "starting…", "cyan")]
-        if queue.delivery_mode.managed:
+        if queue.delivery_mode.managed and not queue.archived:
             parts += ["\n", ("Claude Code CLI: ", "bold"),
                       ("Enter in the list opens it" + ("" if cli_pane.available() else " (full screen, Ctrl+] back)"),
                        "cyan")]
@@ -612,6 +619,11 @@ class ConversationsScreen(SidebarScreen):
         self.notify(preset.name, title="Sent")
 
     def open_conversation(self, queue_id: int) -> None:
+        if self.storage.get_queue(queue_id).archived != self.ARCHIVED:
+            # Its list is the other view's (Conversations / Archive).
+            view = "archive" if not self.ARCHIVED else "conversations"
+            self._navigate(view, self._make_view(view, select_queue_id=queue_id))
+            return
         # Already on this screen: just select it in place.
         self._rebuild_queue_list()
         self._current_queue_id = queue_id
@@ -650,14 +662,9 @@ class ConversationsScreen(SidebarScreen):
             return
         queue = self.storage.get_queue(self._current_queue_id)
         self.storage.set_queue_archived(queue.id, not queue.archived)
-        if not queue.archived and not self._show_archived:
-            self._select_neighbour()
+        # It moved to the other view's list.
+        self._select_neighbour()
         self.run_worker(self._refresh_current(), exclusive=True, group="refresh")
-
-    def action_toggle_show_archived(self) -> None:
-        self._show_archived = not self._show_archived
-        self._rebuild_queue_list()
-        self._move_cursor_to_current()
 
     def action_delete_conversation(self) -> None:
         if self._current_queue_id is None:
@@ -719,11 +726,8 @@ class ConversationsScreen(SidebarScreen):
         from ccc.tui.search import SearchModal
 
         def chosen(queue_id: int | None) -> None:
-            if queue_id is None:
-                return
-            if self.storage.get_queue(queue_id).archived and not self._show_archived:
-                self._show_archived = True  # so the hit is visible in the list
-            self.open_conversation(queue_id)
+            if queue_id is not None:
+                self.open_conversation(queue_id)  # in Archive when archived
 
         self.app.push_screen(SearchModal(self.storage), chosen)
 
