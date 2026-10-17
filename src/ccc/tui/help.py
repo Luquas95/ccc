@@ -39,6 +39,8 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("t", "Tasks editor (queue, schedule, pause, auto-continue)"),
         ("p", "Approve a tool call Claude is waiting on"),
         ("x", "Archive (moves it to Archive, h)"),
+        ("alt+0", "Switch between ccc and Claude Code (while it's open beside ccc)"),
+        ("ctrl+right_square_bracket", "Close Claude Code beside ccc (it keeps running; Enter in the list opens it)"),
         ("slash", "Search all conversations"),
         ("e", "Export the conversation as Markdown"),
         ("ctrl+j", "New line in the message box (Shift+Enter where supported)"),

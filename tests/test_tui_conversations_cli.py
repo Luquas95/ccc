@@ -255,3 +255,26 @@ async def test_restore_from_archive_keeps_the_claude_pane_open(storage, pane):
         assert pane.shown == ids["cli"] and pane.closed == 0
         await app.screen._refresh_current()
         assert pane.shown == ids["cli"]
+
+
+@pytest.mark.asyncio
+async def test_claude_keys_are_in_the_key_strip_while_claude_is_open(storage, pane, monkeypatch):
+    from ccc.tui.footer_strip import footer_items
+
+    ids = _ids(storage)
+    app = _host(ConversationsScreen(storage, select_queue_id=ids["headless"]))
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        keys = [shown for shown, _, _ in footer_items(app)]
+        assert "Alt+0" not in keys and "Ctrl+]" not in keys
+        await app.screen._show_queue(ids["cli"])
+        await pilot.pause()
+        items = {shown: key for shown, _, key in footer_items(app)}
+        assert items["Alt+0"] == "M-0" and items["Ctrl+]"] == "C-]"
+        focused = pane.focused
+        app.screen.action_focus_claude()
+        assert pane.focused == focused + 1
+        app.screen.action_close_claude()
+        await app.screen._refresh_current()
+        assert pane.shown is None  # and it stays closed
+        assert "Alt+0" not in [shown for shown, _, _ in footer_items(app)]

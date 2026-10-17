@@ -20,13 +20,10 @@ from ccc.storage import Storage
 from ccc.tui import cli_pane
 from ccc.tui.prompt_presets import bar_item
 
+# Alt+0, Ctrl+] and Ctrl+P are in ccc's key strip at the bottom
+# (footer_strip); copy & paste work without being listed.
 KEYS = Text.assemble(
-    ("Alt+0", "bold cyan"), " Claude ↔ ccc   ",
-    ("Ctrl+P", "bold cyan"), " Settings   ",
-    ("Ctrl+B z", "bold cyan"), " Claude full window   ",
-    ("Ctrl+]", "bold cyan"), " close Claude   ",
-    ("mouse select", "bold cyan"), " copy   ",
-    ("Ctrl+Shift+V", "bold cyan"), " paste",
+    ("Ctrl+B z", "bold cyan"), " Claude full window",
 )
 REFRESH_SECONDS = 2.0
 

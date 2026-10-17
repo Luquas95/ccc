@@ -51,6 +51,11 @@ class ConversationsScreen(SidebarScreen):
         ("slash", "search", "Search"),
         ("e", "export", "Export conversation"),
         ("p", "approve", "Approve"),
+        # While Claude Code is open beside ccc — listed in the key strip;
+        # pressed in the Claude pane they're tmux's (cli_pane.key_bindings,
+        # attach_cli's Ctrl+]), clicked in the strip they land here.
+        Binding("alt+0", "focus_claude", "Claude ↔ ccc", key_display="Alt+0"),
+        Binding("ctrl+right_square_bracket", "close_claude", "Close Claude", key_display="Ctrl+]"),
         # Preset prompts (Settings); priority so they work while typing.
         *[Binding(f"alt+{n}", f"prompt_preset({n})", f"Preset {n}", show=False, priority=True) for n in range(1, 10)],
         *[Binding(ALT_DIGIT_CHARS[n], f"prompt_preset({n}, True)", f"Preset {n}", show=False, priority=True)
@@ -317,7 +322,22 @@ class ConversationsScreen(SidebarScreen):
             # and take the whole column.
             cli_pane.close()
         self._cli_open_for = queue.id if want else None
-        self.set_class(want, "-cli-open")
+        if want != self.has_class("-cli-open"):
+            self.set_class(want, "-cli-open")
+            self.refresh_bindings()  # Alt+0 / Ctrl+] in the key strip
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        if action in ("focus_claude", "close_claude"):
+            return self.has_class("-cli-open")
+        return super().check_action(action, parameters)
+
+    def action_focus_claude(self) -> None:
+        cli_pane.focus()
+
+    def action_close_claude(self) -> None:
+        # Like Ctrl+] in the pane: closed until Enter in the list.
+        self._cli_closed_for = self._cli_open_for
+        self._sync_cli_pane()
 
     def _focus_cli(self) -> bool:
         """Put the keyboard into the selected conversation's Claude Code
