@@ -15,7 +15,6 @@ from ccc.tui.layout import (
     ADD_PROMPT_BUTTON,
     MODAL_CSS,
     RETRY_BUTTON,
-    RETRYABLE,
     SidebarScreen,
     panel,
     styled_status,
@@ -204,8 +203,6 @@ class QueueDetailScreen(SidebarScreen):
         return self.storage.get_queue(self.queue_id).project_path
 
     def action_retry_queue(self) -> None:
-        queue = self.storage.get_queue(self.queue_id)
-        if queue.status in RETRYABLE:
-            self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
+        if self.storage.retry_queue(self.queue_id):
             self._refresh_info()
             self.sync_retry_button()

@@ -190,7 +190,7 @@ you're typing in a text field; `Ctrl` keys work everywhere.
 | | `a` | add a prompt to a project's queue |
 | Conversations | `Enter` / `Ctrl+J` | send the message / new line |
 | | `Alt+1` … `Alt+9` | [preset prompt](#preset-prompts) — send it or put it into the message box |
-| | `r` | retry the blocked conversation / resume one paused at a usage limit |
+| | `r` | blocked: run the task that failed again / resume one paused at a usage limit |
 | | `t` | [task queue editor](#task-queue) |
 | | `p` | [approve a tool call](#approving-tool-calls) Claude is waiting on |
 | | `x` | archive — it moves to the Archive (`h`) |
@@ -656,7 +656,10 @@ entry that runs:
 
 - A queue only blocks (`blocked_error`) on a genuine hard error (bad
   prompt, tool failure, session gone) — never silently loops burning your
-  usage limit. Clear it with `r` in the TUI once you've looked at it.
+  usage limit. Once you've looked at it, `r` in the TUI (Conversations or
+  the queue detail) runs the task that failed again, before the rest of
+  the queue. To drop it instead: pause the queue (`t`, `p`), press `r`,
+  delete the task in `t`, resume with `p`.
 - A real usage-limit hit is detected via `api_error_status == 429` in
   Claude Code's own JSON output (not message-text guessing), and the
   reset time is parsed from the message when present; otherwise it falls

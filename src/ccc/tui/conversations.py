@@ -20,7 +20,6 @@ from ccc.tui import cli_pane
 from ccc.tui.layout import (
     NEW_CONVERSATION_BUTTON,
     RETRY_BUTTON,
-    RETRYABLE,
     ConfirmModal,
     SidebarScreen,
     queue_label,
@@ -671,12 +670,9 @@ class ConversationsScreen(SidebarScreen):
     def action_retry_queue(self) -> None:
         if self._current_queue_id is None:
             return
-        queue = self.storage.get_queue(self._current_queue_id)
-        if queue.status in RETRYABLE:
-            # No in-process runtime to notify (this screen never executes
-            # anything) — flipping the status is enough, the daemon picks
-            # it up on its next poll.
-            self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
+        # No in-process runtime to notify (this screen never executes
+        # anything) — the daemon picks it up on its next poll.
+        if self.storage.retry_queue(self._current_queue_id):
             self.run_worker(self._refresh_current(), exclusive=True, group="refresh")
 
     def action_tasks(self) -> None:
