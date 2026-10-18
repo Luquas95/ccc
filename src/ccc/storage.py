@@ -324,6 +324,33 @@ class Storage:
             )
             conn.commit()
 
+    def retry_queue(self, queue_id: int) -> bool:
+        """r in the TUI: get a queue that stopped going again. Blocked on an
+        error: the task that failed goes back to pending — it keeps its
+        place, so it runs first — and is tried again. Paused at a usage
+        limit: it just carries on. False if the queue was neither."""
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT status FROM queues WHERE id = ?", (queue_id,)).fetchone()
+            if row is None or row["status"] not in (QueueStatus.BLOCKED_ERROR.value, QueueStatus.PAUSED_LIMIT.value):
+                return False
+            if row["status"] == QueueStatus.BLOCKED_ERROR.value:
+                # The run that blocked it is the queue's latest one.
+                last = conn.execute(
+                    "SELECT queue_item_id, status FROM prompt_runs WHERE queue_id = ? ORDER BY id DESC LIMIT 1",
+                    (queue_id,),
+                ).fetchone()
+                if last is not None and last["status"] == RunStatus.ERROR.value and last["queue_item_id"] is not None:
+                    conn.execute(
+                        "UPDATE queue_items SET status = ? WHERE id = ? AND status = ?",
+                        (ItemStatus.PENDING.value, last["queue_item_id"], ItemStatus.FAILED.value),
+                    )
+            conn.execute(
+                "UPDATE queues SET status = ?, next_retry_at = NULL, last_error = NULL, updated_at = ? WHERE id = ?",
+                (QueueStatus.IDLE.value, datetime.now().isoformat(), queue_id),
+            )
+            conn.commit()
+            return True
+
     def add_queue_item(self, queue_id: int, prompt_text: str, not_before: datetime | None = None) -> QueueItem:
         with closing(self._connect()) as conn:
             max_pos = conn.execute(

@@ -111,6 +111,8 @@ async def test_sidebar_buttons_stay_out_of_focus_chain(tmp_path):
     app = _app(tmp_path)
     async with app.run_test() as pilot:
         await pilot.pause()
+        await pilot.press("s")  # the dashboard has no buttons
+        await pilot.pause()
         buttons = list(app.screen.query("#sidebar Button"))
         assert buttons
         assert not any(b.can_focus for b in buttons)
@@ -123,7 +125,7 @@ async def test_sidebar_buttons_are_only_the_views_own_actions(tmp_path):
     # and no "Add prompt" on screens without a selected project.
     app = _app(tmp_path)
     expected = {
-        "d": ["Retry blocked queue (r)"],
+        "d": [],  # only an overview
         "s": ["Add prompt (a)", "Reload session list (r)"],
         "v": [],
         "c": ["New conversation (n)", "Retry blocked queue (r)"],

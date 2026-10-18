@@ -819,3 +819,36 @@ async def test_usage_reserve_off_or_below_runs(storage, project_dir, fast_poll, 
     await orch.start_all()
     assert await _until(lambda: sent == ["a"])
     await orch.stop_all()
+
+
+async def test_retry_runs_the_failed_task_again_first(storage, project_dir, monkeypatch):
+    monkeypatch.setattr("ccc.orchestrator.POLL_INTERVAL_SECONDS", 0.01)
+    calls = []
+
+    async def fake_run(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
+        calls.append(prompt)
+        if len(calls) == 1:
+            return RunResult(status=RunStatus.ERROR, error_text="tool crashed")
+        return RunResult(status=RunStatus.SUCCESS)
+
+    orch = Orchestrator(storage, run_fn=fake_run)
+    await orch.start_all()
+    orch.add_prompt(project_dir, "flaky")
+    queue = storage.get_queue_by_path(project_dir)
+    storage.add_queue_item(queue.id, "next")
+
+    for _ in range(100):
+        await asyncio.sleep(0.01)
+        if storage.get_queue(queue.id).status == QueueStatus.BLOCKED_ERROR:
+            break
+    assert calls == ["flaky"]
+
+    assert storage.retry_queue(queue.id)  # r in the TUI
+    for _ in range(200):
+        await asyncio.sleep(0.01)
+        if len(calls) == 3:
+            break
+    await orch.stop_all()
+
+    assert calls == ["flaky", "flaky", "next"]
+    assert storage.get_queue(queue.id).status == QueueStatus.IDLE

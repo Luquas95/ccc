@@ -466,3 +466,54 @@ def test_item_schedule(tmp_path):
     assert item.not_before == at
     storage.update_item_schedule(item.id, None)
     assert storage.list_pending_items(q.id)[0].not_before is None
+
+
+def _blocked_by(storage, queue, item):
+    storage.set_item_status(item.id, ItemStatus.FAILED)
+    storage.insert_prompt_run(PromptRun(
+        id=0, queue_id=queue.id, queue_item_id=item.id, prompt_text=item.prompt_text,
+        started_at=datetime.now(), finished_at=datetime.now(), status=RunStatus.ERROR, error_text="boom"))
+    storage.update_queue_status(queue.id, QueueStatus.BLOCKED_ERROR, last_error="boom")
+
+
+def test_retry_puts_the_failed_task_back_first(storage):
+    queue = storage.create_queue("p", "/tmp/p", "s")
+    failed = storage.add_queue_item(queue.id, "flaky")
+    storage.add_queue_item(queue.id, "next")
+    _blocked_by(storage, queue, failed)
+
+    assert storage.retry_queue(queue.id)
+    queue = storage.get_queue(queue.id)
+    assert queue.status == QueueStatus.IDLE and queue.last_error is None
+    assert [i.prompt_text for i in storage.list_pending_items(queue.id)] == ["flaky", "next"]
+
+
+def test_retry_leaves_older_failures_alone(storage):
+    # Only the run that blocked the queue (its latest) is tried again.
+    queue = storage.create_queue("p", "/tmp/p", "s")
+    old = storage.add_queue_item(queue.id, "old")
+    _blocked_by(storage, queue, old)
+    storage.update_queue_status(queue.id, QueueStatus.IDLE)
+    ok = storage.add_queue_item(queue.id, "fine")
+    storage.set_item_status(ok.id, ItemStatus.DONE)
+    storage.insert_prompt_run(PromptRun(
+        id=0, queue_id=queue.id, queue_item_id=ok.id, prompt_text="fine",
+        started_at=datetime.now(), finished_at=datetime.now(), status=RunStatus.SUCCESS))
+    storage.update_queue_status(queue.id, QueueStatus.BLOCKED_ERROR, last_error="session conflict")
+
+    assert storage.retry_queue(queue.id)
+    assert storage.list_pending_items(queue.id) == []
+
+
+def test_retry_resumes_a_queue_paused_at_a_limit(storage):
+    queue = storage.create_queue("p", "/tmp/p", "s")
+    storage.update_queue_status(queue.id, QueueStatus.PAUSED_LIMIT)
+    assert storage.retry_queue(queue.id)
+    assert storage.get_queue(queue.id).status == QueueStatus.IDLE
+
+
+def test_retry_does_nothing_to_a_working_queue(storage):
+    queue = storage.create_queue("p", "/tmp/p", "s")
+    storage.update_queue_status(queue.id, QueueStatus.RUNNING)
+    assert not storage.retry_queue(queue.id)
+    assert storage.get_queue(queue.id).status == QueueStatus.RUNNING

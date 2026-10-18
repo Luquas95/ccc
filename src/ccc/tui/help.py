@@ -25,7 +25,6 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
     ]),
     ("Dashboard", [
         ("enter", "Open the queue detail"),
-        ("r", "Retry a blocked queue / resume one paused at a limit"),
         ("q", "Close ccc (same as Ctrl+Q)"),
     ]),
     ("Live sessions", [
@@ -35,7 +34,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
     ]),
     ("Conversations", [
         ("enter", "Open the conversation's Claude Code CLI (in the list) / send the message (in the box)"),
-        ("r", "Retry the blocked conversation / resume one paused at a limit"),
+        ("r", "Blocked: run the failed task again / resume one paused at a limit"),
         ("t", "Tasks editor (queue, schedule, pause, auto-continue)"),
         ("p", "Approve a tool call Claude is waiting on"),
         ("x", "Archive (moves it to Archive, h)"),
@@ -83,7 +82,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
     ("Queue detail", [
         ("enter", "Show the run's commit diff"),
         ("a", "Add a prompt (this queue's path prefilled)"),
-        ("r", "Retry a blocked queue / resume one paused at a limit"),
+        ("r", "Blocked: run the failed task again / resume one paused at a limit"),
     ]),
     ("Preset prompt editor (Settings → Add / Edit)", [
         ("ctrl+s", "Save"),
