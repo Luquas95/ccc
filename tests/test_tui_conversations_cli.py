@@ -278,3 +278,18 @@ async def test_claude_keys_are_in_the_key_strip_while_claude_is_open(storage, pa
         await app.screen._refresh_current()
         assert pane.shown is None  # and it stays closed
         assert "Alt+0" not in [shown for shown, _, _ in footer_items(app)]
+
+
+@pytest.mark.asyncio
+async def test_app_start_closes_a_pane_left_by_the_previous_process(storage, pane, monkeypatch):
+    from ccc.tui.app import CCContinueApp
+    from ccc.tui.dashboard import DashboardScreen
+
+    monkeypatch.setattr(cli_pane, "style_window", lambda: None)
+    monkeypatch.setattr(cli_pane, "find_strip", lambda: None)
+    pane.shown, pane.bar = _ids(storage)["cli"], True  # left by a killed ccc
+    app = CCContinueApp(str(storage.db_path))
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        assert isinstance(app.screen, DashboardScreen)
+        assert pane.shown is None and pane.bar is False
