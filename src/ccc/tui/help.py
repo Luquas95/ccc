@@ -1,10 +1,13 @@
-"""All keyboard shortcuts in one window (? on any screen)."""
+"""The help window (? on any screen): the user guide in ccc.help plus
+every keyboard shortcut."""
 from __future__ import annotations
 
-from rich.table import Table
-from textual.containers import Container, VerticalScroll
+from textual.containers import Container, Horizontal, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import Static
+from textual.widgets import Markdown, OptionList
+from textual.widgets.option_list import Option
+
+from ccc import help as help_topics
 
 from ccc.tui.layout import MODAL_CSS
 
@@ -97,7 +100,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
 _PRETTY = {
     "question_mark": "?", "escape": "Esc", "enter": "Enter", "slash": "/", "delete": "Del",
     "ctrl+d": "Ctrl+D", "ctrl+p": "Ctrl+P", "ctrl+t": "Ctrl+T", "ctrl+q": "Ctrl+Q", "left": "←", "right": "→",
-    **{f"alt+{n}": f"Alt+{n}" for n in range(1, 10)}, "ctrl+j": "Ctrl+J", "ctrl+s": "Ctrl+S", "ctrl+up": "Ctrl+↑", "ctrl+down": "Ctrl+↓",
+    **{f"alt+{n}": f"Alt+{n}" for n in range(0, 10)}, "ctrl+right_square_bracket": "Ctrl+]", "ctrl+j": "Ctrl+J", "ctrl+s": "Ctrl+S", "ctrl+up": "Ctrl+↑", "ctrl+down": "Ctrl+↓",
 }
 
 
@@ -105,35 +108,94 @@ def pretty_key(key: str) -> str:
     return _PRETTY.get(key, key)
 
 
-class KeyHelpModal(ModalScreen):
-    DEFAULT_CSS = MODAL_CSS.format(cls="KeyHelpModal") + """
-    KeyHelpModal > Container {
-        width: 90%;
-        max-width: 100;
-        height: 90%;
+def keys_markdown() -> str:
+    """KEY_HELP as the "Keyboard shortcuts" help topic (help/keys.md is
+    this, kept in sync by a test)."""
+    lines = [
+        "# Keyboard shortcuts",
+        "",
+        "Keys without Ctrl or Alt don't work while you're typing in a text field;",
+        "Ctrl and Alt keys work everywhere. The bar at the bottom of the window",
+        "lists the keys of the screen you're on — click one to press it.",
+    ]
+    for section, entries in KEY_HELP:
+        lines += ["", f"## {section}", "", "| Key | |", "|---|---|"]
+        lines += [f"| `{pretty_key(key)}` | {description.replace('|', '\\|')} |" for key, description in entries]
+    return "\n".join(lines) + "\n"
+
+
+class HelpScreen(ModalScreen):
+    """The user guide (ccc.help): topics on the left, the selected one on
+    the right. Opens on the topic of the screen you came from."""
+
+    DEFAULT_CSS = MODAL_CSS.format(cls="HelpScreen") + """
+    HelpScreen > Container {
+        width: 95%;
+        max-width: 140;
+        height: 95%;
+        padding: 0 1;
     }
-    KeyHelpModal VerticalScroll {
+    HelpScreen Horizontal {
         height: 1fr;
+    }
+    HelpScreen #help-topics {
+        width: 34;
+        height: 1fr;
+        border: none;
+        padding: 0;
+    }
+    HelpScreen #help-scroll {
+        width: 1fr;
+        height: 1fr;
+        padding: 0 1 0 2;
+    }
+    HelpScreen #help-text {
+        margin: 0;
     }
     """
 
     BINDINGS = [("escape", "close", "Close"), ("question_mark", "close", "Close")]
 
+    def __init__(self, topic: str = "getting-started"):
+        super().__init__()
+        slugs = [slug for slug, _ in help_topics.TOPICS]
+        self.topic = topic if topic in slugs else slugs[0]
+
     def compose(self):
-        table = Table.grid(padding=(0, 2))
-        table.add_column(style="bold cyan", no_wrap=True)
-        table.add_column()
-        for section, entries in KEY_HELP:
-            table.add_row("", "")
-            table.add_row(f"[bold green]{section}[/]", "")
-            for key, description in entries:
-                table.add_row(pretty_key(key), description)
-        self.plain_text = "\n".join(
-            f"{section}\n" + "\n".join(f"{pretty_key(k)}  {d}" for k, d in entries) for section, entries in KEY_HELP
+        topics = OptionList(*[Option(title, id=slug) for slug, title in help_topics.TOPICS], id="help-topics")
+        box = Container(
+            Horizontal(
+                topics,
+                VerticalScroll(Markdown(id="help-text", open_links=False), id="help-scroll"),
+            )
         )
-        box = Container(VerticalScroll(Static(table, id="key-help-text")))
-        box.border_title = "Keyboard shortcuts  ·  Esc close"
+        box.border_title = "Help  ·  ↑↓ topic  ·  Tab text / topics  ·  Esc close"
         yield box
+
+    def on_mount(self) -> None:
+        topics = self.query_one("#help-topics", OptionList)
+        topics.highlighted = topics.get_option_index(self.topic)
+        topics.focus()
+        self.show_topic(self.topic)
+
+    def show_topic(self, slug: str) -> None:
+        self.topic = slug
+        text = keys_markdown() if slug == "keys" else help_topics.for_terminal(help_topics.read(slug))
+        self.query_one("#help-text", Markdown).update(text)
+        self.query_one("#help-scroll", VerticalScroll).scroll_home(animate=False)
+
+    def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
+        if event.option.id and event.option.id != self.topic:
+            self.show_topic(event.option.id)
+
+    def on_markdown_link_clicked(self, event: Markdown.LinkClicked) -> None:
+        # Links between topics are "tasks.md"; anything else goes to the browser.
+        slug = event.href.split("#")[0].removesuffix(".md")
+        topics = self.query_one("#help-topics", OptionList)
+        if event.href.split("#")[0].endswith(".md") and slug in dict(help_topics.TOPICS):
+            topics.highlighted = topics.get_option_index(slug)
+        elif event.href.startswith(("http://", "https://")):
+            self.app.open_url(event.href)
 
     def action_close(self) -> None:
         self.dismiss()

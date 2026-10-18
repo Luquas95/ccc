@@ -18,6 +18,18 @@ from ccc.tui.layout import (
 
 PATH_COLUMN_WIDTH = 48
 
+# Instead of an empty table, until the first conversation exists.
+GETTING_STARTED = """\
+[b]No conversations yet.[/b] Three steps to your first one:
+
+  [b cyan]1.[/]  Press [b]n[/b] (or New conversation in Conversations), pick a project folder,
+      tick the Claude Code options you want, Start.
+  [b cyan]2.[/]  Claude Code opens beside ccc in Conversations — talk to it as in a terminal.
+  [b cyan]3.[/]  Queue more work with [b]t[/b]. ccc carries on when you close it (Ctrl+Q)
+      and waits out usage limits by itself.
+
+Press [b]?[/b] for the guide — every screen, every key."""
+
 
 def _shorten_path(path: str) -> str:
     """Keep the informative tail of long paths so the table doesn't need a
@@ -40,6 +52,7 @@ class DashboardScreen(SidebarScreen):
 
     def compose_main(self):
         yield panel(Static(id="dashboard-overview"), title="Overview")
+        yield panel(Static(GETTING_STARTED), title="Getting started", id="dashboard-welcome")
         yield panel(DataTable(id="dashboard-table"), title="Queues", fill=True)
 
     def on_mount(self) -> None:
@@ -75,6 +88,8 @@ class DashboardScreen(SidebarScreen):
         if queues and cursor_row is not None:
             table.move_cursor(row=min(cursor_row, len(queues) - 1))
 
+        # Archived ones count too: by then you know your way around.
+        self.query_one("#dashboard-welcome").display = not self.storage.list_queues()
         blocked_text = f"[bold red]{blocked} blocked[/]" if blocked else "0 blocked"
         running_text = f"[bold green]{running} running[/]" if running else "0 running"
         self.query_one("#dashboard-overview", Static).update(

@@ -311,7 +311,7 @@ class SidebarScreen(Screen):
         Binding("s", "goto('sessions')", "Live sessions", show=False),
         Binding("v", "goto('analytics')", "Analytics", show=False),
         Binding("n", "new_conversation", "New conversation", show=False),
-        Binding("question_mark", "key_help", "Keys"),
+        Binding("question_mark", "key_help", "Help"),
     ]
 
     def __init__(self, storage):
@@ -455,9 +455,10 @@ class SidebarScreen(Screen):
             self.app.switch_screen(screen)
 
     def action_key_help(self) -> None:
-        from ccc.tui.help import KeyHelpModal
+        from ccc.help import VIEW_TOPICS
+        from ccc.tui.help import HelpScreen
 
-        self.app.push_screen(KeyHelpModal())
+        self.app.push_screen(HelpScreen(VIEW_TOPICS.get(self.VIEW, "getting-started")))
 
     def action_new_conversation(self) -> None:
         from ccc.tui.new_conversation import NewConversationModal
