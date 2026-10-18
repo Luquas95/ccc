@@ -59,3 +59,48 @@ async def test_pressing_c_opens_conversations_screen(tmp_path):
         from ccc.tui.conversations import ConversationsScreen
 
         assert isinstance(app.screen, ConversationsScreen)
+
+
+@pytest.mark.asyncio
+async def test_retry_button_only_for_a_blocked_queue(tmp_path):
+    from ccc.models import QueueStatus
+    from ccc.storage import Storage
+    from ccc.tui.conversations import ConversationsScreen
+
+    db_path = str(tmp_path / "history.db")
+    storage = Storage(db_path)
+    ok = storage.create_queue("ok", str(tmp_path), "s-ok")
+    stuck = storage.create_queue("stuck", str(tmp_path), "s-stuck")
+    storage.update_queue_status(stuck.id, QueueStatus.BLOCKED_ERROR, last_error="boom")
+
+    app = CCContinueApp(db_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        button = app.screen.query_one("#sidebar-retry")
+        table = app.screen.query_one("#dashboard-table")
+        rows = [q.id for q in storage.list_queues()]
+        table.move_cursor(row=rows.index(ok.id))
+        await pilot.pause()
+        assert not button.display
+        table.move_cursor(row=rows.index(stuck.id))
+        await pilot.pause()
+        assert button.display
+        await pilot.press("r")  # retried: nothing left to retry
+        await pilot.pause()
+        assert not button.display
+
+        storage.update_queue_status(stuck.id, QueueStatus.PAUSED_LIMIT)
+        await app.push_screen(ConversationsScreen(storage, select_queue_id=ok.id))
+        await pilot.pause()
+        assert not app.screen.query_one("#sidebar-retry").display
+        app.screen.open_conversation(stuck.id)
+        await pilot.pause()
+        assert app.screen.query_one("#sidebar-retry").display
+
+
+@pytest.mark.asyncio
+async def test_no_retry_button_without_conversations(tmp_path):
+    app = CCContinueApp(str(tmp_path / "history.db"))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert not app.screen.query_one("#sidebar-retry").display
