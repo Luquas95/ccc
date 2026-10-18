@@ -33,6 +33,7 @@ class SidebarButton:
 VIEWS: list[tuple[str, str, str]] = [
     ("dashboard", "Dashboard", "d"),
     ("conversations", "Conversations", "c"),
+    ("archive", "Archive", "h"),
     ("sessions", "Live sessions", "s"),
     ("analytics", "Analytics", "v"),
 ]
@@ -304,6 +305,7 @@ class SidebarScreen(Screen):
     BINDINGS = [
         Binding("d", "goto('dashboard')", "Dashboard", show=False),
         Binding("c", "goto('conversations')", "Conversations", show=False),
+        Binding("h", "goto('archive')", "Archive", show=False),
         Binding("s", "goto('sessions')", "Live sessions", show=False),
         Binding("v", "goto('analytics')", "Analytics", show=False),
         Binding("n", "new_conversation", "New conversation", show=False),
@@ -403,6 +405,10 @@ class SidebarScreen(Screen):
             from ccc.tui.conversations import ConversationsScreen
 
             return ConversationsScreen(self.storage, **kwargs)
+        if view == "archive":
+            from ccc.tui.archive import ArchiveScreen
+
+            return ArchiveScreen(self.storage, **kwargs)
         if view == "sessions":
             from ccc.tui.session_picker import SessionPickerScreen
 

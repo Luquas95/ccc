@@ -14,6 +14,7 @@ from ccc.tui.layout import ConfirmModal
 class FakePane:
     def __init__(self):
         self.shown = None  # queue id shown in the pane, None = no pane
+        self.bar = False  # the bar under it
         self.focused = 0
         self.closed = 0
 
@@ -23,12 +24,17 @@ class FakePane:
     def open(self, queue_id, title="", db_path=None):
         self.db_path = db_path
         self.shown = queue_id
+        self.bar = self.bar or db_path is not None
         return "%1"
 
     def close(self):
         if self.shown is not None:
             self.closed += 1
         self.shown = None
+        self.bar = False
+
+    def find_bar(self):
+        return "%2" if self.bar else None
 
     def focus(self):
         self.focused += 1
@@ -39,7 +45,7 @@ def pane(monkeypatch, tmp_path):
     monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
     fake = FakePane()
     monkeypatch.setattr(cli_pane, "available", lambda: True)
-    for name in ("find", "open", "close", "focus"):
+    for name in ("find", "open", "close", "focus", "find_bar"):
         monkeypatch.setattr(cli_pane, name, getattr(fake, name))
     return fake
 
@@ -174,3 +180,116 @@ async def test_menu_keeps_its_size_with_claude_open(storage, pane):
         assert app.screen.has_class("-cli-open")
         assert table.region == closed
         assert not app.screen.query("#cli-hint")
+
+
+@pytest.mark.asyncio
+async def test_archiving_closes_the_bar_left_by_the_ended_pane(storage, pane):
+    ids = _ids(storage)
+    app = _host(ConversationsScreen(storage, select_queue_id=ids["cli"]))
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        assert pane.shown == ids["cli"] and pane.bar
+        app.screen.action_toggle_archive()
+        pane.shown = None  # the daemon stopped Claude: its pane ended
+        await app.screen._refresh_current()
+        await pilot.pause()
+        assert not pane.bar  # no bar left over the whole column
+        assert app.screen._current_queue_id == ids["headless"]  # the next one
+        assert not app.screen.has_class("-no-conversation")
+
+
+@pytest.mark.asyncio
+async def test_archive_view_shows_an_archived_interactive_transcript(storage, pane):
+    from ccc.tui.archive import ArchiveScreen
+
+    ids = _ids(storage)
+    storage.set_queue_archived(ids["cli"], True)
+    app = _host(ArchiveScreen(storage, select_queue_id=ids["cli"]))
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        assert pane.shown is None  # nothing runs for an archived one
+        assert not app.screen.has_class("-no-conversation")
+        assert app.screen.query_one("#conversation-transcript").display
+        assert not app.screen.query_one("#message-input").display
+        header = str(app.screen.query_one("#conversation-header").render())
+        assert "x restores it" in header and "Claude Code CLI" not in header
+
+
+@pytest.mark.asyncio
+async def test_archiving_the_last_conversation_shows_no_conversation(storage, pane):
+    ids = _ids(storage)
+    storage.set_queue_archived(ids["headless"], True)
+    app = _host(ConversationsScreen(storage, select_queue_id=ids["cli"]))
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        assert pane.shown == ids["cli"] and not app.screen.has_class("-no-conversation")
+        app.screen.action_toggle_archive()  # the list is empty now
+        pane.shown = None  # the daemon stopped Claude: its pane ended
+        await app.screen._refresh_current()
+        await pilot.pause()
+        assert app.screen._current_queue_id is None
+        assert not pane.bar
+        assert app.screen.has_class("-no-conversation")
+        banner = app.screen.query_one("#no-conversation")
+        assert banner.display and banner.region.width > 0
+        assert "█" in str(banner.render())
+        # Only the banner in the main column (the presets row too is hidden).
+        main = app.screen.query_one("#main")
+        assert [w.id for w in main.children if w.display] == ["no-conversation"]
+
+
+@pytest.mark.asyncio
+async def test_restore_from_archive_keeps_the_claude_pane_open(storage, pane):
+    from ccc.tui.archive import ArchiveScreen
+
+    ids = _ids(storage)
+    storage.set_queue_archived(ids["cli"], True)
+    app = _host(ArchiveScreen(storage, select_queue_id=ids["cli"]))
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        app.screen.action_restore_and_open()
+        for _ in range(5):
+            await pilot.pause()
+        assert type(app.screen) is ConversationsScreen
+        # The Archive screen going away must not close Conversations' pane.
+        assert pane.shown == ids["cli"] and pane.closed == 0
+        await app.screen._refresh_current()
+        assert pane.shown == ids["cli"]
+
+
+@pytest.mark.asyncio
+async def test_claude_keys_are_in_the_key_strip_while_claude_is_open(storage, pane, monkeypatch):
+    from ccc.tui.footer_strip import footer_items
+
+    ids = _ids(storage)
+    app = _host(ConversationsScreen(storage, select_queue_id=ids["headless"]))
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        keys = [shown for shown, _, _ in footer_items(app)]
+        assert "Alt+0" not in keys and "Ctrl+]" not in keys
+        await app.screen._show_queue(ids["cli"])
+        await pilot.pause()
+        items = {shown: key for shown, _, key in footer_items(app)}
+        assert items["Alt+0"] == "M-0" and items["Ctrl+]"] == "C-]"
+        focused = pane.focused
+        app.screen.action_focus_claude()
+        assert pane.focused == focused + 1
+        app.screen.action_close_claude()
+        await app.screen._refresh_current()
+        assert pane.shown is None  # and it stays closed
+        assert "Alt+0" not in [shown for shown, _, _ in footer_items(app)]
+
+
+@pytest.mark.asyncio
+async def test_app_start_closes_a_pane_left_by_the_previous_process(storage, pane, monkeypatch):
+    from ccc.tui.app import CCContinueApp
+    from ccc.tui.dashboard import DashboardScreen
+
+    monkeypatch.setattr(cli_pane, "style_window", lambda: None)
+    monkeypatch.setattr(cli_pane, "find_strip", lambda: None)
+    pane.shown, pane.bar = _ids(storage)["cli"], True  # left by a killed ccc
+    app = CCContinueApp(str(storage.db_path))
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        assert isinstance(app.screen, DashboardScreen)
+        assert pane.shown is None and pane.bar is False

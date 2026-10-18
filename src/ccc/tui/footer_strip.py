@@ -22,7 +22,7 @@ POLL_SECONDS = 0.3
 
 # Textual key names → tmux key names, for clicks (send-keys).
 _TMUX_KEYS = {"question_mark": "?", "slash": "/", "escape": "Escape", "enter": "Enter",
-              "delete": "DC", "space": "Space", "left": "Left", "right": "Right", "up": "Up", "down": "Down"}
+              "delete": "DC", "ctrl+right_square_bracket": "C-]", "space": "Space", "left": "Left", "right": "Right", "up": "Up", "down": "Down"}
 
 
 def tmux_key(key: str) -> str | None:
@@ -31,6 +31,8 @@ def tmux_key(key: str) -> str | None:
         return _TMUX_KEYS[key]
     if key.startswith("ctrl+") and len(key) == 6:
         return f"C-{key[-1]}"
+    if key.startswith("alt+") and len(key) == 5:
+        return f"M-{key[-1]}"
     if len(key) == 1:
         return key
     return None
@@ -113,9 +115,15 @@ class FooterStrip(App):
         widget = event.widget
         if widget is None or not widget.has_class("strip-item") or not widget.name:
             return
-        # Press that key in ccc, where it belongs.
+        # Press that key in ccc, where it belongs — as if typed (-K, through
+        # the client), so keys tmux binds while Claude Code is open (Alt+0)
+        # do what they do when pressed.
         _tmux("select-pane", "-t", self.main_pane)
-        _tmux("send-keys", "-t", self.main_pane, widget.name)
+        client = _tmux("display-message", "-p", "-t", self.main_pane, "#{client_name}").stdout.strip()
+        if client:
+            _tmux("send-keys", "-K", "-c", client, widget.name)
+        else:
+            _tmux("send-keys", "-t", self.main_pane, widget.name)
 
 
 def main() -> None:

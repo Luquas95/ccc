@@ -25,6 +25,7 @@ from ccc.tui.layout import (
     queue_label,
 )
 from ccc.tui.message_box import MessageBox
+from ccc.tui.pixel_text import PixelBanner
 from ccc.tui.prompt_presets import ALT_DIGIT_CHARS, ALT_DIGIT_TEXT, bar_item
 
 
@@ -36,6 +37,11 @@ MAX_RENDERED_EVENTS = 60
 class ConversationsScreen(SidebarScreen):
     VIEW = "conversations"
     SUB_TITLE = "Conversations"
+    # Which conversations the list shows: the active ones here, the
+    # archived ones in the Archive view (tui.archive).
+    ARCHIVED = False
+    # Big pixel text when there's nothing to show (see _shows_nothing).
+    BANNER_TEXT = "NO CONVERSATION"
 
     BINDINGS = [
         # Back = Dashboard (d) and Retry has its sidebar button.
@@ -43,11 +49,15 @@ class ConversationsScreen(SidebarScreen):
         Binding("r", "retry_queue", "Retry / resume", show=False),
         ("t", "tasks", "Tasks"),
         ("x", "toggle_archive", "Archive"),
-        ("h", "toggle_show_archived", "Show archived"),
         # No Ctrl+D (delete): it exits Claude Code — new key in #31.
         ("slash", "search", "Search"),
         ("e", "export", "Export conversation"),
         ("p", "approve", "Approve"),
+        # While Claude Code is open beside ccc — listed in the key strip;
+        # pressed in the Claude pane they're tmux's (cli_pane.key_bindings,
+        # attach_cli's Ctrl+]), clicked in the strip they land here.
+        Binding("alt+0", "focus_claude", "Claude ↔ ccc", key_display="Alt+0"),
+        Binding("ctrl+right_square_bracket", "close_claude", "Close Claude", key_display="Ctrl+]"),
         # Preset prompts (Settings); priority so they work while typing.
         *[Binding(f"alt+{n}", f"prompt_preset({n})", f"Preset {n}", show=False, priority=True) for n in range(1, 10)],
         *[Binding(ALT_DIGIT_CHARS[n], f"prompt_preset({n}, True)", f"Preset {n}", show=False, priority=True)
@@ -65,6 +75,25 @@ class ConversationsScreen(SidebarScreen):
     ConversationsScreen.-cli-open #main {
         display: none;
     }
+    /* An archived interactive conversation has no Claude Code to show. */
+    ConversationsScreen #no-conversation {
+        display: none;
+        width: 1fr;
+        height: 1fr;
+        background: black;
+        color: green;
+        text-style: bold;
+        content-align: center middle;
+    }
+    ConversationsScreen.-no-conversation #main {
+        background: black;
+    }
+    ConversationsScreen.-no-conversation #main > * {
+        display: none;
+    }
+    ConversationsScreen.-no-conversation #main > #no-conversation {
+        display: block;
+    }
     ConversationsScreen #conversation-transcript {
         width: 1fr;
         height: 1fr;
@@ -76,6 +105,9 @@ class ConversationsScreen(SidebarScreen):
     ConversationsScreen #prompt-presets-bar {
         height: auto;
         padding: 0 1;
+    }
+    ConversationsScreen #prompt-presets-bar.-empty {
+        display: none;
     }
     ConversationsScreen #prompt-presets-bar .prompt-preset-item {
         width: auto;
@@ -159,7 +191,6 @@ class ConversationsScreen(SidebarScreen):
         # tool_use_id -> the result widget of a rendered tool call, so a
         # result arriving later can be filled in.
         self._tool_results: dict[str, Static] = {}
-        self._show_archived = False
         # What the transcript pane currently shows (queue, event count,
         # pending item ids) — re-render only when this changes.
         self._rendered_key: tuple | None = None
@@ -184,6 +215,7 @@ class ConversationsScreen(SidebarScreen):
         yield Static(id="conversation-status")
         yield MessageBox(placeholder="Message Claude… (Enter send · Ctrl+J new line · Esc back)", id="message-input")
         yield Horizontal(id="prompt-presets-bar")
+        yield PixelBanner(self.BANNER_TEXT, id="no-conversation")
 
     async def on_mount(self) -> None:
         table = self.query_one("#conversation-queue-list", DataTable)
@@ -199,6 +231,8 @@ class ConversationsScreen(SidebarScreen):
             # right panel is deterministically populated on open.
             self._move_cursor_to_current()
             await self._show_queue(self._current_queue_id)
+        else:
+            self._sync_cli_pane()
         # set_interval accepts an async callback directly (confirmed live
         # with a standalone sandbox script — no run_worker wrapper needed).
         self.set_interval(2.0, self._refresh_current)
@@ -226,7 +260,7 @@ class ConversationsScreen(SidebarScreen):
             (q.id, queue_label(q, q.id in unseen and q.id != self._current_queue_id,
                                self.storage.count_pending_items(q.id), needs_approval=q.id in waiting))
             for q in self.storage.list_queues()
-            if self._show_archived or not q.archived
+            if q.archived == self.ARCHIVED
         ]
 
     def _move_cursor_to_current(self) -> None:
@@ -261,10 +295,17 @@ class ConversationsScreen(SidebarScreen):
         queue = self.storage.find_queue(self._current_queue_id)
         return queue if queue is not None and queue.delivery_mode.managed and not queue.archived else None
 
+    def _shows_nothing(self, queue: Queue | None) -> bool:
+        """Nothing selected (the last one archived), or an archived
+        interactive one: no Claude Code to show."""
+        return queue is None or (queue.delivery_mode.managed and queue.archived)
+
     def _sync_cli_pane(self) -> None:
         """Open, switch or close the Claude Code pane to match the selected
         conversation. Closed while another window (dialog, Settings) is on
         top, so that one gets the whole width."""
+        queue = self.storage.find_queue(self._current_queue_id) if self._current_queue_id is not None else None
+        self.set_class(self._shows_nothing(queue), "-no-conversation")
         if not cli_pane.available():
             return
         queue = self._cli_queue()
@@ -277,10 +318,28 @@ class ConversationsScreen(SidebarScreen):
             want = False
         if want:
             want = cli_pane.open(queue.id, queue.name, self.storage.db_path) is not None
-        elif shown is not None:
+        elif shown is not None or cli_pane.find_bar() is not None:
+            # Also when Claude's pane ended by itself (archived: its
+            # session was stopped; Ctrl+]): the bar under it would stay
+            # and take the whole column.
             cli_pane.close()
         self._cli_open_for = queue.id if want else None
-        self.set_class(want, "-cli-open")
+        if want != self.has_class("-cli-open"):
+            self.set_class(want, "-cli-open")
+            self.refresh_bindings()  # Alt+0 / Ctrl+] in the key strip
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        if action in ("focus_claude", "close_claude"):
+            return self.has_class("-cli-open")
+        return super().check_action(action, parameters)
+
+    def action_focus_claude(self) -> None:
+        cli_pane.focus()
+
+    def action_close_claude(self) -> None:
+        # Like Ctrl+] in the pane: closed until Enter in the list.
+        self._cli_closed_for = self._cli_open_for
+        self._sync_cli_pane()
 
     def _focus_cli(self) -> bool:
         """Put the keyboard into the selected conversation's Claude Code
@@ -313,14 +372,19 @@ class ConversationsScreen(SidebarScreen):
 
     def on_screen_suspend(self) -> None:
         # A dialog / Settings / another view on top: give it the window.
-        if cli_pane.available() and cli_pane.find() is not None:
-            cli_pane.close()
-        self._cli_open_for = None
+        self._close_own_cli_pane()
         self.remove_class("-cli-open")
 
     def on_unmount(self) -> None:
-        if cli_pane.available():
+        self._close_own_cli_pane()
+
+    def _close_own_cli_pane(self) -> None:
+        """Close the pane only if this screen opened it: going from Archive
+        to Conversations, Archive is unmounted after Conversations opened
+        its pane — closing it then looked like Ctrl+], and it stayed shut."""
+        if self._cli_open_for is not None and cli_pane.available():
             cli_pane.close()
+        self._cli_open_for = None
 
     def _load_transcript(self, queue_id: int) -> bool:
         """Read new transcript lines into the cache. Returns True if any new
@@ -427,9 +491,12 @@ class ConversationsScreen(SidebarScreen):
             (queue.name, "bold"), "  ", (queue.project_path, "dim"), "  ·  ", describe_flags(queue.launch_flags),
             "  ·  ", ("auto-continue on", "green") if queue.auto_continue else ("auto-continue off", "yellow"),
         ]
-        if queue.delivery_mode == DeliveryMode.REMOTE_CONTROL:
+        if queue.archived:
+            # Nothing runs for it: no remote control, no CLI to open.
+            parts += ["\n", ("archived: ", "bold"), ("x restores it, Enter restores and opens it, Delete deletes it", "cyan")]
+        elif queue.delivery_mode == DeliveryMode.REMOTE_CONTROL:
             parts += ["\n", ("remote control: ", "bold"), (queue.remote_control_url or "starting…", "cyan")]
-        if queue.delivery_mode.managed:
+        if queue.delivery_mode.managed and not queue.archived:
             parts += ["\n", ("Claude Code CLI: ", "bold"),
                       ("Enter in the list opens it" + ("" if cli_pane.available() else " (full screen, Ctrl+] back)"),
                        "cyan")]
@@ -480,9 +547,9 @@ class ConversationsScreen(SidebarScreen):
             # New/removed conversation, or a marker / pending count changed.
             self._rebuild_queue_list()
             self._move_cursor_to_current()
+        self._sync_cli_pane()
         if self._current_queue_id is None:
             return
-        self._sync_cli_pane()
         queue_id = self._current_queue_id
         self._load_transcript(queue_id)
         queue = self.storage.get_queue(queue_id)
@@ -534,7 +601,9 @@ class ConversationsScreen(SidebarScreen):
         )
         if presets:
             await bar.mount(Static("⏎ sends  ·  ✎ inserts", id="prompt-presets-legend"))
-        bar.display = bool(presets)
+        # A class, not bar.display: an inline display would beat the
+        # -no-conversation rule hiding everything in #main.
+        bar.set_class(not presets, "-empty")
 
     async def on_screen_resume(self) -> None:
         # Back from Settings (or any window): presets may have changed.
@@ -577,6 +646,11 @@ class ConversationsScreen(SidebarScreen):
         self.notify(preset.name, title="Sent")
 
     def open_conversation(self, queue_id: int) -> None:
+        if self.storage.get_queue(queue_id).archived != self.ARCHIVED:
+            # Its list is the other view's (Conversations / Archive).
+            view = "archive" if not self.ARCHIVED else "conversations"
+            self._navigate(view, self._make_view(view, select_queue_id=queue_id))
+            return
         # Already on this screen: just select it in place.
         self._rebuild_queue_list()
         self._current_queue_id = queue_id
@@ -615,14 +689,9 @@ class ConversationsScreen(SidebarScreen):
             return
         queue = self.storage.get_queue(self._current_queue_id)
         self.storage.set_queue_archived(queue.id, not queue.archived)
-        if not queue.archived and not self._show_archived:
-            self._select_neighbour()
+        # It moved to the other view's list.
+        self._select_neighbour()
         self.run_worker(self._refresh_current(), exclusive=True, group="refresh")
-
-    def action_toggle_show_archived(self) -> None:
-        self._show_archived = not self._show_archived
-        self._rebuild_queue_list()
-        self._move_cursor_to_current()
 
     def action_delete_conversation(self) -> None:
         if self._current_queue_id is None:
@@ -672,6 +741,7 @@ class ConversationsScreen(SidebarScreen):
         self._rebuild_queue_list()
         self._move_cursor_to_current()
         if self._current_queue_id is None:
+            self._sync_cli_pane()  # the NO CONVERSATION banner
             container = self.query_one("#conversation-transcript", VerticalScroll)
             await container.remove_children()
             await container.mount(Static("No conversation yet."))
@@ -684,11 +754,8 @@ class ConversationsScreen(SidebarScreen):
         from ccc.tui.search import SearchModal
 
         def chosen(queue_id: int | None) -> None:
-            if queue_id is None:
-                return
-            if self.storage.get_queue(queue_id).archived and not self._show_archived:
-                self._show_archived = True  # so the hit is visible in the list
-            self.open_conversation(queue_id)
+            if queue_id is not None:
+                self.open_conversation(queue_id)  # in Archive when archived
 
         self.app.push_screen(SearchModal(self.storage), chosen)
 

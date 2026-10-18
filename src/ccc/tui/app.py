@@ -47,6 +47,12 @@ class CCContinueApp(App):
         # Same frame in every view (see cli_pane.style_window); there the
         # key list is the strip under the window (footer_strip).
         cli_pane.style_window()
+        if cli_pane.available():
+            # A Claude Code pane left by the previous ccc process (killed,
+            # restarted): no screen of this one owns it, so none would close
+            # it and every view would sit in the sidebar column next to it.
+            # Conversations opens its own again.
+            cli_pane.close()
         self.footer_strip = cli_pane.available() and cli_pane.find_strip() is not None
         if self.footer_strip:
             self.set_interval(0.3, self.publish_footer)

@@ -134,21 +134,26 @@ async def test_analytics_shows_model_usage_bars(tmp_path, monkeypatch):
         bars = app.screen.query("#model-usage-gauges ProgressBar")
         assert len(bars) == 2
         percentages = sorted(round(b.percentage * 100) for b in bars)
-        assert percentages == [10, 100]  # opus scaled relative to busier sonnet
+        assert percentages == [9, 91]  # each model's share of the 220 tokens
 
         labels = [str(s.render()) for s in app.screen.query("#model-usage-gauges .usage-gauge-label")]
-        assert any("claude-sonnet-5" in label and "200" in label for label in labels)
-        assert any("claude-opus-5" in label and "20" in label for label in labels)
+        assert any("claude-sonnet-5" in label and "200 tokens" in label for label in labels)
+        assert any("claude-opus-5" in label and "20 tokens" in label for label in labels)
 
 
 def test_build_model_token_bars_empty():
     assert build_model_token_bars([]) == []
 
 
-def test_build_model_token_bars_scales_relative_to_busiest():
-    bars = build_model_token_bars([("claude-sonnet-5", 200), ("claude-opus-5", 20)])
-    assert bars[0].relative_pct == 100.0
-    assert bars[1].relative_pct == 10.0
+def test_build_model_token_bars_show_share_of_total():
+    bars = build_model_token_bars([("claude-sonnet-5", 300), ("claude-opus-5", 100)])
+    assert bars[0].share_pct == 75.0
+    assert bars[1].share_pct == 25.0
+
+
+def test_build_model_token_bars_single_model_is_whole_total():
+    bars = build_model_token_bars([("claude-opus-5", 42)])
+    assert bars[0].share_pct == 100.0
 
 
 def test_build_usage_gauges_none_returns_empty():

@@ -24,8 +24,8 @@ BAR_OPTION = "@ccc-bar"
 # ccc's key list as a 1-row pane under everything (footer_strip).
 STRIP_OPTION = "@ccc-strip"
 TITLE_OPTION = "@ccc-title"
-# Rows of the bar under Claude Code: preset prompts, keys.
-BAR_ROWS = 2
+# Rows of the bar under Claude Code: the preset prompts.
+BAR_ROWS = 1
 # Keys bound on ccc's server while the pane is open (root table: they
 # work in every pane, before the pane's program sees them). None of them
 # is a Claude Code key: Alt+digits and Ctrl+P are unused there; Tab
@@ -198,7 +198,6 @@ def _on_ccc_server() -> bool:
 CLIPBOARD_COMMANDS: tuple[tuple[str, ...], ...] = (
     ("set-option", "-s", "set-clipboard", "external"),
     ("set-option", "-s", "extended-keys", "on"),
-    ("set-option", "-as", "terminal-features", ",*:clipboard:extkeys"),
     *[("bind-key", "-T", table, "MouseDragEnd1Pane", "send-keys", "-X", "copy-pipe-and-cancel")
       for table in ("copy-mode", "copy-mode-vi")],
     *[("bind-key", "-T", table, "C-S-c", "send-keys", "-X", "copy-pipe-and-cancel")
@@ -210,6 +209,26 @@ CLIPBOARD_COMMANDS: tuple[tuple[str, ...], ...] = (
     # would only restart it. Not a Claude Code key.
     ("bind-key", "-n", "C-q", "detach-client"),
 )
+
+
+# Added to tmux's terminal-features once (see ensure_terminal_feature).
+TERMINAL_FEATURE = "*:clipboard:extkeys"
+
+
+def ensure_terminal_feature(feature: str = TERMINAL_FEATURE) -> None:
+    """`feature` in the server's terminal-features exactly once. Appending
+    it on every ccc start (set-option -as) grew the list by one copy per
+    restart; copies already there are removed."""
+    result = _tmux("show-options", "-s", "terminal-features")
+    found = []
+    for line in result.stdout.splitlines():
+        name, _, value = line.partition(" ")
+        if value.strip().strip('"') == feature and name.endswith("]"):
+            found.append(int(name[name.index("[") + 1:-1]))
+    for index in sorted(found)[1:][::-1]:  # from the end: indexes stay valid
+        _tmux("set-option", "-su", f"terminal-features[{index}]")
+    if not found:
+        _tmux("set-option", "-as", "terminal-features", f",{feature}")
 
 
 def style_window() -> None:
@@ -225,7 +244,14 @@ def style_window() -> None:
     _tmux("set-option", "-p", "-t", _own_pane(), TITLE_OPTION, "ccc")
     for command in CLIPBOARD_COMMANDS:
         _tmux(*command)
+    ensure_terminal_feature()
+    # No zoom (Ctrl+B z): ccc's layout stays as it is.
+    _tmux("unbind-key", "-T", "prefix", "z")
     ensure_strip()
+    if find() is None and find_bar() is not None:
+        # Left by a Claude Code pane that ended without ccc closing it
+        # (e.g. ccc restarted meanwhile): it would take Claude's column.
+        close()
 
 
 def open(queue_id: int, title: str = "", db_path: str | None = None) -> str | None:

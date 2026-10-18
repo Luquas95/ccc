@@ -14,6 +14,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
     ("Everywhere", [
         ("d", "Dashboard"),
         ("c", "Conversations"),
+        ("h", "Archive (archived conversations)"),
         ("s", "Live sessions"),
         ("v", "Analytics"),
         ("n", "New conversation"),
@@ -37,8 +38,9 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("r", "Retry the blocked conversation / resume one paused at a limit"),
         ("t", "Tasks editor (queue, schedule, pause, auto-continue)"),
         ("p", "Approve a tool call Claude is waiting on"),
-        ("x", "Archive / restore"),
-        ("h", "Show archived conversations"),
+        ("x", "Archive (moves it to Archive, h)"),
+        ("alt+0", "Switch between ccc and Claude Code (while it's open beside ccc)"),
+        ("ctrl+right_square_bracket", "Close Claude Code beside ccc (it keeps running; Enter in the list opens it)"),
         ("slash", "Search all conversations"),
         ("e", "Export the conversation as Markdown"),
         ("ctrl+j", "New line in the message box (Shift+Enter where supported)"),
@@ -51,6 +53,13 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("alt+7", "Preset prompt 7"),
         ("alt+8", "Preset prompt 8"),
         ("alt+9", "Preset prompt 9"),
+    ]),
+    ("Archive", [
+        ("x", "Restore the conversation"),
+        ("enter", "Restore it and open it in Conversations"),
+        ("delete", "Delete the conversation from ccc (asks first; Claude Code's transcript stays)"),
+        ("slash", "Search all conversations"),
+        ("e", "Export the conversation as Markdown"),
     ]),
     ("Tasks editor (t)", [
         ("a", "Add a task"),

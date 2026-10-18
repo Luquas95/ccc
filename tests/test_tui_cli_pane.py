@@ -14,6 +14,7 @@ class FakeTmux:
         self.panes = {"%0": {}}
         self.width = width
         self.next_id = 1
+        self.features = ["xterm*:clipboard:ccolour", "rxvt*:ignorefkeys"]
 
     def __call__(self, *args):
         self.calls.append(args)
@@ -30,6 +31,8 @@ class FakeTmux:
             out = pane
         elif args[0] == "set-option" and args[1] == "-p":
             self.panes[args[3]][args[4]] = args[5]
+        elif args[:3] == ("show-options", "-s", "terminal-features"):
+            out = "\n".join(f"terminal-features[{i}] {v}" for i, v in enumerate(self.features))
         elif args[0] == "kill-pane":
             self.panes.pop(args[2], None)
         return subprocess.CompletedProcess(args, 0, out + "\n", "")
@@ -113,7 +116,7 @@ def test_bar_opens_across_the_window_and_keys_are_bound(tmux):
     assert len(split) == 3  # Claude, the key strip (once), the bar
     bar_split = next(c for c in split if c[-1].endswith("/data/h.db"))
     # Under Claude Code, in its column — ccc's sidebar column is untouched.
-    assert bar_split[1:3] == ("-v", "-d") and "-b" not in bar_split and bar_split[bar_split.index("-l") + 1] == "2"
+    assert bar_split[1:3] == ("-v", "-d") and "-b" not in bar_split and bar_split[bar_split.index("-l") + 1] == "1"
     assert bar_split[bar_split.index("-t") + 1] == pane
     assert bar_split[-1].endswith("-m ccc.tui.cli_bar /data/h.db")
     bar = cli_pane.find_bar()
@@ -136,8 +139,8 @@ def test_layout_is_restored_when_the_window_resizes(tmux):
     strip = cli_pane.find_strip()
     hook = [c for c in tmux.calls if c[0] == "set-hook"][-1]
     assert hook[1:5] == ("-w", "-t", "%0", "window-resized")
-    assert hook[5] == f"resize-pane -t %0 -x 32 ; resize-pane -t {bar} -y 2 ; resize-pane -t {strip} -y 1"
-    assert ("resize-pane", "-t", bar, "-y", "2") in tmux.calls  # applied right away too
+    assert hook[5] == f"resize-pane -t %0 -x 32 ; resize-pane -t {bar} -y 1 ; resize-pane -t {strip} -y 1"
+    assert ("resize-pane", "-t", bar, "-y", "1") in tmux.calls  # applied right away too
 
 
 def test_close_removes_bar_and_keys(tmux):
@@ -147,7 +150,7 @@ def test_close_removes_bar_and_keys(tmux):
     strip = cli_pane.find_strip()
     assert [c for c in tmux.calls if c[0] == "set-hook"][-1][5] == f"resize-pane -t {strip} -y 1"
     assert cli_pane.find() is None and cli_pane.find_bar() is None
-    unbound = {c[2] for c in tmux.calls if c[0] == "unbind-key"}
+    unbound = {c[2] for c in tmux.calls if c[:2] == ("unbind-key", "-n")}
     assert unbound == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p"}
 
 
@@ -169,6 +172,14 @@ def test_title_bars_from_the_start_on_the_ccc_server(tmux):
     assert ("set-option", "-w", "-t", "%0", "pane-border-status", "top") in tmux.calls
     # The only split then: the key strip across the window.
     assert [c[1:6] for c in tmux.calls if c[0] == "split-window"] == [("-v", "-f", "-d", "-l", "1")]
+
+
+def test_style_window_removes_a_bar_left_without_claude(tmux):
+    cli_pane.open(4, "Kompas", "/data/h.db")
+    del tmux.panes[cli_pane.find()[0]]  # Claude's pane ended by itself
+    cli_pane.style_window()
+    assert cli_pane.find_bar() is None
+    assert cli_pane.find_strip() is not None
 
 
 def test_key_strip_is_created_once(tmux):
@@ -209,3 +220,19 @@ def test_clipboard_left_alone_on_a_foreign_tmux(tmux, monkeypatch):
 def test_ctrl_q_detaches_the_terminal_on_the_ccc_server(tmux):
     cli_pane.style_window()
     assert ("bind-key", "-n", "C-q", "detach-client") in tmux.calls
+
+
+def test_terminal_feature_added_once_and_copies_removed(tmux):
+    cli_pane.style_window()
+    assert ("set-option", "-as", "terminal-features", ",*:clipboard:extkeys") in tmux.calls
+    tmux.calls.clear()
+    tmux.features += ["*:clipboard:extkeys"] * 4  # left by earlier starts
+    cli_pane.style_window()
+    assert not any(c[:2] == ("set-option", "-as") for c in tmux.calls)
+    removed = [c[2] for c in tmux.calls if c[:2] == ("set-option", "-su")]
+    assert removed == ["terminal-features[5]", "terminal-features[4]", "terminal-features[3]"]
+
+
+def test_no_zoom_key_on_the_ccc_server(tmux):
+    cli_pane.style_window()
+    assert ("unbind-key", "-T", "prefix", "z") in tmux.calls
