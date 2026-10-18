@@ -52,19 +52,19 @@ def build_usage_gauges(usage: ProUsage | None) -> list[UsageGauge]:
 class ModelTokenBar:
     model: str
     tokens: int
-    relative_pct: float  # 0-100, scaled against the busiest model
+    share_pct: float  # 0-100, this model's share of all tokens in the period
 
 
 def build_model_token_bars(totals: list[tuple[str, int]]) -> list[ModelTokenBar]:
     """Bars comparing token volume across models ccc has actually
     run — its own recorded history, not an Anthropic account limit (which
     doesn't break down by model on every plan; see build_usage_gauges).
-    The busiest model is scaled to 100% so bars stay comparable to each
-    other even though there's no fixed ceiling like a usage-limit window."""
+    Each bar is the model's share of the period's total, so the bars add
+    up to 100%."""
     if not totals:
         return []
-    max_tokens = max(tokens for _, tokens in totals) or 1
-    return [ModelTokenBar(model, tokens, (tokens / max_tokens) * 100) for model, tokens in totals]
+    total = sum(tokens for _, tokens in totals) or 1
+    return [ModelTokenBar(model, tokens, (tokens / total) * 100) for model, tokens in totals]
 
 
 def month_series(by_day: dict[date, int], year: int, month: int) -> list[int]:
@@ -210,7 +210,7 @@ class AnalyticsScreen(SidebarScreen):
             await container.mount(Static("No tokens recorded in this month."))
             return
         for bar in bars:
-            await self._mount_gauge_row(container, bar.model, bar.relative_pct, f"{bar.tokens:,} tokens")
+            await self._mount_gauge_row(container, bar.model, bar.share_pct, f"{bar.tokens:,} tokens")
 
     async def _mount_gauge_row(self, container: Container, label: str, percentage: float, suffix: str) -> None:
         progress_bar = ProgressBar(total=100, show_eta=False)
