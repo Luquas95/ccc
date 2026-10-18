@@ -20,6 +20,7 @@ from ccc.tui import cli_pane
 from ccc.tui.layout import (
     NEW_CONVERSATION_BUTTON,
     RETRY_BUTTON,
+    RETRYABLE,
     ConfirmModal,
     SidebarScreen,
     queue_label,
@@ -203,6 +204,9 @@ class ConversationsScreen(SidebarScreen):
     def sidebar_buttons(self):
         return [NEW_CONVERSATION_BUTTON, RETRY_BUTTON]
 
+    def retry_target(self):
+        return self.storage.find_queue(self._current_queue_id) if self._current_queue_id is not None else None
+
     def compose_sidebar_section(self):
         yield Static("Queues", classes="sidebar-label")
         yield DataTable(id="conversation-queue-list", classes="sidebar-list")
@@ -283,6 +287,7 @@ class ConversationsScreen(SidebarScreen):
         self._current_queue_id = queue_id
         self.storage.mark_seen(queue_id)
         self._sync_cli_pane()
+        self.sync_retry_button()
         self._load_transcript(queue_id)
         await self._render_transcript(queue_id)
 
@@ -548,6 +553,7 @@ class ConversationsScreen(SidebarScreen):
             self._rebuild_queue_list()
             self._move_cursor_to_current()
         self._sync_cli_pane()
+        self.sync_retry_button()
         if self._current_queue_id is None:
             return
         queue_id = self._current_queue_id
@@ -666,7 +672,7 @@ class ConversationsScreen(SidebarScreen):
         if self._current_queue_id is None:
             return
         queue = self.storage.get_queue(self._current_queue_id)
-        if queue.status in (QueueStatus.BLOCKED_ERROR, QueueStatus.PAUSED_LIMIT):
+        if queue.status in RETRYABLE:
             # No in-process runtime to notify (this screen never executes
             # anything) — flipping the status is enough, the daemon picks
             # it up on its next poll.

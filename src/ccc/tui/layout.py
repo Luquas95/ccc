@@ -40,6 +40,8 @@ VIEWS: list[tuple[str, str, str]] = [
 
 ADD_PROMPT_BUTTON = SidebarButton("sidebar-add-prompt", "Add prompt (a)", "green", "add_prompt")
 RETRY_BUTTON = SidebarButton("sidebar-retry", "Retry blocked queue (r)", "red", "retry_queue")
+# What r (and the retry button) can get going again.
+RETRYABLE = (QueueStatus.BLOCKED_ERROR, QueueStatus.PAUSED_LIMIT)
 NEW_CONVERSATION_BUTTON = SidebarButton(
     "sidebar-new-conversation", "New conversation (n)", "green", "new_conversation"
 )
@@ -328,6 +330,10 @@ class SidebarScreen(Screen):
     def sidebar_buttons(self) -> list[SidebarButton]:
         return []
 
+    def retry_target(self) -> Queue | None:
+        """The queue the retry button acts on (the selected one)."""
+        return None
+
     # --- frame -----------------------------------------------------------
 
     def compose(self):
@@ -355,6 +361,13 @@ class SidebarScreen(Screen):
     def on_screen_resume(self) -> None:
         self.refresh_daemon_state()
 
+    def sync_retry_button(self) -> None:
+        """Show the retry button only while there is something to retry."""
+        buttons = self.query(f"#{RETRY_BUTTON.id}")
+        if buttons:
+            target = self.retry_target()
+            buttons.first().display = target is not None and target.status in RETRYABLE
+
     def on_mount(self) -> None:
         # Textual dispatches on_mount along the MRO, so this runs in
         # addition to each screen's own on_mount.
@@ -372,6 +385,7 @@ class SidebarScreen(Screen):
         else:
             text = Text("✖ daemon not running — queues are stopped", style="bold red")
         self.query_one("#daemon-state", Static).update(text)
+        self.sync_retry_button()
 
     @staticmethod
     def _make_button(spec: SidebarButton) -> Button:

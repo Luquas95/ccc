@@ -10,6 +10,7 @@ from ccc.models import QueueStatus
 from ccc.storage import Storage
 from ccc.tui.layout import (
     RETRY_BUTTON,
+    RETRYABLE,
     SidebarScreen,
     panel,
     queue_label,
@@ -78,6 +79,7 @@ class DashboardScreen(SidebarScreen):
             )
         if queues and cursor_row is not None:
             table.move_cursor(row=min(cursor_row, len(queues) - 1))
+        self.sync_retry_button()
 
         blocked_text = f"[bold red]{blocked} blocked[/]" if blocked else "0 blocked"
         running_text = f"[bold green]{running} running[/]" if running else "0 running"
@@ -88,6 +90,12 @@ class DashboardScreen(SidebarScreen):
 
     def _visible_queues(self):
         return [q for q in self.storage.list_queues() if not q.archived]
+
+    def retry_target(self):
+        return self._selected_queue()
+
+    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        self.sync_retry_button()
 
     def _selected_queue(self):
         table = self.query_one("#dashboard-table", DataTable)
@@ -115,7 +123,7 @@ class DashboardScreen(SidebarScreen):
 
     def action_retry_queue(self) -> None:
         queue = self._selected_queue()
-        if queue is not None and queue.status in (QueueStatus.BLOCKED_ERROR, QueueStatus.PAUSED_LIMIT):
+        if queue is not None and queue.status in RETRYABLE:
             # No in-process runtime to notify (the TUI never executes) —
             # flipping the status is enough, the daemon picks it up on its
             # next poll (at most POLL_INTERVAL_SECONDS later).
