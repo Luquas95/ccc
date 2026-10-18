@@ -9,8 +9,6 @@ from textual.widgets import DataTable, Static
 from ccc.models import QueueStatus
 from ccc.storage import Storage
 from ccc.tui.layout import (
-    RETRY_BUTTON,
-    RETRYABLE,
     SidebarScreen,
     panel,
     queue_label,
@@ -32,16 +30,13 @@ class DashboardScreen(SidebarScreen):
     SUB_TITLE = "Dashboard"
 
     BINDINGS = [
-        # Retry has its sidebar button; Ctrl+Q closes ccc everywhere.
-        Binding("r", "retry_queue", "Retry blocked", show=False),
+        # Only an overview: a blocked queue is retried in Conversations or
+        # its queue detail (Enter). Ctrl+Q closes ccc everywhere.
         Binding("q", "quit", "Close", show=False),
     ]
 
     def __init__(self, storage: Storage):
         super().__init__(storage)
-
-    def sidebar_buttons(self):
-        return [RETRY_BUTTON]
 
     def compose_main(self):
         yield panel(Static(id="dashboard-overview"), title="Overview")
@@ -79,7 +74,6 @@ class DashboardScreen(SidebarScreen):
             )
         if queues and cursor_row is not None:
             table.move_cursor(row=min(cursor_row, len(queues) - 1))
-        self.sync_retry_button()
 
         blocked_text = f"[bold red]{blocked} blocked[/]" if blocked else "0 blocked"
         running_text = f"[bold green]{running} running[/]" if running else "0 running"
@@ -90,19 +84,6 @@ class DashboardScreen(SidebarScreen):
 
     def _visible_queues(self):
         return [q for q in self.storage.list_queues() if not q.archived]
-
-    def retry_target(self):
-        return self._selected_queue()
-
-    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
-        self.sync_retry_button()
-
-    def _selected_queue(self):
-        table = self.query_one("#dashboard-table", DataTable)
-        queues = self._visible_queues()
-        if table.cursor_row is None or table.cursor_row >= len(queues):
-            return None
-        return queues[table.cursor_row]
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         # DataTable owns the "enter" key itself (action select_cursor),
@@ -120,15 +101,6 @@ class DashboardScreen(SidebarScreen):
 
     def action_view_analytics(self) -> None:
         self.action_goto("analytics")
-
-    def action_retry_queue(self) -> None:
-        queue = self._selected_queue()
-        if queue is not None and queue.status in RETRYABLE:
-            # No in-process runtime to notify (the TUI never executes) —
-            # flipping the status is enough, the daemon picks it up on its
-            # next poll (at most POLL_INTERVAL_SECONDS later).
-            self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
-            self.refresh_table()
 
     async def action_quit(self) -> None:
         await self.app.action_quit()

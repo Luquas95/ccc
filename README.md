@@ -185,8 +185,7 @@ you're typing in a text field; `Ctrl` keys work everywhere.
 | | `Ctrl+P` | [Settings](#settings) |
 | | `Ctrl+Q` | close ccc in this terminal — it keeps running (as does queued work); `ccc` opens it again |
 | | `Esc` | back / close a window |
-| Dashboard | `Enter` | queue detail (there: `Enter` on a run shows its commit diff, `a` adds a prompt with the queue's path prefilled) |
-| | `r` | retry a blocked queue / resume one paused at a usage limit |
+| Dashboard | `Enter` | queue detail (there: `Enter` on a run shows its commit diff, `a` adds a prompt with the queue's path prefilled, `r` retries it when blocked) |
 | Live sessions | `Enter` / `r` | send the session a prompt / reload the session list |
 | | `a` | add a prompt to a project's queue |
 | Conversations | `Enter` / `Ctrl+J` | send the message / new line |

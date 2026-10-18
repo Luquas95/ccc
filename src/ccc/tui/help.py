@@ -25,7 +25,6 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
     ]),
     ("Dashboard", [
         ("enter", "Open the queue detail"),
-        ("r", "Retry a blocked queue / resume one paused at a limit"),
         ("q", "Close ccc (same as Ctrl+Q)"),
     ]),
     ("Live sessions", [
