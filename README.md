@@ -508,12 +508,18 @@ Each conversation in the list (and on the dashboard) shows what it's doing:
 `✖` blocked on an error · `◆` a new reply you haven't looked at yet —
 followed by `·N` queued tasks.
 
-In the conversations view: `x` archives the selected conversation (hidden
-from the lists, still processed; `h` shows archived ones, `x` again
-restores). Deleting (its key, formerly `Ctrl+D` — which exits Claude Code —
-is being chosen in [#31](https://github.com/Luquas95/ccc/issues/31)) asks first; its queued tasks and the texts
-of its runs go, its token numbers stay in the history (Analytics and the
-archive show it as *deleted*), Claude Code's own transcript stays (so it can still be
+In the conversations view: `x` archives the selected conversation — it
+moves from Conversations and the dashboard to the **Archive** (`h`). An
+interactive (remote-control) conversation stops there: its Claude Code
+process ends and its queued tasks wait; a headless one keeps working
+through its queue. In the Archive `x` restores the conversation, `Enter`
+restores it and opens it in Conversations (an interactive one starts again
+with `--resume`, its history intact).
+
+`Delete` in the Archive deletes the conversation from ccc — archive it
+first. It asks first; its queued tasks and the texts of its runs go, its
+token numbers stay in the history (Analytics and the monthly archive show
+it as *deleted*), Claude Code's own transcript stays (so it can still be
 picked under *Resume selected…*). A conversation Claude is working on
 can't be deleted until it finishes or you pause it.
 
