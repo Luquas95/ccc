@@ -40,6 +40,8 @@ class ConversationsScreen(SidebarScreen):
     # Which conversations the list shows: the active ones here, the
     # archived ones in the Archive view (tui.archive).
     ARCHIVED = False
+    # Big pixel text when there's nothing to show (see _shows_nothing).
+    BANNER_TEXT = "NO CONVERSATION"
 
     BINDINGS = [
         # Back = Dashboard (d) and Retry has its sidebar button.
@@ -213,7 +215,7 @@ class ConversationsScreen(SidebarScreen):
         yield Static(id="conversation-status")
         yield MessageBox(placeholder="Message Claude… (Enter send · Ctrl+J new line · Esc back)", id="message-input")
         yield Horizontal(id="prompt-presets-bar")
-        yield PixelBanner("NO CONVERSATION", id="no-conversation")
+        yield PixelBanner(self.BANNER_TEXT, id="no-conversation")
 
     async def on_mount(self) -> None:
         table = self.query_one("#conversation-queue-list", DataTable)

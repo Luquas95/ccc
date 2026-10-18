@@ -210,6 +210,8 @@ async def test_delete_key_in_archive_asks_then_deletes(storage):
         assert storage.find_queue(b.id) is None
         assert _names(app.screen.query_one("#conversation-queue-list", DataTable)) == []
         assert app.screen.has_class("-no-conversation")
+        banner = app.screen.query_one("#no-conversation")
+        assert banner.banner_text == "EMPTY"
 
 
 @pytest.mark.asyncio

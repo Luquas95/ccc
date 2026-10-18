@@ -18,6 +18,7 @@ class ArchiveScreen(ConversationsScreen):
     VIEW = "archive"
     SUB_TITLE = "Archive"
     ARCHIVED = True
+    BANNER_TEXT = "EMPTY"
 
     BINDINGS = [
         ("x", "toggle_archive", "Restore"),
