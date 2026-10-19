@@ -11,7 +11,7 @@ now* act right away.
 
 | Section | |
 |---|---|
-| Appearance | colour theme — changes as you pick, kept after Save |
+| Appearance | language — *Auto* follows the system (`LANG`), saving another one restarts ccc's window; colour theme — changes as you pick, kept after Save |
 | Telegram notifications | see below |
 | Discord notifications | see below |
 | Queues | the *continue* text sent after a usage limit, and the usage reserve — see [Usage limits](limits.md) |

@@ -3,6 +3,8 @@
 The user guide of ccc. Inside ccc press `?` — the same pages, opened on
 the screen you're on.
 
+[Česky](cs/README.md)
+
 1. [Getting started](getting-started.md)
 2. [Dashboard](dashboard.md)
 3. [Conversations](conversations.md)
