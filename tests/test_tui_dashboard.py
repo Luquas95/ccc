@@ -126,3 +126,19 @@ async def test_no_retry_button_without_conversations(tmp_path):
         await app.push_screen(ConversationsScreen(storage))
         await pilot.pause()
         assert not app.screen.query_one("#sidebar-retry").display
+
+
+@pytest.mark.asyncio
+async def test_getting_started_until_the_first_conversation(tmp_path):
+    from ccc.storage import Storage
+
+    db_path = str(tmp_path / "history.db")
+    app = CCContinueApp(db_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        welcome = app.screen.query_one("#dashboard-welcome")
+        assert welcome.display
+        Storage(db_path).create_queue("first", str(tmp_path), "s-1")
+        app.screen.refresh_table()
+        await pilot.pause()
+        assert not welcome.display

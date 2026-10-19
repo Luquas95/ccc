@@ -5,7 +5,7 @@ from ccc.storage import Storage
 from ccc.tui.conversations import ConversationsScreen
 from ccc.tui.prompt_presets import ALT_DIGIT_CHARS
 from ccc.tui.dashboard import DashboardScreen
-from ccc.tui.help import KEY_HELP, KeyHelpModal
+from ccc.tui.help import KEY_HELP, HelpScreen
 from ccc.tui.tasks import TasksModal
 
 
@@ -45,15 +45,40 @@ def _host(screen):
 
 
 @pytest.mark.asyncio
-async def test_question_mark_opens_and_closes_help(tmp_path):
+async def test_question_mark_opens_the_guide_on_this_screens_topic(tmp_path):
     app = _host(DashboardScreen(Storage(tmp_path / "h.db")))
     async with app.run_test(size=(120, 50)) as pilot:
         await pilot.pause()
         await pilot.press("question_mark")
         await pilot.pause()
-        assert isinstance(app.screen, KeyHelpModal)
-        text = app.screen.plain_text
-        assert "Conversations" in text and "Ctrl+J" in text
+        assert isinstance(app.screen, HelpScreen)
+        assert app.screen.topic == "dashboard"
         await pilot.press("escape")
         await pilot.pause()
         assert isinstance(app.screen, DashboardScreen)
+
+
+@pytest.mark.asyncio
+async def test_guide_switches_topics_and_follows_links(tmp_path):
+    from textual.widgets import Markdown, OptionList
+
+    app = _host(HelpScreen("getting-started"))
+    async with app.run_test(size=(120, 50)) as pilot:
+        await pilot.pause()
+        help_screen = app.screen
+        assert help_screen.query_one(OptionList).has_focus
+        await pilot.press("down")
+        await pilot.pause()
+        assert help_screen.topic == "dashboard"
+        markdown = help_screen.query_one("#help-text", Markdown)
+        assert "Queue detail" in markdown.source
+        assert "png" not in markdown.source  # screenshots are for GitHub
+
+        markdown.post_message(Markdown.LinkClicked(markdown, "tasks.md"))
+        await pilot.pause()
+        assert help_screen.topic == "tasks"
+
+        help_screen.query_one(OptionList).highlighted = len(help_screen.query_one(OptionList).options) - 1
+        await pilot.pause()
+        assert help_screen.topic == "keys"
+        assert "Ctrl+J" in markdown.source and "Ctrl+]" in markdown.source
