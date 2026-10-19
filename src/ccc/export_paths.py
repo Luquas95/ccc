@@ -14,6 +14,8 @@ import os
 import shlex
 from pathlib import Path
 
+from ccc.i18n import N_
+
 FOLDER_KEY = "export_folder"
 CONVERSATIONS = "conversations"
 SCREENSHOTS = "screenshots"
@@ -24,10 +26,10 @@ TELEGRAM = "telegram"
 DISCORD = "discord"
 # (setting value, label) — the file is always saved to the folder first.
 SEND_CHOICES = [
-    ("", "Only save to the folder"),
-    (TELEGRAM, "Also send to Telegram"),
-    (DISCORD, "Also send to Discord"),
-    ("both", "Also send to Telegram and Discord"),
+    ("", N_("Only save to the folder")),
+    (TELEGRAM, N_("Also send to Telegram")),
+    (DISCORD, N_("Also send to Discord")),
+    ("both", N_("Also send to Telegram and Discord")),
 ]
 
 

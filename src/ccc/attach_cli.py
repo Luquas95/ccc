@@ -11,6 +11,7 @@ import sys
 import time
 
 from ccc import managed_sessions
+from ccc.i18n import _
 
 WAIT_POLL_SECONDS = 0.5
 # After this long without the session, say the daemon may not be running
@@ -26,12 +27,12 @@ def attach_command(queue_id: int) -> list[str]:
 def wait_for_session(queue_id: int, out=sys.stdout, sleep=time.sleep, clock=time.monotonic) -> None:
     started = clock()
     hinted = False
-    out.write("Starting Claude Code… (the ccc daemon starts it)\n")
+    out.write(_("Starting Claude Code… (the ccc daemon starts it)") + "\n")
     out.flush()
     while not managed_sessions.is_running(queue_id):
         if not hinted and clock() - started >= DAEMON_HINT_SECONDS:
             hinted = True
-            out.write("Still waiting — is the ccc daemon running? (systemctl --user status ccc)\n")
+            out.write(_("Still waiting — is the ccc daemon running? (systemctl --user status ccc)") + "\n")
             out.flush()
         sleep(WAIT_POLL_SECONDS)
 

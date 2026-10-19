@@ -7,6 +7,7 @@ from textual.content import Content
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Input, Static, TextArea
 
+from ccc.i18n import _
 from ccc.launch_options import describe_flags
 from ccc.models import DeliveryMode, QueueStatus, RunStatus
 from ccc.orchestrator import enqueue_prompt
@@ -20,6 +21,23 @@ from ccc.tui.layout import (
     styled_status,
 )
 
+def run_status_text(status: RunStatus) -> str:
+    return {
+        RunStatus.SUCCESS: _("success"),
+        RunStatus.RATE_LIMITED: _("rate_limited"),
+        RunStatus.ERROR: _("error"),
+    }.get(status, status.value)
+
+
+def delivery_text(mode: DeliveryMode) -> str:
+    return {
+        DeliveryMode.HEADLESS: _("headless"),
+        DeliveryMode.INTERACTIVE: _("interactive"),
+        DeliveryMode.LIVE_TERMINAL: _("live_terminal"),
+        DeliveryMode.REMOTE_CONTROL: _("remote_control"),
+    }.get(mode, mode.value)
+
+
 RUN_STATUS_STYLES = {
     RunStatus.SUCCESS: "green",
     RunStatus.ERROR: "bold red",
@@ -30,7 +48,7 @@ RUN_STATUS_STYLES = {
 class AddPromptModal(ModalScreen):
     DEFAULT_CSS = MODAL_CSS.format(cls="AddPromptModal")
 
-    BINDINGS = [("escape", "cancel", "Cancel")]
+    BINDINGS = [("escape", "cancel", _("Cancel"))]
 
     def __init__(self, storage: Storage, default_path: str = ""):
         super().__init__()
@@ -39,18 +57,18 @@ class AddPromptModal(ModalScreen):
 
     def compose(self):
         box = Container(
-            Static("Project path", classes="modal-label"),
-            Input(value=self.default_path, placeholder="/path/to/project", id="add-prompt-path"),
-            Static("Prompt", classes="modal-label"),
+            Static(_("Project path"), classes="modal-label"),
+            Input(value=self.default_path, placeholder=_("/path/to/project"), id="add-prompt-path"),
+            Static(_("Prompt"), classes="modal-label"),
             TextArea(id="add-prompt-text"),
             Static("", id="add-prompt-error", classes="modal-error"),
             Horizontal(
-                Button("Add", id="add-prompt-submit", classes="modal-submit"),
-                Button("Cancel", id="add-prompt-cancel", classes="modal-cancel"),
+                Button(_("Add"), id="add-prompt-submit", classes="modal-submit"),
+                Button(_("Cancel"), id="add-prompt-cancel", classes="modal-cancel"),
                 classes="modal-buttons",
             ),
         )
-        box.border_title = "New prompt"
+        box.border_title = _("New prompt")
         yield box
 
     def on_mount(self) -> None:
@@ -64,7 +82,7 @@ class AddPromptModal(ModalScreen):
             path = self.query_one("#add-prompt-path", Input).value.strip()
             prompt = self.query_one("#add-prompt-text", TextArea).text.strip()
             if not path or not prompt:
-                self.query_one("#add-prompt-error", Static).update("Both path and prompt are required.")
+                self.query_one("#add-prompt-error", Static).update(_("Both path and prompt are required."))
                 return
             try:
                 enqueue_prompt(self.storage, path, prompt)
@@ -92,7 +110,7 @@ class DiffModal(ModalScreen):
     }
     """
 
-    BINDINGS = [("escape", "close", "Close")]
+    BINDINGS = [("escape", "close", _("Close"))]
 
     def __init__(self, project_path: str, commit: str):
         super().__init__()
@@ -108,7 +126,7 @@ class DiffModal(ModalScreen):
         self.diff_text = text
         diff = Static(Syntax(text, "diff", theme="ansi_dark", word_wrap=False), id="diff-text")
         box = Container(VerticalScroll(diff))
-        box.border_title = f"Commit {self.commit[:10]}  ·  Esc close"
+        box.border_title = _("Commit {commit}  ·  Esc close").format(commit=self.commit[:10])
         yield box
 
     def action_close(self) -> None:
@@ -121,12 +139,12 @@ class QueueDetailScreen(SidebarScreen):
 
     VIEW = "dashboard"
     IS_DETAIL = True
-    SUB_TITLE = "Queue detail"
+    SUB_TITLE = _("Queue detail")
 
     BINDINGS = [
-        ("escape", "back", "Back"),
-        Binding("r", "retry_queue", "Retry blocked", show=False),
-        Binding("a", "add_prompt", "Add prompt", show=False),
+        ("escape", "back", _("Back")),
+        Binding("r", "retry_queue", _("Retry blocked"), show=False),
+        Binding("a", "add_prompt", _("Add prompt"), show=False),
     ]
 
     def __init__(self, storage: Storage, queue_id: int):
@@ -144,20 +162,20 @@ class QueueDetailScreen(SidebarScreen):
         yield panel(
             Static(Content.assemble((queue.name, "bold"), "  ", (queue.project_path, "dim")), id="queue-detail-title"),
             Static(id="queue-detail-info"),
-            title="Queue",
+            title=_("Queue"),
         )
-        yield panel(DataTable(id="queue-history-table"), title="Run history", fill=True)
+        yield panel(DataTable(id="queue-history-table"), title=_("Run history"), fill=True)
 
     def on_mount(self) -> None:
         self._refresh_info()
         table = self.query_one("#queue-history-table", DataTable)
         table.cursor_type = "row"
-        table.add_columns("Started", "Status", "Tokens", "Commit", "Result")
+        table.add_columns(_("Started"), _("Status"), _("Tokens"), _("Commit"), _("Result"))
         self._runs = self.storage.runs_for_queue(self.queue_id)
         for run in self._runs:
             tokens = run.input_tokens + run.output_tokens + run.cache_read_tokens + run.cache_creation_tokens
             style = RUN_STATUS_STYLES.get(run.status, "")
-            status = f"[{style}]{run.status.value}[/]" if style else run.status.value
+            status = f"[{style}]{run_status_text(run.status)}[/]" if style else run_status_text(run.status)
             table.add_row(
                 run.started_at.strftime("%Y-%m-%d %H:%M"),
                 status,
@@ -174,29 +192,35 @@ class QueueDetailScreen(SidebarScreen):
             queue = self.storage.get_queue(self.queue_id)
             self.app.push_screen(DiffModal(queue.project_path, run.git_commit))
         elif run.git_note:
-            self.notify(run.git_note, title="No commit")
+            self.notify(run.git_note, title=_("No commit"))
 
     def _refresh_info(self) -> None:
         queue = self.storage.get_queue(self.queue_id)
         # Only the first line is markup (fixed enum/number values); the rest
         # carries arbitrary text (errors, session ids) and stays plain.
-        auto = "auto-continue on" if queue.auto_continue else "auto-continue off"
+        auto = _("auto-continue on") if queue.auto_continue else _("auto-continue off")
         lines = [
             Content.from_markup(
-                f"Status: {styled_status(queue.status)}   ·   Pending: [b]{self.storage.count_pending_items(queue.id)}[/b]"
-                f"   ·   Delivery: {queue.delivery_mode.value}"
+                _("Status: {status}   ·   Pending: [b]{pending}[/b]   ·   Delivery: {delivery}").format(
+                    status=styled_status(queue.status),
+                    pending=self.storage.count_pending_items(queue.id),
+                    delivery=delivery_text(queue.delivery_mode),
+                )
             ),
-            Content(f"Launch: {describe_flags(queue.launch_flags)}  ·  {auto}" + ("  ·  queue paused" if queue.paused else "")),
-            Content.assemble(("Session: " + queue.session_id, "dim")),
+            Content(
+                _("Launch: {flags}").format(flags=describe_flags(queue.launch_flags)) + f"  ·  {auto}"
+                + (_("  ·  queue paused") if queue.paused else "")
+            ),
+            Content.assemble((_("Session: ") + queue.session_id, "dim")),
         ]
         if queue.delivery_mode == DeliveryMode.REMOTE_CONTROL:
-            lines.append(Content.assemble(("Remote control: ", "bold"), (queue.remote_control_url or "starting…", "cyan")))
+            lines.append(Content.assemble((_("Remote control: "), "bold"), (queue.remote_control_url or _("starting…"), "cyan")))
         if queue.first_run_flags:
-            lines.append(Content.assemble(("First run: " + " ".join(queue.first_run_flags), "yellow")))
+            lines.append(Content.assemble((_("First run: ") + " ".join(queue.first_run_flags), "yellow")))
         if queue.next_retry_at:
-            lines.append(Content.assemble((f"Next retry: {queue.next_retry_at:%Y-%m-%d %H:%M}", "yellow")))
+            lines.append(Content.assemble((_("Next retry: ") + f"{queue.next_retry_at:%Y-%m-%d %H:%M}", "yellow")))
         if queue.last_error:
-            lines.append(Content.assemble(("Last error: " + queue.last_error[:200], "red")))
+            lines.append(Content.assemble((_("Last error: ") + queue.last_error[:200], "red")))
         self.query_one("#queue-detail-info", Static).update(Content("\n").join(lines))
 
     def default_project_path(self) -> str:

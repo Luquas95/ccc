@@ -1,4 +1,10 @@
+import os
+
 import pytest
+
+# Tests run in English whatever the machine's locale or ccc setting (see ccc.i18n).
+os.environ["CCC_LANG"] = "en"
+
 
 
 @pytest.fixture(autouse=True)

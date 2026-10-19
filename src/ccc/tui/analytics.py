@@ -9,12 +9,14 @@ from textual.binding import Binding
 from textual.containers import Container, Horizontal, VerticalScroll
 from textual.widgets import DataTable, ProgressBar, Sparkline, Static
 
+from ccc import i18n
+from ccc.i18n import N_, _
 from ccc.storage import Storage
 from ccc.token_stats import month_bounds, month_stats, shift_month
 from ccc.tui.layout import SidebarScreen, panel
 from ccc.usage_api import ProUsage, get_pro_usage
 
-UNAVAILABLE_TEXT = "Claude Pro usage: unavailable (offline, or not logged in via claude.ai OAuth)"
+UNAVAILABLE_TEXT = N_("Claude Pro usage: unavailable (offline, or not logged in via claude.ai OAuth)")
 
 
 @dataclass
@@ -27,8 +29,9 @@ class UsageGauge:
 def _format_reset(dt: datetime) -> str:
     local_reset = dt.astimezone()
     now = datetime.now().astimezone()
-    fmt = "%H:%M" if local_reset.date() == now.date() else "%a %H:%M"
-    return local_reset.strftime(fmt)
+    if local_reset.date() == now.date():
+        return f"{local_reset:%H:%M}"
+    return f"{i18n.weekday_short(local_reset)} {local_reset:%H:%M}"
 
 
 def build_usage_gauges(usage: ProUsage | None) -> list[UsageGauge]:
@@ -40,11 +43,11 @@ def build_usage_gauges(usage: ProUsage | None) -> list[UsageGauge]:
         return []
     gauges = []
     if usage.five_hour:
-        gauges.append(UsageGauge("5-hour", usage.five_hour.utilization_pct, _format_reset(usage.five_hour.resets_at)))
+        gauges.append(UsageGauge(_("5-hour"), usage.five_hour.utilization_pct, _format_reset(usage.five_hour.resets_at)))
     if usage.seven_day:
-        gauges.append(UsageGauge("Weekly (all models)", usage.seven_day.utilization_pct, _format_reset(usage.seven_day.resets_at)))
+        gauges.append(UsageGauge(_("Weekly (all models)"), usage.seven_day.utilization_pct, _format_reset(usage.seven_day.resets_at)))
     for m in usage.per_model:
-        gauges.append(UsageGauge(f"Weekly · {m.model}", m.utilization_pct, _format_reset(m.resets_at)))
+        gauges.append(UsageGauge(_("Weekly · {model}").format(model=m.model), m.utilization_pct, _format_reset(m.resets_at)))
     return gauges
 
 
@@ -63,7 +66,7 @@ def build_model_token_bars(totals: list[tuple[str, int]]) -> list[ModelTokenBar]
     up to 100%."""
     if not totals:
         return []
-    total = sum(tokens for _, tokens in totals) or 1
+    total = sum(tokens for _model, tokens in totals) or 1
     return [ModelTokenBar(model, tokens, (tokens / total) * 100) for model, tokens in totals]
 
 
@@ -75,18 +78,18 @@ def month_series(by_day: dict[date, int], year: int, month: int) -> list[int]:
 
 
 def month_title(year: int, month: int) -> str:
-    return date(year, month, 1).strftime("%B %Y")
+    return i18n.month_title(year, month)
 
 
 class AnalyticsScreen(SidebarScreen):
     VIEW = "analytics"
-    SUB_TITLE = "Analytics"
+    SUB_TITLE = _("Analytics")
 
     BINDINGS = [
-        Binding("escape", "back", "Back", show=False),
+        Binding("escape", "back", _("Back"), show=False),
         # priority: the tables would otherwise take the arrows.
-        Binding("left", "month(-1)", "Prev month", priority=True),
-        Binding("right", "month(1)", "Next month", priority=True),
+        Binding("left", "month(-1)", _("Prev month"), priority=True),
+        Binding("right", "month(1)", _("Next month"), priority=True),
     ]
 
     DEFAULT_CSS = """
@@ -104,7 +107,7 @@ class AnalyticsScreen(SidebarScreen):
         margin-bottom: 0;
     }
     AnalyticsScreen .usage-gauge-label {
-        width: 42;
+        width: 48;
     }
     AnalyticsScreen .usage-gauge-row ProgressBar {
         width: 1fr;
@@ -124,13 +127,13 @@ class AnalyticsScreen(SidebarScreen):
 
     def compose_main(self):
         yield VerticalScroll(
-            panel(Container(id="pro-usage-gauges"), title="Claude Pro usage (account limits)"),
-            panel(Sparkline([], id="tokens-sparkline"), title="Tokens per day", id="month-panel"),
-            panel(Container(id="model-usage-gauges"), title="Tokens by model", id="model-panel"),
+            panel(Container(id="pro-usage-gauges"), title=_("Claude Pro usage (account limits)")),
+            panel(Sparkline([], id="tokens-sparkline"), title=_("Tokens per day"), id="month-panel"),
+            panel(Container(id="model-usage-gauges"), title=_("Tokens by model"), id="model-panel"),
             panel(
                 DataTable(id="analytics-project-table"),
                 Static(id="analytics-summary"),
-                title="Tokens per conversation",
+                title=_("Tokens per conversation"),
                 id="project-panel",
             ),
             id="analytics-scroll",
@@ -142,12 +145,12 @@ class AnalyticsScreen(SidebarScreen):
 
         table = self.query_one("#analytics-project-table", DataTable)
         table.cursor_type = "row"
-        table.add_columns("Conversation", "Tokens", "Success", "Errors", "Rate-limited")
+        table.add_columns(_("Conversation"), _("Tokens"), _("Success"), _("Errors"), _("Rate-limited"))
         await self._render_month()
 
         blocked_seconds = self.storage.blocked_seconds_total()
         summary = self.query_one("#analytics-summary", Static)
-        summary.update(f"Total time blocked on rate limits: [b]{blocked_seconds / 60:.1f} min[/b]")
+        summary.update(_("Total time blocked on rate limits: [b]{minutes} min[/b]").format(minutes=f"{blocked_seconds / 60:.1f}"))
 
     async def refresh_pro_usage(self) -> None:
         usage = await asyncio.to_thread(get_pro_usage)
@@ -156,19 +159,20 @@ class AnalyticsScreen(SidebarScreen):
 
         gauges = build_usage_gauges(usage)
         if not gauges:
-            await container.mount(Static(UNAVAILABLE_TEXT))
+            await container.mount(Static(_(UNAVAILABLE_TEXT)))
             return
 
         for gauge in gauges:
-            await self._mount_gauge_row(container, gauge.label, gauge.percentage, f"resets {gauge.reset_text}")
+            await self._mount_gauge_row(container, gauge.label, gauge.percentage, _("resets {time}").format(time=gauge.reset_text))
 
         from ccc.orchestrator import usage_reserve
 
         reserve = usage_reserve(self.storage)
         note = (
-            f"Your reserve: queued tasks wait while a window is at or above {reserve}%  (change in Settings, Ctrl+P)"
+            _("Your reserve: queued tasks wait while a window is at or above {reserve}%  (change in Settings, Ctrl+P)").format(
+                reserve=reserve)
             if reserve
-            else "No usage reserve — queued tasks may use the whole limit  (set one in Settings, Ctrl+P)"
+            else _("No usage reserve — queued tasks may use the whole limit  (set one in Settings, Ctrl+P)")
         )
         await container.mount(Static(note, id="usage-reserve-note", classes="muted"))
 
@@ -187,16 +191,16 @@ class AnalyticsScreen(SidebarScreen):
         stats = month_stats(self.storage, self.year, self.month)
         title = month_title(self.year, self.month)
         self.query_one("#month-panel").border_title = (
-            f"Tokens per day — {title}: {stats.total:,} tokens  (← → month)"
+            _("Tokens per day — {month}: {tokens} tokens  (← → month)").format(month=title, tokens=f"{stats.total:,}")
         )
-        self.query_one("#model-panel").border_title = f"Tokens by model — {title}"
-        self.query_one("#project-panel").border_title = f"Tokens per conversation — {title}"
+        self.query_one("#model-panel").border_title = _("Tokens by model — {month}").format(month=title)
+        self.query_one("#project-panel").border_title = _("Tokens per conversation — {month}").format(month=title)
         self.query_one("#tokens-sparkline", Sparkline).data = month_series(stats.by_day, self.year, self.month)
 
         table = self.query_one("#analytics-project-table", DataTable)
         table.clear()
         for c in stats.by_conversation:
-            name = Text(c.name + (" (deleted)" if c.deleted else ""), style="dim" if c.deleted else "")
+            name = Text(c.name + (_(" (deleted)") if c.deleted else ""), style="dim" if c.deleted else "")
             table.add_row(name, f"{c.tokens:,}", str(c.success), str(c.errors), str(c.rate_limited))
 
         container = self.query_one("#model-usage-gauges", Container)
@@ -207,10 +211,10 @@ class AnalyticsScreen(SidebarScreen):
         container = self.query_one("#model-usage-gauges", Container)
         bars = build_model_token_bars(totals)
         if not bars:
-            await container.mount(Static("No tokens recorded in this month."))
+            await container.mount(Static(_("No tokens recorded in this month.")))
             return
         for bar in bars:
-            await self._mount_gauge_row(container, bar.model, bar.share_pct, f"{bar.tokens:,} tokens")
+            await self._mount_gauge_row(container, bar.model, bar.share_pct, _("{tokens} tokens").format(tokens=f"{bar.tokens:,}"))
 
     async def _mount_gauge_row(self, container: Container, label: str, percentage: float, suffix: str) -> None:
         progress_bar = ProgressBar(total=100, show_eta=False)

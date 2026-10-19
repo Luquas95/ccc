@@ -16,6 +16,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Footer, Header, Rule, Static
 
+from ccc.i18n import _
 from ccc.models import Queue, QueueStatus
 
 
@@ -31,19 +32,19 @@ class SidebarButton:
 
 # (view key, label, hotkey) in sidebar order.
 VIEWS: list[tuple[str, str, str]] = [
-    ("dashboard", "Dashboard", "d"),
-    ("conversations", "Conversations", "c"),
-    ("archive", "Archive", "h"),
-    ("sessions", "Live sessions", "s"),
-    ("analytics", "Analytics", "v"),
+    ("dashboard", _("Dashboard"), "d"),
+    ("conversations", _("Conversations"), "c"),
+    ("archive", _("Archive"), "h"),
+    ("sessions", _("Live sessions"), "s"),
+    ("analytics", _("Analytics"), "v"),
 ]
 
-ADD_PROMPT_BUTTON = SidebarButton("sidebar-add-prompt", "Add prompt (a)", "green", "add_prompt")
-RETRY_BUTTON = SidebarButton("sidebar-retry", "Retry blocked queue (r)", "red", "retry_queue")
+ADD_PROMPT_BUTTON = SidebarButton("sidebar-add-prompt", _("Add prompt (a)"), "green", "add_prompt")
+RETRY_BUTTON = SidebarButton("sidebar-retry", _("Retry blocked queue (r)"), "red", "retry_queue")
 # What r (and the retry button) can get going again.
 RETRYABLE = (QueueStatus.BLOCKED_ERROR, QueueStatus.PAUSED_LIMIT)
 NEW_CONVERSATION_BUTTON = SidebarButton(
-    "sidebar-new-conversation", "New conversation (n)", "green", "new_conversation"
+    "sidebar-new-conversation", _("New conversation (n)"), "green", "new_conversation"
 )
 
 STATUS_STYLES = {
@@ -55,11 +56,22 @@ STATUS_STYLES = {
 }
 
 
+def status_text(status: QueueStatus) -> str:
+    """A queue status as shown to the user."""
+    return {
+        QueueStatus.IDLE: _("idle"),
+        QueueStatus.RUNNING: _("running"),
+        QueueStatus.WAITING_RETRY: _("waiting_retry"),
+        QueueStatus.BLOCKED_ERROR: _("blocked_error"),
+        QueueStatus.PAUSED_LIMIT: _("paused_limit"),
+    }.get(status, status.value)
+
+
 def styled_status(status: QueueStatus) -> str:
-    """Rich markup for a queue status cell (status values are a fixed enum,
-    so no escaping needed)."""
+    """Rich markup for a queue status cell (status texts are fixed, so no
+    escaping needed)."""
     style = STATUS_STYLES.get(status, "")
-    return f"[{style}]{status.value}[/]" if style else status.value
+    return f"[{style}]{status_text(status)}[/]" if style else status_text(status)
 
 
 def queue_marker(queue: Queue, unseen: bool, needs_approval: bool = False) -> tuple[str, str]:
@@ -113,10 +125,10 @@ class ConfirmModal(ModalScreen):
     """
 
     BINDINGS = [
-        ("y", "answer(True)", "Yes"),
-        ("enter", "answer(True)", "Yes"),
-        ("n", "answer(False)", "No"),
-        ("escape", "answer(False)", "No"),
+        ("y", "answer(True)", _("Yes")),
+        ("enter", "answer(True)", _("Yes")),
+        ("n", "answer(False)", _("No")),
+        ("escape", "answer(False)", _("No")),
     ]
 
     def __init__(self, title: str, text: str, can_confirm: bool = True):
@@ -126,7 +138,7 @@ class ConfirmModal(ModalScreen):
         self.can_confirm = can_confirm
 
     def compose(self):
-        hint = "y / Enter yes  ·  n / Esc no" if self.can_confirm else "Esc close"
+        hint = _("y / Enter yes  ·  n / Esc no") if self.can_confirm else _("Esc close")
         box = Vertical(Static(Text(self.text), id="confirm-text"), Static(hint, classes="confirm-hint"))
         box.border_title = self.box_title
         yield box
@@ -305,13 +317,13 @@ class SidebarScreen(Screen):
     # switching views is the nav list's job, not a button's. A view's own
     # keys (like "a" for its Add prompt button) live in that view only.
     BINDINGS = [
-        Binding("d", "goto('dashboard')", "Dashboard", show=False),
-        Binding("c", "goto('conversations')", "Conversations", show=False),
-        Binding("h", "goto('archive')", "Archive", show=False),
-        Binding("s", "goto('sessions')", "Live sessions", show=False),
-        Binding("v", "goto('analytics')", "Analytics", show=False),
-        Binding("n", "new_conversation", "New conversation", show=False),
-        Binding("question_mark", "key_help", "Help"),
+        Binding("d", "goto('dashboard')", _("Dashboard"), show=False),
+        Binding("c", "goto('conversations')", _("Conversations"), show=False),
+        Binding("h", "goto('archive')", _("Archive"), show=False),
+        Binding("s", "goto('sessions')", _("Live sessions"), show=False),
+        Binding("v", "goto('analytics')", _("Analytics"), show=False),
+        Binding("n", "new_conversation", _("New conversation"), show=False),
+        Binding("question_mark", "key_help", _("Help")),
     ]
 
     def __init__(self, storage):
@@ -381,9 +393,9 @@ class SidebarScreen(Screen):
         from ccc.heartbeat import daemon_alive
 
         if daemon_alive(self.storage):
-            text = Text("● daemon running", style="green")
+            text = Text(_("● daemon running"), style="green")
         else:
-            text = Text("✖ daemon not running — queues are stopped", style="bold red")
+            text = Text(_("✖ daemon not running — queues are stopped"), style="bold red")
         self.query_one("#daemon-state", Static).update(text)
         self.sync_retry_button()
 
@@ -447,7 +459,7 @@ class SidebarScreen(Screen):
         stack = self.app.screen_stack
         home_index = next((i for i, s in enumerate(stack) if isinstance(s, DashboardScreen)), None)
         if home_index is not None:
-            for _ in range(len(stack) - 1 - home_index):
+            for _screen in range(len(stack) - 1 - home_index):
                 self.app.pop_screen()
             if view != "dashboard":
                 self.app.push_screen(screen)

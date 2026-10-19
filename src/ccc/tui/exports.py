@@ -7,6 +7,7 @@ from pathlib import Path
 from textual.app import App
 
 from ccc.export_paths import TELEGRAM, send_targets
+from ccc.i18n import _
 from ccc.notify import Notifier
 
 
@@ -28,11 +29,11 @@ def _send(app: App, storage, path: Path, targets: list[str]) -> None:
         else:
             sent = notifier.send_file_discord_now(path, caption)
         if sent:
-            app.call_from_thread(app.notify, path.name, title=f"Sent to {name}")
+            app.call_from_thread(app.notify, path.name, title=_("Sent to {target}").format(target=name))
         else:
             app.call_from_thread(
                 app.notify,
-                f"Check {name} in Settings (Ctrl+P), or the file is too big.",
-                title=f"Not sent to {name}",
+                _("Check {target} in Settings (Ctrl+P), or the file is too big.").format(target=name),
+                title=_("Not sent to {target}").format(target=name),
                 severity="warning",
             )

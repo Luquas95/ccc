@@ -8,6 +8,7 @@ from textual.app import App
 from textual.binding import Binding
 
 from ccc.export_paths import SCREENSHOTS, export_dir
+from ccc.i18n import _
 from ccc.storage import Storage
 from ccc.tui.dashboard import DashboardScreen
 from ccc.tui.exports import send_export
@@ -27,9 +28,9 @@ class CCContinueApp(App):
     ESCAPE_TO_MINIMIZE = False
 
     BINDINGS = [
-        Binding("ctrl+p", "settings", "Settings", priority=True),
+        Binding("ctrl+p", "settings", _("Settings"), priority=True),
         # No Ctrl+T (screenshot): Claude Code's to-do list key — new key in #31.
-        Binding("ctrl+q", "quit", "Close", priority=True),
+        Binding("ctrl+q", "quit", _("Close"), priority=True),
     ]
 
     def __init__(self, db_path: str):
@@ -101,7 +102,7 @@ class CCContinueApp(App):
     def action_take_screenshot(self) -> None:
         folder = export_dir(self.storage, SCREENSHOTS)
         path = self.save_screenshot(f"ccc-{datetime.now():%Y-%m-%d_%H-%M-%S}.svg", str(folder))
-        self.notify(path, title="Screenshot saved")
+        self.notify(path, title=_("Screenshot saved"))
         send_export(self, self.storage, Path(path))
 
 

@@ -18,6 +18,7 @@ import sys
 import threading
 import time
 
+from ccc.i18n import _
 from ccc.notify import Notifier
 from ccc.storage import Storage
 
@@ -54,10 +55,10 @@ def decide(storage: Storage, queue_id: int, tool_name: str, tool_input: dict,
     request = storage.create_permission_request(queue_id, tool_name, tool_input)
     if notifier is not None:
         queue = storage.find_queue(queue_id)
-        name = queue.name if queue else f"queue {queue_id}"
+        name = queue.name if queue else _("queue {id}").format(id=queue_id)
         notifier.send_now(
-            f"✋ {name} needs you: Claude wants to use {tool_name} — {_preview(tool_input)}\n"
-            "Open the conversation in ccc and press p."
+            _("✋ {name} needs you: Claude wants to use {tool} — {preview}\n"
+              "Open the conversation in ccc and press p.").format(name=name, tool=tool_name, preview=_preview(tool_input))
         )
     while True:
         current = storage.get_permission_request(request.id)

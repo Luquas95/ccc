@@ -275,3 +275,32 @@ async def test_ctrl_q_detaches_inside_ccc_tmux(tmp_path, monkeypatch):
         await pilot.pause()
         assert calls == [["tmux", "detach-client"]]
         assert app.is_running
+
+
+@pytest.mark.asyncio
+async def test_another_language_restarts_the_tui(tmp_path, monkeypatch):
+    from ccc import i18n
+
+    monkeypatch.delenv("CCC_LANG", raising=False)
+    for var in ("LC_ALL", "LC_MESSAGES"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("LANG", "en_US.UTF-8")
+    monkeypatch.setattr("ccc.instance.inside_ccc_tmux", lambda: True)
+    app = _app(tmp_path)
+    exits = []
+    monkeypatch.setattr(app, "exit", lambda *a, **k: exits.append(True))
+    try:
+        async with app.run_test(size=(140, 45)) as pilot:
+            modal = await _open_settings(pilot, app)
+            assert modal.query_one("#settings-language", Select).value == "auto"
+            await pilot.press("ctrl+s")  # unchanged: no restart
+            await pilot.pause()
+            assert exits == [] and app.storage.get_setting(i18n.LANGUAGE_KEY) == ""
+            modal = await _open_settings(pilot, app)
+            modal.query_one("#settings-language", Select).value = "cs"
+            await pilot.press("ctrl+s")
+            await pilot.pause()
+            assert app.storage.get_setting(i18n.LANGUAGE_KEY) == "cs"
+            assert exits == [True]
+    finally:
+        i18n.set_language("en")

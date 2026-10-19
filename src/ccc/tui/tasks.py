@@ -12,6 +12,7 @@ from textual.content import Content
 from textual.screen import ModalScreen
 from textual.widgets import DataTable, Input, Static, TextArea
 
+from ccc.i18n import _
 from ccc.limits import RESET_BUFFER
 from ccc.schedule import format_when, parse_when
 from ccc.storage import Storage
@@ -55,23 +56,23 @@ class TaskEditModal(ModalScreen):
 
     BINDINGS = [
         # priority: TextArea would otherwise swallow these keys.
-        Binding("ctrl+s", "save", "Save", priority=True),
-        Binding("escape", "cancel", "Cancel", priority=True),
+        Binding("ctrl+s", "save", _("Save"), priority=True),
+        Binding("escape", "cancel", _("Cancel"), priority=True),
     ]
 
-    def __init__(self, text: str = "", title: str = "New task", not_before: datetime | None = None):
+    def __init__(self, text: str = "", title: str | None = None, not_before: datetime | None = None):
         super().__init__()
         self.initial_text = text
-        self.box_title = title
+        self.box_title = title or _("New task")
         self.initial_when = not_before.strftime("%Y-%m-%d %H:%M") if not_before else ""
 
     def compose(self):
         box = Container(
             TextArea(self.initial_text, id="task-text"),
-            Static("Run at (empty = as soon as possible; HH:MM · YYYY-MM-DD HH:MM · reset)", classes="modal-label"),
-            Input(self.initial_when, placeholder="as soon as possible", id="task-when"),
+            Static(_("Run at (empty = as soon as possible; HH:MM · YYYY-MM-DD HH:MM · reset)"), classes="modal-label"),
+            Input(self.initial_when, placeholder=_("as soon as possible"), id="task-when"),
             Static("", id="task-error"),
-            Static("Ctrl+S save  ·  Esc cancel", classes="modal-hint"),
+            Static(_("Ctrl+S save  ·  Esc cancel"), classes="modal-hint"),
         )
         box.border_title = self.box_title
         yield box
@@ -122,14 +123,14 @@ class TasksModal(ModalScreen):
     """
 
     BINDINGS = [
-        ("a", "add", "Add"),
-        ("e", "edit", "Edit"),
-        ("delete", "delete", "Delete"),
-        ("ctrl+up", "move(-1)", "Move up"),
-        ("ctrl+down", "move(1)", "Move down"),
-        ("p", "toggle_pause", "Pause/resume"),
-        ("o", "toggle_auto", "Auto-continue"),
-        ("escape", "close", "Close"),
+        ("a", "add", _("Add")),
+        ("e", "edit", _("Edit")),
+        ("delete", "delete", _("Delete")),
+        ("ctrl+up", "move(-1)", _("Move up")),
+        ("ctrl+down", "move(1)", _("Move down")),
+        ("p", "toggle_pause", _("Pause/resume")),
+        ("o", "toggle_auto", _("Auto-continue")),
+        ("escape", "close", _("Close")),
     ]
 
     def __init__(self, storage: Storage, queue_id: int):
@@ -144,29 +145,29 @@ class TasksModal(ModalScreen):
             Static(id="tasks-state"),
             DataTable(id="tasks-table"),
             Static(
-                "a add  ·  e/Enter edit  ·  Del delete  ·  Ctrl+↑/↓ move  ·  p pause/resume  ·  "
-                "o auto-continue  ·  Esc close",
+                _("a add  ·  e/Enter edit  ·  Del delete  ·  Ctrl+↑/↓ move  ·  p pause/resume  ·  "
+                  "o auto-continue  ·  Esc close"),
                 classes="modal-hint",
             ),
         )
-        box.border_title = f"Tasks — {queue.name}"
+        box.border_title = _("Tasks — {name}").format(name=queue.name)
         yield box
 
     def on_mount(self) -> None:
         table = self.query_one("#tasks-table", DataTable)
         table.cursor_type = "row"
-        table.add_columns("#", "When", "Task")
+        table.add_columns("#", _("When"), _("Task"))
         self._refresh()
         table.focus()
 
     def _refresh(self, select_item_id: int | None = None) -> None:
         queue = self.storage.get_queue(self.queue_id)
-        auto = "on" if queue.auto_continue else "off"
-        state = "paused" if queue.paused else "running"
+        auto = _("on") if queue.auto_continue else _("off")
+        state = _("paused") if queue.paused else _("running")
         self.query_one("#tasks-state", Static).update(
             Content.assemble(
-                ("Auto-continue: ", "bold"), (auto, "green" if queue.auto_continue else "yellow"), " (o)   ·   ",
-                ("Queue: ", "bold"), (state, "yellow" if queue.paused else "green"), " (p)",
+                (_("Auto-continue: "), "bold"), (auto, "green" if queue.auto_continue else "yellow"), " (o)   ·   ",
+                (_("Queue: "), "bold"), (state, "yellow" if queue.paused else "green"), " (p)",
             )
         )
         table = self.query_one("#tasks-table", DataTable)
@@ -212,7 +213,7 @@ class TasksModal(ModalScreen):
                 self._refresh(select_item_id=item_id)
 
         self.app.push_screen(
-            TaskEditModal(current.prompt_text, title="Edit task", not_before=current.not_before), edited
+            TaskEditModal(current.prompt_text, title=_("Edit task"), not_before=current.not_before), edited
         )
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:

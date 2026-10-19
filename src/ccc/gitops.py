@@ -17,6 +17,8 @@ import re
 import subprocess
 from dataclasses import dataclass
 
+from ccc.i18n import _
+
 logger = logging.getLogger(__name__)
 
 SHOW_MAX_CHARS = 200_000
@@ -59,7 +61,7 @@ def _config_entries(raw: str) -> list[tuple[str, str]]:
     for entry in raw.split("\x00"):
         if not entry:
             continue
-        key, _, value = entry.partition("\n")
+        key, _sep, value = entry.partition("\n")
         entries.append((key.strip().lower(), value))
     return entries
 
@@ -108,10 +110,10 @@ def _local_config(cwd: str) -> str | None:
 
 def _config_problem(config: str | None) -> str | None:
     if config is None:
-        return "couldn't read the repo's git config"
-    for key, _ in _config_entries(config):
+        return _("couldn't read the repo's git config")
+    for key, _value in _config_entries(config):
         if not any(p.fullmatch(key) for p in _SAFE_KEY_PATTERNS):
-            return f"repo git config has '{key}', which ccc doesn't run git with"
+            return _("repo git config has '{key}', which ccc doesn't run git with").format(key=key)
     return None
 
 
@@ -141,39 +143,39 @@ def snapshot(cwd: str) -> Snapshot | None:
 
 def commit_task(cwd: str, before: Snapshot, task_text: str, conversation: str) -> CommitOutcome:
     if before.blocked:
-        return CommitOutcome(None, f"not committed: {before.blocked}")
+        return CommitOutcome(None, _("not committed: {reason}").format(reason=before.blocked))
     config = _local_config(cwd)
     if config is None or config != before.config_fingerprint:
-        return CommitOutcome(None, "not committed: the repo's git config changed during the task")
+        return CommitOutcome(None, _("not committed: the repo's git config changed during the task"))
     problem = _config_problem(config)
     if problem:
-        return CommitOutcome(None, f"not committed: {problem}")
+        return CommitOutcome(None, _("not committed: {reason}").format(reason=problem))
     if not before.clean:
-        return CommitOutcome(None, "not committed: there were uncommitted changes before the task")
+        return CommitOutcome(None, _("not committed: there were uncommitted changes before the task"))
     if not before.on_branch:
-        return CommitOutcome(None, "not committed: detached HEAD")
+        return CommitOutcome(None, _("not committed: detached HEAD"))
     status = _git(cwd, "status", "--porcelain")
     if status.returncode != 0:
-        return CommitOutcome(None, "not committed: git status failed")
+        return CommitOutcome(None, _("not committed: git status failed"))
     if status.stdout.strip() == "":
-        return CommitOutcome(None, "no changes")
+        return CommitOutcome(None, _("no changes"))
     first_line = (task_text.strip().splitlines() or ["task"])[0][:72]
     message = f"ccc: {first_line}\n\nccc-conversation: {conversation}\n"
     added = _git(cwd, "add", "-A")
     committed = _git(cwd, "commit", "-q", "--no-verify", "-m", message) if added.returncode == 0 else added
     if committed.returncode != 0:
         logger.warning("auto-commit failed in %s: %s", cwd, committed.stderr.strip()[:300])
-        return CommitOutcome(None, "not committed: git commit failed")
+        return CommitOutcome(None, _("not committed: git commit failed"))
     head = _git(cwd, "rev-parse", "HEAD").stdout.strip()
-    return CommitOutcome(head, "committed")
+    return CommitOutcome(head, _("committed"))
 
 
 def show(cwd: str, commit: str) -> str:
     problem = _config_problem(_local_config(cwd))
     if problem:
-        return f"Not shown: {problem}."
+        return _("Not shown: {reason}.").format(reason=problem)
     result = _git(cwd, "show", "--stat", "--patch", "--no-color", "--no-ext-diff", "--no-textconv", commit)
     text = result.stdout if result.returncode == 0 else result.stderr
     if len(text) > SHOW_MAX_CHARS:
-        text = text[:SHOW_MAX_CHARS] + f"\n… (truncated, {len(text)} chars)"
+        text = text[:SHOW_MAX_CHARS] + "\n" + _("… (truncated, {n} chars)").format(n=len(text))
     return text

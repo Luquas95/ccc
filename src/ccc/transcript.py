@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from ccc.i18n import _
+
 # Overridable in tests via monkeypatch — real default is Claude Code's own
 # transcript root, one subdirectory per project (directory name is an
 # encoded project path we deliberately do NOT try to reconstruct — see
@@ -48,7 +50,7 @@ def _tool_result_text(content) -> str:
     else:
         text = ""
     if len(text) > TOOL_RESULT_MAX_CHARS:
-        text = text[:TOOL_RESULT_MAX_CHARS] + f"\n… (truncated, {len(text)} chars total)"
+        text = text[:TOOL_RESULT_MAX_CHARS] + "\n" + _("… (truncated, {n} chars total)").format(n=len(text))
     return text
 
 
@@ -204,6 +206,6 @@ def last_human_text(session_id: str) -> str | None:
     path = find_transcript_path(session_id)
     if path is None:
         return None
-    events, _ = parse_transcript_events(path)
+    events, _offset = parse_transcript_events(path)
     humans = [e for e in events if e.kind == "human"]
     return humans[-1].text if humans else None

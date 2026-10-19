@@ -8,6 +8,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, DirectoryTree, Input, OptionList, Select, Static
 from textual.widgets.option_list import Option
 
+from ccc.i18n import _
 from ccc.launch_options import (
     DEFAULT_SELECTION, FORK, GROUPS, SESSION_FROM_PR, SESSION_NEW, SESSION_RESUME, session_mode, toggle,
 )
@@ -32,14 +33,14 @@ class PresetNameModal(ModalScreen):
     """Asks for a preset name. Dismisses with the name, or None."""
 
     DEFAULT_CSS = MODAL_CSS.format(cls="PresetNameModal")
-    BINDINGS = [("escape", "cancel", "Cancel")]
+    BINDINGS = [("escape", "cancel", _("Cancel"))]
 
     def compose(self):
         box = Container(
-            Static("Preset name (an existing one is overwritten)", classes="modal-label"),
-            Input(placeholder="e.g. opus-deep", id="preset-name"),
+            Static(_("Preset name (an existing one is overwritten)"), classes="modal-label"),
+            Input(placeholder=_("e.g. opus-deep"), id="preset-name"),
         )
-        box.border_title = "Save as preset"
+        box.border_title = _("Save as preset")
         yield box
 
     def on_mount(self) -> None:
@@ -134,7 +135,7 @@ class NewConversationModal(ModalScreen):
     }
     """
 
-    BINDINGS = [("escape", "cancel", "Cancel")]
+    BINDINGS = [("escape", "cancel", _("Cancel"))]
 
     def __init__(self, storage: Storage, browse_root: Path | None = None):
         super().__init__()
@@ -152,51 +153,51 @@ class NewConversationModal(ModalScreen):
 
     def compose(self):
         right = [
-            Static("Preset", classes="group-title"),
+            Static(_("Preset"), classes="group-title"),
             Horizontal(
-                Select(self._preset_options(), prompt="Choose a preset…", id="preset-select"),
-                Button("Save as preset", id="preset-save"),
+                Select(self._preset_options(), prompt=_("Choose a preset…"), id="preset-select"),
+                Button(_("Save as preset"), id="preset-save"),
                 id="preset-row",
             ),
         ]
         for group in GROUPS:
             if group.title:
-                right.append(Static(group.title, classes="group-title"))
+                right.append(Static(_(group.title), classes="group-title"))
             for option in group.options:
-                right.append(Checkbox(option.label, value=option.key in self.selection, id=f"opt-{option.key}"))
+                right.append(Checkbox(_(option.label), value=option.key in self.selection, id=f"opt-{option.key}"))
                 if option.key == SESSION_RESUME:
                     right.append(OptionList(id="resume-sessions"))
                 elif option.key == SESSION_FROM_PR:
-                    right.append(Input(placeholder="PR number or URL", id="from-pr-input"))
+                    right.append(Input(placeholder=_("PR number or URL"), id="from-pr-input"))
         # Not a `claude` flag: ccc's own behaviour at usage limits.
         right.append(Static("ccc", classes="group-title"))
-        right.append(Checkbox("Auto-continue after usage limit", value=self._initial.auto_continue, id="auto-continue"))
-        right.append(Checkbox("Remote control (phone / claude.ai)", value=self._initial.remote_control, id="remote-control"))
+        right.append(Checkbox(_("Auto-continue after usage limit"), value=self._initial.auto_continue, id="auto-continue"))
+        right.append(Checkbox(_("Remote control (phone / claude.ai)"), value=self._initial.remote_control, id="remote-control"))
         recent = [Option(Content(p), id=p) for p in self.storage.recent_project_paths()]
         box = Container(
             Horizontal(
                 Vertical(
-                    Static("Recent directories", classes="modal-label"),
+                    Static(_("Recent directories"), classes="modal-label"),
                     OptionList(*recent, id="recent-dirs"),
-                    Static("Browse", classes="modal-label"),
+                    Static(_("Browse"), classes="modal-label"),
                     _DirectoriesOnly(str(self.browse_root), id="dir-tree"),
-                    Static("Path", classes="modal-label"),
-                    Input(placeholder="/path/to/project", id="launch-path"),
+                    Static(_("Path"), classes="modal-label"),
+                    Input(placeholder=_("/path/to/project"), id="launch-path"),
                     id="new-conv-left",
                 ),
                 VerticalScroll(*right, id="new-conv-right"),
                 id="new-conv-columns",
             ),
-            Static("Name (optional)", classes="modal-label"),
-            Input(placeholder="defaults to the directory name", id="launch-name"),
+            Static(_("Name (optional)"), classes="modal-label"),
+            Input(placeholder=_("defaults to the directory name"), id="launch-name"),
             Static("", id="launch-error", classes="modal-error"),
             Horizontal(
-                Button("Start", id="launch-start", classes="modal-submit"),
-                Button("Cancel", id="launch-cancel", classes="modal-cancel"),
+                Button(_("Start"), id="launch-start", classes="modal-submit"),
+                Button(_("Cancel"), id="launch-cancel", classes="modal-cancel"),
                 classes="modal-buttons",
             ),
         )
-        box.border_title = "New conversation"
+        box.border_title = _("New conversation")
         yield box
 
     def on_mount(self) -> None:
@@ -248,7 +249,8 @@ class NewConversationModal(ModalScreen):
             found = list_sessions_for_directory(path) if path and Path(path).is_dir() else []
             self._session_ids = [s.session_id for s in found]
             sessions.add_options([
-                Option(Content(f"{s.modified:%Y-%m-%d %H:%M} · {s.message_count} msgs · {s.first_prompt}"))
+                Option(Content(_("{time} · {n} msgs · {prompt}").format(
+                    time=f"{s.modified:%Y-%m-%d %H:%M}", n=s.message_count, prompt=s.first_prompt)))
                 for s in found
             ])
             if found:
@@ -300,7 +302,7 @@ class NewConversationModal(ModalScreen):
             return
         error = self.query_one("#launch-error", Static)
         if not self.query_one("#launch-path", Input).value.strip():
-            error.update("Choose a directory.")
+            error.update(_("Choose a directory."))
             return
         session_id = None
         if session_mode(self.selection) == SESSION_RESUME:
