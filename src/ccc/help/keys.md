@@ -15,7 +15,7 @@ lists the keys of the screen you're on — click one to press it.
 | `v` | Analytics |
 | `n` | New conversation |
 | `?` | This help |
-| `Ctrl+P` | Settings (theme, Telegram, queues, presets, backup) |
+| `Ctrl+P` | Settings (language, theme, Telegram, queues, presets, backup) |
 | `Ctrl+Q` | Close ccc (it keeps running; `ccc` opens it again) |
 | `Esc` | Back / close |
 

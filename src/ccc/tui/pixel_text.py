@@ -1,6 +1,8 @@
 """Big pixel letters (5 rows of █) for banners such as "NO CONVERSATION"
-in the Conversations view."""
+("BEZ KONVERZACE" in Czech) in the Conversations view."""
 from __future__ import annotations
+
+import unicodedata
 
 from rich.text import Text
 from textual.widgets import Static
@@ -9,9 +11,13 @@ ROWS = 5
 # Each glyph: ROWS strings of equal width; "#" is a lit pixel.
 GLYPHS: dict[str, tuple[str, ...]] = {
     "A": (" ### ", "#   #", "#####", "#   #", "#   #"),
+    "Á": ("   # ", " ### ", "#   #", "#####", "#   #"),
+    "B": ("#### ", "#   #", "#### ", "#   #", "#### "),
     "C": (" ####", "#    ", "#    ", "#    ", " ####"),
+    "D": ("#### ", "#   #", "#   #", "#   #", "#### "),
     "E": ("#####", "#    ", "#### ", "#    ", "#####"),
     "I": ("###", " # ", " # ", " # ", "###"),
+    "K": ("#   #", "#  # ", "###  ", "#  # ", "#   #"),
     "M": ("#   #", "## ##", "# # #", "#   #", "#   #"),
     "N": ("#   #", "##  #", "# # #", "#  ##", "#   #"),
     "O": (" ### ", "#   #", "#   #", "#   #", " ### "),
@@ -21,13 +27,19 @@ GLYPHS: dict[str, tuple[str, ...]] = {
     "T": ("#####", "  #  ", "  #  ", "  #  ", "  #  "),
     "V": ("#   #", "#   #", "#   #", " # # ", "  #  "),
     "Y": ("#   #", " # # ", "  #  ", "  #  ", "  #  "),
+    "Z": ("#####", "   # ", "  #  ", " #   ", "#####"),
     " ": ("   ",) * ROWS,
 }
 
 
+def _base_letter(char: str) -> str:
+    """Č -> C: a letter without its own glyph is drawn without its accent."""
+    return unicodedata.normalize("NFD", char)[0]
+
+
 def render_word(word: str) -> list[str]:
     """ROWS lines of pixels for `word` (letters one column apart)."""
-    glyphs = [GLYPHS[c] for c in word.upper()]
+    glyphs = [GLYPHS.get(c) or GLYPHS.get(_base_letter(c), GLYPHS[" "]) for c in word.upper()]
     return [" ".join(g[row] for g in glyphs).replace("#", "█") for row in range(ROWS)]
 
 

@@ -143,7 +143,9 @@ Press `?` on any screen for the guide.
 
 ## Help
 
-The guide inside ccc (`?`) is also here on GitHub, with screenshots:
+The guide inside ccc (`?`) is also here on GitHub, with screenshots
+([česky](src/ccc/help/cs/README.md) — ccc speaks Czech too: Settings →
+Language):
 
 - [Getting started](src/ccc/help/getting-started.md)
 - [Dashboard](src/ccc/help/dashboard.md)

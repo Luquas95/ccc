@@ -18,6 +18,7 @@ import subprocess
 import sys
 
 from ccc import instance
+from ccc.i18n import _
 
 PANE_OPTION = "@ccc-cli"
 BAR_OPTION = "@ccc-bar"
@@ -38,7 +39,7 @@ SETTINGS_KEY = "C-p"
 BORDER_OPTIONS: tuple[tuple[str, str], ...] = (
     ("pane-border-status", "top"),
     ("pane-border-format",
-     f"#{{?pane_active,#[fg=black#,bg=green#,bold] ⌨ typing here #[default],}} #{{{TITLE_OPTION}}} "),
+     f"#{{?pane_active,#[fg=black#,bg=green#,bold] {_("⌨ typing here")} #[default],}} #{{{TITLE_OPTION}}} "),
     ("pane-active-border-style", "fg=green,bold"),
     ("pane-border-style", "fg=brightblack"),
 )
@@ -121,7 +122,7 @@ def _find_flag(option: str) -> str | None:
     if result.returncode != 0:
         return None
     for line in result.stdout.splitlines():
-        pane, _, flag = line.partition(" ")
+        pane, _sep, flag = line.partition(" ")
         if flag.strip() == "1":
             return pane
     return None
@@ -165,7 +166,7 @@ def find() -> tuple[str, int] | None:
     if result.returncode != 0:
         return None
     for line in result.stdout.splitlines():
-        pane, _, queue = line.partition(" ")
+        pane, _sep, queue = line.partition(" ")
         if queue.strip().isdigit():
             return pane, int(queue)
     return None
@@ -222,7 +223,7 @@ def ensure_terminal_feature(feature: str = TERMINAL_FEATURE) -> None:
     result = _tmux("show-options", "-s", "terminal-features")
     found = []
     for line in result.stdout.splitlines():
-        name, _, value = line.partition(" ")
+        name, _sep, value = line.partition(" ")
         if value.strip().strip('"') == feature and name.endswith("]"):
             found.append(int(name[name.index("[") + 1:-1]))
     for index in sorted(found)[1:][::-1]:  # from the end: indexes stay valid

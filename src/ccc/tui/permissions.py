@@ -9,6 +9,7 @@ from textual.containers import Container, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Static
 
+from ccc.i18n import _
 from ccc.models import PermissionRequest
 from ccc.storage import Storage
 from ccc.tui.layout import MODAL_CSS
@@ -35,10 +36,10 @@ class PermissionModal(ModalScreen):
     """
 
     BINDINGS = [
-        ("y", "decide('allow')", "Allow"),
-        ("a", "decide('always')", "Always allow"),
-        ("n", "decide('deny')", "Deny"),
-        ("escape", "close", "Later"),
+        ("y", "decide('allow')", _("Allow")),
+        ("a", "decide('always')", _("Always allow")),
+        ("n", "decide('deny')", _("Deny")),
+        ("escape", "close", _("Later")),
     ]
 
     def __init__(self, storage: Storage, request: PermissionRequest):
@@ -49,14 +50,15 @@ class PermissionModal(ModalScreen):
     def compose(self):
         pretty = json.dumps(self.request.input, indent=2, ensure_ascii=False)
         box = Container(
-            Static(Text.assemble("Claude wants to use ", (self.request.tool_name, "bold yellow"), ":")),
+            Static(Text.assemble(_("Claude wants to use "), (self.request.tool_name, "bold yellow"), ":")),
             VerticalScroll(Static(Text(pretty), id="permission-input")),
             Static(
-                f"y allow  ·  a always allow {self.request.tool_name} in this conversation  ·  n deny  ·  Esc later",
+                _("y allow  ·  a always allow {tool} in this conversation  ·  n deny  ·  Esc later").format(
+                    tool=self.request.tool_name),
                 classes="modal-hint",
             ),
         )
-        box.border_title = "Approval needed"
+        box.border_title = _("Approval needed")
         yield box
 
     def action_decide(self, choice: str) -> None:

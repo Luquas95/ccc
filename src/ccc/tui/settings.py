@@ -22,6 +22,8 @@ from ccc.notify import (
     send_telegram,
 )
 from ccc.analytics_archive import FOLDER_KEY as ARCHIVE_FOLDER_KEY, archive
+from ccc import i18n
+from ccc.i18n import N_, _
 from ccc.export_paths import (
     FOLDER_KEY as EXPORT_FOLDER_KEY, SEND_CHOICES, SEND_KEY as EXPORT_SEND_KEY, default_export_folder, home_short,
 )
@@ -33,12 +35,12 @@ from ccc.tui.prompt_presets import PromptPresetModal, mode_label
 
 THEME_KEY = "tui_theme"
 RESERVE_CHOICES = [50, 60, 70, 75, 80, 85, 90, 95]
-TEST_MESSAGE = "✅ ccc: Telegram notifications work."
-DISCORD_TEST_MESSAGE = "✅ ccc: Discord notifications work."
+TEST_MESSAGE = N_("✅ ccc: Telegram notifications work.")
+DISCORD_TEST_MESSAGE = N_("✅ ccc: Discord notifications work.")
 DISCORD_PLACEHOLDER = "https://discord.com/api/webhooks/…"
 # Preset prompt table: fixed columns, the prompt gets the rest of the row
 # and ends in "…" when it doesn't fit — the full text is in Edit.
-PRESET_COLUMNS = (("Key", 5), ("Mode", 8), ("Name", 16))
+PRESET_COLUMNS = ((N_("Key"), 5), (N_("Mode"), 8), (N_("Name"), 16))
 MIN_PROMPT_WIDTH = 10
 
 
@@ -132,8 +134,8 @@ class SettingsModal(ModalScreen):
     """
 
     BINDINGS = [
-        Binding("ctrl+s", "save", "Save", priority=True),
-        Binding("escape", "cancel", "Cancel", priority=True),
+        Binding("ctrl+s", "save", _("Save"), priority=True),
+        Binding("escape", "cancel", _("Cancel"), priority=True),
     ]
 
     def __init__(self, storage):
@@ -151,140 +153,146 @@ class SettingsModal(ModalScreen):
         reserve_values = sorted(set(RESERVE_CHOICES) | ({reserve} if reserve else set()))
 
         appearance = _section(
-            "Appearance",
-            _row("Theme", Select([(t, t) for t in themes], value=self.app.theme, allow_blank=False, id="settings-theme")),
-            Static("Applied right away so you can see it; kept after Save.", classes="settings-hint"),
+            _("Appearance"),
+            _row(_("Language"), Select(
+                [(_("Auto (system)"), "auto")] + [(name, code) for code, name in i18n.LANGUAGES],
+                value=s.get_setting(i18n.LANGUAGE_KEY) or "auto", allow_blank=False, id="settings-language",
+            )),
+            Static(_("Auto follows the system language (LANG). Saving another one restarts ccc's window."),
+                   classes="settings-hint"),
+            _row(_("Theme"), Select([(t, t) for t in themes], value=self.app.theme, allow_blank=False, id="settings-theme")),
+            Static(_("Applied right away so you can see it; kept after Save."), classes="settings-hint"),
         )
         telegram = _section(
-            "Telegram notifications",
+            _("Telegram notifications"),
             Static(id="telegram-state", classes="settings-hint"),
-            _row("Bot token", Input(
+            _row(_("Bot token"), Input(
                 password=True,
-                placeholder="saved — type a new one to replace it" if token_set else "123456:ABC… from @BotFather",
+                placeholder=_("saved — type a new one to replace it") if token_set else _("123456:ABC… from @BotFather"),
                 id="settings-telegram-token",
             )),
-            _row("Chat ID", Input(s.get_setting(TELEGRAM_CHAT_KEY) or "", placeholder="e.g. 123456789",
+            _row(_("Chat ID"), Input(s.get_setting(TELEGRAM_CHAT_KEY) or "", placeholder=_("e.g. 123456789"),
                                   id="settings-telegram-chat")),
             Static(
-                "Create a bot with @BotFather, send it any message, then open\n"
-                "api.telegram.org/bot<TOKEN>/getUpdates — the chat id is under \"chat\": {\"id\": …}.\n"
-                "You get a message when a queue finishes, needs you, fails or hits a usage limit.",
+                _("Create a bot with @BotFather, send it any message, then open\n"
+                  "api.telegram.org/bot<TOKEN>/getUpdates — the chat id is under \"chat\": {\"id\": …}.\n"
+                  "You get a message when a queue finishes, needs you, fails or hits a usage limit."),
                 classes="settings-hint",
             ),
             Horizontal(
-                Button("Send test message", id="settings-telegram-test"),
-                Button("Turn off", id="settings-telegram-off", classes="settings-danger"),
+                Button(_("Send test message"), id="settings-telegram-test"),
+                Button(_("Turn off"), id="settings-telegram-off", classes="settings-danger"),
                 Static("", id="telegram-test-result", classes="settings-status"),
                 classes="settings-actions",
             ),
         )
         discord_set = bool(s.get_setting(DISCORD_WEBHOOK_KEY))
         discord = _section(
-            "Discord notifications",
+            _("Discord notifications"),
             Static(id="discord-state", classes="settings-hint"),
-            _row("Webhook URL", Input(
+            _row(_("Webhook URL"), Input(
                 password=True,
-                placeholder="saved — paste a new one to replace it" if discord_set else DISCORD_PLACEHOLDER,
+                placeholder=_("saved — paste a new one to replace it") if discord_set else DISCORD_PLACEHOLDER,
                 id="settings-discord-webhook",
             )),
             Static(
-                "In Discord: channel settings → Integrations → Webhooks →\n"
-                "New Webhook → Copy Webhook URL. Same messages as Telegram;\n"
-                "use either or both. Keep the URL private — anyone who has it\n"
-                "can post to the channel.",
+                _("In Discord: channel settings → Integrations → Webhooks →\n"
+                  "New Webhook → Copy Webhook URL. Same messages as Telegram;\n"
+                  "use either or both. Keep the URL private — anyone who has it\n"
+                  "can post to the channel."),
                 classes="settings-hint",
             ),
             Horizontal(
-                Button("Send test message", id="settings-discord-test"),
-                Button("Turn off", id="settings-discord-off", classes="settings-danger"),
+                Button(_("Send test message"), id="settings-discord-test"),
+                Button(_("Turn off"), id="settings-discord-off", classes="settings-danger"),
                 Static("", id="discord-test-result", classes="settings-status"),
                 classes="settings-actions",
             ),
         )
         queues = _section(
-            "Queues",
-            _row("Continue text", Input(s.get_setting("continue_text", DEFAULT_CONTINUE_TEXT) or DEFAULT_CONTINUE_TEXT,
+            _("Queues"),
+            _row(_("Continue text"), Input(s.get_setting("continue_text", DEFAULT_CONTINUE_TEXT) or DEFAULT_CONTINUE_TEXT,
                                         id="settings-continue-text")),
-            Static("Sent by auto-continue when a conversation stopped at a usage limit.", classes="settings-hint"),
-            _row("Usage reserve", Select(
-                [("Off", "off")] + [(f"{p} %", str(p)) for p in reserve_values],
+            Static(_("Sent by auto-continue when a conversation stopped at a usage limit."), classes="settings-hint"),
+            _row(_("Usage reserve"), Select(
+                [(_("Off"), "off")] + [(f"{p} %", str(p)) for p in reserve_values],
                 value=str(reserve) if reserve else "off", allow_blank=False, id="settings-reserve",
             )),
-            Static("Queued tasks wait while a usage window (5 h / weekly) is at or above this.", classes="settings-hint"),
+            Static(_("Queued tasks wait while a usage window (5 h / weekly) is at or above this."), classes="settings-hint"),
         )
         self._prompt_presets = load_prompt_presets(s)
         prompt_box = _section(
-            "Preset prompts",
-            Static("Alt+1 … Alt+9 in a conversation: ⏎ send sends it right away, ✎ insert only puts it "
-                   "into the message box at the cursor. Shown in the bar under the message box.",
+            _("Preset prompts"),
+            Static(_("Alt+1 … Alt+9 in a conversation: ⏎ send sends it right away, ✎ insert only puts it "
+                     "into the message box at the cursor. Shown in the bar under the message box."),
                    classes="settings-hint"),
             DataTable(id="settings-prompt-presets", cursor_type="row"),
             Horizontal(
-                Button("Add", id="settings-prompt-add"),
-                Button("Edit", id="settings-prompt-edit"),
-                Button("Delete", id="settings-prompt-delete", classes="settings-danger"),
-                Button("Up", id="settings-prompt-up"),
-                Button("Down", id="settings-prompt-down"),
+                Button(_("Add"), id="settings-prompt-add"),
+                Button(_("Edit"), id="settings-prompt-edit"),
+                Button(_("Delete"), id="settings-prompt-delete", classes="settings-danger"),
+                Button(_("Up"), id="settings-prompt-up"),
+                Button(_("Down"), id="settings-prompt-down"),
                 classes="settings-actions",
             ),
         )
         presets = list_presets(s)
         preset_box = _section(
-            "New-conversation presets",
-            _row("Preset", Select([(n, n) for n in sorted(presets)], prompt="no presets saved" if not presets else "choose…",
+            _("New-conversation presets"),
+            _row(_("Preset"), Select([(n, n) for n in sorted(presets)], prompt=_("no presets saved") if not presets else _("choose…"),
                                   id="settings-preset", disabled=not presets)),
-            Static("Presets are saved in the New conversation window (n → Save as preset).", classes="settings-hint"),
-            Horizontal(Button("Delete preset", id="settings-preset-delete", classes="settings-danger",
+            Static(_("Presets are saved in the New conversation window (n → Save as preset)."), classes="settings-hint"),
+            Horizontal(Button(_("Delete preset"), id="settings-preset-delete", classes="settings-danger",
                               disabled=not presets), classes="settings-actions"),
         )
         exports = _section(
-            "Exports",
-            _row("Export folder", Input(s.get_setting(EXPORT_FOLDER_KEY) or "",
-                                        placeholder=f"empty = {home_short(default_export_folder())}",
+            _("Exports"),
+            _row(_("Export folder"), Input(s.get_setting(EXPORT_FOLDER_KEY) or "",
+                                        placeholder=_("empty = {folder}").format(folder=home_short(default_export_folder())),
                                         id="settings-export-folder")),
-            Static("Exported conversations (e) go to conversations/, screenshots (Ctrl+T) to screenshots/\n"
-                   "inside it. Empty = ccc in your documents folder (~/ccc-exports where there is none).",
+            Static(_("Exported conversations (e) go to conversations/, screenshots (Ctrl+T) to screenshots/\n"
+                     "inside it. Empty = ccc in your documents folder (~/ccc-exports where there is none)."),
                    classes="settings-hint"),
-            _row("After export", Select(
-                [(label, value or "folder") for value, label in SEND_CHOICES],
+            _row(_("After export"), Select(
+                [(_(label), value or "folder") for value, label in SEND_CHOICES],
                 value=s.get_setting(EXPORT_SEND_KEY) or "folder", allow_blank=False, id="settings-export-send",
             )),
-            Static("Sending puts the file on your phone when ccc runs elsewhere (server, tmux over SSH).\n"
-                   "Uses the Telegram / Discord set up above.",
+            Static(_("Sending puts the file on your phone when ccc runs elsewhere (server, tmux over SSH).\n"
+                     "Uses the Telegram / Discord set up above."),
                    classes="settings-hint"),
         )
         archive_box = _section(
-            "Monthly analytics archive",
-            _row("Folder", Input(s.get_setting(ARCHIVE_FOLDER_KEY) or "", placeholder="empty = off, e.g. ~/Documents/ccc_analytics",
+            _("Monthly analytics archive"),
+            _row(_("Folder"), Input(s.get_setting(ARCHIVE_FOLDER_KEY) or "", placeholder=_("empty = off, e.g. ~/Documents/ccc_analytics"),
                                  id="settings-archive-folder")),
             Static(
-                "The current month is here in Analytics (v). When a month ends, ccc archives it into this\n"
-                "folder as Markdown notes for Obsidian (no plugins): ccc_analytics.md with all months, one\n"
-                "note per month with a calendar and charts, one per day. Empty = no archive.",
+                _("The current month is here in Analytics (v). When a month ends, ccc archives it into this\n"
+                  "folder as Markdown notes for Obsidian (no plugins): ccc_analytics.md with all months, one\n"
+                  "note per month with a calendar and charts, one per day. Empty = no archive."),
                 classes="settings-hint",
             ),
             Horizontal(
-                Button("Archive finished months now", id="settings-archive-now"),
+                Button(_("Archive finished months now"), id="settings-archive-now"),
                 Static("", id="archive-result", classes="settings-status"),
                 classes="settings-actions",
             ),
         )
         data = _section(
-            "Data",
+            _("Data"),
             Static(id="data-info", classes="settings-status"),
-            Static("Backed up automatically every day; the newest 14 copies are kept.", classes="settings-hint"),
-            Horizontal(Button("Back up now", id="settings-backup"), classes="settings-actions"),
+            Static(_("Backed up automatically every day; the newest 14 copies are kept."), classes="settings-hint"),
+            Horizontal(Button(_("Back up now"), id="settings-backup"), classes="settings-actions"),
         )
         box = Container(
             VerticalScroll(appearance, telegram, discord, queues, prompt_box, preset_box, exports, archive_box, data, id="settings-scroll"),
             Horizontal(
-                Static("Ctrl+S save  ·  Esc cancel", classes="modal-hint"),
-                Button("Cancel", id="settings-cancel", classes="modal-cancel"),
-                Button("Save", id="settings-save", classes="modal-submit"),
+                Static(_("Ctrl+S save  ·  Esc cancel"), classes="modal-hint"),
+                Button(_("Cancel"), id="settings-cancel", classes="modal-cancel"),
+                Button(_("Save"), id="settings-save", classes="modal-submit"),
                 classes="modal-buttons",
             ),
         )
-        box.border_title = "Settings"
+        box.border_title = _("Settings")
         yield box
 
     def on_mount(self) -> None:
@@ -296,15 +304,15 @@ class SettingsModal(ModalScreen):
 
     def _refresh_telegram_state(self) -> None:
         on = bool(self.storage.get_setting(TELEGRAM_TOKEN_KEY)) and bool(self.storage.get_setting(TELEGRAM_CHAT_KEY))
-        text = Text("● on", style="green") if on else Text("○ off — fill in the bot token and chat id", style="yellow")
+        text = Text(_("● on"), style="green") if on else Text(_("○ off — fill in the bot token and chat id"), style="yellow")
         self.query_one("#telegram-state", Static).update(text)
 
     def _refresh_data_info(self) -> None:
         backups = sorted(default_backup_dir(self.storage.db_path).glob("history-*.db"))
-        last = backups[-1].name.removeprefix("history-").removesuffix(".db") if backups else "never"
+        last = backups[-1].name.removeprefix("history-").removesuffix(".db") if backups else _("never")
         self.query_one("#data-info", Static).update(Text.assemble(
-            ("Database  ", "bold"), self.storage.db_path, "\n",
-            ("Backups   ", "bold"), str(default_backup_dir(self.storage.db_path)), f"  (last: {last})",
+            (_("Database  "), "bold"), self.storage.db_path, "\n",
+            (_("Backups   "), "bold"), str(default_backup_dir(self.storage.db_path)), _("  (last: {date})").format(date=last),
         ))
 
     # --- events ------------------------------------------------------------
@@ -342,8 +350,8 @@ class SettingsModal(ModalScreen):
         table.clear(columns=True)
         prompt_width = self._prompt_column_width(table)
         for label, width in PRESET_COLUMNS:
-            table.add_column(label, width=width)
-        table.add_column("Prompt", width=prompt_width)
+            table.add_column(_(label), width=width)
+        table.add_column(_("Prompt"), width=prompt_width)
         name_width = dict(PRESET_COLUMNS)["Name"]
         for number, preset in enumerate(self._prompt_presets, start=1):
             text = preset.text.strip()
@@ -353,7 +361,7 @@ class SettingsModal(ModalScreen):
             table.add_row(f"Alt+{number}", mode_label(preset), _fit(preset.name, name_width),
                           _fit(first_line, prompt_width))
         if not self._prompt_presets:
-            table.add_row("", "", Text("no preset prompts yet — Add one", style="dim"), "")
+            table.add_row("", "", Text(_("no preset prompts yet — Add one"), style="dim"), "")
         elif row is not None:
             table.move_cursor(row=max(0, min(row, len(self._prompt_presets) - 1)))
         self.query_one("#settings-prompt-add", Button).disabled = len(self._prompt_presets) >= MAX_PRESETS
@@ -364,7 +372,7 @@ class SettingsModal(ModalScreen):
     def _prompt_column_width(table: DataTable) -> int:
         """What's left of the table's width after the fixed columns (each
         column also takes cell_padding on both sides)."""
-        fixed = sum(width for _, width in PRESET_COLUMNS)
+        fixed = sum(width for _label, width in PRESET_COLUMNS)
         padding = 2 * table.cell_padding * (len(PRESET_COLUMNS) + 1)
         return max(MIN_PROMPT_WIDTH, table.scrollable_content_region.width - fixed - padding)
 
@@ -397,7 +405,7 @@ class SettingsModal(ModalScreen):
                 self._prompt_presets[index] = preset
                 self._refresh_prompt_presets(cursor=index)
 
-        self.app.push_screen(PromptPresetModal(self._prompt_presets[index], f"Preset prompt Alt+{index + 1}"), edited)
+        self.app.push_screen(PromptPresetModal(self._prompt_presets[index], _("Preset prompt Alt+{n}").format(n=index + 1)), edited)
 
     def _delete_prompt_preset(self) -> None:
         index = self._selected_prompt_index()
@@ -428,7 +436,7 @@ class SettingsModal(ModalScreen):
         token, chat = self._telegram_values()
         result = self.query_one("#telegram-test-result", Static)
         if not token or not chat:
-            result.update(Text("Fill in the bot token and chat id first.", style="yellow"))
+            result.update(Text(_("Fill in the bot token and chat id first."), style="yellow"))
             return
         result.update(Text("Sending…", style="dim"))
         self._send_test_worker(token, chat)
@@ -436,17 +444,17 @@ class SettingsModal(ModalScreen):
     @work(thread=True, exclusive=True)
     def _send_test_worker(self, token: str, chat: str) -> None:
         try:
-            send_telegram(token, chat, TEST_MESSAGE)
-            text = Text("✓ Sent — check Telegram.", style="green")
+            send_telegram(token, chat, _(TEST_MESSAGE))
+            text = Text(_("✓ Sent — check Telegram."), style="green")
         except Exception as exc:  # never show the exception text: it may contain the token
-            text = Text(f"✖ Sending failed ({type(exc).__name__}) — check the token and chat id.", style="red")
+            text = Text(_("✖ Sending failed ({error}) — check the token and chat id.").format(error=type(exc).__name__), style="red")
         self.app.call_from_thread(self.query_one("#telegram-test-result", Static).update, text)
 
     # --- Discord -------------------------------------------------------------
 
     def _refresh_discord_state(self) -> None:
         on = is_discord_webhook(self.storage.get_setting(DISCORD_WEBHOOK_KEY) or "")
-        text = Text("● on", style="green") if on else Text("○ off — paste a channel webhook URL", style="yellow")
+        text = Text(_("● on"), style="green") if on else Text(_("○ off — paste a channel webhook URL"), style="yellow")
         self.query_one("#discord-state", Static).update(text)
 
     def _discord_value(self) -> str:
@@ -457,7 +465,7 @@ class SettingsModal(ModalScreen):
         url = self._discord_value()
         result = self.query_one("#discord-test-result", Static)
         if not is_discord_webhook(url):
-            result.update(Text("Paste a Discord webhook URL (https://discord.com/api/webhooks/…) first.", style="yellow"))
+            result.update(Text(_("Paste a Discord webhook URL (https://discord.com/api/webhooks/…) first."), style="yellow"))
             return
         result.update(Text("Sending…", style="dim"))
         self._send_discord_test_worker(url)
@@ -465,10 +473,10 @@ class SettingsModal(ModalScreen):
     @work(thread=True, exclusive=True, group="discord-test")
     def _send_discord_test_worker(self, url: str) -> None:
         try:
-            send_discord(url, DISCORD_TEST_MESSAGE)
-            text = Text("✓ Sent — check the Discord channel.", style="green")
+            send_discord(url, _(DISCORD_TEST_MESSAGE))
+            text = Text(_("✓ Sent — check the Discord channel."), style="green")
         except Exception as exc:  # never show the exception text: it may contain the URL
-            text = Text(f"✖ Sending failed ({type(exc).__name__}) — check the webhook URL.", style="red")
+            text = Text(_("✖ Sending failed ({error}) — check the webhook URL.").format(error=type(exc).__name__), style="red")
         self.app.call_from_thread(self.query_one("#discord-test-result", Static).update, text)
 
     def _discord_off(self) -> None:
@@ -491,7 +499,7 @@ class SettingsModal(ModalScreen):
     def _delete_preset(self) -> None:
         select = self.query_one("#settings-preset", Select)
         if not isinstance(select.value, str):
-            self.notify("Choose a preset first.", severity="warning")
+            self.notify(_("Choose a preset first."), severity="warning")
             return
         name = select.value
         delete_preset(self.storage, name)
@@ -500,7 +508,7 @@ class SettingsModal(ModalScreen):
         if not remaining:
             select.disabled = True
             self.query_one("#settings-preset-delete", Button).disabled = True
-        self.notify(f"Preset “{name}” deleted.")
+        self.notify(_("Preset “{name}” deleted.").format(name=name))
 
     def _export_folder_value(self) -> str:
         raw = self.query_one("#settings-export-folder", Input).value.strip()
@@ -513,25 +521,25 @@ class SettingsModal(ModalScreen):
     def _archive_now(self) -> None:
         result = self.query_one("#archive-result", Static)
         if not self._archive_folder_value():
-            result.update(Text("Fill in a folder first.", style="yellow"))
+            result.update(Text(_("Fill in a folder first."), style="yellow"))
             return
         folder = Path(self._archive_folder_value())
         try:
             added = archive(self.storage, folder)
         except OSError as exc:
-            result.update(Text(f"✖ Archiving failed: {exc.strerror or type(exc).__name__}", style="red"))
+            result.update(Text(_("✖ Archiving failed: {error}").format(error=exc.strerror or type(exc).__name__), style="red"))
             return
-        months = ", ".join(f"{y:04d}-{m:02d}" for y, m in added) or "nothing new to archive"
+        months = ", ".join(f"{y:04d}-{m:02d}" for y, m in added) or _("nothing new to archive")
         result.update(Text(f"✓ {months} — {folder}", style="green"))
 
     def _backup(self) -> None:
         try:
             path = backup_now(self.storage.db_path, default_backup_dir(self.storage.db_path))
         except Exception as exc:
-            self.notify(f"Backup failed: {type(exc).__name__}", severity="error")
+            self.notify(_("Backup failed: {error}").format(error=type(exc).__name__), severity="error")
             return
         self._refresh_data_info()
-        self.notify(str(path), title="Backed up")
+        self.notify(str(path), title=_("Backed up"))
 
     # --- save / cancel -----------------------------------------------------
 
@@ -539,8 +547,8 @@ class SettingsModal(ModalScreen):
         s = self.storage
         webhook = self.query_one("#settings-discord-webhook", Input).value.strip()
         if webhook and not is_discord_webhook(webhook):
-            self.notify("That isn't a Discord webhook URL (https://discord.com/api/webhooks/…).",
-                        title="Not saved", severity="error")
+            self.notify(_("That isn't a Discord webhook URL (https://discord.com/api/webhooks/…)."),
+                        title=_("Not saved"), severity="error")
             return
         s.set_setting(THEME_KEY, self.app.theme)
         token = self.query_one("#settings-telegram-token", Input).value.strip()
@@ -558,8 +566,23 @@ class SettingsModal(ModalScreen):
         send = self.query_one("#settings-export-send", Select).value
         s.set_setting(EXPORT_SEND_KEY, "" if send == "folder" else str(send))
         s.set_setting(ARCHIVE_FOLDER_KEY, self._archive_folder_value())
-        self.notify("Settings saved.")
+        language = str(self.query_one("#settings-language", Select).value)
+        old_language = i18n.language()
+        s.set_setting(i18n.LANGUAGE_KEY, "" if language == "auto" else language)
+        self.notify(_("Settings saved."))
         self.dismiss(True)
+        if i18n.resolve(s.get_setting(i18n.LANGUAGE_KEY)) != old_language:
+            self._restart_for_language()
+
+    def _restart_for_language(self) -> None:
+        """Keys and labels are built at start: the new language needs a
+        new TUI. Run as the ccc-tui service it's back a second later."""
+        from ccc import instance
+
+        if instance.inside_ccc_tmux():
+            self.app.exit()
+        else:
+            self.app.notify(_("The language changes when you start ccc again."), timeout=8)
 
     def action_cancel(self) -> None:
         self.app.theme = self._original_theme

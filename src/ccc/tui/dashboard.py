@@ -6,6 +6,7 @@ from rich.text import Text
 from textual.binding import Binding
 from textual.widgets import DataTable, Static
 
+from ccc.i18n import _
 from ccc.models import QueueStatus
 from ccc.storage import Storage
 from ccc.tui.layout import (
@@ -19,7 +20,7 @@ from ccc.tui.layout import (
 PATH_COLUMN_WIDTH = 48
 
 # Instead of an empty table, until the first conversation exists.
-GETTING_STARTED = """\
+GETTING_STARTED = _("""\
 [b]No conversations yet.[/b] Three steps to your first one:
 
   [b cyan]1.[/]  Press [b]n[/b] (or New conversation in Conversations), pick a project folder,
@@ -28,7 +29,7 @@ GETTING_STARTED = """\
   [b cyan]3.[/]  Queue more work with [b]t[/b]. ccc carries on when you close it (Ctrl+Q)
       and waits out usage limits by itself.
 
-Press [b]?[/b] for the guide — every screen, every key."""
+Press [b]?[/b] for the guide — every screen, every key.""")
 
 
 def _shorten_path(path: str) -> str:
@@ -39,26 +40,26 @@ def _shorten_path(path: str) -> str:
 
 class DashboardScreen(SidebarScreen):
     VIEW = "dashboard"
-    SUB_TITLE = "Dashboard"
+    SUB_TITLE = _("Dashboard")
 
     BINDINGS = [
         # Only an overview: a blocked queue is retried in Conversations or
         # its queue detail (Enter). Ctrl+Q closes ccc everywhere.
-        Binding("q", "quit", "Close", show=False),
+        Binding("q", "quit", _("Close"), show=False),
     ]
 
     def __init__(self, storage: Storage):
         super().__init__(storage)
 
     def compose_main(self):
-        yield panel(Static(id="dashboard-overview"), title="Overview")
-        yield panel(Static(GETTING_STARTED), title="Getting started", id="dashboard-welcome")
-        yield panel(DataTable(id="dashboard-table"), title="Queues", fill=True)
+        yield panel(Static(id="dashboard-overview"), title=_("Overview"))
+        yield panel(Static(GETTING_STARTED), title=_("Getting started"), id="dashboard-welcome")
+        yield panel(DataTable(id="dashboard-table"), title=_("Queues"), fill=True)
 
     def on_mount(self) -> None:
         table = self.query_one("#dashboard-table", DataTable)
         table.cursor_type = "row"
-        table.add_columns("Project", "Status", "Pending", "Today's tokens", "Path")
+        table.add_columns(_("Project"), _("Status"), _("Pending"), _("Today's tokens"), _("Path"))
         self.refresh_table()
         self.set_interval(2.0, self.refresh_table)
 
@@ -90,11 +91,18 @@ class DashboardScreen(SidebarScreen):
 
         # Archived ones count too: by then you know your way around.
         self.query_one("#dashboard-welcome").display = not self.storage.list_queues()
-        blocked_text = f"[bold red]{blocked} blocked[/]" if blocked else "0 blocked"
-        running_text = f"[bold green]{running} running[/]" if running else "0 running"
+        blocked_text = _("{n} blocked").format(n=blocked)
+        running_text = _("{n} running").format(n=running)
+        if blocked:
+            blocked_text = f"[bold red]{blocked_text}[/]"
+        if running:
+            running_text = f"[bold green]{running_text}[/]"
         self.query_one("#dashboard-overview", Static).update(
-            f"[b]{len(queues)}[/b] queues  ·  {running_text}  ·  [b]{total_pending}[/b] pending  ·  "
-            f"{blocked_text}  ·  [b]{total_tokens:,}[/b] tokens today"
+            _("[b]{queues}[/b] queues  ·  {running}  ·  [b]{pending}[/b] pending  ·  {blocked}  ·  "
+              "[b]{tokens}[/b] tokens today").format(
+                queues=len(queues), running=running_text, pending=total_pending,
+                blocked=blocked_text, tokens=f"{total_tokens:,}",
+            )
         )
 
     def _visible_queues(self):

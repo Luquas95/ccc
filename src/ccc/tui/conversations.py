@@ -11,6 +11,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.content import Content
 from textual.widgets import Collapsible, DataTable, Markdown, Static
 
+from ccc.i18n import _
 from ccc.launch_options import describe_flags
 from ccc.models import DeliveryMode, Queue, QueueStatus
 from ccc.prompt_presets import load_prompt_presets
@@ -36,31 +37,31 @@ MAX_RENDERED_EVENTS = 60
 
 class ConversationsScreen(SidebarScreen):
     VIEW = "conversations"
-    SUB_TITLE = "Conversations"
+    SUB_TITLE = _("Conversations")
     # Which conversations the list shows: the active ones here, the
     # archived ones in the Archive view (tui.archive).
     ARCHIVED = False
     # Big pixel text when there's nothing to show (see _shows_nothing).
-    BANNER_TEXT = "NO CONVERSATION"
+    BANNER_TEXT = _("NO CONVERSATION")
 
     BINDINGS = [
         # Back = Dashboard (d) and Retry has its sidebar button.
-        Binding("escape", "back", "Back", show=False),
-        Binding("r", "retry_queue", "Retry / resume", show=False),
-        ("t", "tasks", "Tasks"),
-        ("x", "toggle_archive", "Archive"),
+        Binding("escape", "back", _("Back"), show=False),
+        Binding("r", "retry_queue", _("Retry / resume"), show=False),
+        ("t", "tasks", _("Tasks")),
+        ("x", "toggle_archive", _("Archive")),
         # No Ctrl+D (delete): it exits Claude Code — new key in #31.
-        ("slash", "search", "Search"),
-        ("e", "export", "Export conversation"),
-        ("p", "approve", "Approve"),
+        ("slash", "search", _("Search")),
+        ("e", "export", _("Export conversation")),
+        ("p", "approve", _("Approve")),
         # While Claude Code is open beside ccc — listed in the key strip;
         # pressed in the Claude pane they're tmux's (cli_pane.key_bindings,
         # attach_cli's Ctrl+]), clicked in the strip they land here.
         Binding("alt+0", "focus_claude", "Claude ↔ ccc", key_display="Alt+0"),
-        Binding("ctrl+right_square_bracket", "close_claude", "Close Claude", key_display="Ctrl+]"),
+        Binding("ctrl+right_square_bracket", "close_claude", _("Close Claude"), key_display="Ctrl+]"),
         # Preset prompts (Settings); priority so they work while typing.
-        *[Binding(f"alt+{n}", f"prompt_preset({n})", f"Preset {n}", show=False, priority=True) for n in range(1, 10)],
-        *[Binding(ALT_DIGIT_CHARS[n], f"prompt_preset({n}, True)", f"Preset {n}", show=False, priority=True)
+        *[Binding(f"alt+{n}", f"prompt_preset({n})", _("Preset {n}").format(n=n), show=False, priority=True) for n in range(1, 10)],
+        *[Binding(ALT_DIGIT_CHARS[n], f"prompt_preset({n}, True)", _("Preset {n}").format(n=n), show=False, priority=True)
           for n in range(1, 10)],
     ]
 
@@ -207,7 +208,7 @@ class ConversationsScreen(SidebarScreen):
         return self.storage.find_queue(self._current_queue_id) if self._current_queue_id is not None else None
 
     def compose_sidebar_section(self):
-        yield Static("Queues", classes="sidebar-label")
+        yield Static(_("Queues"), classes="sidebar-label")
         yield DataTable(id="conversation-queue-list", classes="sidebar-list")
         # No Claude Code key hints here: the menu keeps its size in every
         # view — they are in the bar under Claude Code (cli_bar).
@@ -216,7 +217,7 @@ class ConversationsScreen(SidebarScreen):
         yield Static(id="conversation-header")
         yield VerticalScroll(id="conversation-transcript")
         yield Static(id="conversation-status")
-        yield MessageBox(placeholder="Message Claude… (Enter send · Ctrl+J new line · Esc back)", id="message-input")
+        yield MessageBox(placeholder=_("Message Claude… (Enter send · Ctrl+J new line · Esc back)"), id="message-input")
         yield Horizontal(id="prompt-presets-bar")
         yield PixelBanner(self.BANNER_TEXT, id="no-conversation")
 
@@ -249,11 +250,11 @@ class ConversationsScreen(SidebarScreen):
         # Recreate the column too: after a plain clear() the auto width
         # stays at the header's ("Queue") and every name gets cut to 5 chars.
         table.clear(columns=True)
-        table.add_column("Queue")
+        table.add_column(_("Queue"))
         rows = self._list_rows()
-        self._queue_ids = [queue_id for queue_id, _ in rows]
-        self._list_signature = [label.plain for _, label in rows]
-        for _, label in rows:
+        self._queue_ids = [queue_id for queue_id, _label in rows]
+        self._list_signature = [label.plain for _id, label in rows]
+        for _id, label in rows:
             table.add_row(label)
 
     def _list_rows(self) -> list[tuple[int, Text]]:
@@ -366,7 +367,7 @@ class ConversationsScreen(SidebarScreen):
             with self.app.suspend():
                 subprocess.run([sys.executable, "-m", "ccc.attach_cli", str(queue_id)])
         except Exception as exc:  # SuspendNotSupported (e.g. textual serve)
-            self.notify(f"Can't open Claude Code here ({type(exc).__name__}).", severity="error")
+            self.notify(_("Can't open Claude Code here ({error}).").format(error=type(exc).__name__), severity="error")
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         if event.data_table.id != "conversation-queue-list":
@@ -418,13 +419,13 @@ class ConversationsScreen(SidebarScreen):
         container = self.query_one("#conversation-transcript", VerticalScroll)
         await container.remove_children()
         if not events and not pending:
-            await container.mount(Static("No conversation yet.", id="transcript-placeholder"))
+            await container.mount(Static(_("No conversation yet."), id="transcript-placeholder"))
             return
         shown = [e for e in events if e.kind != "tool_result"][-MAX_RENDERED_EVENTS:]
         hidden = sum(1 for e in events if e.kind != "tool_result") - len(shown)
         widgets = []
         if hidden > 0:
-            widgets.append(Static(f"… {hidden} earlier messages not shown", classes="tool-call-line"))
+            widgets.append(Static(_("… {n} earlier messages not shown").format(n=hidden), classes="tool-call-line"))
         self._tool_results = {}
         results = {e.tool_use_id: e.text for e in events if e.kind == "tool_result" and e.tool_use_id}
         widgets += [self._render_event(e, results) for e in shown]
@@ -445,7 +446,7 @@ class ConversationsScreen(SidebarScreen):
         for tool_use_id, text in results.items():
             widget = self._tool_results.get(tool_use_id)
             if widget is not None:
-                widget.update(Content(text or "(no output)"))
+                widget.update(Content(text or _("(no output)")))
         shown = [e for e in new_events if e.kind != "tool_result"]
         if shown:
             await container.mount(*[self._render_event(e, results) for e in shown], before=queued_box)
@@ -457,7 +458,7 @@ class ConversationsScreen(SidebarScreen):
     def _queued_widgets(pending) -> list[Static]:
         return [
             Static(
-                Content.assemble(("You", "bold"), "  ", ("queued", "dim"), "\n", item.prompt_text),
+                Content.assemble((_("You"), "bold"), "  ", (_("queued"), "dim"), "\n", item.prompt_text),
                 classes="message-box message-box-queued",
             )
             for item in pending
@@ -473,7 +474,7 @@ class ConversationsScreen(SidebarScreen):
         time_str = event.timestamp.astimezone().strftime("%H:%M")  # UTC in transcripts
         if event.kind == "tool_call":
             result = Static(
-                Content(results.get(event.tool_use_id, "(waiting for result…)") or "(no output)"),
+                Content(results.get(event.tool_use_id, _("(waiting for result…)")) or _("(no output)")),
                 classes="tool-result",
             )
             if event.tool_use_id:
@@ -485,7 +486,7 @@ class ConversationsScreen(SidebarScreen):
                 collapsed=True,
                 classes="tool-call",
             )
-        header = Static(Content.assemble(("You" if event.kind == "human" else "Claude", "bold"), "  ", (time_str, "dim")))
+        header = Static(Content.assemble((_("You") if event.kind == "human" else "Claude", "bold"), "  ", (time_str, "dim")))
         if event.kind == "human":
             return Vertical(header, Static(Content(event.text)), classes="message-box message-box-human")
         return Vertical(header, Markdown(event.text), classes="message-box message-box-assistant")
@@ -493,61 +494,62 @@ class ConversationsScreen(SidebarScreen):
     def _update_header(self, queue: Queue) -> None:
         parts = [
             (queue.name, "bold"), "  ", (queue.project_path, "dim"), "  ·  ", describe_flags(queue.launch_flags),
-            "  ·  ", ("auto-continue on", "green") if queue.auto_continue else ("auto-continue off", "yellow"),
+            "  ·  ", (_("auto-continue on"), "green") if queue.auto_continue else (_("auto-continue off"), "yellow"),
         ]
         if queue.archived:
             # Nothing runs for it: no remote control, no CLI to open.
-            parts += ["\n", ("archived: ", "bold"), ("x restores it, Enter restores and opens it, Delete deletes it", "cyan")]
+            parts += ["\n", (_("archived: "), "bold"), (_("x restores it, Enter restores and opens it, Delete deletes it"), "cyan")]
         elif queue.delivery_mode == DeliveryMode.REMOTE_CONTROL:
-            parts += ["\n", ("remote control: ", "bold"), (queue.remote_control_url or "starting…", "cyan")]
+            parts += ["\n", (_("remote control: "), "bold"), (queue.remote_control_url or _("starting…"), "cyan")]
         if queue.delivery_mode.managed and not queue.archived:
             parts += ["\n", ("Claude Code CLI: ", "bold"),
-                      ("Enter in the list opens it" + ("" if cli_pane.available() else " (full screen, Ctrl+] back)"),
+                      (_("Enter in the list opens it") + ("" if cli_pane.available() else _(" (full screen, Ctrl+] back)")),
                        "cyan")]
         if queue.first_run_flags:
-            parts += ["  ·  ", ("first run: " + " ".join(queue.first_run_flags), "yellow")]
+            parts += ["  ·  ", (_("first run: ") + " ".join(queue.first_run_flags), "yellow")]
         self.query_one("#conversation-header", Static).update(Content.assemble(*parts))
 
     def _status_for(self, queue: Queue, pending) -> Content:
         requests = self.storage.pending_permission_requests(queue.id)
         if requests:
             return Content.assemble(
-                (f"? Waiting for your approval: {requests[0].tool_name} — press p", "bold yellow"),
-                f"  ·  {len(pending)} queued" if pending else "",
+                (_("? Waiting for your approval: {tool} — press p").format(tool=requests[0].tool_name), "bold yellow"),
+                _("  ·  {n} queued").format(n=len(pending)) if pending else "",
             )
         return self._status_text(queue, len(pending), pending[0].not_before if pending else None)
 
     @staticmethod
     def _status_text(queue: Queue, pending: int, next_at: datetime | None = None) -> Content:
         if queue.status == QueueStatus.RUNNING:
-            status = ("● Claude is working…", "bold green")
+            status = (_("● Claude is working…"), "bold green")
         elif queue.status == QueueStatus.WAITING_RETRY and queue.next_retry_at and (queue.last_error or "").startswith("usage reserve"):
             percent = queue.last_error.removeprefix("usage reserve ").strip()
-            status = (f"‖ Holding for your usage reserve ({percent}) until {queue.next_retry_at:%H:%M}", "bold yellow")
+            status = (_("‖ Holding for your usage reserve ({percent}) until {time}").format(
+                percent=percent, time=f"{queue.next_retry_at:%H:%M}"), "bold yellow")
         elif queue.status == QueueStatus.WAITING_RETRY and queue.next_retry_at:
-            status = (f"‖ Waiting for usage limit reset until {queue.next_retry_at:%H:%M}", "bold yellow")
+            status = (_("‖ Waiting for usage limit reset until {time}").format(time=f"{queue.next_retry_at:%H:%M}"), "bold yellow")
         elif queue.status == QueueStatus.PAUSED_LIMIT:
             if queue.next_retry_at and queue.next_retry_at > datetime.now():
-                status = (f"‖ Paused at usage limit, resets {queue.next_retry_at:%H:%M}", "bold magenta")
+                status = (_("‖ Paused at usage limit, resets {time}").format(time=f"{queue.next_retry_at:%H:%M}"), "bold magenta")
             else:
-                status = ("‖ Limit reset — press r to continue", "bold magenta")
+                status = (_("‖ Limit reset — press r to continue"), "bold magenta")
         elif queue.paused:
-            status = ("‖ Queue paused — t, p to resume", "bold yellow")
+            status = (_("‖ Queue paused — t, p to resume"), "bold yellow")
         elif queue.status == QueueStatus.BLOCKED_ERROR:
             line = (queue.last_error or "").replace("\n", " ")[:120]
-            status = (f"✖ Blocked: {line} — press r to retry", "bold red")
+            status = (_("✖ Blocked: {error} — press r to retry").format(error=line), "bold red")
         else:
-            status = ("Ready", "dim")
+            status = (_("Ready"), "dim")
             if next_at is not None and next_at > datetime.now():
-                status = (f"Next task at {next_at:%H:%M}" if next_at.date() == datetime.now().date()
-                          else f"Next task at {next_at:%Y-%m-%d %H:%M}", "cyan")
-        return Content.assemble(status, f"  ·  {pending} queued" if pending else "")
+                when = f"{next_at:%H:%M}" if next_at.date() == datetime.now().date() else f"{next_at:%Y-%m-%d %H:%M}"
+                status = (_("Next task at {time}").format(time=when), "cyan")
+        return Content.assemble(status, _("  ·  {n} queued").format(n=pending) if pending else "")
 
     async def _refresh_current(self) -> None:
         if self._current_queue_id is not None and self.app.screen is self:
             # You're looking at it: replies to it aren't "new".
             self.storage.mark_seen(self._current_queue_id)
-        if [label.plain for _, label in self._list_rows()] != self._list_signature:
+        if [label.plain for _id, label in self._list_rows()] != self._list_signature:
             # New/removed conversation, or a marker / pending count changed.
             self._rebuild_queue_list()
             self._move_cursor_to_current()
@@ -605,7 +607,7 @@ class ConversationsScreen(SidebarScreen):
             for n, p in enumerate(presets, start=1)
         )
         if presets:
-            await bar.mount(Static("⏎ sends  ·  ✎ inserts", id="prompt-presets-legend"))
+            await bar.mount(Static(_("⏎ sends  ·  ✎ inserts"), id="prompt-presets-legend"))
         # A class, not bar.display: an inline display would beat the
         # -no-conversation rule hiding everything in #main.
         bar.set_class(not presets, "-empty")
@@ -637,7 +639,7 @@ class ConversationsScreen(SidebarScreen):
             box.insert(ALT_DIGIT_TEXT[number])
             return
         if number > len(presets):
-            self.notify(f"No preset on Alt+{number} — add one in Settings (Ctrl+P).", severity="warning")
+            self.notify(_("No preset on Alt+{n} — add one in Settings (Ctrl+P).").format(n=number), severity="warning")
             return
         preset = presets[number - 1]
         if not preset.send_now:
@@ -645,10 +647,10 @@ class ConversationsScreen(SidebarScreen):
             box.focus()
             return
         if self._current_queue_id is None:
-            self.notify("Select a conversation first.", severity="warning")
+            self.notify(_("Select a conversation first."), severity="warning")
             return
         await self._enqueue_text(preset.text)
-        self.notify(preset.name, title="Sent")
+        self.notify(preset.name, title=_("Sent"))
 
     def open_conversation(self, queue_id: int) -> None:
         if self.storage.get_queue(queue_id).archived != self.ARCHIVED:
@@ -702,8 +704,8 @@ class ConversationsScreen(SidebarScreen):
         if queue.status == QueueStatus.RUNNING:
             self.app.push_screen(
                 ConfirmModal(
-                    "Can't delete",
-                    f"Claude is working on '{queue.name}' right now — wait or pause it first (t, p).",
+                    _("Can't delete"),
+                    _("Claude is working on '{name}' right now — wait or pause it first (t, p).").format(name=queue.name),
                     can_confirm=False,
                 )
             )
@@ -719,9 +721,9 @@ class ConversationsScreen(SidebarScreen):
 
         self.app.push_screen(
             ConfirmModal(
-                "Delete conversation",
-                f"Delete '{queue.name}' with its queued tasks and run history from ccc?\n"
-                "Claude Code's own transcript stays, so it can still be resumed later.",
+                _("Delete conversation"),
+                _("Delete '{name}' with its queued tasks and run history from ccc?\n"
+                  "Claude Code's own transcript stays, so it can still be resumed later.").format(name=queue.name),
             ),
             answered,
         )
@@ -746,7 +748,7 @@ class ConversationsScreen(SidebarScreen):
             self._sync_cli_pane()  # the NO CONVERSATION banner
             container = self.query_one("#conversation-transcript", VerticalScroll)
             await container.remove_children()
-            await container.mount(Static("No conversation yet."))
+            await container.mount(Static(_("No conversation yet.")))
             self.query_one("#conversation-header", Static).update("")
             self.query_one("#conversation-status", Static).update("")
             return
@@ -769,7 +771,7 @@ class ConversationsScreen(SidebarScreen):
         if self._current_queue_id is None:
             return
         path = export_markdown(self.storage, self._current_queue_id, export_dir(self.storage, CONVERSATIONS))
-        self.notify(f"Exported to {path}", title="Export conversation")
+        self.notify(_("Exported to {path}").format(path=path), title=_("Export conversation"))
         send_export(self.app, self.storage, path)
 
     def action_approve(self) -> None:
@@ -779,7 +781,7 @@ class ConversationsScreen(SidebarScreen):
             return
         requests = self.storage.pending_permission_requests(self._current_queue_id)
         if not requests:
-            self.notify("Nothing is waiting for approval in this conversation.")
+            self.notify(_("Nothing is waiting for approval in this conversation."))
             return
 
         def decided(_answered) -> None:

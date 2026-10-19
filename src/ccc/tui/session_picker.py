@@ -7,15 +7,21 @@ from textual.content import Content
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Static, TextArea
 
+from ccc.i18n import _
 from ccc.orchestrator import attach_to_session
 from ccc.session_discovery import DiscoveredSession, discover_sessions
 from ccc.storage import Storage
 from ccc.tui.layout import ADD_PROMPT_BUTTON, MODAL_CSS, SidebarButton, SidebarScreen, panel
 
 
-REFRESH_BUTTON = SidebarButton("sidebar-refresh", "Reload session list (r)", "blue", "refresh")
+REFRESH_BUTTON = SidebarButton("sidebar-refresh", _("Reload session list (r)"), "blue", "refresh")
 
 SESSION_STATUS_STYLES = {"idle": "green", "busy": "yellow", "blocked": "bold red"}
+# Claude Code's own status / kind words, as shown in the table.
+SESSION_WORDS = {
+    "idle": _("idle"), "busy": _("busy"), "blocked": _("blocked"),
+    "interactive": _("interactive"), "background": _("background"),
+}
 
 
 class SessionPickerScreen(SidebarScreen):
@@ -25,12 +31,12 @@ class SessionPickerScreen(SidebarScreen):
     queues can't distinguish."""
 
     VIEW = "sessions"
-    SUB_TITLE = "Live sessions"
+    SUB_TITLE = _("Live sessions")
 
     BINDINGS = [
-        Binding("escape", "back", "Back", show=False),
-        Binding("r", "refresh", "Reload session list", show=False),
-        Binding("a", "add_prompt", "Add prompt", show=False),
+        Binding("escape", "back", _("Back"), show=False),
+        Binding("r", "refresh", _("Reload session list"), show=False),
+        Binding("a", "add_prompt", _("Add prompt"), show=False),
     ]
 
     def __init__(self, storage: Storage):
@@ -43,18 +49,18 @@ class SessionPickerScreen(SidebarScreen):
     def compose_main(self):
         yield panel(
             Static(
-                "Enter on a session to send it a prompt — typed into its own terminal once it's idle.",
+                _("Enter on a session to send it a prompt — typed into its own terminal once it's idle."),
                 classes="muted",
             ),
             DataTable(id="session-picker-table"),
-            title="Live Claude Code sessions on this machine",
+            title=_("Live Claude Code sessions on this machine"),
             fill=True,
         )
 
     def on_mount(self) -> None:
         table = self.query_one("#session-picker-table", DataTable)
         table.cursor_type = "row"
-        table.add_columns("Name", "Kind", "Status", "Directory")
+        table.add_columns(_("Name"), _("Kind"), _("Status"), _("Directory"))
         self.refresh_sessions()
 
     def refresh_sessions(self) -> None:
@@ -64,8 +70,9 @@ class SessionPickerScreen(SidebarScreen):
         for session in self.sessions:
             status = session.state if session.state == "blocked" else (session.status or "")
             style = SESSION_STATUS_STYLES.get(status)
-            status_cell = Text(status, style=style or "")
-            table.add_row(Text(session.name), session.kind, status_cell, Text(session.cwd, style="dim"))
+            status_cell = Text(SESSION_WORDS.get(status, status), style=style or "")
+            table.add_row(Text(session.name), SESSION_WORDS.get(session.kind, session.kind), status_cell,
+                          Text(session.cwd, style="dim"))
 
     def action_refresh(self) -> None:
         self.refresh_sessions()
@@ -87,7 +94,7 @@ class AttachSessionModal(ModalScreen):
     }
     """
 
-    BINDINGS = [("escape", "cancel", "Cancel")]
+    BINDINGS = [("escape", "cancel", _("Cancel"))]
 
     def __init__(self, storage: Storage, session: DiscoveredSession):
         super().__init__()
@@ -98,22 +105,22 @@ class AttachSessionModal(ModalScreen):
         box = Container(
             Static(Content.assemble((self.session.name, "bold"), "  ", (self.session.cwd, "dim"))),
             Static(
-                "Delivered by typing into that session's own terminal once it's idle "
-                "and not rate-limited — the response appears there, not in ccc. "
-                "If you're mid-typing something else in that terminal at the exact "
-                "moment this fires, the two can interleave.",
+                _("Delivered by typing into that session's own terminal once it's idle "
+                  "and not rate-limited — the response appears there, not in ccc. "
+                  "If you're mid-typing something else in that terminal at the exact "
+                  "moment this fires, the two can interleave."),
                 classes="attach-prompt-warning",
             ),
-            Static("Prompt", classes="modal-label"),
+            Static(_("Prompt"), classes="modal-label"),
             TextArea(id="attach-prompt-text"),
             Static("", id="attach-prompt-error", classes="modal-error"),
             Horizontal(
-                Button("Send", id="attach-prompt-submit", classes="modal-submit"),
-                Button("Cancel", id="attach-prompt-cancel", classes="modal-cancel"),
+                Button(_("Send"), id="attach-prompt-submit", classes="modal-submit"),
+                Button(_("Cancel"), id="attach-prompt-cancel", classes="modal-cancel"),
                 classes="modal-buttons",
             ),
         )
-        box.border_title = "Send prompt to live session"
+        box.border_title = _("Send prompt to live session")
         yield box
 
     def on_mount(self) -> None:

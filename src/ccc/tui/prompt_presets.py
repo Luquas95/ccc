@@ -8,6 +8,7 @@ from textual.containers import Container
 from textual.screen import ModalScreen
 from textual.widgets import Checkbox, Input, Static, TextArea
 
+from ccc.i18n import _
 from ccc.prompt_presets import PromptPreset
 from ccc.tui.layout import MODAL_CSS
 
@@ -30,7 +31,7 @@ def mode_mark(preset: PromptPreset) -> str:
 
 
 def mode_label(preset: PromptPreset) -> str:
-    return f"{SEND_MARK} send" if preset.send_now else f"{INSERT_MARK} insert"
+    return f"{SEND_MARK} " + _("send") if preset.send_now else f"{INSERT_MARK} " + _("insert")
 
 
 def bar_item(number: int, preset: PromptPreset) -> Text:
@@ -63,25 +64,25 @@ class PromptPresetModal(ModalScreen):
 
     BINDINGS = [
         # priority: TextArea would otherwise swallow these keys.
-        Binding("ctrl+s", "save", "Save", priority=True),
-        Binding("escape", "cancel", "Cancel", priority=True),
+        Binding("ctrl+s", "save", _("Save"), priority=True),
+        Binding("escape", "cancel", _("Cancel"), priority=True),
     ]
 
-    def __init__(self, preset: PromptPreset | None = None, title: str = "New preset prompt"):
+    def __init__(self, preset: PromptPreset | None = None, title: str | None = None):
         super().__init__()
         self.preset = preset or PromptPreset("", "", False)
-        self.box_title = title
+        self.box_title = title or _("New preset prompt")
 
     def compose(self):
         box = Container(
-            Static("Name (shown in the bar under the message box)", classes="modal-label"),
-            Input(self.preset.name, placeholder="e.g. Tests", id="preset-name"),
-            Static("Prompt", classes="modal-label"),
+            Static(_("Name (shown in the bar under the message box)"), classes="modal-label"),
+            Input(self.preset.name, placeholder=_("e.g. Tests"), id="preset-name"),
+            Static(_("Prompt"), classes="modal-label"),
             TextArea(self.preset.text, id="preset-text"),
-            Checkbox("Send right away (with Enter) — otherwise only put into the message box",
+            Checkbox(_("Send right away (with Enter) — otherwise only put into the message box"),
                      self.preset.send_now, id="preset-send-now"),
             Static("", id="preset-error"),
-            Static("Ctrl+S save  ·  Esc cancel", classes="modal-hint"),
+            Static(_("Ctrl+S save  ·  Esc cancel"), classes="modal-hint"),
         )
         box.border_title = self.box_title
         yield box

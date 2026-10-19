@@ -3,6 +3,7 @@ from __future__ import annotations
 import subprocess
 from dataclasses import dataclass
 
+from ccc.i18n import _
 from ccc.session_discovery import discover_sessions, find_tmux_pane_for_pid, session_ready_for_input
 
 
@@ -33,15 +34,15 @@ def deliver_to_live_session(session_id: str, prompt_text: str) -> DeliveryResult
     sessions = discover_sessions()
     session = next((s for s in sessions if s.session_id == session_id), None)
     if session is None:
-        return DeliveryResult(delivered=False, error="session is no longer running")
+        return DeliveryResult(delivered=False, error=_("session is no longer running"))
     if not session_ready_for_input(session):
-        return DeliveryResult(delivered=False, error="session is not ready for input")
+        return DeliveryResult(delivered=False, error=_("session is not ready for input"))
     if session.pid is None:
-        return DeliveryResult(delivered=False, error="session has no known process id")
+        return DeliveryResult(delivered=False, error=_("session has no known process id"))
 
     pane = find_tmux_pane_for_pid(session.pid)
     if pane is None:
-        return DeliveryResult(delivered=False, error="could not find a tmux pane for this session")
+        return DeliveryResult(delivered=False, error=_("could not find a tmux pane for this session"))
 
     return _send_keys(pane, prompt_text)
 

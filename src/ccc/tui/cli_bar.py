@@ -14,6 +14,7 @@ from textual.widgets import Static
 
 from ccc import clipboard_bridge
 from ccc.cli_input import apply_preset
+from ccc.i18n import _
 from ccc.prompt_presets import load_prompt_presets
 from ccc.storage import Storage
 from ccc.tui import cli_pane
@@ -75,7 +76,7 @@ class CliBar(App):
                 for n, p in enumerate(presets, start=1)
             )
         else:
-            await row.mount(Static(Text("No preset prompts — add them in Settings (Ctrl+P)", style="dim")))
+            await row.mount(Static(Text(_("No preset prompts — add them in Settings (Ctrl+P)"), style="dim")))
 
     def on_click(self, event) -> None:
         widget = event.widget

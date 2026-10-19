@@ -4,6 +4,7 @@ import asyncio
 import logging
 import signal
 
+from ccc import i18n
 from ccc.backup import daily_backup, default_backup_dir
 from ccc.heartbeat import HEARTBEAT_SECONDS, beat
 from ccc.notify import Notifier
@@ -20,6 +21,8 @@ async def heartbeat_loop(storage: Storage, interval: float = HEARTBEAT_SECONDS) 
     while True:
         try:
             beat(storage)
+            # Notifications and notes follow the language set in the TUI.
+            i18n.load(storage)
         except Exception:  # a locked DB moment must not kill the loop
             logger.exception("heartbeat write failed")
         await asyncio.sleep(interval)
@@ -66,6 +69,7 @@ async def archive_loop(storage: Storage, interval: float = ARCHIVE_CHECK_SECONDS
 
 async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     storage = Storage(db_path)
+    i18n.load(storage)
     orchestrator = Orchestrator(storage, run_fn=run_fn, notifier=Notifier(storage))
     await orchestrator.start_all()
     logger.info("ccc daemon started, db=%s, queues=%d", db_path, len(orchestrator.runtimes))

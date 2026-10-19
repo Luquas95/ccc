@@ -55,3 +55,6 @@ See [Usage limits & blocked queues](limits.md).
 - A usage limit is recognised from Claude Code's own error status (429),
   not by guessing from text. When the reset time is unknown, ccc retries
   after 15, then 30, then 60 minutes.
+- The language (Settings → Appearance, or `ccc config language`) applies
+  to the TUI, this guide, notifications, the monthly archive notes and
+  `ccc`'s output.

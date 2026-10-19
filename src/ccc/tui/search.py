@@ -6,6 +6,7 @@ from textual.containers import Container
 from textual.screen import ModalScreen
 from textual.widgets import DataTable, Input, Static
 
+from ccc.i18n import _
 from ccc.search import search_conversations
 from ccc.storage import Storage
 from ccc.tui.layout import MODAL_CSS
@@ -34,7 +35,7 @@ class SearchModal(ModalScreen):
     }
     """
 
-    BINDINGS = [("escape", "close", "Close")]
+    BINDINGS = [("escape", "close", _("Close"))]
 
     def __init__(self, storage: Storage):
         super().__init__()
@@ -43,17 +44,17 @@ class SearchModal(ModalScreen):
 
     def compose(self):
         box = Container(
-            Input(placeholder="Search all conversations… (Enter)", id="search-input"),
+            Input(placeholder=_("Search all conversations… (Enter)"), id="search-input"),
             Static("", id="search-status"),
             DataTable(id="search-results"),
         )
-        box.border_title = "Search"
+        box.border_title = _("Search")
         yield box
 
     def on_mount(self) -> None:
         table = self.query_one("#search-results", DataTable)
         table.cursor_type = "row"
-        table.add_columns("Conversation", "When", "Who", "Match")
+        table.add_columns(_("Conversation"), _("When"), _("Who"), _("Match"))
         self.query_one("#search-input", Input).focus()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -65,10 +66,10 @@ class SearchModal(ModalScreen):
             table.add_row(
                 Text(hit.queue_name),
                 hit.timestamp.astimezone().strftime("%Y-%m-%d %H:%M"),
-                "You" if hit.kind == "human" else "Claude",
+                _("You") if hit.kind == "human" else "Claude",
                 Text(hit.snippet),
             )
-        status = f"{len(hits)} matches — ↓ then Enter opens one" if hits else "No matches."
+        status = _("{n} matches — ↓ then Enter opens one").format(n=len(hits)) if hits else _("No matches.")
         self.query_one("#search-status", Static).update(status)
         if hits:
             table.focus()

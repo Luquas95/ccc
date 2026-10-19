@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from textual.widgets import DataTable
 
+from ccc.i18n import _
 from ccc.models import Queue
 from ccc.tui.conversations import ConversationsScreen
 from ccc.tui.layout import NEW_CONVERSATION_BUTTON
@@ -16,15 +17,15 @@ DISABLED_ACTIONS = {"tasks", "approve", "retry_queue", "prompt_preset"}
 
 class ArchiveScreen(ConversationsScreen):
     VIEW = "archive"
-    SUB_TITLE = "Archive"
+    SUB_TITLE = _("Archive")
     ARCHIVED = True
-    BANNER_TEXT = "EMPTY"
+    BANNER_TEXT = _("EMPTY")
 
     BINDINGS = [
-        ("x", "toggle_archive", "Restore"),
+        ("x", "toggle_archive", _("Restore")),
         # Safe here: no Claude Code runs next to the Archive (Ctrl+D is
         # Claude's exit, #31).
-        ("delete", "delete_conversation", "Delete"),
+        ("delete", "delete_conversation", _("Delete")),
     ]
 
     DEFAULT_CSS = """

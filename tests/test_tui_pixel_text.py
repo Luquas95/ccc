@@ -22,3 +22,15 @@ def test_layout_fits_the_width():
     narrow = layout("NO CONVERSATION", 75)  # phone: one band per word
     assert len(narrow) == 2 * ROWS + 1 and max(map(len, narrow)) <= 75
     assert layout("NO CONVERSATION", 30) == ["NO CONVERSATION"]
+
+
+def test_czech_banners_have_their_letters():
+    from ccc.tui.pixel_text import GLYPHS
+
+    for banner in ("BEZ KONVERZACE", "PRÁZDNO"):
+        assert set(banner) <= set(GLYPHS)
+        assert len(render_word(banner)) == ROWS
+
+
+def test_a_letter_without_a_glyph_loses_its_accent():
+    assert render_word("Č") == render_word("C")

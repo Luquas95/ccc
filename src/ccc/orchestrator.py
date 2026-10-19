@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Awaitable, Callable
 
 from ccc import gitops, managed_sessions
+from ccc.i18n import _
 from ccc.launch_options import (
     FORK,
     SESSION_CONTINUE,
@@ -73,7 +74,7 @@ def enqueue_prompt(storage: Storage, project_path: str, prompt_text: str, name: 
     queue = storage.get_queue_by_path(project_path)
     if queue is None:
         if not Path(project_path).is_dir():
-            raise ValueError(f"'{project_path}' is not an existing directory")
+            raise ValueError(_("'{path}' is not an existing directory").format(path=project_path))
         queue = storage.create_queue(
             name or Path(project_path).name or project_path,
             project_path,
@@ -114,7 +115,7 @@ def start_conversation(
     gives a headless `claude -p` queue. Raises ValueError with a message
     fit to show the user."""
     if not Path(project_path).is_dir():
-        raise ValueError(f"'{project_path}' is not an existing directory")
+        raise ValueError(_("'{path}' is not an existing directory").format(path=project_path))
     mode = session_mode(selection)
     fork = FORK in selection and mode != SESSION_NEW
     flags = persistent_flags(selection)
@@ -133,7 +134,7 @@ def start_conversation(
     if mode == SESSION_FROM_PR:
         pr = (pr or "").strip()
         if not pr:
-            raise ValueError("Enter a pull request number or URL.")
+            raise ValueError(_("Enter a pull request number or URL."))
         first = ["--from-pr", pr] + (["--fork-session"] if fork else [])
         return storage.create_queue(
             name, project_path, str(uuid.uuid4()), launch_flags=flags, first_run_flags=first,
@@ -143,10 +144,10 @@ def start_conversation(
     if mode == SESSION_CONTINUE:
         sessions = list_sessions_for_directory(project_path)
         if not sessions:
-            raise ValueError("There is no previous conversation in this directory.")
+            raise ValueError(_("There is no previous conversation in this directory."))
         session_id = sessions[0].session_id
     if not session_id:
-        raise ValueError("Select a conversation to resume.")
+        raise ValueError(_("Select a conversation to resume."))
 
     if fork:
         return storage.create_queue(
@@ -288,7 +289,7 @@ class QueueRuntime:
                     continue
                 self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
                 if self.storage.next_pending_item(queue.id) is not None:
-                    self._notify(f"▶ {queue.name}: usage limit reset — continuing.")
+                    self._notify(_("▶ {name}: usage limit reset — continuing.").format(name=queue.name))
                 continue
 
             if self.storage.next_pending_item(queue.id) is None:
@@ -353,7 +354,8 @@ class QueueRuntime:
         already = queue.status == QueueStatus.WAITING_RETRY and queue.last_error == note
         self.storage.update_queue_status(queue.id, QueueStatus.WAITING_RETRY, next_retry_at=until, last_error=note)
         if not already:
-            self._notify(f"‖ {queue.name}: usage above your {reserve}% reserve — waiting until {until:%H:%M}.")
+            self._notify(_("‖ {name}: usage above your {reserve}% reserve — waiting until {time}.").format(
+                name=queue.name, reserve=reserve, time=f"{until:%H:%M}"))
 
     def _hold_for_limit(self, queue: Queue, until: datetime) -> None:
         """Usage limit: wait for the reset by itself (auto-continue) or
@@ -363,11 +365,12 @@ class QueueRuntime:
         if queue.status == status:
             return  # still the same wait (e.g. re-checked at reset time)
         if status == QueueStatus.WAITING_RETRY:
-            self._notify(f"⏸ {queue.name}: usage limit — waiting until {until:%H:%M}, then it continues by itself.")
+            self._notify(_("⏸ {name}: usage limit — waiting until {time}, then it continues by itself.").format(
+                name=queue.name, time=f"{until:%H:%M}"))
         else:
             self._notify(
-                f"✋ {queue.name} needs you: paused at the usage limit (resets {until:%H:%M}). "
-                "Press r or send a message in ccc to continue."
+                _("✋ {name} needs you: paused at the usage limit (resets {time}). "
+                  "Press r or send a message in ccc to continue.").format(name=queue.name, time=f"{until:%H:%M}")
             )
 
     async def _process_item(self, queue: Queue, item: QueueItem) -> None:
@@ -398,7 +401,7 @@ class QueueRuntime:
         finished_at = datetime.now()
         git_commit = git_note = None
         if not git_allowed and result.status == RunStatus.SUCCESS and _inside_git_repo(queue.project_path):
-            git_note = "not committed: auto-commit only runs in 'Skip all permission checks' conversations"
+            git_note = _("not committed: auto-commit only runs in 'Skip all permission checks' conversations")
         if before is not None and result.status == RunStatus.SUCCESS:
             outcome = await asyncio.to_thread(
                 gitops.commit_task, queue.project_path, before, item.prompt_text, queue.name
@@ -442,7 +445,7 @@ class QueueRuntime:
             self._backoff_seconds = None
             if self.storage.next_pending_item(queue.id) is None:
                 reply = (result.result_text or "").strip()
-                self._notify(f"✅ {queue.name}: queue finished." + (f"\n\n{reply[:300]}" if reply else ""))
+                self._notify(_("✅ {name}: queue finished.").format(name=queue.name) + (f"\n\n{reply[:300]}" if reply else ""))
             if queue.first_run_flags is not None:
                 self._adopt_session(queue, result.session_id or queue.session_id)
             return
@@ -478,7 +481,7 @@ class QueueRuntime:
             sessions = discover_sessions()
             session = next((s for s in sessions if s.session_id == queue.session_id), None)
             if session is None:
-                self._record_error_run(queue, item, "session is no longer running (closed or crashed)")
+                self._record_error_run(queue, item, _("session is no longer running (closed or crashed)"))
                 return
             if session_ready_for_input(session):
                 break
@@ -486,7 +489,7 @@ class QueueRuntime:
 
         result = deliver_to_live_session(queue.session_id, item.prompt_text)
         if not result.delivered:
-            self._record_error_run(queue, item, result.error or "delivery to live terminal failed")
+            self._record_error_run(queue, item, result.error or _("delivery to live terminal failed"))
             return
 
         now = datetime.now()
@@ -499,7 +502,7 @@ class QueueRuntime:
                 started_at=now,
                 finished_at=now,
                 status=RunStatus.SUCCESS,
-                result_text="Delivered to the live terminal — response appears there, not in ccc.",
+                result_text=_("Delivered to the live terminal — response appears there, not in ccc."),
             )
         )
         self.storage.set_item_status(item.id, ItemStatus.DONE)
@@ -594,7 +597,7 @@ class QueueRuntime:
             text = self.storage.get_setting("continue_text", DEFAULT_CONTINUE_TEXT) or DEFAULT_CONTINUE_TEXT
         result = await asyncio.to_thread(managed_sessions.paste_and_submit, queue.id, text)
         if not result.delivered:
-            self._record_error_run(queue, item, result.error or "delivery to the interactive session failed")
+            self._record_error_run(queue, item, result.error or _("delivery to the interactive session failed"))
             return
         now = datetime.now()
         self.storage.insert_prompt_run(
@@ -606,7 +609,7 @@ class QueueRuntime:
                 started_at=now,
                 finished_at=now,
                 status=RunStatus.SUCCESS,
-                result_text="Delivered to the interactive session — the reply is in the transcript.",
+                result_text=_("Delivered to the interactive session — the reply is in the transcript."),
             )
         )
         self.storage.set_item_status(item.id, ItemStatus.DONE)
@@ -629,7 +632,7 @@ class QueueRuntime:
             self.storage.update_queue_status(
                 queue.id,
                 QueueStatus.BLOCKED_ERROR,
-                last_error=f"session {session_id} already has a conversation in ccc",
+                last_error=_("session {session} already has a conversation in ccc").format(session=session_id),
             )
 
     def _record_error_run(self, queue: Queue, item: QueueItem, error_text: str) -> None:
@@ -651,7 +654,8 @@ class QueueRuntime:
     def _fail_item(self, queue: Queue, item: QueueItem, error_text: str | None) -> None:
         self.storage.set_item_status(item.id, ItemStatus.FAILED)
         self.storage.update_queue_status(queue.id, QueueStatus.BLOCKED_ERROR, last_error=error_text)
-        self._notify(f"✖ {queue.name}: stopped on an error — {(error_text or 'unknown error')[:300]}")
+        self._notify(_("✖ {name}: stopped on an error — {error}").format(
+            name=queue.name, error=(error_text or _("unknown error"))[:300]))
 
     def _has_run_before(self) -> bool:
         return len(self.storage.runs_for_queue(self.queue.id)) > 0
@@ -708,7 +712,7 @@ class Orchestrator:
                 self._start_runtime(existing)
             return existing
         if not Path(project_path).is_dir():
-            raise ValueError(f"'{project_path}' is not an existing directory")
+            raise ValueError(_("'{path}' is not an existing directory").format(path=project_path))
         queue = self.storage.create_queue(
             name or project_path.rstrip("/").split("/")[-1],
             project_path,

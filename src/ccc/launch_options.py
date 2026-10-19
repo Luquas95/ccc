@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ccc.i18n import N_, _
+
 SESSION_NEW = "session_new"
 SESSION_CONTINUE = "session_continue"
 SESSION_RESUME = "session_resume"
@@ -17,6 +19,7 @@ class LaunchOption:
     label: str
     flags: tuple[str, ...]
     short: str  # compact label for headers / queue detail
+    # label and short are English, marked with N_(): shown through _().
 
 
 @dataclass(frozen=True)
@@ -29,35 +32,35 @@ class OptionGroup:
 
 
 GROUPS: tuple[OptionGroup, ...] = (
-    OptionGroup("session", "Session", (
-        LaunchOption(SESSION_NEW, "New session", (), "new"),
-        LaunchOption(SESSION_CONTINUE, "Continue last in directory", (), "continue"),
-        LaunchOption(SESSION_RESUME, "Resume selected…", (), "resume"),
-        LaunchOption(SESSION_FROM_PR, "From pull request…", (), "from PR"),
+    OptionGroup("session", N_("Session"), (
+        LaunchOption(SESSION_NEW, N_("New session"), (), N_("new")),
+        LaunchOption(SESSION_CONTINUE, N_("Continue last in directory"), (), N_("continue")),
+        LaunchOption(SESSION_RESUME, N_("Resume selected…"), (), N_("resume")),
+        LaunchOption(SESSION_FROM_PR, N_("From pull request…"), (), N_("from PR")),
     ), exclusive=True, required=True),
     OptionGroup("session_extra", "", (
-        LaunchOption(FORK, "As a copy (fork)", ("--fork-session",), "fork"),
+        LaunchOption(FORK, N_("As a copy (fork)"), ("--fork-session",), N_("fork")),
     ), exclusive=False, required=False),
-    OptionGroup("permissions", "Permissions", (
-        LaunchOption("perm_skip", "Skip all permission checks", ("--dangerously-skip-permissions",), "skip permissions"),
-        LaunchOption("perm_accept_edits", "Auto-accept edits", ("--permission-mode", "acceptEdits"), "accept edits"),
-        LaunchOption("perm_plan", "Plan only", ("--permission-mode", "plan"), "plan only"),
+    OptionGroup("permissions", N_("Permissions"), (
+        LaunchOption("perm_skip", N_("Skip all permission checks"), ("--dangerously-skip-permissions",), N_("skip permissions")),
+        LaunchOption("perm_accept_edits", N_("Auto-accept edits"), ("--permission-mode", "acceptEdits"), N_("accept edits")),
+        LaunchOption("perm_plan", N_("Plan only"), ("--permission-mode", "plan"), N_("plan only")),
     ), exclusive=True, required=True),
-    OptionGroup("model", "Model", (
-        LaunchOption("model_opus", "Opus", ("--model", "opus"), "Opus"),
-        LaunchOption("model_sonnet", "Sonnet", ("--model", "sonnet"), "Sonnet"),
-        LaunchOption("model_haiku", "Haiku", ("--model", "haiku"), "Haiku"),
-        LaunchOption("model_fable", "Fable", ("--model", "fable"), "Fable"),
+    OptionGroup("model", N_("Model"), (
+        LaunchOption("model_opus", N_("Opus"), ("--model", "opus"), N_("Opus")),
+        LaunchOption("model_sonnet", N_("Sonnet"), ("--model", "sonnet"), N_("Sonnet")),
+        LaunchOption("model_haiku", N_("Haiku"), ("--model", "haiku"), N_("Haiku")),
+        LaunchOption("model_fable", N_("Fable"), ("--model", "fable"), N_("Fable")),
     ), exclusive=True, required=False),
-    OptionGroup("effort", "Effort", (
-        LaunchOption("effort_high", "high", ("--effort", "high"), "effort high"),
-        LaunchOption("effort_xhigh", "xhigh", ("--effort", "xhigh"), "effort xhigh"),
-        LaunchOption("effort_max", "max", ("--effort", "max"), "effort max"),
+    OptionGroup("effort", N_("Effort"), (
+        LaunchOption("effort_high", N_("high"), ("--effort", "high"), N_("effort high")),
+        LaunchOption("effort_xhigh", N_("xhigh"), ("--effort", "xhigh"), N_("effort xhigh")),
+        LaunchOption("effort_max", N_("max"), ("--effort", "max"), N_("effort max")),
     ), exclusive=True, required=False),
-    OptionGroup("other", "Other", (
-        LaunchOption("other_fallback_sonnet", "Fallback to Sonnet when overloaded", ("--fallback-model", "sonnet"), "fallback Sonnet"),
-        LaunchOption("other_chrome", "Claude in Chrome", ("--chrome",), "Chrome"),
-        LaunchOption("other_safe_mode", "Safe mode (no customizations)", ("--safe-mode",), "safe mode"),
+    OptionGroup("other", N_("Other"), (
+        LaunchOption("other_fallback_sonnet", N_("Fallback to Sonnet when overloaded"), ("--fallback-model", "sonnet"), N_("fallback Sonnet")),
+        LaunchOption("other_chrome", N_("Claude in Chrome"), ("--chrome",), N_("Chrome")),
+        LaunchOption("other_safe_mode", N_("Safe mode (no customizations)"), ("--safe-mode",), N_("safe mode")),
     ), exclusive=False, required=False),
 )
 
@@ -110,7 +113,7 @@ def persistent_flags(selection: frozenset[str]) -> list[str]:
 def describe_flags(flags: list[str] | None) -> str:
     """Compact human summary of a queue's persistent flags."""
     if flags is None:
-        return "legacy (skip permissions)"
+        return _("legacy (skip permissions)")
     remaining = list(flags)
     parts: list[str] = []
     for group in GROUPS:
@@ -120,8 +123,8 @@ def describe_flags(flags: list[str] | None) -> str:
             n = len(option.flags)
             for i in range(len(remaining) - n + 1):
                 if tuple(remaining[i:i + n]) == option.flags:
-                    parts.append(option.short)
+                    parts.append(_(option.short))
                     del remaining[i:i + n]
                     break
     parts.extend(remaining)
-    return " · ".join(parts) if parts else "default"
+    return " · ".join(parts) if parts else _("default")

@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta
 
+from ccc.i18n import _
+
 _HHMM = re.compile(r"^(\d{1,2}):(\d{2})$")
 
 
@@ -17,19 +19,19 @@ def parse_when(text: str, now: datetime, reset_at: datetime | None = None) -> da
         return None
     if text.lower() == "reset":
         if reset_at is None:
-            raise ValueError("Usage data isn't available, so the next reset time is unknown.")
+            raise ValueError(_("Usage data isn't available, so the next reset time is unknown."))
         return reset_at
     match = _HHMM.match(text)
     if match:
         hour, minute = int(match.group(1)), int(match.group(2))
         if hour > 23 or minute > 59:
-            raise ValueError(f"'{text}' isn't a valid time.")
+            raise ValueError(_("'{text}' isn't a valid time.").format(text=text))
         at = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
         return at if at > now else at + timedelta(days=1)
     try:
         return datetime.strptime(text, "%Y-%m-%d %H:%M")
     except ValueError:
-        raise ValueError(f"Use HH:MM, YYYY-MM-DD HH:MM or 'reset' — not '{text}'.") from None
+        raise ValueError(_("Use HH:MM, YYYY-MM-DD HH:MM or 'reset' — not '{text}'.").format(text=text)) from None
 
 
 def format_when(at: datetime | None, now: datetime) -> str:
