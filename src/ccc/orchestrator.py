@@ -6,6 +6,7 @@ import logging
 import sqlite3
 import sys
 import uuid
+from types import SimpleNamespace
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Awaitable, Callable
@@ -125,6 +126,10 @@ def start_conversation(
         # continued from a new worktree.
         if mode not in (SESSION_NEW, SESSION_FROM_PR):
             raise ValueError(_("An own worktree needs a new session (or one from a pull request)."))
+        # ccc runs git (here: the checkout) only where Claude may run any
+        # command anyway — see gitops.
+        if not gitops.claude_can_run_commands(SimpleNamespace(launch_flags=flags)):
+            raise ValueError(_("An own worktree needs “Skip all permission checks” (ccc runs git only there)."))
         project_path = gitops.create_worktree(project_path, name)
     if remote_control:
         delivery = DeliveryMode.REMOTE_CONTROL

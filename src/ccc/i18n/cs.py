@@ -1037,4 +1037,9 @@ CS: dict[str, str] = {
         "necommitnuto: v této složce pracuje jiná konverzace ({name})",
     "⚠ Same folder as: {names} — tasks take turns; a worktree lets them run side by side":
         "⚠ Stejná složka jako: {names} — úkoly se střídají; s worktree poběží vedle sebe",
+    "No worktree: {path} is a symbolic link.": "Worktree nevznikl: {path} je symbolický odkaz.",
+    "No worktree: {path} isn't a folder.": "Worktree nevznikl: {path} není složka.",
+    "No worktree: {path} leads outside the repository.": "Worktree nevznikl: {path} vede mimo repozitář.",
+    "An own worktree needs “Skip all permission checks” (ccc runs git only there).":
+        "Vlastní worktree potřebuje „Přeskočit všechny kontroly oprávnění“ (ccc spouští git jen tam).",
 }

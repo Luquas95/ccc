@@ -150,3 +150,29 @@ async def test_no_commit_while_an_interactive_neighbour_works(storage, repo, mon
     await runtime.stop()
     run_row = storage.runs_for_queue(a.id)[0]
     assert run_row.git_commit is None and "live" in run_row.git_note
+
+
+def test_a_symlinked_worktrees_folder_is_refused(repo, tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (repo / ".claude").mkdir()
+    (repo / ".claude" / "worktrees").symlink_to(outside)
+    with pytest.raises(ValueError, match="symbolic link"):
+        gitops.create_worktree(str(repo), "x")
+    assert list(outside.iterdir()) == []
+
+
+def test_a_filter_in_the_worktree_config_is_refused(repo):
+    _git(repo, "config", "extensions.worktreeConfig", "true")
+    _git(repo, "config", "--worktree", "filter.evil.smudge", "touch /tmp/pwned")
+    with pytest.raises(ValueError, match="No worktree"):
+        gitops.create_worktree(str(repo), "x")
+
+
+def test_an_own_worktree_needs_skip_permissions(storage, repo):
+    from ccc.launch_options import toggle
+
+    restricted = toggle(DEFAULT_SELECTION, "perm_accept_edits", True)
+    with pytest.raises(ValueError, match="Skip all permission checks"):
+        start_conversation(storage, str(repo), restricted, name="x", worktree=True, interactive=False)
+    assert not (repo / ".claude" / "worktrees").exists()

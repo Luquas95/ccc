@@ -218,6 +218,24 @@ def work_tree_root(path: str) -> str | None:
     return result.stdout.strip() if result.returncode == 0 and result.stdout.strip() else None
 
 
+def _safe_worktree_dir(top: str) -> Path:
+    """<top>/.claude/worktrees, made without following symlinks: a
+    symlink planted in the repository must not send the checkout
+    elsewhere. ValueError when one is in the way."""
+    current = Path(os.path.realpath(top))
+    for part in WORKTREES_DIR.parts:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError(_("No worktree: {path} is a symbolic link.").format(path=current))
+        if not current.exists():
+            current.mkdir()
+        elif not current.is_dir():
+            raise ValueError(_("No worktree: {path} isn't a folder.").format(path=current))
+    if not str(current.resolve()).startswith(os.path.realpath(top) + os.sep):
+        raise ValueError(_("No worktree: {path} leads outside the repository.").format(path=current))
+    return current
+
+
 def create_worktree(path: str, name: str) -> str:
     """A new git worktree for a conversation: <repo>/.claude/worktrees/<name>
     on a new branch worktree-<name> from HEAD — where `claude --worktree
@@ -227,7 +245,11 @@ def create_worktree(path: str, name: str) -> str:
     top = work_tree_root(path)
     if top is None:
         raise ValueError(_("A worktree needs a git repository — {path} isn't in one.").format(path=path))
-    problem = _config_problem(_local_config(top))
+    # The checkout must not run anything: besides the repo-local config,
+    # the per-worktree one (config.worktree) could set a filter program.
+    worktree_config = _git(top, "config", "--worktree", "--list", "--null", "--no-includes")
+    problem = _config_problem(_local_config(top)) or (
+        _config_problem(worktree_config.stdout) if worktree_config.returncode == 0 else None)
     if problem:
         raise ValueError(_("No worktree: {reason}.").format(reason=problem))
     base = _SLUG.sub("-", name.lower()).strip("-.")[:40] or "conversation"
@@ -244,7 +266,7 @@ def create_worktree(path: str, name: str) -> str:
             exclude_path.parent.mkdir(parents=True, exist_ok=True)
             with exclude_path.open("a") as handle:
                 handle.write(f"/{WORKTREES_DIR.as_posix()}/\n")
-    target = Path(top) / WORKTREES_DIR / slug
+    target = _safe_worktree_dir(top) / slug
     added = _git(top, "worktree", "add", "-q", "-b", f"worktree-{slug}", str(target), "HEAD")
     if added.returncode != 0:
         raise ValueError(_("No worktree: {error}").format(error=added.stderr.strip()[:300]))
