@@ -1109,6 +1109,11 @@ class Storage:
             )
             conn.commit()
 
+    def always_allowed_tools(self, queue_id: int) -> set[str]:
+        with closing(self._connect()) as conn:
+            rows = conn.execute("SELECT tool_name FROM permission_allow WHERE queue_id = ?", (queue_id,)).fetchall()
+            return {r["tool_name"] for r in rows}
+
     def is_tool_always_allowed(self, queue_id: int, tool_name: str) -> bool:
         with closing(self._connect()) as conn:
             row = conn.execute(

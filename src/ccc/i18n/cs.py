@@ -1199,7 +1199,7 @@ CS: dict[str, str] = {
     "→ you (or Claude) asked another conversation · ← another conversation asked this one · 🤖 Claude asked by itself (the ccc tool ask_conversation).":
         "→ ty (nebo Claude) ses ptal(a) jiné konverzace · ← jiná konverzace se ptala této · 🤖 Claude se zeptal sám (nástroj ccc ask_conversation).",
     "💬 {target} answered {asker}: {answer}": "💬 {target} odpověděla konverzaci {asker}: {answer}",
-    "“{name}” may run any command and this conversation may not — ask it yourself in ccc (k) if you want to.":
-        "„{name}“ smí spouštět jakékoli příkazy a tato konverzace ne — zeptej se jí sám v ccc (k), pokud chceš.",
+    "“{name}” may do more than this conversation (its permissions) — ask it yourself in ccc (k) if you want to.":
+        "„{name}“ smí víc než tato konverzace (její oprávnění) — zeptej se jí sám v ccc (k), pokud chceš.",
     "A question to “{name}” is still open — wait for its answer.": "Otázka pro „{name}“ je ještě otevřená — počkej na odpověď.",
 }

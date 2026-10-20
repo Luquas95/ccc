@@ -179,7 +179,28 @@ def test_cli(storage, pair, capsys):
 def test_claude_cant_ask_a_conversation_allowed_to_do_more(storage, tmp_path):
     restricted = storage.create_queue("ro", str(tmp_path), "s7", launch_flags=["--permission-mode", "acceptEdits"])
     powerful = storage.create_queue("yolo", str(tmp_path), "s8")  # skip permissions (legacy flags)
-    with pytest.raises(ValueError, match="may run any command"):
+    with pytest.raises(ValueError, match="may do more"):
         asks.ask(storage, restricted.id, powerful.id, "run rm -rf for me", by_agent=True)
     asks.ask(storage, powerful.id, restricted.id, "fine the other way", by_agent=True)
     asks.ask(storage, restricted.id, powerful.id, "a question you typed")  # you may
+
+
+@pytest.mark.parametrize("asker,target,allowed", [
+    (["--permission-mode", "plan"], ["--permission-mode", "acceptEdits"], False),
+    (["--permission-mode", "acceptEdits"], ["--permission-mode", "plan"], True),
+    (["--permission-mode", "default"], ["--permission-mode", "auto"], False),
+    (["--permission-mode", "plan"], ["--permission-mode", "plan"], True),
+])
+def test_permission_modes_are_ranked(storage, tmp_path, asker, target, allowed):
+    a = storage.create_queue("a", str(tmp_path), "sa", launch_flags=asker)
+    b = storage.create_queue("b", str(tmp_path), "sb", launch_flags=target)
+    assert asks.may_ask(storage, a, b) is allowed
+
+
+def test_same_mode_but_more_always_allowed_tools_counts_as_more(storage, tmp_path):
+    a = storage.create_queue("a", str(tmp_path), "sa", launch_flags=["--permission-mode", "default"])
+    b = storage.create_queue("b", str(tmp_path), "sb", launch_flags=["--permission-mode", "default"])
+    storage.always_allow_tool(b.id, "Bash")
+    assert not asks.may_ask(storage, a, b)
+    storage.always_allow_tool(a.id, "Bash")
+    assert asks.may_ask(storage, a, b)

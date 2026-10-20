@@ -31,9 +31,11 @@ talking in circles:
 - a conversation that has a question to answer can't ask one itself;
 - Claude has one question open per conversation it asks;
 - a conversation has at most 3 questions open at a time;
-- Claude can't ask a conversation that may do more than its own — one
-  with *Skip all permission checks* from one without — because the
-  question runs there with those permissions. You still can (`k`).
+- Claude can't ask a conversation that may do more than its own — a
+  higher permission mode (plan < ask < auto-accept edits < skip all
+  checks), or at the same one more tools you always allowed there —
+  because the question runs there with those permissions. You still
+  can (`k`).
 
 In a conversation without *Skip all permission checks* Claude Code asks
 you first, as for any tool.

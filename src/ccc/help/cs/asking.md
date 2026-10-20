@@ -28,9 +28,11 @@ nezacyklily:
 - konverzace, která má otázku k zodpovězení, se sama ptát nemůže;
 - Claude má otevřenou nejvýš jednu otázku na každou konverzaci, které se ptá;
 - konverzace má najednou nejvýš 3 otevřené otázky;
-- Claude se nemůže ptát konverzace, která smí víc než ta jeho — té
-  s *Přeskočit všechny kontroly oprávnění* z konverzace bez toho —
-  protože otázka tam běží s jejími oprávněními. Ty můžeš (`k`).
+- Claude se nemůže ptát konverzace, která smí víc než ta jeho — vyšší
+  režim oprávnění (jen plán < ptát se < automaticky přijímat úpravy <
+  přeskočit všechny kontroly), nebo při stejném víc nástrojů, které jsi
+  tam vždy povolil(a) — protože otázka tam běží s jejími oprávněními. Ty
+  můžeš (`k`).
 
 V konverzaci bez *Přeskočit všechny kontroly oprávnění* se Claude Code
 nejdřív zeptá tebe, jako u každého nástroje.
