@@ -8,6 +8,8 @@ from enum import Enum
 from pathlib import Path
 
 from ccc.models import (
+    Ask,
+    AskStatus,
     DeliveryMode,
     Goal,
     GoalPhase,
@@ -158,6 +160,22 @@ CREATE TABLE IF NOT EXISTS workflow_events (
     verdict TEXT NOT NULL DEFAULT '',
     output TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
+);
+
+-- Conversations asking each other (ccc.asks).
+CREATE TABLE IF NOT EXISTS asks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_queue_id INTEGER NOT NULL REFERENCES queues(id),
+    to_queue_id INTEGER NOT NULL REFERENCES queues(id),
+    question TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'asked',
+    by_agent INTEGER NOT NULL DEFAULT 0,
+    deliver INTEGER NOT NULL DEFAULT 1,
+    to_item_id INTEGER,
+    answer TEXT NOT NULL DEFAULT '',
+    error TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    answered_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS permission_requests (
@@ -620,6 +638,7 @@ class Storage:
             conn.execute("DELETE FROM routines WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM reviews WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM goals WHERE queue_id = ?", (queue_id,))
+            conn.execute("DELETE FROM asks WHERE from_queue_id = ? OR to_queue_id = ?", (queue_id, queue_id))
             conn.execute("DELETE FROM workflow_events WHERE run_id IN (SELECT id FROM workflow_runs WHERE queue_id = ?)",
                          (queue_id,))
             conn.execute("DELETE FROM workflow_runs WHERE queue_id = ?", (queue_id,))
@@ -973,6 +992,71 @@ class Storage:
             base_run_id=row["base_run_id"], item_id=row["item_id"], plan=row["plan"], findings=row["findings"],
             last_reason=row["last_reason"], created_at=datetime.fromisoformat(row["created_at"]),
             finished_at=datetime.fromisoformat(row["finished_at"]) if row["finished_at"] else None,
+        )
+
+    # --- asks (ccc.asks) ---------------------------------------------------------
+
+    def add_ask(self, from_queue_id: int, to_queue_id: int, question: str, by_agent: bool, deliver: bool) -> Ask:
+        with closing(self._connect()) as conn:
+            cur = conn.execute(
+                "INSERT INTO asks (from_queue_id, to_queue_id, question, by_agent, deliver, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (from_queue_id, to_queue_id, question, int(by_agent), int(deliver), datetime.now().isoformat()),
+            )
+            conn.commit()
+            ask_id = cur.lastrowid
+        return self.get_ask(ask_id)
+
+    def find_ask(self, ask_id: int) -> Ask | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT * FROM asks WHERE id = ?", (ask_id,)).fetchone()
+            return self._row_to_ask(row) if row else None
+
+    def get_ask(self, ask_id: int) -> Ask:
+        ask = self.find_ask(ask_id)
+        if ask is None:
+            raise KeyError(ask_id)
+        return ask
+
+    def list_asks(self, queue_id: int | None = None, status: AskStatus | None = None) -> list[Ask]:
+        """Newest first; with queue_id the ones it asked or was asked."""
+        sql, args = "SELECT * FROM asks WHERE 1 = 1", []
+        if queue_id is not None:
+            sql, args = sql + " AND (from_queue_id = ? OR to_queue_id = ?)", [queue_id, queue_id]
+        if status is not None:
+            sql, args = sql + " AND status = ?", [*args, status.value]
+        with closing(self._connect()) as conn:
+            return [self._row_to_ask(r) for r in conn.execute(sql + " ORDER BY id DESC", args).fetchall()]
+
+    def update_ask(self, ask_id: int, **fields) -> None:
+        values = [v.isoformat() if isinstance(v, datetime) else v.value if isinstance(v, Enum) else v
+                  for v in fields.values()]
+        columns = ", ".join(f"{name} = ?" for name in fields)
+        with closing(self._connect()) as conn:
+            conn.execute(f"UPDATE asks SET {columns} WHERE id = ?", (*values, ask_id))
+            conn.commit()
+
+    def run_for_item(self, item_id: int) -> PromptRun | None:
+        """The newest run of a queue item."""
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT * FROM prompt_runs WHERE queue_item_id = ? ORDER BY id DESC LIMIT 1",
+                               (item_id,)).fetchone()
+            return self._row_to_run(row) if row else None
+
+    def running_item(self, queue_id: int) -> QueueItem | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT * FROM queue_items WHERE queue_id = ? AND status = ? LIMIT 1",
+                               (queue_id, ItemStatus.RUNNING.value)).fetchone()
+            return self._row_to_item(row) if row else None
+
+    @staticmethod
+    def _row_to_ask(row: sqlite3.Row) -> Ask:
+        return Ask(
+            id=row["id"], from_queue_id=row["from_queue_id"], to_queue_id=row["to_queue_id"],
+            question=row["question"], status=AskStatus(row["status"]), by_agent=bool(row["by_agent"]),
+            deliver=bool(row["deliver"]), to_item_id=row["to_item_id"], answer=row["answer"], error=row["error"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+            answered_at=datetime.fromisoformat(row["answered_at"]) if row["answered_at"] else None,
         )
 
     # --- tool permission requests -------------------------------------------

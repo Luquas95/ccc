@@ -302,3 +302,27 @@ class WorkflowEvent:
     verdict: str = ""
     output: str = ""
     created_at: datetime = field(default_factory=datetime.now)
+
+
+class AskStatus(str, Enum):
+    ASKED = "asked"  # the question waits in / runs in the other conversation
+    ANSWERED = "answered"
+    ERROR = "error"
+    CANCELLED = "cancelled"
+
+
+@dataclass
+class Ask:
+    """A question one conversation asks another (ccc.asks)."""
+    id: int
+    from_queue_id: int
+    to_queue_id: int
+    question: str
+    status: AskStatus = AskStatus.ASKED
+    by_agent: bool = False  # Claude asked (the ccc MCP tool), not you
+    deliver: bool = True  # pass the answer back into the asking conversation
+    to_item_id: int | None = None  # the question as a task of the other one
+    answer: str = ""
+    error: str = ""
+    created_at: datetime = field(default_factory=datetime.now)
+    answered_at: datetime | None = None

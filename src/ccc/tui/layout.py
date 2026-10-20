@@ -540,6 +540,16 @@ class SidebarScreen(Screen):
             return
         self.app.push_screen(WorkflowModal(self.storage, queue_id))
 
+    def action_ask(self) -> None:
+        """Ask another conversation a question (ccc.asks)."""
+        from ccc.tui.ask import AskModal
+
+        queue_id = self.selected_queue_id()
+        if queue_id is None:
+            self.notify(_("Select a conversation first."), severity="warning")
+            return
+        self.app.push_screen(AskModal(self.storage, queue_id))
+
     def action_routines(self) -> None:
         from ccc.tui.routines import RoutinesModal
 

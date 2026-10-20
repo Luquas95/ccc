@@ -48,4 +48,6 @@ ccc-tui`); changed in Settings they work right away.
 | `ccc workflow approve CONVERSATION` / `reject CONVERSATION` | answer the step a run waits at (`--note "…"` for the next step) |
 | `ccc workflow stop CONVERSATION` | stop its workflow |
 | `ccc workflow import FILE` / `export TEMPLATE FOLDER` / `delete TEMPLATE` | your own templates as JSON |
+| `ccc ask FROM TO "QUESTION"` | one conversation [asks another](asking.md) (ids or names); `--no-deliver` = don't pass the answer into FROM, `--wait` = wait and print the answer |
+| `ccc asks [CONVERSATION]` | questions between conversations, newest first (`🤖` = Claude asked) |
 | `ccc-daemon` | the daemon itself (normally run by `ccc.service`) |

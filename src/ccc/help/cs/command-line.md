@@ -48,4 +48,6 @@ ccc-tui`); změněné v Nastavení platí hned.
 | `ccc workflow approve KONVERZACE` / `reject KONVERZACE` | odpoví na krok, na kterém běh čeká (`--note "…"` pro další krok) |
 | `ccc workflow stop KONVERZACE` | zastaví její workflow |
 | `ccc workflow import SOUBOR` / `export ŠABLONA SLOŽKA` / `delete ŠABLONA` | vlastní šablony jako JSON |
+| `ccc ask OD KOMU "OTÁZKA"` | jedna konverzace [se zeptá druhé](asking.md) (id nebo názvy); `--no-deliver` = nepředávat odpověď do OD, `--wait` = počkat a vypsat odpověď |
+| `ccc asks [KONVERZACE]` | otázky mezi konverzacemi od nejnovější (`🤖` = ptal se Claude) |
 | `ccc-daemon` | samotný daemon (normálně ho spouští `ccc.service`) |

@@ -46,7 +46,7 @@ def target(queue_id: int) -> str:
     return f"q{queue_id}"
 
 
-def build_interactive_command(queue: Queue, has_transcript: bool) -> list[str]:
+def build_interactive_command(queue: Queue, has_transcript: bool, extra: list[str] | None = None) -> list[str]:
     first = list(queue.first_run_flags or [])
     if any(flag in first for flag in _SESSION_SELECTING_FLAGS):
         session = first  # fork / from-PR: they pick the session themselves
@@ -55,7 +55,7 @@ def build_interactive_command(queue: Queue, has_transcript: bool) -> list[str]:
     else:
         session = ["--session-id", queue.session_id]
     remote = ["--remote-control", queue.name] if queue.delivery_mode == DeliveryMode.REMOTE_CONTROL else []
-    return ["claude", *session, *remote, *(queue.launch_flags or [])]
+    return ["claude", *session, *remote, *(queue.launch_flags or []), *(extra or [])]
 
 
 def is_running(queue_id: int) -> bool:
