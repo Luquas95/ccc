@@ -33,4 +33,8 @@ ccc-tui`); changed in Settings they work right away.
 | `ccc routine run ROUTINE` | run it now (id or name) |
 | `ccc routine on ROUTINE` / `off ROUTINE` | turn it on / off |
 | `ccc routine remove ROUTINE` | delete it |
+| `ccc review start CONVERSATION ["what to check"]` | ask for a [review](review.md) (the daemon runs it when the conversation is idle); `--until-pass [--rounds N]` = send the findings back and review again; `--wait` = wait for the verdict, exit code 0 PASS (or nothing new), 3 FAIL, 4 PARTIAL, 1 error |
+| `ccc review list [CONVERSATION]` | reviews, newest first: id, time, verdict, what was reviewed |
+| `ccc review show REVIEW` | a review's report |
+| `ccc review stop CONVERSATION` | stop its review (loop) |
 | `ccc-daemon` | the daemon itself (normally run by `ccc.service`) |

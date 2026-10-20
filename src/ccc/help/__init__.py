@@ -17,6 +17,7 @@ TOPICS: list[tuple[str, str]] = [
     ("new-conversation", N_("Starting a conversation")),
     ("tasks", N_("Task queue")),
     ("routines", N_("Routines")),
+    ("review", N_("Reviews")),
     ("archive", N_("Archive")),
     ("limits", N_("Usage limits & blocked queues")),
     ("approvals", N_("Approving tool calls")),

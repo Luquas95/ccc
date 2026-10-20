@@ -854,4 +854,78 @@ CS: dict[str, str] = {
     "“{text}” isn't a day — write e.g. monday 08:00.": "„{text}“ není den — napiš např. po 08:00.",
     "“{text}” isn't a time — write it as HH:MM, e.g. 18:00.": "„{text}“ není čas — napiš ho jako HH:MM, např. 18:00.",
     "“{text}” never runs.": "„{text}“ se nikdy nespustí.",
+
+    # Reviews (ccc.reviews, Review window, ccc review)
+    "A fresh reviewer checked your recent changes (verdict {verdict}) and reports:\n\n{report}\n\nFix what it found. Where you disagree with a finding, say why instead of changing the code.":
+        "Nezávislý recenzent zkontroloval tvé poslední změny (verdikt {verdict}) a hlásí:\n\n{report}\n\nOprav, co našel. Kde s nálezem nesouhlasíš, napiš proč, místo abys měnil kód.",
+    "A review of this conversation is already waiting or running.": "Recenze této konverzace už čeká nebo běží.",
+    "A review's report": "Zpráva recenze",
+    "A reviewer with a clean context reads what this conversation changed since the last review and gives one verdict: PASS, FAIL or PARTIAL. It can't change anything.":
+        "Recenzent s čistým kontextem přečte, co tato konverzace změnila od poslední recenze, a dá jeden verdikt: PASS, FAIL nebo PARTIAL. Nic změnit nemůže.",
+    "Ask for a review (the daemon runs it when the conversation is idle)":
+        "Požádat o recenzi (daemon ji spustí, až konverzace nic nedělá)",
+    "Ctrl+S start  ·  Esc close": "Ctrl+S spustit  ·  Esc zavřít",
+    "Findings queued as a task in the conversation.": "Nálezy zařazeny jako úkol do konverzace.",
+    "Findings sent back; round {n} of {max} reviews again after the fix.":
+        "Nálezy poslány zpět; kolo {n} z {max} po opravě recenzuje znovu.",
+    "Findings were sent to the conversation as a task.": "Nálezy byly poslány do konverzace jako úkol.",
+    "Fresh-context reviews of a conversation's changes": "Recenze změn konverzace s čistým kontextem",
+    "No review {id}.": "Recenze {id} neexistuje.",
+    "No reviews yet.": "Zatím žádné recenze.",
+    "Optional: what to check first, e.g. the error paths, not the happy path":
+        "Volitelně: co zkontrolovat nejdřív, např. chybové cesty, ne ty šťastné",
+    "Review": "Recenze",
+    "Review (v)": "Recenze (v)",
+    "Review asked for — it starts as soon as the conversation is idle.":
+        "Recenze zadána — začne, jakmile konverzace nic nedělá.",
+    "Review its changes with a fresh reviewer (once or until it passes)":
+        "Nechat její změny zkontrolovat nezávislým recenzentem (jednou, nebo dokud neprojde)",
+    "Review stopped.": "Recenze zastavena.",
+    "Review the conversation's changes": "Recenze změn konverzace",
+    "Review {id} asked for — the daemon runs it as soon as the conversation is idle.":
+        "Recenze {id} zadána — daemon ji spustí, jakmile konverzace nic nedělá.",
+    "Review — {name}": "Recenze — {name}",
+    "Reviewed: {scope}": "Recenzováno: {scope}",
+    "Reviewer model": "Model recenzenta",
+    "Reviews": "Recenze",
+    "Reviews, newest first": "Recenze od nejnovější",
+    "Round": "Kolo",
+    "Round limit ({max}) reached — the loop stops.": "Dosažen limit kol ({max}) — smyčka končí.",
+    "Same as the conversation": "Stejný jako konverzace",
+    "Send findings to the conversation": "Poslat nálezy do konverzace",
+    "Start review": "Spustit recenzi",
+    "Start the review": "Spustit recenzi",
+    "Stop": "Zastavit",
+    "Stop the conversation's review (loop)": "Zastavit recenzi (smyčku) konverzace",
+    "Stopped: {n}": "Zastaveno: {n}",
+    "commits {commits}": "commity {commits}",
+    "The conversation was deleted.": "Konverzace byla smazána.",
+    "the files of the tasks since the last review": "soubory úkolů od poslední recenze",
+    "The model of reviews (v in Conversations). A strong one pays off: a missed bug costs more.":
+        "Model recenzí (v v Konverzacích). Silný se vyplatí: přehlédnutá chyba stojí víc.",
+    "The reviewer gave no VERDICT line.": "Recenzent nedal řádek VERDICT.",
+    "uncommitted changes": "necommitnuté změny",
+    "Until it passes: send the findings back, review again after the fix — at most":
+        "Dokud neprojde: poslat nálezy zpět a po opravě recenzovat znovu — nejvýš",
+    "What": "Co",
+    "at most this many rounds with --until-pass (1–12)": "s --until-pass nejvýš tolik kol (1–12)",
+    "failed": "selhala",
+    "no reviews yet": "zatím žádné recenze",
+    "nothing new to review": "nic nového k recenzi",
+    "reviewing…": "recenzuje se…",
+    "rounds": "kol",
+    "send the findings back and review again after the fix, until PASS":
+        "posílat nálezy zpět a po opravě recenzovat znovu, dokud není PASS",
+    "stopped": "zastavena",
+    "the reviewer is reading…": "recenzent čte…",
+    "wait for the verdict; exit code 0 PASS, 3 FAIL, 4 PARTIAL, 1 error":
+        "počkat na verdikt; návratový kód 0 PASS, 3 FAIL, 4 PARTIAL, 1 chyba",
+    "waiting": "čeká",
+    "waits for the usage limit until {at}": "čeká na limit využití do {at}",
+    "waits until the conversation is idle": "čeká, až konverzace nic nedělá",
+    "what to check first (optional)": "co zkontrolovat nejdřív (volitelné)",
+    "🔎 review (round {n})": "🔎 recenze (kolo {n})",
+    "🔎 {name}: review {verdict} — {reason}": "🔎 {name}: recenze {verdict} — {reason}",
+    "🔎 {name}: the review failed — {error}": "🔎 {name}: recenze selhala — {error}",
+    "🔎 {name}: the reviewer gave no verdict.": "🔎 {name}: recenzent nedal verdikt.",
 }

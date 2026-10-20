@@ -22,6 +22,7 @@ from ccc.notify import (
 )
 from ccc.analytics_archive import FOLDER_KEY as ARCHIVE_FOLDER_KEY, archive
 from ccc import i18n, keymap
+from ccc.reviews import MODEL_CHOICES as REVIEW_MODELS, MODEL_KEY as REVIEW_MODEL_KEY
 from ccc.i18n import N_, _
 from ccc.export_paths import (
     FOLDER_KEY as EXPORT_FOLDER_KEY, SEND_CHOICES, SEND_KEY as EXPORT_SEND_KEY, default_export_folder, home_short,
@@ -218,6 +219,12 @@ class SettingsModal(ModalScreen):
                 value=str(reserve) if reserve else "off", allow_blank=False, id="settings-reserve",
             )),
             Static(_("Queued tasks wait while a usage window (5 h / weekly) is at or above this."), classes="settings-hint"),
+            _row(_("Reviewer model"), Select(
+                [(_(label) if not value else label, value or "same") for value, label in REVIEW_MODELS],
+                value=s.get_setting(REVIEW_MODEL_KEY) or "same", allow_blank=False, id="settings-review-model",
+            )),
+            Static(_("The model of reviews (v in Conversations). A strong one pays off: a missed bug costs more."),
+                   classes="settings-hint"),
         )
         self._prompt_presets = load_prompt_presets(s)
         prompt_box = _section(
@@ -584,6 +591,8 @@ class SettingsModal(ModalScreen):
         s.set_setting("continue_text", continue_text or DEFAULT_CONTINUE_TEXT)
         reserve = self.query_one("#settings-reserve", Select).value
         s.set_setting(RESERVE_KEY, "" if reserve == "off" else str(reserve))
+        review_model = self.query_one("#settings-review-model", Select).value
+        s.set_setting(REVIEW_MODEL_KEY, "" if review_model == "same" else str(review_model))
         save_prompt_presets(s, self._prompt_presets)
         s.set_setting(EXPORT_FOLDER_KEY, self._export_folder_value())
         send = self.query_one("#settings-export-send", Select).value

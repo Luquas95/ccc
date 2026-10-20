@@ -15,9 +15,12 @@ from ccc.models import (
     Queue,
     QueueItem,
     QueueStatus,
+    Review,
+    ReviewStatus,
     Routine,
     RoutineTarget,
     RunStatus,
+    Verdict,
 )
 
 SCHEMA = """
@@ -70,6 +73,28 @@ CREATE TABLE IF NOT EXISTS routines (
     last_status TEXT NOT NULL DEFAULT '',
     skipped INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
+);
+
+-- Fresh-context reviews of a conversation's changes (ccc.reviews).
+CREATE TABLE IF NOT EXISTS reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    queue_id INTEGER NOT NULL REFERENCES queues(id),
+    status TEXT NOT NULL DEFAULT 'pending',
+    instructions TEXT NOT NULL DEFAULT '',
+    until_pass INTEGER NOT NULL DEFAULT 0,
+    round INTEGER NOT NULL DEFAULT 1,
+    max_rounds INTEGER NOT NULL DEFAULT 1,
+    loop_id INTEGER,
+    scope TEXT NOT NULL DEFAULT '',
+    base_run_id INTEGER NOT NULL DEFAULT 0,
+    last_run_id INTEGER NOT NULL DEFAULT 0,
+    verdict TEXT,
+    report TEXT NOT NULL DEFAULT '',
+    error TEXT NOT NULL DEFAULT '',
+    fix_item_id INTEGER,
+    not_before TEXT,
+    created_at TEXT NOT NULL,
+    finished_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS permission_requests (
@@ -226,6 +251,9 @@ class Storage:
             if column not in run_columns:
                 conn.execute(f"ALTER TABLE prompt_runs ADD COLUMN {column} TEXT")
                 conn.commit()
+        if "review_id" not in run_columns:
+            conn.execute("ALTER TABLE prompt_runs ADD COLUMN review_id INTEGER")
+            conn.commit()
         item_columns = {row[1] for row in conn.execute("PRAGMA table_info(queue_items)").fetchall()}
         if "not_before" not in item_columns:
             conn.execute("ALTER TABLE queue_items ADD COLUMN not_before TEXT")
@@ -513,6 +541,7 @@ class Storage:
             )
             conn.execute("DELETE FROM queue_items WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM routines WHERE queue_id = ?", (queue_id,))
+            conn.execute("DELETE FROM reviews WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM permission_requests WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM permission_allow WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM queues WHERE id = ?", (queue_id,))
@@ -601,6 +630,93 @@ class Storage:
             target=RoutineTarget(row["target"]), enabled=bool(row["enabled"]), next_run_at=when("next_run_at"),
             last_run_at=when("last_run_at"), last_status=row["last_status"], skipped=row["skipped"],
             created_at=datetime.fromisoformat(row["created_at"]),
+        )
+
+    # --- reviews (ccc.reviews) -------------------------------------------------
+
+    def add_review(self, queue_id: int, instructions: str = "", until_pass: bool = False, round: int = 1,
+                   max_rounds: int = 1, loop_id: int | None = None) -> Review:
+        with closing(self._connect()) as conn:
+            cur = conn.execute(
+                "INSERT INTO reviews (queue_id, instructions, until_pass, round, max_rounds, loop_id, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (queue_id, instructions, int(until_pass), round, max_rounds, loop_id, datetime.now().isoformat()),
+            )
+            conn.commit()
+            review_id = cur.lastrowid
+        return self.get_review(review_id)
+
+    def find_review(self, review_id: int) -> Review | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT * FROM reviews WHERE id = ?", (review_id,)).fetchone()
+            return self._row_to_review(row) if row else None
+
+    def get_review(self, review_id: int) -> Review:
+        review = self.find_review(review_id)
+        if review is None:
+            raise KeyError(review_id)
+        return review
+
+    def list_reviews(self, queue_id: int | None = None, status: ReviewStatus | None = None) -> list[Review]:
+        """Newest first."""
+        sql, args = "SELECT * FROM reviews WHERE 1 = 1", []
+        if queue_id is not None:
+            sql, args = sql + " AND queue_id = ?", [*args, queue_id]
+        if status is not None:
+            sql, args = sql + " AND status = ?", [*args, status.value]
+        with closing(self._connect()) as conn:
+            return [self._row_to_review(r) for r in conn.execute(sql + " ORDER BY id DESC", args).fetchall()]
+
+    def update_review(self, review_id: int, **fields) -> None:
+        if not fields:
+            return
+        values = []
+        for value in fields.values():
+            if isinstance(value, datetime):
+                value = value.isoformat()
+            elif isinstance(value, Enum):
+                value = value.value
+            elif isinstance(value, bool):
+                value = int(value)
+            values.append(value)
+        columns = ", ".join(f"{name} = ?" for name in fields)
+        with closing(self._connect()) as conn:
+            conn.execute(f"UPDATE reviews SET {columns} WHERE id = ?", (*values, review_id))
+            conn.commit()
+
+    def task_runs_after(self, queue_id: int, run_id: int) -> list[PromptRun]:
+        """The conversation's task runs (not reviews) newer than run_id, oldest first."""
+        with closing(self._connect()) as conn:
+            rows = conn.execute(
+                "SELECT * FROM prompt_runs WHERE queue_id = ? AND id > ? AND review_id IS NULL ORDER BY id",
+                (queue_id, run_id),
+            ).fetchall()
+            return [self._row_to_run(r) for r in rows]
+
+    def last_run_id(self, queue_id: int) -> int:
+        with closing(self._connect()) as conn:
+            return conn.execute(
+                "SELECT COALESCE(MAX(id), 0) FROM prompt_runs WHERE queue_id = ? AND review_id IS NULL", (queue_id,)
+            ).fetchone()[0]
+
+    def get_item(self, item_id: int) -> QueueItem | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT * FROM queue_items WHERE id = ?", (item_id,)).fetchone()
+            return self._row_to_item(row) if row else None
+
+    @staticmethod
+    def _row_to_review(row: sqlite3.Row) -> Review:
+        def when(column: str) -> datetime | None:
+            return datetime.fromisoformat(row[column]) if row[column] else None
+
+        return Review(
+            id=row["id"], queue_id=row["queue_id"], status=ReviewStatus(row["status"]),
+            instructions=row["instructions"], until_pass=bool(row["until_pass"]), round=row["round"],
+            max_rounds=row["max_rounds"], loop_id=row["loop_id"], scope=row["scope"],
+            base_run_id=row["base_run_id"], last_run_id=row["last_run_id"], verdict=Verdict(row["verdict"]) if row["verdict"] else None,
+            report=row["report"], error=row["error"], fix_item_id=row["fix_item_id"],
+            not_before=when("not_before"), created_at=datetime.fromisoformat(row["created_at"]),
+            finished_at=when("finished_at"),
         )
 
     # --- tool permission requests -------------------------------------------
@@ -757,8 +873,8 @@ class Storage:
             cur = conn.execute(
                 "INSERT INTO prompt_runs (queue_id, queue_item_id, prompt_text, started_at, finished_at, "
                 "status, cost_usd, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, "
-                "duration_ms, num_turns, result_text, error_text, git_commit, git_note) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "duration_ms, num_turns, result_text, error_text, git_commit, git_note, review_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     run.queue_id,
                     run.queue_item_id,
@@ -777,6 +893,7 @@ class Storage:
                     run.error_text,
                     run.git_commit,
                     run.git_note,
+                    run.review_id,
                 ),
             )
             conn.commit()
@@ -998,4 +1115,5 @@ class Storage:
             error_text=row["error_text"],
             git_commit=row["git_commit"],
             git_note=row["git_note"],
+            review_id=row["review_id"],
         )

@@ -14,7 +14,7 @@ změny zahodí. Tlačítka jako *Poslat testovací zprávu*, *Vypnout* nebo
 | Vzhled | jazyk — *Automaticky* se řídí systémem (`LANG`), uložení jiného jazyka restartuje okno ccc; barevný motiv — mění se už při výběru, zůstane po Uložit |
 | Notifikace přes Telegram | viz níže |
 | Notifikace přes Discord | viz níže |
-| Fronty | text *pokračuj* posílaný po limitu využití a rezerva využití — viz [Limity využití](limits.md) |
+| Fronty | text *pokračuj* posílaný po limitu využití a rezerva využití — viz [Limity využití](limits.md); model [recenzenta](review.md) |
 | Přednastavené prompty | tvé prompty na `Alt+1` … `Alt+9` — viz níže |
 | Předvolby nové konverzace | smaže předvolby uložené v okně [Nová konverzace](new-conversation.md) |
 | Klávesové zkratky | změna libovolné klávesy, export / import — viz níže |

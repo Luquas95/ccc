@@ -51,6 +51,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
          N_("Close Claude Code beside ccc (it keeps running; Enter in the list opens it)")),
         ("conversations.search", N_("Search all conversations")),
         ("conversations.export", N_("Export the conversation as Markdown")),
+        ("screen.review", N_("Review its changes with a fresh reviewer (once or until it passes)")),
         ("ctrl+j", N_("New line in the message box (Shift+Enter where supported)")),
         ("conversations.preset1", N_("Preset prompt 1–9 (⏎ sends it, ✎ puts it into the message box; set in Settings)")),
         *[(f"conversations.preset{n}", N_("Preset prompt {n}")) for n in range(2, 10)],
@@ -80,6 +81,10 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("routines.delete", N_("Delete it (tasks it queued stay)")),
         ("window.save", N_("Save in the routine editor")),
     ]),
+    (N_("Review (v)"), [
+        ("window.save", N_("Start the review")),
+        ("window.cancel", N_("Close")),
+    ]),
     (N_("Approval window (p)"), [
         ("answer.yes", N_("Allow")),
         ("approval.always", N_("Always allow this tool in this conversation")),
@@ -97,6 +102,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
     (N_("Queue detail"), [
         ("enter", N_("Show the run's commit diff")),
         ("screen.add_prompt", N_("Add a prompt (this queue's path prefilled)")),
+        ("screen.review", N_("Review its changes with a fresh reviewer (once or until it passes)")),
         ("screen.retry", N_("Blocked: run the failed task again / resume one paused at a limit")),
     ]),
     (N_("Preset prompt editor (Settings → Add / Edit)"), [

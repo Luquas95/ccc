@@ -54,6 +54,7 @@ uvádějí výchozí klávesy.
 | `Ctrl+]` | Zavřít Claude Code vedle ccc (běží dál; Enter v seznamu ho otevře) |
 | `/` | Hledat ve všech konverzacích |
 | `e` | Exportovat konverzaci jako Markdown |
+| `v` | Nechat její změny zkontrolovat nezávislým recenzentem (jednou, nebo dokud neprojde) |
 | `Ctrl+J` | Nový řádek v poli pro zprávu (Shift+Enter, kde funguje) |
 | `Alt+1` | Přednastavený prompt 1–9 (⏎ odešle, ✎ vloží do pole pro zprávu; nastavíš v Nastavení) |
 | `Alt+2` | Přednastavený prompt 2 |
@@ -99,6 +100,13 @@ uvádějí výchozí klávesy.
 | `Del` | Smazat ji (úkoly, které zařadila, zůstanou) |
 | `Ctrl+S` | Uložit v editoru routiny |
 
+## Recenze (v)
+
+| Klávesa | |
+|---|---|
+| `Ctrl+S` | Spustit recenzi |
+| `Esc` | Zavřít |
+
 ## Okno schválení (p)
 
 | Klávesa | |
@@ -128,6 +136,7 @@ uvádějí výchozí klávesy.
 |---|---|
 | `Enter` | Ukázat diff commitu z běhu |
 | `+` | Přidat prompt (s předvyplněnou cestou této fronty) |
+| `v` | Nechat její změny zkontrolovat nezávislým recenzentem (jednou, nebo dokud neprojde) |
 | `r` | Zablokovaná: znovu spustit selhaný úkol / pokračovat po pauze na limitu |
 
 ## Editor přednastaveného promptu (Nastavení → Přidat / Upravit)

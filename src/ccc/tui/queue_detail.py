@@ -145,6 +145,7 @@ class QueueDetailScreen(SidebarScreen):
         keymap.binding("screen.back", "back", _("Back")),
         keymap.binding("screen.retry", "retry_queue", _("Retry blocked"), show=False),
         keymap.binding("screen.add_prompt", "add_prompt", _("Add prompt"), show=False),
+        keymap.binding("screen.review", "review", _("Review")),
     ]
 
     def __init__(self, storage: Storage, queue_id: int):

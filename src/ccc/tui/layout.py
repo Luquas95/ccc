@@ -510,6 +510,16 @@ class SidebarScreen(Screen):
         target = self.retry_target()
         return target.id if target is not None else None
 
+    def action_review(self) -> None:
+        """Review the conversation this screen is about (ccc.reviews)."""
+        from ccc.tui.review import ReviewModal
+
+        queue_id = self.selected_queue_id()
+        if queue_id is None:
+            self.notify(_("Select a conversation first."), severity="warning")
+            return
+        self.app.push_screen(ReviewModal(self.storage, queue_id))
+
     def action_routines(self) -> None:
         from ccc.tui.routines import RoutinesModal
 
