@@ -53,6 +53,20 @@ its own, left out of the main checkout's `git status`). ccc commits its
 tasks there; merge the branch when you're happy with it. Remove a
 worktree you no longer need with `git worktree remove .claude/worktrees/<name>`.
 
+A fresh checkout has only the tracked files, so `.env`, local
+certificates or config the project needs to run would be missing. List
+them in a **`.worktreeinclude`** file at the repository's top (gitignore
+syntax — the same file Claude Code, Conductor and Codex read), e.g.:
+
+```
+.env
+config/local.json
+```
+
+ccc copies into each new worktree the files that match a pattern **and**
+are ignored by git — never a tracked file, never through a symbolic link,
+never over an existing file, at most 500 files of up to 20 MB each.
+
 ## When ccc doesn't commit
 
 The run history says why:

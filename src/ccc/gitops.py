@@ -270,7 +270,84 @@ def create_worktree(path: str, name: str) -> str:
     added = _git(top, "worktree", "add", "-q", "-b", f"worktree-{slug}", str(target), "HEAD")
     if added.returncode != 0:
         raise ValueError(_("No worktree: {error}").format(error=added.stderr.strip()[:300]))
+    try:
+        copied = copy_worktree_include(top, str(target))
+        if copied:
+            logger.info("Copied %d file(s) listed in %s into the new worktree", copied, WORKTREE_INCLUDE)
+    except OSError as exc:  # never fails the worktree itself
+        logger.warning("Copying %s files failed (%s)", WORKTREE_INCLUDE, type(exc).__name__)
     return str(target)
+
+
+WORKTREE_INCLUDE = ".worktreeinclude"
+INCLUDE_MAX_FILES = 500
+INCLUDE_MAX_BYTES = 20 * 1024 * 1024  # per file
+
+
+def worktree_include_files(top: str) -> list[str]:
+    """Files a new worktree should get although git doesn't carry them:
+    those matching a pattern in <top>/.worktreeinclude (gitignore syntax —
+    the convention Claude Code, Conductor and Codex share) that git
+    actually ignores. So tracked files are never copied, nor anything
+    under .claude/worktrees (the other worktrees)."""
+    include = Path(top) / WORKTREE_INCLUDE
+    if include.is_symlink() or not include.is_file():
+        return []
+    candidates = _git(top, "ls-files", "--others", "--ignored", "-z", f"--exclude-from={include}")
+    if candidates.returncode != 0 or not candidates.stdout:
+        return []
+    paths = [p for p in candidates.stdout.split("\x00")
+             if p and not p.startswith(WORKTREES_DIR.as_posix() + "/")]
+    if not paths:
+        return []
+    ignored = subprocess.run(
+        ["git", *_HARDENING, "-C", top, "check-ignore", "-z", "--stdin"],
+        input="\x00".join(paths) + "\x00", capture_output=True, text=True, timeout=30,
+        env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+    )
+    return sorted(p for p in ignored.stdout.split("\x00") if p)[:INCLUDE_MAX_FILES]
+
+
+def _inside(base: str, rel: str) -> Path | None:
+    """base/rel when no component of it is a symlink and it stays in base."""
+    parts = Path(rel).parts
+    if not parts or Path(rel).is_absolute() or ".." in parts:
+        return None
+    current = Path(base)
+    for part in parts:
+        current = current / part
+        if current.is_symlink():
+            return None
+    return current
+
+
+def copy_worktree_include(top: str, target: str) -> int:
+    """Copy worktree_include_files(top) into the worktree at `target`.
+    Only regular files, never through a symbolic link on either side (a
+    link in the repo must not pull in or overwrite anything outside it),
+    never over an existing file. Returns how many were copied."""
+    copied = 0
+    for rel in worktree_include_files(top):
+        source, dest = _inside(top, rel), _inside(target, rel)
+        if source is None or dest is None or not source.is_file() or source.stat().st_size > INCLUDE_MAX_BYTES:
+            continue
+        parent = Path(target)
+        for part in Path(rel).parts[:-1]:
+            parent = parent / part
+            if not parent.exists():
+                parent.mkdir()
+            if parent.is_symlink() or not parent.is_dir():
+                break
+        else:
+            mode = source.stat().st_mode & 0o777
+            try:
+                fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
+            except FileExistsError:
+                continue
+            with os.fdopen(fd, "wb") as out, source.open("rb") as src:
+                out.write(src.read())
+            copied += 1
+    return copied
 
 
 REVIEW_DIFF_MAX_CHARS = 60_000

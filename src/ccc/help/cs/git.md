@@ -50,6 +50,22 @@ pracovní kopii repozitáře na vlastní větvi (`worktree-<název>`, ve
 větev slouč, až budeš spokojený. Nepotřebný worktree odstraníš přes
 `git worktree remove .claude/worktrees/<název>`.
 
+Nová pracovní kopie má jen soubory, které git sleduje, takže by chyběl
+`.env`, lokální certifikáty nebo konfigurace, bez kterých projekt
+nepoběží. Vypiš je do souboru **`.worktreeinclude`** v kořeni
+repozitáře (syntaxe gitignore — stejný soubor čte Claude Code, Conductor
+i Codex), např.:
+
+```
+.env
+config/local.json
+```
+
+ccc do každého nového worktree zkopíruje soubory, které odpovídají vzoru
+**a zároveň** je git ignoruje — nikdy sledovaný soubor, nikdy přes
+symbolický odkaz, nikdy přes existující soubor, nejvýš 500 souborů po
+20 MB.
+
 ## Kdy ccc necommitne
 
 Historie běhů řekne proč:
