@@ -23,6 +23,7 @@ allow only one choice.
 | Model (*one*) | Opus · Sonnet · Haiku · Fable |
 | Effort (*one*) | high · xhigh · max |
 | Other | Fallback to Sonnet when overloaded · Claude in Chrome · Safe mode |
+| | **Own git worktree** — a separate checkout and branch for this conversation (`.claude/worktrees/<name>`, branch `worktree-<name>`), so it can work side by side with others in the same repository; only with a new session or one from a pull request, and with *Skip all permission checks* (ccc runs git only there). See [Git](git.md#several-conversations-in-one-folder) |
 
 Below them:
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from rich.text import Text
 from textual.containers import Container, Horizontal, VerticalScroll
 from textual.content import Content
@@ -15,6 +17,7 @@ from ccc.storage import Storage
 from ccc.tui.layout import (
     ADD_PROMPT_BUTTON,
     MODAL_CSS,
+    ConfirmModal,
     RETRY_BUTTON,
     SidebarScreen,
     panel,
@@ -133,6 +136,14 @@ class DiffModal(ModalScreen):
         self.dismiss()
 
 
+def _commit_cell(run) -> Text:
+    if not run.git_commit:
+        return Text("—" if not run.git_note else "·", style="dim")
+    if run.reverted_by:
+        return Text(f"{run.git_commit[:7]} ↺", style="dim strike")
+    return Text(run.git_commit[:7])
+
+
 class QueueDetailScreen(SidebarScreen):
     """Detail of one queue, opened from the dashboard; shares the
     dashboard's sidebar highlight since it's a drill-down of it."""
@@ -146,6 +157,10 @@ class QueueDetailScreen(SidebarScreen):
         keymap.binding("screen.retry", "retry_queue", _("Retry blocked"), show=False),
         keymap.binding("screen.add_prompt", "add_prompt", _("Add prompt"), show=False),
         keymap.binding("screen.review", "review", _("Review")),
+        keymap.binding("screen.goal", "goal", _("Goal")),
+        keymap.binding("screen.workflow", "workflow", _("Workflow")),
+        keymap.binding("screen.ask", "ask", _("Ask")),
+        keymap.binding("queue_detail.revert", "revert_run", _("Revert run")),
     ]
 
     def __init__(self, storage: Storage, queue_id: int):
@@ -172,6 +187,12 @@ class QueueDetailScreen(SidebarScreen):
         table = self.query_one("#queue-history-table", DataTable)
         table.cursor_type = "row"
         table.add_columns(_("Started"), _("Status"), _("Tokens"), _("Commit"), _("Result"))
+        self._refresh_runs()
+
+    def _refresh_runs(self) -> None:
+        table = self.query_one("#queue-history-table", DataTable)
+        row = table.cursor_row
+        table.clear()
         self._runs = self.storage.runs_for_queue(self.queue_id)
         for run in self._runs:
             tokens = run.input_tokens + run.output_tokens + run.cache_read_tokens + run.cache_creation_tokens
@@ -181,9 +202,11 @@ class QueueDetailScreen(SidebarScreen):
                 run.started_at.strftime("%Y-%m-%d %H:%M"),
                 status,
                 f"{tokens:,}",
-                Text(run.git_commit[:7]) if run.git_commit else Text("—" if not run.git_note else "·", style="dim"),
+                _commit_cell(run),
                 Text((run.result_text or run.error_text or "")[:60].replace("\n", " ")),
             )
+        if self._runs and row is not None:
+            table.move_cursor(row=min(row, len(self._runs) - 1))
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         if event.data_table.id != "queue-history-table" or event.cursor_row >= len(self._runs):
@@ -194,6 +217,47 @@ class QueueDetailScreen(SidebarScreen):
             self.app.push_screen(DiffModal(queue.project_path, run.git_commit))
         elif run.git_note:
             self.notify(run.git_note, title=_("No commit"))
+
+    def action_revert_run(self) -> None:
+        """Revert the selected run's commit (ccc.revert), after asking."""
+        from ccc import revert
+
+        row = self.query_one("#queue-history-table", DataTable).cursor_row
+        if row is None or row >= len(self._runs):
+            return
+        run = self._runs[row]
+        try:
+            revert.check(self.storage, run)
+        except revert.RevertError as error:
+            self.notify(str(error), title=_("Not reverted"), severity="warning")
+            return
+
+        def tell(yes: bool, commit: str) -> None:
+            if yes:
+                revert.tell_claude(self.storage, run, commit)
+                self._refresh_info()
+
+        async def answered(yes: bool) -> None:
+            if not yes:
+                return
+            try:
+                commit = await asyncio.to_thread(revert.revert, self.storage, run)
+            except revert.RevertError as error:
+                self.notify(str(error), title=_("Not reverted"), severity="error")
+                return
+            self.notify(_("Reverted — commit {commit}.").format(commit=commit[:7]))
+            self._refresh_runs()
+            self.app.push_screen(ConfirmModal(
+                _("Tell Claude?"),
+                _("Queue a short note so Claude knows its changes were undone? (Otherwise its next task may still "
+                  "assume them.)")), lambda yes: tell(yes, commit))
+
+        task = (run.prompt_text.strip().splitlines() or [""])[0][:80]
+        self.app.push_screen(ConfirmModal(
+            _("Revert run"),
+            _("Undo the commit {commit} of the task “{task}”? ccc makes a new commit that reverts it — nothing is "
+              "rewritten, and the revert can be undone too.").format(commit=run.git_commit[:7], task=task)),
+            answered)
 
     def _refresh_info(self) -> None:
         queue = self.storage.get_queue(self.queue_id)

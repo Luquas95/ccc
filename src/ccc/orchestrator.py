@@ -6,11 +6,12 @@ import logging
 import sqlite3
 import sys
 import uuid
+from types import SimpleNamespace
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Awaitable, Callable
 
-from ccc import gitops, managed_sessions
+from ccc import folders, gitops, managed_sessions
 from ccc.i18n import _
 from ccc.launch_options import (
     FORK,
@@ -24,7 +25,7 @@ from ccc.limits import exhausted_until, retry_time_after_rate_limit
 from ccc.live_delivery import deliver_to_live_session
 from ccc.models import DeliveryMode, ItemStatus, PromptRun, Queue, QueueItem, QueueStatus, RunStatus
 from ccc.retry import next_backoff_seconds, parse_reset_time
-from ccc.runner import RunResult, execute
+from ccc.runner import LEGACY_FLAGS, RunResult, execute
 from ccc.session_discovery import discover_sessions, session_ready_for_input
 from ccc.storage import Storage
 from ccc.transcript import find_transcript_path, last_human_text, list_sessions_for_directory
@@ -106,7 +107,7 @@ def attach_to_session(
 
 def start_conversation(
     storage, project_path, selection, *, name=None, session_id=None, pr=None, auto_continue=True,
-    remote_control=False, interactive=True,
+    remote_control=False, interactive=True, worktree=False,
 ) -> Queue:
     """Create the queue behind a conversation started from the TUI's
     New conversation dialog (see launch_options for what selection
@@ -120,6 +121,16 @@ def start_conversation(
     fork = FORK in selection and mode != SESSION_NEW
     flags = persistent_flags(selection)
     name = (name or "").strip() or Path(project_path).name or project_path
+    if worktree:
+        # Claude Code keeps sessions per folder: an earlier one can't be
+        # continued from a new worktree.
+        if mode not in (SESSION_NEW, SESSION_FROM_PR):
+            raise ValueError(_("An own worktree needs a new session (or one from a pull request)."))
+        # ccc runs git (here: the checkout) only where Claude may run any
+        # command anyway — see gitops.
+        if not gitops.claude_can_run_commands(SimpleNamespace(launch_flags=flags)):
+            raise ValueError(_("An own worktree needs “Skip all permission checks” (ccc runs git only there)."))
+        project_path = gitops.create_worktree(project_path, name)
     if remote_control:
         delivery = DeliveryMode.REMOTE_CONTROL
     else:
@@ -164,6 +175,16 @@ def start_conversation(
     )
 
 
+def with_model(flags: list[str] | None, model: str) -> list[str]:
+    """The launch flags with --model set to `model` (a task's own model)."""
+    flags = list(flags if flags is not None else LEGACY_FLAGS)
+    if "--model" in flags[:-1]:
+        flags[flags.index("--model") + 1] = model
+    else:
+        flags += ["--model", model]
+    return flags
+
+
 RESERVE_KEY = "usage_reserve"
 
 
@@ -177,9 +198,9 @@ def usage_reserve(storage) -> int | None:
     return value if value is not None and 0 < value < 100 else None
 
 
-def permission_tool_flags(queue_id: int, db_path: str) -> list[str]:
-    """Attach ccc's permission MCP server (see permission_mcp) so tool
-    approvals wait for the user instead of being denied in -p mode."""
+def ccc_mcp_flags(queue_id: int, db_path: str) -> list[str]:
+    """Attach ccc's MCP server (permission_mcp): ask_conversation (ccc.asks)
+    for every conversation, approve where permission_tool_flags uses it."""
     config = {
         "mcpServers": {
             "ccc": {
@@ -191,7 +212,13 @@ def permission_tool_flags(queue_id: int, db_path: str) -> list[str]:
             }
         }
     }
-    return ["--mcp-config", json.dumps(config), "--permission-prompt-tool", "mcp__ccc__approve"]
+    return ["--mcp-config", json.dumps(config)]
+
+
+def permission_tool_flags(queue_id: int, db_path: str) -> list[str]:
+    """ccc's MCP server as the permission prompt tool, so tool approvals
+    wait for the user instead of being denied in -p mode."""
+    return [*ccc_mcp_flags(queue_id, db_path), "--permission-prompt-tool", "mcp__ccc__approve"]
 
 
 def _inside_git_repo(path: str) -> bool:
@@ -324,6 +351,13 @@ class QueueRuntime:
                         self._hold_for_reserve(queue, until, reserve)
                         continue
 
+            if queue.delivery_mode == DeliveryMode.HEADLESS and folders.running_neighbour(self.storage, queue):
+                # Another conversation runs a task in this work tree: take
+                # turns (no await between this check and the claim below,
+                # so two runtimes can't both pass it).
+                await self._wait_for_wake_or_poll(POLL_INTERVAL_SECONDS)
+                continue
+
             item = self.storage.claim_next_pending_item(queue.id)
             if item is None:
                 continue
@@ -389,11 +423,14 @@ class QueueRuntime:
         # Git only where Claude may run commands anyway — see gitops.
         git_allowed = gitops.claude_can_run_commands(queue)
         before = await asyncio.to_thread(gitops.snapshot, queue.project_path) if git_allowed else None
-        flags = queue.launch_flags
+        flags = with_model(queue.launch_flags, item.model) if item.model else queue.launch_flags
         if not git_allowed:
             # Restricted permission mode: tool approvals go to the user in
             # the TUI instead of being denied automatically.
             flags = list(flags or []) + permission_tool_flags(queue.id, self.storage.db_path)
+        else:
+            # Asking other conversations works everywhere (ccc.asks).
+            flags = list(flags if flags is not None else LEGACY_FLAGS) + ccc_mcp_flags(queue.id, self.storage.db_path)
         started_at = datetime.now()
         result = await self.run_fn(
             queue.project_path, queue.session_id, text, resume, flags, queue.first_run_flags
@@ -402,7 +439,13 @@ class QueueRuntime:
         git_commit = git_note = None
         if not git_allowed and result.status == RunStatus.SUCCESS and _inside_git_repo(queue.project_path):
             git_note = _("not committed: auto-commit only runs in 'Skip all permission checks' conversations")
+        busy = None
         if before is not None and result.status == RunStatus.SUCCESS:
+            # Never sweep another conversation's half-written work into this commit.
+            busy = await asyncio.to_thread(folders.busy_neighbour, self.storage, queue)
+        if busy is not None:
+            git_note = _("not committed: another conversation ({name}) works in this folder").format(name=busy.name)
+        elif before is not None and result.status == RunStatus.SUCCESS:
             outcome = await asyncio.to_thread(
                 gitops.commit_task, queue.project_path, before, item.prompt_text, queue.name
             )
@@ -527,7 +570,8 @@ class QueueRuntime:
 
         if not await asyncio.to_thread(managed_sessions.is_running, queue.id):
             has_transcript = find_transcript_path(queue.session_id) is not None
-            command = managed_sessions.build_interactive_command(queue, has_transcript)
+            command = managed_sessions.build_interactive_command(
+                queue, has_transcript, ccc_mcp_flags(queue.id, self.storage.db_path))
             logger.info("Starting interactive session for '%s'", queue.name)
             await asyncio.to_thread(managed_sessions.start, queue, command)
             self._managed_was_blocked = False

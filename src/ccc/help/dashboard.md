@@ -59,6 +59,7 @@ What to do with the last two: [Usage limits & blocked queues](limits.md).
 - the **run history**: every task with its result, tokens and — in a git
   repository — its commit. `Enter` on a run shows the commit's diff (see
   [Git](git.md));
+- `u` [undoes a run](git.md#undoing-a-run): reverts its commit;
 - `+` adds a task to this conversation, `r` gets it going again when it's
   blocked or paused at a limit. `Esc` goes back.
 

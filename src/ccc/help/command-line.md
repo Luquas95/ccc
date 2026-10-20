@@ -37,4 +37,17 @@ ccc-tui`); changed in Settings they work right away.
 | `ccc review list [CONVERSATION]` | reviews, newest first: id, time, verdict, what was reviewed |
 | `ccc review show REVIEW` | a review's report |
 | `ccc review stop CONVERSATION` | stop its review (loop) |
+| `ccc goal start CONVERSATION "GOAL"` | start a [goal loop](goal.md); `--check "pytest -q"` = run after each round, `--rounds N` = at most N rounds, `--wait` = wait until it ends, exit code 0 when the goal is met |
+| `ccc goal list [CONVERSATION]` | goals, newest first: id, start, round, state |
+| `ccc goal stop CONVERSATION` | stop its goal loop |
+| `ccc runs CONVERSATION` | the conversation's runs: id, time, status, commit (`↺` = reverted), task |
+| `ccc revert RUN [--tell]` | [undo a run](git.md#undoing-a-run): revert its commit with a new commit; `--tell` = also queue a note for Claude |
+| `ccc workflow templates` | the [workflow](workflows.md) templates and their steps |
+| `ccc workflow start CONVERSATION TEMPLATE "TASK"` | run a workflow; `--check "pytest -q"`, `--rounds N`, `--wait` = wait until it ends (exit code 0 when it passed) |
+| `ccc workflow list [CONVERSATION]` / `show RUN` | runs, newest first / a run's steps and what each agent said |
+| `ccc workflow approve CONVERSATION` / `reject CONVERSATION` | answer the step a run waits at (`--note "…"` for the next step) |
+| `ccc workflow stop CONVERSATION` | stop its workflow |
+| `ccc workflow import FILE` / `export TEMPLATE FOLDER` / `delete TEMPLATE` | your own templates as JSON |
+| `ccc ask FROM TO "QUESTION"` | one conversation [asks another](asking.md) (ids or names); `--no-deliver` = don't pass the answer into FROM, `--wait` = wait and print the answer |
+| `ccc asks [CONVERSATION]` | questions between conversations, newest first (`🤖` = Claude asked) |
 | `ccc-daemon` | the daemon itself (normally run by `ccc.service`) |

@@ -108,6 +108,9 @@ class QueueItem:
     not_before: datetime | None = None
     # Queued by this routine (ccc.routines); None = by hand.
     routine_id: int | None = None
+    # Run on this model instead of the conversation's (a goal loop that
+    # stalls switches to a stronger one; headless conversations only).
+    model: str | None = None
 
 
 @dataclass
@@ -133,6 +136,10 @@ class PromptRun:
     git_note: str | None = None
     # The run of a review (ccc.reviews), not of a task.
     review_id: int | None = None
+    # Its commit was undone by this revert commit (ccc.revert).
+    reverted_by: str | None = None
+    # A one-shot agent of this workflow run (ccc.workflows), not a task.
+    workflow_run_id: int | None = None
 
 
 @dataclass
@@ -213,3 +220,109 @@ class Review:
     not_before: datetime | None = None
     created_at: datetime = field(default_factory=datetime.now)
     finished_at: datetime | None = None
+    goal_id: int | None = None  # judges this goal (ccc.goals)
+    model: str | None = None  # instead of the usual reviewer model
+
+
+class GoalStatus(str, Enum):
+    RUNNING = "running"
+    PASSED = "passed"
+    STUCK = "stuck"  # the same failure twice in a row
+    LIMIT = "limit"  # out of rounds
+    STOPPED = "stopped"
+    ERROR = "error"
+
+
+class GoalPhase(str, Enum):
+    CODING = "coding"  # the conversation works on its task
+    CHECKING = "checking"  # ccc runs the check command
+    REVIEWING = "reviewing"  # a reviewer judges the goal
+
+
+@dataclass
+class Goal:
+    """Work towards a goal in rounds until a reviewer says it's met (ccc.goals)."""
+    id: int
+    queue_id: int
+    goal: str
+    check_command: str = ""
+    max_rounds: int = 5
+    round: int = 1
+    status: GoalStatus = GoalStatus.RUNNING
+    phase: GoalPhase = GoalPhase.CODING
+    item_id: int | None = None  # this round's task
+    review_id: int | None = None  # this round's review
+    base_run_id: int = 0  # the conversation's last run before the goal
+    last_reason: str = ""  # why the last round didn't pass
+    created_at: datetime = field(default_factory=datetime.now)
+    finished_at: datetime | None = None
+
+
+class WorkflowStatus(str, Enum):
+    RUNNING = "running"
+    WAITING = "waiting"  # a gate waits for your answer
+    PASSED = "passed"
+    FAILED = "failed"  # out of rounds, or rejected at a gate
+    STOPPED = "stopped"
+    ERROR = "error"
+
+
+@dataclass
+class WorkflowRun:
+    """One run of a workflow template in a conversation (ccc.workflows)."""
+    id: int
+    queue_id: int
+    name: str  # the template's
+    template: dict  # a snapshot: later edits of the template don't change a run
+    task: str
+    check_command: str = ""
+    max_rounds: int = 3
+    status: WorkflowStatus = WorkflowStatus.RUNNING
+    step: int = 0  # index into template["steps"]
+    round: int = 1
+    base_run_id: int = 0
+    item_id: int | None = None  # the code step's task
+    plan: str = ""  # the plan step's output
+    findings: str = ""  # what the last failed check / review / arbiter said
+    last_reason: str = ""
+    created_at: datetime = field(default_factory=datetime.now)
+    finished_at: datetime | None = None
+
+
+@dataclass
+class WorkflowEvent:
+    """What one step of a run did, for the history (ccc.workflows)."""
+    id: int
+    run_id: int
+    step: int
+    round: int
+    kind: str
+    name: str
+    status: str  # "running" | "done" | "error"
+    verdict: str = ""
+    output: str = ""
+    created_at: datetime = field(default_factory=datetime.now)
+
+
+class AskStatus(str, Enum):
+    ASKED = "asked"  # the question waits in / runs in the other conversation
+    ANSWERED = "answered"
+    ERROR = "error"
+    CANCELLED = "cancelled"
+
+
+@dataclass
+class Ask:
+    """A question one conversation asks another (ccc.asks)."""
+    id: int
+    from_queue_id: int
+    to_queue_id: int
+    question: str
+    status: AskStatus = AskStatus.ASKED
+    by_agent: bool = False  # Claude asked (the ccc MCP tool), not you
+    deliver: bool = True  # pass the answer back into the asking conversation
+    to_item_id: int | None = None  # the question as a task of the other one
+    answer: str = ""
+    error: str = ""
+    created_at: datetime = field(default_factory=datetime.now)
+    answered_at: datetime | None = None

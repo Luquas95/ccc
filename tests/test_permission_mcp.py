@@ -60,7 +60,7 @@ def test_jsonrpc_handshake_and_tool_list(tmp_path):
     assert init["result"]["protocolVersion"] == "2025-06-18" and "tools" in init["result"]["capabilities"]
     assert handle({"jsonrpc": "2.0", "method": "notifications/initialized"}, storage, q.id) is None
     tools = handle({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, storage, q.id)["result"]["tools"]
-    assert [t["name"] for t in tools] == ["approve"]
+    assert [t["name"] for t in tools] == ["approve", "ask_conversation"]
     assert handle({"jsonrpc": "2.0", "id": 3, "method": "nope"}, storage, q.id)["error"]["code"] == -32601
 
 

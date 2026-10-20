@@ -37,12 +37,12 @@ FORMAT = "ccc-keys"
 VIEWS = ("dashboard", "conversations", "archive", "sessions", "analytics", "queue_detail")
 WINDOWS = ("help", "confirm", "approval", "tasks", "task_edit", "preset_edit", "settings", "keys",
            "new_conversation", "preset_name", "add_prompt", "diff", "search", "attach", "routines", "routine_edit",
-           "review")
+           "review", "goal", "workflow", "ask")
 CLAUDE = "claude"
 EVERYWHERE = (*VIEWS, *WINDOWS, CLAUDE)
 _CONVERSATIONS = ("conversations", "archive")
 _BACK = ("conversations", "archive", "sessions", "analytics", "queue_detail")
-_EDITORS = ("task_edit", "preset_edit", "settings", "keys", "routine_edit", "review")
+_EDITORS = ("task_edit", "preset_edit", "settings", "keys", "routine_edit", "review", "goal", "workflow", "ask")
 
 
 @dataclass(frozen=True)
@@ -74,7 +74,13 @@ ACTIONS: tuple[KeyAction, ...] = (
               (*_CONVERSATIONS, "queue_detail")),
     KeyAction("screen.add_prompt", "plus", N_("Add prompt"), ("sessions", "queue_detail")),
     KeyAction("sessions.refresh", "r", N_("Reload the session list"), ("sessions",)),
+    KeyAction("queue_detail.revert", "u", N_("Revert the selected run's commit"), ("queue_detail",)),
     KeyAction("screen.review", "v", N_("Review the conversation's changes"), (*_CONVERSATIONS, "queue_detail")),
+    KeyAction("screen.goal", "g", N_("Goal loop: work in rounds until a reviewer says it's met"),
+              (*_CONVERSATIONS, "queue_detail")),
+    KeyAction("screen.workflow", "w", N_("Workflow: a chain of agents (plan, build, reviews, arbiter)"),
+              (*_CONVERSATIONS, "queue_detail")),
+    KeyAction("screen.ask", "k", N_("Ask another conversation"), (*_CONVERSATIONS, "queue_detail")),
     KeyAction("conversations.tasks", "t", N_("Tasks editor"), _CONVERSATIONS),
     KeyAction("conversations.archive", "x", N_("Archive / restore the conversation"), _CONVERSATIONS),
     KeyAction("conversations.approve", "p", N_("Approve a tool call"), _CONVERSATIONS),

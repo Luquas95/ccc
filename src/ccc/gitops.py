@@ -16,6 +16,7 @@ import os
 import re
 import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 
 from ccc.i18n import _
 
@@ -168,6 +169,108 @@ def commit_task(cwd: str, before: Snapshot, task_text: str, conversation: str) -
         return CommitOutcome(None, _("not committed: git commit failed"))
     head = _git(cwd, "rev-parse", "HEAD").stdout.strip()
     return CommitOutcome(head, _("committed"))
+
+
+def revert_commit(cwd: str, commit: str, conversation: str) -> CommitOutcome:
+    """Undo one of ccc's task commits with a new commit (git revert). Only
+    in a clean work tree on a branch, for a commit in its history; a
+    revert that conflicts with later changes is abandoned (nothing
+    changes). CommitOutcome.commit is the revert commit, or None with why."""
+    if not _COMMIT.match(commit or ""):
+        return CommitOutcome(None, _("not reverted: that isn't a commit"))
+    before = snapshot(cwd)
+    if before is None:
+        return CommitOutcome(None, _("not reverted: not a git repository"))
+    if before.blocked:
+        return CommitOutcome(None, _("not reverted: {reason}").format(reason=before.blocked))
+    if not before.clean:
+        return CommitOutcome(None, _("not reverted: there are uncommitted changes — commit or stash them first"))
+    if not before.on_branch:
+        return CommitOutcome(None, _("not reverted: detached HEAD"))
+    if _git(cwd, "merge-base", "--is-ancestor", commit, "HEAD").returncode != 0:
+        return CommitOutcome(None, _("not reverted: the commit isn't in this branch's history"))
+    subject = _git(cwd, "log", "-1", "--format=%s", commit).stdout.strip()
+    reverted = _git(cwd, "revert", "--no-edit", "--no-commit", commit)
+    if reverted.returncode != 0:
+        _git(cwd, "revert", "--abort")
+        return CommitOutcome(None, _("not reverted: it conflicts with later changes — nothing was changed"))
+    if _git(cwd, "status", "--porcelain").stdout.strip() == "":
+        return CommitOutcome(None, _("not reverted: its changes are already gone"))
+    message = f"ccc: revert {commit[:7]} ({subject[:60]})\n\nccc-conversation: {conversation}\nccc-reverts: {commit}\n"
+    committed = _git(cwd, "commit", "-q", "--no-verify", "-m", message)
+    if committed.returncode != 0:
+        _git(cwd, "revert", "--abort")
+        return CommitOutcome(None, _("not reverted: git commit failed"))
+    return CommitOutcome(_git(cwd, "rev-parse", "HEAD").stdout.strip(), _("reverted"))
+
+
+WORKTREES_DIR = Path(".claude") / "worktrees"  # where Claude Code keeps its own (claude --worktree)
+_SLUG = re.compile(r"[^a-z0-9._-]+")
+
+
+def work_tree_root(path: str) -> str | None:
+    """The top folder of the git work tree `path` is in (a worktree is its
+    own); None outside git."""
+    try:
+        result = _git(path, "rev-parse", "--show-toplevel")
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return result.stdout.strip() if result.returncode == 0 and result.stdout.strip() else None
+
+
+def _safe_worktree_dir(top: str) -> Path:
+    """<top>/.claude/worktrees, made without following symlinks: a
+    symlink planted in the repository must not send the checkout
+    elsewhere. ValueError when one is in the way."""
+    current = Path(os.path.realpath(top))
+    for part in WORKTREES_DIR.parts:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError(_("No worktree: {path} is a symbolic link.").format(path=current))
+        if not current.exists():
+            current.mkdir()
+        elif not current.is_dir():
+            raise ValueError(_("No worktree: {path} isn't a folder.").format(path=current))
+    if not str(current.resolve()).startswith(os.path.realpath(top) + os.sep):
+        raise ValueError(_("No worktree: {path} leads outside the repository.").format(path=current))
+    return current
+
+
+def create_worktree(path: str, name: str) -> str:
+    """A new git worktree for a conversation: <repo>/.claude/worktrees/<name>
+    on a new branch worktree-<name> from HEAD — where `claude --worktree
+    <name>` keeps its own, so Claude Code can open it too. The folder is
+    left out of the main checkout's `git status` (.git/info/exclude).
+    Returns its path; ValueError with a message for the user."""
+    top = work_tree_root(path)
+    if top is None:
+        raise ValueError(_("A worktree needs a git repository — {path} isn't in one.").format(path=path))
+    # The checkout must not run anything: besides the repo-local config,
+    # the per-worktree one (config.worktree) could set a filter program.
+    worktree_config = _git(top, "config", "--worktree", "--list", "--null", "--no-includes")
+    problem = _config_problem(_local_config(top)) or (
+        _config_problem(worktree_config.stdout) if worktree_config.returncode == 0 else None)
+    if problem:
+        raise ValueError(_("No worktree: {reason}.").format(reason=problem))
+    base = _SLUG.sub("-", name.lower()).strip("-.")[:40] or "conversation"
+    slug, n = base, 1
+    while (Path(top) / WORKTREES_DIR / slug).exists() or _git(
+            top, "rev-parse", "--verify", "--quiet", f"refs/heads/worktree-{slug}").returncode == 0:
+        n += 1
+        slug = f"{base}-{n}"
+    exclude = _git(top, "rev-parse", "--git-path", "info/exclude").stdout.strip()
+    if exclude:
+        exclude_path = Path(exclude) if Path(exclude).is_absolute() else Path(top) / exclude
+        lines = exclude_path.read_text().splitlines() if exclude_path.exists() else []
+        if f"/{WORKTREES_DIR.as_posix()}/" not in lines:
+            exclude_path.parent.mkdir(parents=True, exist_ok=True)
+            with exclude_path.open("a") as handle:
+                handle.write(f"/{WORKTREES_DIR.as_posix()}/\n")
+    target = _safe_worktree_dir(top) / slug
+    added = _git(top, "worktree", "add", "-q", "-b", f"worktree-{slug}", str(target), "HEAD")
+    if added.returncode != 0:
+        raise ValueError(_("No worktree: {error}").format(error=added.stderr.strip()[:300]))
+    return str(target)
 
 
 REVIEW_DIFF_MAX_CHARS = 60_000

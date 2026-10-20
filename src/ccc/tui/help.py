@@ -52,6 +52,9 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("conversations.search", N_("Search all conversations")),
         ("conversations.export", N_("Export the conversation as Markdown")),
         ("screen.review", N_("Review its changes with a fresh reviewer (once or until it passes)")),
+        ("screen.goal", N_("Goal loop: rounds of work, check and review until the goal is met")),
+        ("screen.workflow", N_("Workflow: plan, approve, build, check, parallel reviews, arbiter")),
+        ("screen.ask", N_("Ask another conversation a question; the answer comes back as a message")),
         ("ctrl+j", N_("New line in the message box (Shift+Enter where supported)")),
         ("conversations.preset1", N_("Preset prompt 1–9 (⏎ sends it, ✎ puts it into the message box; set in Settings)")),
         *[(f"conversations.preset{n}", N_("Preset prompt {n}")) for n in range(2, 10)],
@@ -85,6 +88,18 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("window.save", N_("Start the review")),
         ("window.cancel", N_("Close")),
     ]),
+    (N_("Goal (g)"), [
+        ("window.save", N_("Start the goal loop")),
+        ("window.cancel", N_("Close")),
+    ]),
+    (N_("Workflow (w)"), [
+        ("window.save", N_("Start the workflow")),
+        ("window.cancel", N_("Close")),
+    ]),
+    (N_("Questions (k)"), [
+        ("window.save", N_("Send the question")),
+        ("window.cancel", N_("Close")),
+    ]),
     (N_("Approval window (p)"), [
         ("answer.yes", N_("Allow")),
         ("approval.always", N_("Always allow this tool in this conversation")),
@@ -101,8 +116,12 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
     ]),
     (N_("Queue detail"), [
         ("enter", N_("Show the run's commit diff")),
+        ("queue_detail.revert", N_("Revert the selected run's commit (a new commit; asks first)")),
         ("screen.add_prompt", N_("Add a prompt (this queue's path prefilled)")),
         ("screen.review", N_("Review its changes with a fresh reviewer (once or until it passes)")),
+        ("screen.goal", N_("Goal loop: rounds of work, check and review until the goal is met")),
+        ("screen.workflow", N_("Workflow: plan, approve, build, check, parallel reviews, arbiter")),
+        ("screen.ask", N_("Ask another conversation a question; the answer comes back as a message")),
         ("screen.retry", N_("Blocked: run the failed task again / resume one paused at a limit")),
     ]),
     (N_("Preset prompt editor (Settings → Add / Edit)"), [

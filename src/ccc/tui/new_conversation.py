@@ -174,6 +174,8 @@ class NewConversationModal(ModalScreen):
         right.append(Static("ccc", classes="group-title"))
         right.append(Checkbox(_("Auto-continue after usage limit"), value=self._initial.auto_continue, id="auto-continue"))
         right.append(Checkbox(_("Remote control (phone / claude.ai)"), value=self._initial.remote_control, id="remote-control"))
+        right.append(Checkbox(_("Own git worktree (a separate checkout and branch — to work in parallel)"),
+                              value=False, id="own-worktree"))
         recent = [Option(Content(p), id=p) for p in self.storage.recent_project_paths()]
         box = Container(
             Horizontal(
@@ -320,6 +322,7 @@ class NewConversationModal(ModalScreen):
                 pr=self.query_one("#from-pr-input", Input).value,
                 auto_continue=self.query_one("#auto-continue", Checkbox).value,
                 remote_control=self.query_one("#remote-control", Checkbox).value,
+                worktree=self.query_one("#own-worktree", Checkbox).value,
             )
         except ValueError as exc:
             error.update(Content(str(exc)))

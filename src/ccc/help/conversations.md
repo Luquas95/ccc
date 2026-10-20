@@ -54,6 +54,9 @@ Good to know:
 
 ## Headless conversations
 
+Conversations that share a folder show a ⚠ line: their headless tasks
+take turns, see [Git](git.md#several-conversations-in-one-folder).
+
 Prompts queued with `+` (Live sessions, queue detail) or `ccc add` run
 **headless**: the daemon runs `claude -p` for each task, without a
 terminal. For these ccc shows the transcript itself:
