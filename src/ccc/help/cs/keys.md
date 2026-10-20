@@ -159,6 +159,8 @@ uvádějí výchozí klávesy.
 | Klávesa | |
 |---|---|
 | `Enter` | Ukázat diff commitu z běhu |
+| `c` | V diffu: komentář k řádku pod kurzorem |
+| `s` | V diffu: poslat komentáře Claudovi jako jeden prompt |
 | `u` | Vrátit commit vybraného běhu (novým commitem; nejdřív se zeptá) |
 | `+` | Přidat prompt (s předvyplněnou cestou této fronty) |
 | `v` | Nechat její změny zkontrolovat nezávislým recenzentem (jednou, nebo dokud neprojde) |

@@ -9,6 +9,16 @@ nebo vrátit:
 - detail fronty (`Enter` na [Přehledu](dashboard.md)) ukazuje commit
   každého běhu; `Enter` na běhu ukáže změněné soubory a barevný diff.
 
+## Komentáře k diffu
+
+Projdi práci Clauda jako pull request: v diffu běhu přejdi na řádek
+(`↑` `↓`, `PgUp` `PgDn`, kliknutí), stiskni `c` a napiš, co se má změnit
+— `Enter` komentář uloží, prázdný ho smaže. Okomentované řádky mají `●`
+a komentáře jsou vypsané pod diffem. `s` je všechny pošle konverzaci
+jako **jeden prompt** do fronty: každý komentář se souborem, číslem
+řádku a citovaným řádkem a s žádostí, ať každý vyřeší. Zavření diffu
+s neodeslanými komentáři se nejdřív zeptá.
+
 ## Vrácení běhu
 
 V detailu fronty vyber běh s commitem a stiskni `u`: ccc ho vrátí

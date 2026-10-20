@@ -2,13 +2,19 @@ from __future__ import annotations
 
 import asyncio
 
+from rich.segment import Segment
 from rich.text import Text
-from textual.containers import Container, Horizontal, VerticalScroll
+from textual.containers import Container, Horizontal
 from textual.content import Content
+from textual.geometry import Region, Size
+from textual.reactive import var
 from textual.screen import ModalScreen
+from textual.scroll_view import ScrollView
+from textual.strip import Strip
 from textual.widgets import Button, DataTable, Input, Static, TextArea
 
 from ccc import keymap
+from ccc.diff_comments import ADDED, HUNK, META, QUOTE_MAX_CHARS, REMOVED, Comment, parse, prompt
 from ccc.i18n import _
 from ccc.launch_options import describe_flags
 from ccc.models import DeliveryMode, QueueStatus, RunStatus
@@ -100,40 +106,218 @@ class AddPromptModal(ModalScreen):
         self.dismiss()
 
 
+class DiffView(ScrollView, can_focus=True):
+    """A diff, one line per row, with a line cursor (↑↓, PgUp/PgDn, Home/End,
+    click) and a ● in front of lines you commented on."""
+
+    COMPONENT_CLASSES = {"diff--added", "diff--removed", "diff--hunk", "diff--meta", "diff--header",
+                         "diff--cursor", "diff--marker"}
+    DEFAULT_CSS = """
+    DiffView { height: 1fr; }
+    DiffView > .diff--added { color: $success; }
+    DiffView > .diff--removed { color: $error; }
+    DiffView > .diff--hunk { color: $accent; }
+    DiffView > .diff--meta { color: $text; text-style: bold; }
+    DiffView > .diff--header { color: $text-muted; }
+    DiffView > .diff--cursor { background: $boost; text-style: reverse; }
+    DiffView > .diff--marker { color: $warning; text-style: bold; }
+    """
+    # Fixed navigation keys, like a DataTable's (not in the keymap).
+    _MOVES = {"up": -1, "down": 1, "home": -1_000_000, "end": 1_000_000}
+
+    cursor = var(0)
+
+    def __init__(self, lines, **kwargs):
+        super().__init__(**kwargs)
+        self.lines = lines
+        self.commented: set[int] = set()
+        self._texts = [line.text.expandtabs(4) for line in lines]
+        width = max((len(t) for t in self._texts), default=0) + 2
+        self.virtual_size = Size(width, len(lines))
+        # Start on the first changed line rather than the commit header.
+        self.cursor = next((i for i, line in enumerate(lines) if line.commentable), 0)
+
+    @property
+    def current(self):
+        return self.lines[self.cursor] if self.lines else None
+
+    def move_cursor(self, delta: int) -> None:
+        self.cursor = max(0, min(len(self.lines) - 1, self.cursor + delta))
+
+    def on_key(self, event) -> None:
+        page = max(1, self.size.height - 1)
+        delta = {**self._MOVES, "pageup": -page, "pagedown": page}.get(event.key)
+        if delta is not None:
+            event.stop()
+            event.prevent_default()
+            self.move_cursor(delta)
+
+    def watch_cursor(self, old: int, new: int) -> None:
+        self.scroll_to_region(Region(0, new, 1, 1), animate=False, x_axis=False)
+        self.refresh()
+
+    def on_click(self, event) -> None:
+        row = event.y + self.scroll_offset.y
+        if 0 <= row < len(self.lines):
+            self.cursor = row
+
+    def render_line(self, y: int) -> Strip:
+        scroll_x, scroll_y = self.scroll_offset
+        index = y + scroll_y
+        width = max(self.virtual_size.width, self.size.width)
+        if index >= len(self.lines):
+            return Strip.blank(self.size.width)
+        kind = self.lines[index].kind
+        style = self.get_component_rich_style({
+            ADDED: "diff--added", REMOVED: "diff--removed", HUNK: "diff--hunk", META: "diff--meta",
+        }.get(kind, "diff--header"))
+        if index == self.cursor:
+            style += self.get_component_rich_style("diff--cursor")
+        marker = Segment("● ", self.get_component_rich_style("diff--marker")) if index in self.commented \
+            else Segment("  ", style)
+        text = self._texts[index]
+        strip = Strip([marker, Segment(text.ljust(width - 2), style)], width)
+        return strip.crop(scroll_x, scroll_x + self.size.width)
+
+
+class CommentModal(ModalScreen):
+    """One comment on one diff line: Enter keeps it, an empty one removes
+    it, Esc changes nothing."""
+
+    DEFAULT_CSS = MODAL_CSS.format(cls="CommentModal") + """
+    CommentModal .diff-comment-hint {
+        color: $text-muted;
+    }
+    """
+    BINDINGS = [keymap.binding("window.cancel", "cancel", _("Cancel"))]
+
+    def __init__(self, where: str, code: str, text: str = ""):
+        super().__init__()
+        self.where, self.code, self.text = where, code, text
+
+    def compose(self):
+        box = Container(
+            Static(Content(self.code[:QUOTE_MAX_CHARS]), classes="modal-label"),
+            Input(value=self.text, placeholder=_("What should Claude change here?"), id="diff-comment-input"),
+            Static(_("Enter keeps the comment (empty removes it) · Esc cancels"), classes="diff-comment-hint"),
+        )
+        box.border_title = self.where
+        yield box
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.dismiss(event.value)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
 class DiffModal(ModalScreen):
-    """`git show` of one auto-commit, coloured, scrollable."""
+    """`git show` of one auto-commit, coloured, with a line cursor. c
+    comments on the line, s sends all comments to the conversation as one
+    prompt (ccc.diff_comments)."""
 
     DEFAULT_CSS = MODAL_CSS.format(cls="DiffModal") + """
     DiffModal > Container {
         width: 95%;
         height: 90%;
     }
-    DiffModal VerticalScroll {
-        height: 1fr;
+    DiffModal #diff-comments {
+        height: auto;
+        max-height: 8;
+        color: $warning;
     }
     """
 
-    BINDINGS = [keymap.binding("window.cancel", "close", _("Close"))]
+    BINDINGS = [
+        keymap.binding("window.cancel", "close", _("Close")),
+        keymap.binding("diff.comment", "comment", _("Comment")),
+        keymap.binding("diff.send", "send", _("Send to Claude")),
+    ]
 
-    def __init__(self, project_path: str, commit: str):
+    def __init__(self, project_path: str, commit: str, storage: Storage | None = None,
+                 queue_id: int | None = None, task: str = ""):
         super().__init__()
         self.project_path = project_path
         self.commit = commit
+        self.storage = storage
+        self.queue_id = queue_id
+        self.task_text = task
+        self.comments: dict[int, Comment] = {}
 
     def compose(self):
-        from rich.syntax import Syntax
-
         from ccc import gitops
 
         text = gitops.show(self.project_path, self.commit)
         self.diff_text = text
-        diff = Static(Syntax(text, "diff", theme="ansi_dark", word_wrap=False), id="diff-text")
-        box = Container(VerticalScroll(diff))
-        box.border_title = _("Commit {commit}  ·  Esc close").format(commit=self.commit[:10])
+        box = Container(DiffView(parse(text), id="diff-text"), Static("", id="diff-comments"))
+        box.border_title = self._title()
         yield box
 
-    def action_close(self) -> None:
+    def on_mount(self) -> None:
+        self.query_one(DiffView).focus()
+        if self.comments:
+            self._refresh_comments()
+
+    def _title(self) -> str:
+        title = _("Commit {commit}  ·  c comment  ·  s send to Claude  ·  Esc close").format(commit=self.commit[:10])
+        if self.comments:
+            title += "  ·  " + _("{n} comment(s)").format(n=len(self.comments))
+        return title
+
+    def _refresh_comments(self) -> None:
+        view = self.query_one(DiffView)
+        view.commented = set(self.comments)
+        view.refresh()
+        listing = [Content.assemble(("● ", "bold"), (c.where + ": ", "bold"), c.text)
+                   for _i, c in sorted(self.comments.items())]
+        self.query_one("#diff-comments", Static).update(Content("\n").join(listing))
+        self.query_one(Container).border_title = self._title()
+
+    def action_comment(self) -> None:
+        view = self.query_one(DiffView)
+        index, line = view.cursor, view.current
+        if line is None or not line.commentable:
+            self.notify(_("Move to a changed line of a file first."), severity="warning")
+            return
+        existing = self.comments.get(index)
+        where = Comment(line, "").where
+
+        def done(text: str | None) -> None:
+            if text is None:
+                return
+            if text.strip():
+                self.comments[index] = Comment(line, text.strip())
+            else:
+                self.comments.pop(index, None)
+            self._refresh_comments()
+
+        self.app.push_screen(CommentModal(where, line.text, existing.text if existing else ""), done)
+
+    def action_send(self) -> None:
+        if not self.comments:
+            self.notify(_("No comments yet — c comments on the line under the cursor."), severity="warning")
+            return
+        if self.storage is None or self.queue_id is None:
+            return
+        comments = [c for _i, c in sorted(self.comments.items())]
+        self.storage.add_queue_item(self.queue_id, prompt(self.commit, self.task_text, comments))
+        self.notify(_("{n} comment(s) queued for Claude.").format(n=len(comments)), title=_("Review sent"))
+        self.comments.clear()
         self.dismiss()
+
+    def action_close(self) -> None:
+        if not self.comments:
+            self.dismiss()
+            return
+
+        def answered(yes: bool) -> None:
+            if yes:
+                self.dismiss()
+
+        self.app.push_screen(ConfirmModal(
+            _("Discard comments?"),
+            _("{n} comment(s) haven't been sent to Claude (s). Close and lose them?").format(n=len(self.comments))),
+            answered)
 
 
 def _commit_cell(run) -> Text:
@@ -214,7 +398,8 @@ class QueueDetailScreen(SidebarScreen):
         run = self._runs[event.cursor_row]
         if run.git_commit:
             queue = self.storage.get_queue(self.queue_id)
-            self.app.push_screen(DiffModal(queue.project_path, run.git_commit))
+            task = (run.prompt_text.strip().splitlines() or [""])[0][:200]
+            self.app.push_screen(DiffModal(queue.project_path, run.git_commit, self.storage, self.queue_id, task))
         elif run.git_note:
             self.notify(run.git_note, title=_("No commit"))
 

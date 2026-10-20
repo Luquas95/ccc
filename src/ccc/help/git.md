@@ -9,6 +9,16 @@ In a git repository, ccc commits the result of every successful
   commit of each run; `Enter` on a run shows its changed files and the
   coloured diff.
 
+## Commenting on a diff
+
+Review Claude's work like a pull request: in a run's diff move to a line
+(`↑` `↓`, `PgUp` `PgDn`, a click), press `c` and write what should change
+— `Enter` keeps the comment, an empty one removes it. Commented lines get
+a `●` and the comments are listed under the diff. `s` sends them all to
+the conversation as **one prompt** in its queue: each comment with its
+file and line number and the quoted line, and a request to address each
+one. Closing the diff with unsent comments asks first.
+
 ## Undoing a run
 
 In the queue detail, pick a run with a commit and press `u`: ccc
