@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Awaitable, Callable
 
-from ccc import gitops, managed_sessions
+from ccc import folders, gitops, managed_sessions
 from ccc.i18n import _
 from ccc.launch_options import (
     FORK,
@@ -106,7 +106,7 @@ def attach_to_session(
 
 def start_conversation(
     storage, project_path, selection, *, name=None, session_id=None, pr=None, auto_continue=True,
-    remote_control=False, interactive=True,
+    remote_control=False, interactive=True, worktree=False,
 ) -> Queue:
     """Create the queue behind a conversation started from the TUI's
     New conversation dialog (see launch_options for what selection
@@ -120,6 +120,12 @@ def start_conversation(
     fork = FORK in selection and mode != SESSION_NEW
     flags = persistent_flags(selection)
     name = (name or "").strip() or Path(project_path).name or project_path
+    if worktree:
+        # Claude Code keeps sessions per folder: an earlier one can't be
+        # continued from a new worktree.
+        if mode not in (SESSION_NEW, SESSION_FROM_PR):
+            raise ValueError(_("An own worktree needs a new session (or one from a pull request)."))
+        project_path = gitops.create_worktree(project_path, name)
     if remote_control:
         delivery = DeliveryMode.REMOTE_CONTROL
     else:
@@ -334,6 +340,13 @@ class QueueRuntime:
                         self._hold_for_reserve(queue, until, reserve)
                         continue
 
+            if queue.delivery_mode == DeliveryMode.HEADLESS and folders.running_neighbour(self.storage, queue):
+                # Another conversation runs a task in this work tree: take
+                # turns (no await between this check and the claim below,
+                # so two runtimes can't both pass it).
+                await self._wait_for_wake_or_poll(POLL_INTERVAL_SECONDS)
+                continue
+
             item = self.storage.claim_next_pending_item(queue.id)
             if item is None:
                 continue
@@ -412,7 +425,13 @@ class QueueRuntime:
         git_commit = git_note = None
         if not git_allowed and result.status == RunStatus.SUCCESS and _inside_git_repo(queue.project_path):
             git_note = _("not committed: auto-commit only runs in 'Skip all permission checks' conversations")
+        busy = None
         if before is not None and result.status == RunStatus.SUCCESS:
+            # Never sweep another conversation's half-written work into this commit.
+            busy = await asyncio.to_thread(folders.busy_neighbour, self.storage, queue)
+        if busy is not None:
+            git_note = _("not committed: another conversation ({name}) works in this folder").format(name=busy.name)
+        elif before is not None and result.status == RunStatus.SUCCESS:
             outcome = await asyncio.to_thread(
                 gitops.commit_task, queue.project_path, before, item.prompt_text, queue.name
             )

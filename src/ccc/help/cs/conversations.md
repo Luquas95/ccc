@@ -54,6 +54,9 @@ Dobré vědět:
 
 ## Konverzace na pozadí
 
+Konverzace, které sdílejí složku, mají řádek ⚠: jejich úkoly na pozadí
+se střídají, viz [Git](git.md#více-konverzací-v-jedné-složce).
+
 Prompty zařazené přes `+` (Živé relace, detail fronty) nebo `ccc add`
 běží **na pozadí** (headless): daemon pro každý úkol spustí `claude -p`
 bez terminálu. U nich ukazuje přepis sám ccc:

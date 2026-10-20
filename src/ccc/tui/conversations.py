@@ -108,7 +108,8 @@ class ConversationsScreen(SidebarScreen):
         height: 1fr;
     }
     ConversationsScreen #conversation-status {
-        height: 1;
+        height: auto;
+        max-height: 3;
         padding: 0 1;
     }
     ConversationsScreen #prompt-presets-bar {
@@ -520,11 +521,29 @@ class ConversationsScreen(SidebarScreen):
     def _status_for(self, queue: Queue, pending) -> Content:
         requests = self.storage.pending_permission_requests(queue.id)
         if requests:
-            return Content.assemble(
+            status = Content.assemble(
                 (_("? Waiting for your approval: {tool} — press p").format(tool=requests[0].tool_name), "bold yellow"),
                 _("  ·  {n} queued").format(n=len(pending)) if pending else "",
             )
-        return self._status_text(queue, len(pending), pending[0].not_before if pending else None)
+        else:
+            status = self._status_text(queue, len(pending), pending[0].not_before if pending else None)
+        return Content.assemble(status, *self._shared_folder(queue, pending))
+
+    def _shared_folder(self, queue: Queue, pending) -> list:
+        """Who else works in this folder (folders): a warning, and why a
+        queued task waits."""
+        from ccc import folders
+
+        others = folders.neighbours(self.storage, queue)
+        if not others:
+            return []
+        parts = [("\n" + _("⚠ Same folder as: {names} — tasks take turns; a worktree lets them run side by side").format(
+            names=", ".join(q.name for q in others[:3]) + (" …" if len(others) > 3 else "")), "yellow")]
+        running = next((q for q in others if q.status == QueueStatus.RUNNING), None)
+        if pending and running is not None and queue.status != QueueStatus.RUNNING \
+                and queue.delivery_mode == DeliveryMode.HEADLESS:
+            parts.append(("\n" + _("Waits until {name} finishes its task.").format(name=running.name), "yellow"))
+        return parts
 
     @staticmethod
     def _status_text(queue: Queue, pending: int, next_at: datetime | None = None) -> Content:

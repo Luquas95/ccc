@@ -23,6 +23,7 @@ Stejné přepínače jako na příkazové řádce `claude`. Skupiny označené
 | Model (*jedna*) | Opus · Sonnet · Haiku · Fable |
 | Úsilí (*jedna*) | high · xhigh · max |
 | Ostatní | Při přetížení přejít na Sonnet · Claude v Chromu · Bezpečný režim |
+| | **Vlastní git worktree** — samostatná pracovní kopie a větev pro tuto konverzaci (`.claude/worktrees/<název>`, větev `worktree-<název>`), aby mohla pracovat vedle ostatních ve stejném repozitáři; jen s novou relací nebo z pull requestu. Viz [Git](git.md#více-konverzací-v-jedné-složce) |
 
 Pod nimi:
 

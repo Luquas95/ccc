@@ -16,6 +16,7 @@ import os
 import re
 import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 
 from ccc.i18n import _
 
@@ -201,6 +202,53 @@ def revert_commit(cwd: str, commit: str, conversation: str) -> CommitOutcome:
         _git(cwd, "revert", "--abort")
         return CommitOutcome(None, _("not reverted: git commit failed"))
     return CommitOutcome(_git(cwd, "rev-parse", "HEAD").stdout.strip(), _("reverted"))
+
+
+WORKTREES_DIR = Path(".claude") / "worktrees"  # where Claude Code keeps its own (claude --worktree)
+_SLUG = re.compile(r"[^a-z0-9._-]+")
+
+
+def work_tree_root(path: str) -> str | None:
+    """The top folder of the git work tree `path` is in (a worktree is its
+    own); None outside git."""
+    try:
+        result = _git(path, "rev-parse", "--show-toplevel")
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return result.stdout.strip() if result.returncode == 0 and result.stdout.strip() else None
+
+
+def create_worktree(path: str, name: str) -> str:
+    """A new git worktree for a conversation: <repo>/.claude/worktrees/<name>
+    on a new branch worktree-<name> from HEAD — where `claude --worktree
+    <name>` keeps its own, so Claude Code can open it too. The folder is
+    left out of the main checkout's `git status` (.git/info/exclude).
+    Returns its path; ValueError with a message for the user."""
+    top = work_tree_root(path)
+    if top is None:
+        raise ValueError(_("A worktree needs a git repository — {path} isn't in one.").format(path=path))
+    problem = _config_problem(_local_config(top))
+    if problem:
+        raise ValueError(_("No worktree: {reason}.").format(reason=problem))
+    base = _SLUG.sub("-", name.lower()).strip("-.")[:40] or "conversation"
+    slug, n = base, 1
+    while (Path(top) / WORKTREES_DIR / slug).exists() or _git(
+            top, "rev-parse", "--verify", "--quiet", f"refs/heads/worktree-{slug}").returncode == 0:
+        n += 1
+        slug = f"{base}-{n}"
+    exclude = _git(top, "rev-parse", "--git-path", "info/exclude").stdout.strip()
+    if exclude:
+        exclude_path = Path(exclude) if Path(exclude).is_absolute() else Path(top) / exclude
+        lines = exclude_path.read_text().splitlines() if exclude_path.exists() else []
+        if f"/{WORKTREES_DIR.as_posix()}/" not in lines:
+            exclude_path.parent.mkdir(parents=True, exist_ok=True)
+            with exclude_path.open("a") as handle:
+                handle.write(f"/{WORKTREES_DIR.as_posix()}/\n")
+    target = Path(top) / WORKTREES_DIR / slug
+    added = _git(top, "worktree", "add", "-q", "-b", f"worktree-{slug}", str(target), "HEAD")
+    if added.returncode != 0:
+        raise ValueError(_("No worktree: {error}").format(error=added.stderr.strip()[:300]))
+    return str(target)
 
 
 REVIEW_DIFF_MAX_CHARS = 60_000

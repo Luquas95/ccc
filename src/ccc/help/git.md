@@ -32,6 +32,27 @@ A revert that conflicts with later changes is abandoned: nothing
 changes and ccc says so. From the shell: `ccc runs CONVERSATION` lists
 the runs with their ids, `ccc revert RUN [--tell]` undoes one.
 
+## Several conversations in one folder
+
+Two conversations editing the same files at once get in each other's
+way, and a commit after one task could take in the other's half-written
+changes. So in one git work tree:
+
+- **headless tasks take turns**: a task waits while another
+  conversation in the same folder runs one (Conversations says which);
+- ccc **doesn't commit** while another conversation works in the folder
+  (also an interactive one busy with what you typed) — the run history
+  says so;
+- Conversations shows a ⚠ line with the others that share the folder.
+
+To let them really work **side by side**, give a conversation its **own
+git worktree** when [starting it](new-conversation.md): a separate
+checkout of the repository on its own branch (`worktree-<name>`, in
+`.claude/worktrees/<name>` — where `claude --worktree <name>` keeps
+its own, left out of the main checkout's `git status`). ccc commits its
+tasks there; merge the branch when you're happy with it. Remove a
+worktree you no longer need with `git worktree remove .claude/worktrees/<name>`.
+
 ## When ccc doesn't commit
 
 The run history says why:

@@ -1023,4 +1023,18 @@ CS: dict[str, str] = {
     "not reverted: {reason}": "nevráceno: {reason}",
     "reverted": "vráceno",
     "the run's id": "id běhu",
+
+    # Several conversations in one folder (ccc.folders, worktrees)
+    "A worktree needs a git repository — {path} isn't in one.": "Worktree potřebuje git repozitář — {path} v žádném není.",
+    "An own worktree needs a new session (or one from a pull request).":
+        "Vlastní worktree potřebuje novou relaci (nebo relaci z pull requestu).",
+    "No worktree: {error}": "Worktree nevznikl: {error}",
+    "No worktree: {reason}.": "Worktree nevznikl: {reason}.",
+    "Own git worktree (a separate checkout and branch — to work in parallel)":
+        "Vlastní git worktree (samostatná pracovní kopie a větev — pro souběžnou práci)",
+    "Waits until {name} finishes its task.": "Čeká, až {name} dokončí svůj úkol.",
+    "not committed: another conversation ({name}) works in this folder":
+        "necommitnuto: v této složce pracuje jiná konverzace ({name})",
+    "⚠ Same folder as: {names} — tasks take turns; a worktree lets them run side by side":
+        "⚠ Stejná složka jako: {names} — úkoly se střídají; s worktree poběží vedle sebe",
 }
