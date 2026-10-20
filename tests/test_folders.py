@@ -227,3 +227,32 @@ def test_worktreeinclude_never_follows_symlinks(tmp_path, repo):
     assert gitops.copy_worktree_include(str(repo), str(target)) == 0
     assert not (tmp_path / "evil/s.txt").exists()
     assert path
+
+
+def test_work_status_counts_uncommitted_lines_and_commits_against_the_base(repo):
+    path = gitops.create_worktree(str(repo), "feature")
+    assert gitops.work_status(path) == gitops.WorkStatus(0, 0, 0, 0, _git(repo, "branch", "--show-current"))
+    (repo / ".claude/worktrees/feature/a.txt").write_text("one\ntwo\nthree\n")
+    _git(path, "commit", "-qam", "more")
+    (repo / ".claude/worktrees/feature/a.txt").write_text("ONE\ntwo\nthree\n")
+    (repo / "b.txt").write_text("main moved on\n")
+    _git(repo, "add", "b.txt")
+    _git(repo, "commit", "-qm", "main")
+    status = gitops.work_status(path)
+    assert (status.added, status.removed, status.ahead, status.behind) == (1, 1, 1, 1)
+    assert status.short() == "+1−1 ↑1 ↓1"
+    # A plain checkout without an upstream: only the uncommitted lines.
+    main = gitops.work_status(str(repo))
+    assert (main.ahead, main.base, main.short()) == (None, None, "")
+
+
+def test_work_status_refuses_outside_git_and_with_unsafe_config(tmp_path, repo):
+    assert gitops.work_status(str(tmp_path)) is None
+    _git(repo, "config", "filter.x.clean", "touch /tmp/pwned")
+    assert gitops.work_status(str(repo)) is None
+
+
+def test_work_status_short_shows_only_what_is_there():
+    assert gitops.WorkStatus(4, 0).short() == "+4"
+    assert gitops.WorkStatus(0, 2, 0, 3).short() == "−2 ↓3"
+    assert gitops.WorkStatus(0, 0, 0, 0).short() == ""

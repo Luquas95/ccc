@@ -63,6 +63,15 @@ its own, left out of the main checkout's `git status`). ccc commits its
 tasks there; merge the branch when you're happy with it. Remove a
 worktree you no longer need with `git worktree remove .claude/worktrees/<name>`.
 
+Conversations shows where each one stands in git — in the list after
+its name and in the header: `+12−3` lines changed and not committed yet,
+`↑2` commits ahead of and `↓1` behind its base (the branch's upstream,
+or for a worktree the branch of the main checkout it was made from).
+Nothing is shown when it's all committed and in step. Like everything
+else git in ccc, only for conversations that may run commands; it's
+refreshed every 15 seconds, and new files git doesn't track yet aren't
+counted.
+
 A fresh checkout has only the tracked files, so `.env`, local
 certificates or config the project needs to run would be missing. List
 them in a **`.worktreeinclude`** file at the repository's top (gitignore

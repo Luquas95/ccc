@@ -60,6 +60,14 @@ pracovní kopii repozitáře na vlastní větvi (`worktree-<název>`, ve
 větev slouč, až budeš spokojený. Nepotřebný worktree odstraníš přes
 `git worktree remove .claude/worktrees/<název>`.
 
+Konverzace ukazují, jak je na tom každá v gitu — v seznamu za názvem
+a v záhlaví: `+12−3` změněné a ještě necommitnuté řádky, `↑2` commity
+navíc oproti základu a `↓1` chybějící (základ je upstream větve, u
+worktree větev hlavní kopie, ze které vznikl). Když je vše commitnuté
+a srovnané, nic se neukazuje. Jako všechno s gitem v ccc jen
+u konverzací, které smí spouštět příkazy; obnovuje se každých 15 sekund
+a nové soubory, které git ještě nesleduje, se nepočítají.
+
 Nová pracovní kopie má jen soubory, které git sleduje, takže by chyběl
 `.env`, lokální certifikáty nebo konfigurace, bez kterých projekt
 nepoběží. Vypiš je do souboru **`.worktreeinclude`** v kořeni

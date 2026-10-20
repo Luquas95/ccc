@@ -350,6 +350,76 @@ def copy_worktree_include(top: str, target: str) -> int:
     return copied
 
 
+@dataclass(frozen=True)
+class WorkStatus:
+    """A work tree at a glance: uncommitted lines added / removed, and
+    commits ahead of / behind its base branch (None: no base to compare)."""
+    added: int
+    removed: int
+    ahead: int | None = None
+    behind: int | None = None
+    base: str | None = None
+
+    def short(self) -> str:
+        parts = []
+        lines = (f"+{self.added}" if self.added else "") + (f"−{self.removed}" if self.removed else "")
+        if lines:
+            parts.append(lines)
+        if self.ahead:
+            parts.append(f"↑{self.ahead}")
+        if self.behind:
+            parts.append(f"↓{self.behind}")
+        return " ".join(parts)
+
+
+_SHORTSTAT = re.compile(r"(\d+) insertion|(\d+) deletion")
+
+
+def _base_branch(cwd: str) -> str | None:
+    """What to count ahead/behind against: the branch's upstream, or for a
+    ccc / Claude Code worktree (branch worktree-<name>) the branch checked
+    out in the main work tree it was made from."""
+    upstream = _git(cwd, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+    if upstream.returncode == 0 and upstream.stdout.strip():
+        return upstream.stdout.strip()
+    branch = _git(cwd, "symbolic-ref", "-q", "--short", "HEAD").stdout.strip()
+    if not branch.startswith("worktree-"):
+        return None
+    listing = _git(cwd, "worktree", "list", "--porcelain").stdout
+    first = listing.split("\n\n", 1)[0]
+    for line in first.splitlines():
+        if line.startswith("branch refs/heads/"):
+            main = line[len("branch refs/heads/"):]
+            return main if main != branch else None
+    return None
+
+
+def work_status(cwd: str) -> WorkStatus | None:
+    """None outside git or where the repo's config isn't safe to run git in
+    (checked first: `git diff` against the work tree can run filters).
+    Only call it for conversations that may run commands (see the module
+    docstring)."""
+    try:
+        if _git(cwd, "rev-parse", "--is-inside-work-tree").stdout.strip() != "true":
+            return None
+        if _config_problem(_local_config(cwd)):
+            return None
+        stat = _git(cwd, "diff", "HEAD", "--shortstat", "--no-ext-diff", "--no-textconv")
+        added = removed = 0
+        for insertions, deletions in _SHORTSTAT.findall(stat.stdout):
+            added += int(insertions or 0)
+            removed += int(deletions or 0)
+        base = _base_branch(cwd)
+        ahead = behind = None
+        if base:
+            counts = _git(cwd, "rev-list", "--left-right", "--count", f"{base}...HEAD").stdout.split()
+            if len(counts) == 2:
+                behind, ahead = int(counts[0]), int(counts[1])
+        return WorkStatus(added, removed, ahead, behind, base)
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return None
+
+
 REVIEW_DIFF_MAX_CHARS = 60_000
 _COMMIT = re.compile(r"^[0-9a-f]{7,40}$")
 

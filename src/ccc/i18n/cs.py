@@ -1225,4 +1225,6 @@ CS: dict[str, str] = {
         "Neodeslané komentáře pro Clauda (s): {n}. Zavřít a přijít o ně?",
     "In the diff: comment on the line under the cursor": "V diffu: komentář k řádku pod kurzorem",
     "In the diff: send the comments to Claude as one prompt": "V diffu: poslat komentáře Claudovi jako jeden prompt",
+    "git: ": "git: ",
+    "(↑↓ against {base})": "(↑↓ vůči {base})",
 }
