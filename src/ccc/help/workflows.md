@@ -51,7 +51,11 @@ Built in:
 - **Plan → approve → build → two reviews → arbiter**
 
 Your own are JSON files, imported with `ccc workflow import FILE`
-(export one to start from with `ccc workflow export NAME FOLDER`):
+(export one to start from with `ccc workflow export NAME FOLDER`). The
+import first shows everything the template tells the agents and any
+command it runs, and saves it only with `--yes` — a template from
+someone else steers Claude in your project, so read it. A check command
+you give when starting a run wins over the template's.
 
 ```json
 {

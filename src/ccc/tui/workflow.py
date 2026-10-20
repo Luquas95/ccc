@@ -183,7 +183,11 @@ class WorkflowModal(ModalScreen):
 
     def _show_preview(self) -> None:
         name, definition = self._template()
-        self.query_one("#workflow-preview", Static).update(workflows.describe(workflows.validate(definition)))
+        definition = workflows.validate(definition)
+        preview = workflows.describe(definition)
+        if name not in workflows.BUILT_IN:
+            preview += "\n" + workflows.details(definition)  # your own template: everything it says and runs
+        self.query_one("#workflow-preview", Static).update(preview)
         self.query_one("#workflow-rounds", Input).value = str(definition.get("max_rounds", 3))
 
     def on_select_changed(self, event: Select.Changed) -> None:

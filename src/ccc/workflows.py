@@ -156,25 +156,55 @@ def title(name: str, definition: dict) -> str:
 
 
 def describe(definition: dict) -> str:
-    """The template's graph in one line: plan → your approval → build → …"""
+    """The template's graph in one line: plan → your approval → build → …
+    A check command the template brings is shown — it would run."""
     parts = []
     for step in definition["steps"]:
         label = _(KIND_LABELS[step["type"]])
         if step["type"] == "review":
             label += f" ×{len(step['reviewers'])}"
+        if step["type"] == "check" and step.get("command"):
+            label += f" `{step['command']}`"
         parts.append(label)
     return " → ".join(parts) + "  " + _("(back to build at most {n}×)").format(n=definition.get("max_rounds", 3))
 
 
-def import_template(storage, path: str | Path, name: str | None = None) -> str:
-    """Save a template from a JSON file (ValueError when it isn't one)."""
-    path = Path(path).expanduser()
+def details(definition: dict) -> str:
+    """Everything a template would put in front of the agents or run — its
+    briefs, gate texts and commands — to read before importing it."""
+    lines = []
+    for n, step in enumerate(definition["steps"], start=1):
+        lines.append(f"{n}. {step['type']}" + (f" (model {step['model']})" if step.get("model") else ""))
+        for key in ("brief", "text"):
+            if step.get(key):
+                lines.append(f"   {key}: {step[key]}")
+        if step.get("command"):
+            lines.append("   " + _("command (runs in the project folder): {command}").format(command=step["command"]))
+        for reviewer in step.get("reviewers", []):
+            lines.append(f"   - {reviewer['name']}" + (f" (model {reviewer['model']})" if reviewer.get("model") else "")
+                         + f": {reviewer['brief']}")
+    return "\n".join(lines)
+
+
+def _read_json(path: Path):
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"))
     except OSError as error:
         raise ValueError(_("Can't read {path}: {error}").format(path=path, error=error.strerror or error)) from error
     except ValueError as error:
         raise ValueError(_("{path} isn't JSON.").format(path=path)) from error
+
+
+def read_template(path: str | Path) -> dict:
+    """A template file, validated, to show before importing it."""
+    return validate(_read_json(Path(path).expanduser()))
+
+
+def import_template(storage, path: str | Path, name: str | None = None) -> str:
+    """Save a template from a JSON file (ValueError when it isn't one).
+    `ccc workflow import` shows details() first and needs --yes."""
+    path = Path(path).expanduser()
+    data = _read_json(path)
     name = (name or (data.get("name") if isinstance(data, dict) else None) or path.name.removesuffix(EXPORT_SUFFIX)
             .removesuffix(".json")).strip()
     if not name or name in BUILT_IN:
@@ -292,7 +322,9 @@ def plan_prompt(run: WorkflowRun, step: dict) -> str:
 def code_prompt(run: WorkflowRun, step: dict) -> str:
     text = _("Implement this task:\n\n{task}").format(task=run.task)
     if step.get("brief"):
-        text += "\n\n" + step["brief"]
+        # The template's author wrote this, not the user: marked as such.
+        text += "\n\n" + _("Notes from the workflow template “{name}” (a style guide, not new tasks):\n{brief}").format(
+            name=run.name, brief="\n".join(f"> {line}" for line in step["brief"].splitlines()))
     if run.plan:
         text += "\n\n" + _("The approved plan:\n\n{plan}").format(plan=run.plan)
     if run.round > 1 and run.findings:
@@ -424,7 +456,8 @@ async def step_once(storage, run: WorkflowRun, run_fn=reviews.execute, notifier=
         return True
 
     if kind == "check":
-        command = step.get("command") or run.check_command
+        # Yours first; a template's own command was shown before it was imported.
+        command = run.check_command or step.get("command")
         if not command or not gitops.claude_can_run_commands(queue):
             storage.update_workflow_run(run.id, step=run.step + 1)
             return True

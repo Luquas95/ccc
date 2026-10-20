@@ -19,9 +19,11 @@ def add_parser(subparsers) -> None:
     parser = subparsers.add_parser("workflow", help=_("Multi-agent workflows: plan, build, reviews, arbiter"))
     sub = parser.add_subparsers(dest="workflow_command", required=True)
     sub.add_parser("templates", help=_("The workflow templates and their steps"))
-    imp = sub.add_parser("import", help=_("Save a workflow template from a JSON file"))
+    imp = sub.add_parser("import", help=_("Show a workflow template from a JSON file; save it with --yes"))
     imp.add_argument("path")
     imp.add_argument("--name", default=None)
+    imp.add_argument("--yes", action="store_true",
+                     help=_("save it — after reading what it tells the agents and what it runs"))
     exp = sub.add_parser("export", help=_("Write a template to FOLDER/<name>.ccc-workflow.json"))
     exp.add_argument("template")
     exp.add_argument("folder")
@@ -77,6 +79,13 @@ def run(storage, args: argparse.Namespace, sleep=time.sleep) -> int:
                 print(f"    {workflows.describe(workflows.validate(definition))}")
             return 0
         if command == "import":
+            definition = workflows.read_template(args.path)
+            print(workflows.describe(definition))
+            print(workflows.details(definition))
+            if not args.yes:
+                print(_("Not saved. A template tells the agents what to do (and a check command runs in the project) "
+                        "— read the above; save it with --yes."))
+                return 1
             name = workflows.import_template(storage, args.path, args.name)
             print(_("Template “{name}” saved.").format(name=name))
             return 0

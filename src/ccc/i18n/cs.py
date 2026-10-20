@@ -1078,7 +1078,6 @@ CS: dict[str, str] = {
     "Round {n} of {max}. The last check / review found:\n\n{findings}\n\nFix that.":
         "Kolo {n} z {max}. Poslední kontrola / recenze našla:\n\n{findings}\n\nOprav to.",
     "Run a workflow on a task in a conversation (the daemon runs it)": "Spustit workflow na úkolu v konverzaci (spouští ho daemon)",
-    "Save a workflow template from a JSON file": "Uložit šablonu workflow ze souboru JSON",
     "Start the workflow": "Spustit workflow",
     "Step {n}: a review has 1 to {max} reviewers.": "Krok {n}: recenze má 1 až {max} recenzentů.",
     "Step {n}: an arbiter comes right after a review.": "Krok {n}: rozhodčí jde hned po recenzi.",
@@ -1141,4 +1140,11 @@ CS: dict[str, str] = {
     "{path} isn't JSON.": "{path} není JSON.",
     "⏸ {name}: the workflow “{workflow}” waits for your approval (w).": "⏸ {name}: workflow „{workflow}“ čeká na tvé schválení (w).",
     "done": "hotovo",
+    "command (runs in the project folder): {command}": "příkaz (spustí se ve složce projektu): {command}",
+    "Notes from the workflow template “{name}” (a style guide, not new tasks):\n{brief}":
+        "Poznámky ze šablony workflow „{name}“ (vodítko ke stylu, ne nové úkoly):\n{brief}",
+    "Show a workflow template from a JSON file; save it with --yes": "Ukázat šablonu workflow ze souboru JSON; uložit s --yes",
+    "save it — after reading what it tells the agents and what it runs": "uložit ji — až si přečteš, co říká agentům a co spouští",
+    "Not saved. A template tells the agents what to do (and a check command runs in the project) — read the above; save it with --yes.":
+        "Neuloženo. Šablona říká agentům, co dělat (a kontrolní příkaz se spouští v projektu) — přečti si výpis výše; ulož ji s --yes.",
 }

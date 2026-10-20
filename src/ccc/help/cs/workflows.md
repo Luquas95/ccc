@@ -51,7 +51,10 @@ Vestavěné:
 
 Vlastní jsou soubory JSON, importuješ je přes `ccc workflow import
 SOUBOR` (jako výchozí bod si nějakou vyexportuj přes `ccc workflow
-export NÁZEV SLOŽKA`):
+export NÁZEV SLOŽKA`). Import nejdřív vypíše všechno, co šablona
+agentům říká, i příkaz, který spouští, a uloží ji až s `--yes` — cizí
+šablona řídí Clauda v tvém projektu, tak si ji přečti. Kontrolní příkaz
+zadaný při spuštění má přednost před příkazem ze šablony.
 
 ```json
 {
