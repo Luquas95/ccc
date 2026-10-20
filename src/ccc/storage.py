@@ -9,6 +9,9 @@ from pathlib import Path
 
 from ccc.models import (
     DeliveryMode,
+    Goal,
+    GoalPhase,
+    GoalStatus,
     ItemStatus,
     PermissionRequest,
     PromptRun,
@@ -93,6 +96,24 @@ CREATE TABLE IF NOT EXISTS reviews (
     error TEXT NOT NULL DEFAULT '',
     fix_item_id INTEGER,
     not_before TEXT,
+    created_at TEXT NOT NULL,
+    finished_at TEXT
+);
+
+-- Goal loops (ccc.goals): rounds of work, a check and a review each.
+CREATE TABLE IF NOT EXISTS goals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    queue_id INTEGER NOT NULL REFERENCES queues(id),
+    goal TEXT NOT NULL,
+    check_command TEXT NOT NULL DEFAULT '',
+    max_rounds INTEGER NOT NULL DEFAULT 5,
+    round INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'running',
+    phase TEXT NOT NULL DEFAULT 'coding',
+    item_id INTEGER,
+    review_id INTEGER,
+    base_run_id INTEGER NOT NULL DEFAULT 0,
+    last_reason TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     finished_at TEXT
 );
@@ -265,6 +286,14 @@ class Storage:
         if "routine_id" not in item_columns:
             conn.execute("ALTER TABLE queue_items ADD COLUMN routine_id INTEGER")
             conn.commit()
+        if "model" not in item_columns:
+            conn.execute("ALTER TABLE queue_items ADD COLUMN model TEXT")
+            conn.commit()
+        review_columns = {row[1] for row in conn.execute("PRAGMA table_info(reviews)").fetchall()}
+        for column, kind in (("goal_id", "INTEGER"), ("model", "TEXT")):
+            if column not in review_columns:
+                conn.execute(f"ALTER TABLE reviews ADD COLUMN {column} {kind}")
+                conn.commit()
         if "routine_id" not in columns:
             conn.execute("ALTER TABLE queues ADD COLUMN routine_id INTEGER")
             conn.commit()
@@ -411,17 +440,17 @@ class Storage:
             return True
 
     def add_queue_item(self, queue_id: int, prompt_text: str, not_before: datetime | None = None,
-                       routine_id: int | None = None) -> QueueItem:
+                       routine_id: int | None = None, model: str | None = None) -> QueueItem:
         with closing(self._connect()) as conn:
             max_pos = conn.execute(
                 "SELECT COALESCE(MAX(position), -1) FROM queue_items WHERE queue_id = ?", (queue_id,)
             ).fetchone()[0]
             now = datetime.now().isoformat()
             cur = conn.execute(
-                "INSERT INTO queue_items (queue_id, prompt_text, position, status, added_at, not_before, routine_id) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO queue_items (queue_id, prompt_text, position, status, added_at, not_before, routine_id, "
+                "model) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (queue_id, prompt_text, max_pos + 1, ItemStatus.PENDING.value, now,
-                 not_before.isoformat() if not_before else None, routine_id),
+                 not_before.isoformat() if not_before else None, routine_id, model),
             )
             conn.commit()
             item_id = cur.lastrowid
@@ -542,6 +571,7 @@ class Storage:
             conn.execute("DELETE FROM queue_items WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM routines WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM reviews WHERE queue_id = ?", (queue_id,))
+            conn.execute("DELETE FROM goals WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM permission_requests WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM permission_allow WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM queues WHERE id = ?", (queue_id,))
@@ -635,12 +665,14 @@ class Storage:
     # --- reviews (ccc.reviews) -------------------------------------------------
 
     def add_review(self, queue_id: int, instructions: str = "", until_pass: bool = False, round: int = 1,
-                   max_rounds: int = 1, loop_id: int | None = None) -> Review:
+                   max_rounds: int = 1, loop_id: int | None = None, goal_id: int | None = None,
+                   model: str | None = None, base_run_id: int = 0) -> Review:
         with closing(self._connect()) as conn:
             cur = conn.execute(
-                "INSERT INTO reviews (queue_id, instructions, until_pass, round, max_rounds, loop_id, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (queue_id, instructions, int(until_pass), round, max_rounds, loop_id, datetime.now().isoformat()),
+                "INSERT INTO reviews (queue_id, instructions, until_pass, round, max_rounds, loop_id, goal_id, model, "
+                "base_run_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (queue_id, instructions, int(until_pass), round, max_rounds, loop_id, goal_id, model, base_run_id,
+                 datetime.now().isoformat()),
             )
             conn.commit()
             review_id = cur.lastrowid
@@ -716,7 +748,67 @@ class Storage:
             base_run_id=row["base_run_id"], last_run_id=row["last_run_id"], verdict=Verdict(row["verdict"]) if row["verdict"] else None,
             report=row["report"], error=row["error"], fix_item_id=row["fix_item_id"],
             not_before=when("not_before"), created_at=datetime.fromisoformat(row["created_at"]),
-            finished_at=when("finished_at"),
+            finished_at=when("finished_at"), goal_id=row["goal_id"], model=row["model"],
+        )
+
+    # --- goals (ccc.goals) -------------------------------------------------------
+
+    def add_goal(self, queue_id: int, goal: str, check_command: str, max_rounds: int, base_run_id: int) -> Goal:
+        with closing(self._connect()) as conn:
+            cur = conn.execute(
+                "INSERT INTO goals (queue_id, goal, check_command, max_rounds, base_run_id, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (queue_id, goal, check_command, max_rounds, base_run_id, datetime.now().isoformat()),
+            )
+            conn.commit()
+            goal_id = cur.lastrowid
+        return self.get_goal(goal_id)
+
+    def find_goal(self, goal_id: int) -> Goal | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT * FROM goals WHERE id = ?", (goal_id,)).fetchone()
+            return self._row_to_goal(row) if row else None
+
+    def get_goal(self, goal_id: int) -> Goal:
+        goal = self.find_goal(goal_id)
+        if goal is None:
+            raise KeyError(goal_id)
+        return goal
+
+    def list_goals(self, queue_id: int | None = None, status: GoalStatus | None = None) -> list[Goal]:
+        """Newest first."""
+        sql, args = "SELECT * FROM goals WHERE 1 = 1", []
+        if queue_id is not None:
+            sql, args = sql + " AND queue_id = ?", [*args, queue_id]
+        if status is not None:
+            sql, args = sql + " AND status = ?", [*args, status.value]
+        with closing(self._connect()) as conn:
+            return [self._row_to_goal(r) for r in conn.execute(sql + " ORDER BY id DESC", args).fetchall()]
+
+    def update_goal(self, goal_id: int, **fields) -> None:
+        if not fields:
+            return
+        values = []
+        for value in fields.values():
+            if isinstance(value, datetime):
+                value = value.isoformat()
+            elif isinstance(value, Enum):
+                value = value.value
+            values.append(value)
+        columns = ", ".join(f"{name} = ?" for name in fields)
+        with closing(self._connect()) as conn:
+            conn.execute(f"UPDATE goals SET {columns} WHERE id = ?", (*values, goal_id))
+            conn.commit()
+
+    @staticmethod
+    def _row_to_goal(row: sqlite3.Row) -> Goal:
+        return Goal(
+            id=row["id"], queue_id=row["queue_id"], goal=row["goal"], check_command=row["check_command"],
+            max_rounds=row["max_rounds"], round=row["round"], status=GoalStatus(row["status"]),
+            phase=GoalPhase(row["phase"]), item_id=row["item_id"], review_id=row["review_id"],
+            base_run_id=row["base_run_id"], last_reason=row["last_reason"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+            finished_at=datetime.fromisoformat(row["finished_at"]) if row["finished_at"] else None,
         )
 
     # --- tool permission requests -------------------------------------------
@@ -1092,6 +1184,7 @@ class Storage:
             continue_on_retry=bool(row["continue_on_retry"]),
             not_before=datetime.fromisoformat(row["not_before"]) if row["not_before"] else None,
             routine_id=row["routine_id"],
+            model=row["model"],
         )
 
     @staticmethod

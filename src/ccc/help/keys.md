@@ -55,6 +55,7 @@ name the default keys.
 | `/` | Search all conversations |
 | `e` | Export the conversation as Markdown |
 | `v` | Review its changes with a fresh reviewer (once or until it passes) |
+| `g` | Goal loop: rounds of work, check and review until the goal is met |
 | `Ctrl+J` | New line in the message box (Shift+Enter where supported) |
 | `Alt+1` | Preset prompt 1–9 (⏎ sends it, ✎ puts it into the message box; set in Settings) |
 | `Alt+2` | Preset prompt 2 |
@@ -107,6 +108,13 @@ name the default keys.
 | `Ctrl+S` | Start the review |
 | `Esc` | Close |
 
+## Goal (g)
+
+| Key | |
+|---|---|
+| `Ctrl+S` | Start the goal loop |
+| `Esc` | Close |
+
 ## Approval window (p)
 
 | Key | |
@@ -137,6 +145,7 @@ name the default keys.
 | `Enter` | Show the run's commit diff |
 | `+` | Add a prompt (this queue's path prefilled) |
 | `v` | Review its changes with a fresh reviewer (once or until it passes) |
+| `g` | Goal loop: rounds of work, check and review until the goal is met |
 | `r` | Blocked: run the failed task again / resume one paused at a limit |
 
 ## Preset prompt editor (Settings → Add / Edit)

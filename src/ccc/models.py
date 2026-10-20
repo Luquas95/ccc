@@ -108,6 +108,9 @@ class QueueItem:
     not_before: datetime | None = None
     # Queued by this routine (ccc.routines); None = by hand.
     routine_id: int | None = None
+    # Run on this model instead of the conversation's (a goal loop that
+    # stalls switches to a stronger one; headless conversations only).
+    model: str | None = None
 
 
 @dataclass
@@ -211,5 +214,41 @@ class Review:
     error: str = ""
     fix_item_id: int | None = None  # the task queued with its findings
     not_before: datetime | None = None
+    created_at: datetime = field(default_factory=datetime.now)
+    finished_at: datetime | None = None
+    goal_id: int | None = None  # judges this goal (ccc.goals)
+    model: str | None = None  # instead of the usual reviewer model
+
+
+class GoalStatus(str, Enum):
+    RUNNING = "running"
+    PASSED = "passed"
+    STUCK = "stuck"  # the same failure twice in a row
+    LIMIT = "limit"  # out of rounds
+    STOPPED = "stopped"
+    ERROR = "error"
+
+
+class GoalPhase(str, Enum):
+    CODING = "coding"  # the conversation works on its task
+    CHECKING = "checking"  # ccc runs the check command
+    REVIEWING = "reviewing"  # a reviewer judges the goal
+
+
+@dataclass
+class Goal:
+    """Work towards a goal in rounds until a reviewer says it's met (ccc.goals)."""
+    id: int
+    queue_id: int
+    goal: str
+    check_command: str = ""
+    max_rounds: int = 5
+    round: int = 1
+    status: GoalStatus = GoalStatus.RUNNING
+    phase: GoalPhase = GoalPhase.CODING
+    item_id: int | None = None  # this round's task
+    review_id: int | None = None  # this round's review
+    base_run_id: int = 0  # the conversation's last run before the goal
+    last_reason: str = ""  # why the last round didn't pass
     created_at: datetime = field(default_factory=datetime.now)
     finished_at: datetime | None = None

@@ -24,7 +24,7 @@ from ccc.limits import exhausted_until, retry_time_after_rate_limit
 from ccc.live_delivery import deliver_to_live_session
 from ccc.models import DeliveryMode, ItemStatus, PromptRun, Queue, QueueItem, QueueStatus, RunStatus
 from ccc.retry import next_backoff_seconds, parse_reset_time
-from ccc.runner import RunResult, execute
+from ccc.runner import LEGACY_FLAGS, RunResult, execute
 from ccc.session_discovery import discover_sessions, session_ready_for_input
 from ccc.storage import Storage
 from ccc.transcript import find_transcript_path, last_human_text, list_sessions_for_directory
@@ -162,6 +162,16 @@ def start_conversation(
         name, project_path, session_id, always_resume=True, launch_flags=flags, auto_continue=auto_continue,
         delivery_mode=delivery,
     )
+
+
+def with_model(flags: list[str] | None, model: str) -> list[str]:
+    """The launch flags with --model set to `model` (a task's own model)."""
+    flags = list(flags if flags is not None else LEGACY_FLAGS)
+    if "--model" in flags[:-1]:
+        flags[flags.index("--model") + 1] = model
+    else:
+        flags += ["--model", model]
+    return flags
 
 
 RESERVE_KEY = "usage_reserve"
@@ -389,7 +399,7 @@ class QueueRuntime:
         # Git only where Claude may run commands anyway — see gitops.
         git_allowed = gitops.claude_can_run_commands(queue)
         before = await asyncio.to_thread(gitops.snapshot, queue.project_path) if git_allowed else None
-        flags = queue.launch_flags
+        flags = with_model(queue.launch_flags, item.model) if item.model else queue.launch_flags
         if not git_allowed:
             # Restricted permission mode: tool approvals go to the user in
             # the TUI instead of being denied automatically.

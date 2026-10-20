@@ -101,6 +101,23 @@ async def reviews_loop(storage: Storage, notifier: Notifier, interval: float = R
         await asyncio.sleep(interval)
 
 
+GOAL_CHECK_SECONDS = 5.0
+
+
+async def goals_loop(storage: Storage, notifier: Notifier, interval: float = GOAL_CHECK_SECONDS) -> None:
+    """Move the goal loops on (ccc.goals): check, review, next round."""
+    from ccc import goals
+
+    while True:
+        try:
+            for goal in await goals.tick(storage, notifier):
+                logger.info("goal %d of queue %d: %s after %d round(s)", goal.id, goal.queue_id, goal.status.value,
+                            goal.round)
+        except Exception:
+            logger.exception("running goal loops failed")
+        await asyncio.sleep(interval)
+
+
 async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     storage = Storage(db_path)
     i18n.load(storage)
@@ -120,6 +137,7 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     archives = asyncio.create_task(archive_loop(storage))
     scheduled = asyncio.create_task(routines_loop(storage))
     reviewing = asyncio.create_task(reviews_loop(storage, notifier))
+    goal_loops = asyncio.create_task(goals_loop(storage, notifier))
     await stop_event.wait()
     logger.info("ccc daemon shutting down")
     heartbeat.cancel()
@@ -128,6 +146,7 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     archives.cancel()
     scheduled.cancel()
     reviewing.cancel()
+    goal_loops.cancel()
     await orchestrator.stop_all()
 
 

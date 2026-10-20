@@ -37,4 +37,7 @@ ccc-tui`); changed in Settings they work right away.
 | `ccc review list [CONVERSATION]` | reviews, newest first: id, time, verdict, what was reviewed |
 | `ccc review show REVIEW` | a review's report |
 | `ccc review stop CONVERSATION` | stop its review (loop) |
+| `ccc goal start CONVERSATION "GOAL"` | start a [goal loop](goal.md); `--check "pytest -q"` = run after each round, `--rounds N` = at most N rounds, `--wait` = wait until it ends, exit code 0 when the goal is met |
+| `ccc goal list [CONVERSATION]` | goals, newest first: id, start, round, state |
+| `ccc goal stop CONVERSATION` | stop its goal loop |
 | `ccc-daemon` | the daemon itself (normally run by `ccc.service`) |

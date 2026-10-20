@@ -37,4 +37,7 @@ ccc-tui`); změněné v Nastavení platí hned.
 | `ccc review list [KONVERZACE]` | recenze od nejnovější: id, čas, verdikt, co se recenzovalo |
 | `ccc review show RECENZE` | zpráva recenze |
 | `ccc review stop KONVERZACE` | zastaví její recenzi (smyčku) |
+| `ccc goal start KONVERZACE "CÍL"` | spustí [smyčku k cíli](goal.md); `--check "pytest -q"` = spustit po každém kole, `--rounds N` = nejvýš N kol, `--wait` = počkat do konce, návratový kód 0, když je cíl splněný |
+| `ccc goal list [KONVERZACE]` | cíle od nejnovějšího: id, začátek, kolo, stav |
+| `ccc goal stop KONVERZACE` | zastaví její smyčku k cíli |
 | `ccc-daemon` | samotný daemon (normálně ho spouští `ccc.service`) |

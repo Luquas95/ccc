@@ -520,6 +520,16 @@ class SidebarScreen(Screen):
             return
         self.app.push_screen(ReviewModal(self.storage, queue_id))
 
+    def action_goal(self) -> None:
+        """A goal loop for the conversation this screen is about (ccc.goals)."""
+        from ccc.tui.goal import GoalModal
+
+        queue_id = self.selected_queue_id()
+        if queue_id is None:
+            self.notify(_("Select a conversation first."), severity="warning")
+            return
+        self.app.push_screen(GoalModal(self.storage, queue_id))
+
     def action_routines(self) -> None:
         from ccc.tui.routines import RoutinesModal
 

@@ -161,7 +161,11 @@ def prompt(storage, queue: Queue, review: Review, what: str) -> str:
         "What to review:",
         what,
     ]
-    if review.instructions:
+    goal = storage.find_goal(review.goal_id) if review.goal_id else None
+    if goal is not None:
+        lines += ["", "The session works towards this goal. Judge whether the code now MEETS it — PASS only when "
+                  "it fully does, not just when the changes look tidy:", goal.goal]
+    elif review.instructions:
         lines += ["", "The user asks you to check this first:", review.instructions]
     if tasks:
         lines += ["", "What the session was asked to do, and what it said it did:"]
@@ -248,8 +252,9 @@ def _record_run(storage, queue: Queue, review: Review, result: RunResult, starte
         storage.insert_run_model_usage(run_id, model_name, **tokens)
 
 
-def _notify(notifier, text: str) -> None:
-    if notifier is not None:
+def _notify(notifier, text: str, review: Review | None = None) -> None:
+    # A goal loop's reviews are its rounds: the goal tells how it ended (ccc.goals).
+    if notifier is not None and (review is None or review.goal_id is None):
         notifier.notify(text)
 
 
@@ -284,7 +289,8 @@ async def run(storage, review: Review, run_fn: ReviewRunFn = execute, notifier=N
     label, what, last_run_id = found
     storage.update_review(review.id, status=ReviewStatus.RUNNING, scope=label, last_run_id=last_run_id)
     started = datetime.now()
-    result = await run_fn(queue.project_path, prompt(storage, queue, review, what), model_for(storage, queue))
+    result = await run_fn(queue.project_path, prompt(storage, queue, review, what),
+                          review.model or model_for(storage, queue))
     _record_run(storage, queue, review, result, started)
 
     if result.status == RunStatus.RATE_LIMITED:
@@ -295,7 +301,7 @@ async def run(storage, review: Review, run_fn: ReviewRunFn = execute, notifier=N
         storage.update_review(review.id, status=ReviewStatus.ERROR, error=(result.error_text or "")[:2000],
                               finished_at=datetime.now())
         _notify(notifier, _("🔎 {name}: the review failed — {error}").format(
-            name=queue.name, error=(result.error_text or "")[:200]))
+            name=queue.name, error=(result.error_text or "")[:200]), review)
         return storage.get_review(review.id)
 
     report = (result.result_text or "").strip()
@@ -303,7 +309,7 @@ async def run(storage, review: Review, run_fn: ReviewRunFn = execute, notifier=N
     if verdict is None:
         storage.update_review(review.id, status=ReviewStatus.ERROR, report=report, finished_at=datetime.now(),
                               error=_("The reviewer gave no VERDICT line."))
-        _notify(notifier, _("🔎 {name}: the reviewer gave no verdict.").format(name=queue.name))
+        _notify(notifier, _("🔎 {name}: the reviewer gave no verdict.").format(name=queue.name), review)
         return storage.get_review(review.id)
     storage.update_review(review.id, status=ReviewStatus.DONE, verdict=verdict, report=report,
                           finished_at=datetime.now())
@@ -320,7 +326,7 @@ async def run(storage, review: Review, run_fn: ReviewRunFn = execute, notifier=N
                 n=review.round + 1, max=review.max_rounds)
         else:
             text += "\n" + _("Round limit ({max}) reached — the loop stops.").format(max=review.max_rounds)
-    _notify(notifier, text)
+    _notify(notifier, text, review)
     return storage.get_review(review.id)
 
 

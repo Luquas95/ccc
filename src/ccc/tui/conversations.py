@@ -55,6 +55,7 @@ class ConversationsScreen(SidebarScreen):
         keymap.binding("conversations.search", "search", _("Search")),
         keymap.binding("conversations.export", "export", _("Export conversation")),
         keymap.binding("screen.review", "review", _("Review")),
+        keymap.binding("screen.goal", "goal", _("Goal")),
         keymap.binding("conversations.approve", "approve", _("Approve")),
         # While Claude Code is open beside ccc — listed in the key strip;
         # pressed in the Claude pane they're tmux's (cli_pane.key_bindings,

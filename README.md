@@ -92,6 +92,9 @@ phone via Remote Control.
 - **Reviews** (`v`) — a fresh-context reviewer checks what a conversation
   changed and says PASS / FAIL / PARTIAL; once, or until it passes (the
   findings go back as a task); `ccc review --wait` for CI.
+- **Goal loop** (`g`) — say once what done looks like; the conversation
+  works in rounds (task → your check command → fresh review) until the
+  reviewer says it's met, switching to stronger models when it stalls.
 - **Your own keyboard shortcuts** — every key can be changed (Settings or
   `ccc keys`), each new one is checked for collisions with ccc, Claude
   Code and the terminal first; export / import them as `ccc-keys.json`.
@@ -163,6 +166,7 @@ Language):
 - [Task queue](src/ccc/help/tasks.md)
 - [Routines](src/ccc/help/routines.md)
 - [Reviews](src/ccc/help/review.md)
+- [Goal loop](src/ccc/help/goal.md)
 - [Archive](src/ccc/help/archive.md)
 - [Usage limits & blocked queues](src/ccc/help/limits.md)
 - [Approving tool calls](src/ccc/help/approvals.md)
