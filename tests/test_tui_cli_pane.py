@@ -69,6 +69,11 @@ def test_open_splits_next_to_ccc_keeping_the_sidebar(tmux):
     assert ("set-option", "-p", "-t", "%0", "@ccc-title", "ccc") in tmux.calls
 
 
+def test_typing_here_only_while_claude_code_is_open():
+    border = dict(cli_pane.BORDER_OPTIONS)["pane-border-format"]
+    assert "#{?#{&&:#{pane_active},#{P:#{?#{@ccc-cli},1,}}}," in border
+
+
 def test_open_titles_the_pane_with_the_conversation(tmux):
     pane = cli_pane.open(4, "Kompas")
     assert ("set-option", "-p", "-t", pane, "@ccc-title", "Claude Code · Kompas") in tmux.calls

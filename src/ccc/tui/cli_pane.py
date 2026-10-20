@@ -36,10 +36,14 @@ PRESET_KEYS = tuple(f"M-{n}" for n in range(1, 10))
 SETTINGS_KEY = "C-p"
 # On ccc's own server: a title bar on each pane, and the pane you type in
 # marked — otherwise nothing shows whether keys go to ccc or to Claude.
+# Only while Claude Code is open (#{P:} looks through the window's panes
+# for @ccc-cli): with ccc alone the keys can't go anywhere else.
+CLI_OPEN_FORMAT = f"#{{P:#{{?#{{{PANE_OPTION}}},1,}}}}"
 BORDER_OPTIONS: tuple[tuple[str, str], ...] = (
     ("pane-border-status", "top"),
     ("pane-border-format",
-     f"#{{?pane_active,#[fg=black#,bg=green#,bold] {_("⌨ typing here")} #[default],}} #{{{TITLE_OPTION}}} "),
+     f"#{{?#{{&&:#{{pane_active}},{CLI_OPEN_FORMAT}}},"
+     f"#[fg=black#,bg=green#,bold] {_("⌨ typing here")} #[default],}} #{{{TITLE_OPTION}}} "),
     ("pane-active-border-style", "fg=green,bold"),
     ("pane-border-style", "fg=brightblack"),
 )
