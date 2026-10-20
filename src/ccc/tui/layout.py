@@ -10,12 +10,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from rich.markup import escape
 from rich.text import Text
-from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Footer, Header, Rule, Static
 
+from ccc import keymap
 from ccc.i18n import _
 from ccc.models import Queue, QueueStatus
 
@@ -23,28 +24,36 @@ from ccc.models import Queue, QueueStatus
 @dataclass(frozen=True)
 class SidebarButton:
     id: str
-    # Fixed, hardcoded labels only — Button labels are parsed as Rich
-    # markup, so use "(+)" rather than "[+]" (brackets get silently eaten).
+    # Fixed, hardcoded labels only, with {key} for the action's current
+    # key — Button labels are parsed as Rich markup, so use "({key})"
+    # rather than "[{key}]" (brackets get silently eaten).
     label: str
     color: str  # "green" | "blue" | "red" — see .sidebar-button-* CSS
     action: str  # action name on the screen, without the "action_" prefix
+    key_id: str  # keymap action id whose key the label shows
+
+    def text(self, keys: dict[str, str]) -> str:
+        return self.label.format(key=keymap.pretty(keys[self.key_id]))
 
 
-# (view key, label, hotkey) in sidebar order.
-VIEWS: list[tuple[str, str, str]] = [
-    ("dashboard", _("Dashboard"), "d"),
-    ("conversations", _("Conversations"), "c"),
-    ("archive", _("Archive"), "h"),
-    ("sessions", _("Live sessions"), "s"),
-    ("analytics", _("Analytics"), "a"),
+# (view key, label) in sidebar order; each one's hotkey is keymap's
+# views.<view>.
+VIEWS: list[tuple[str, str]] = [
+    ("dashboard", _("Dashboard")),
+    ("conversations", _("Conversations")),
+    ("archive", _("Archive")),
+    ("sessions", _("Live sessions")),
+    ("analytics", _("Analytics")),
 ]
 
-ADD_PROMPT_BUTTON = SidebarButton("sidebar-add-prompt", _("Add prompt (+)"), "green", "add_prompt")
-RETRY_BUTTON = SidebarButton("sidebar-retry", _("Retry blocked queue (r)"), "red", "retry_queue")
+ADD_PROMPT_BUTTON = SidebarButton("sidebar-add-prompt", _("Add prompt ({key})"), "green", "add_prompt",
+                                  "screen.add_prompt")
+RETRY_BUTTON = SidebarButton("sidebar-retry", _("Retry blocked queue ({key})"), "red", "retry_queue", "screen.retry")
 # What r (and the retry button) can get going again.
 RETRYABLE = (QueueStatus.BLOCKED_ERROR, QueueStatus.PAUSED_LIMIT)
 NEW_CONVERSATION_BUTTON = SidebarButton(
-    "sidebar-new-conversation", _("New conversation (n)"), "green", "new_conversation"
+    "sidebar-new-conversation", _("New conversation ({key})"), "green", "new_conversation",
+    "views.new_conversation",
 )
 
 STATUS_STYLES = {
@@ -125,10 +134,10 @@ class ConfirmModal(ModalScreen):
     """
 
     BINDINGS = [
-        ("y", "answer(True)", _("Yes")),
-        ("enter", "answer(True)", _("Yes")),
-        ("n", "answer(False)", _("No")),
-        ("escape", "answer(False)", _("No")),
+        keymap.binding("answer.yes", "answer(True)", _("Yes")),
+        keymap.binding("confirm.enter", "answer(True)", _("Yes")),
+        keymap.binding("answer.no", "answer(False)", _("No")),
+        keymap.binding("window.cancel", "answer(False)", _("No")),
     ]
 
     def __init__(self, title: str, text: str, can_confirm: bool = True):
@@ -317,13 +326,9 @@ class SidebarScreen(Screen):
     # switching views is the nav list's job, not a button's. A view's own
     # keys (like "+" for its Add prompt button) live in that view only.
     BINDINGS = [
-        Binding("d", "goto('dashboard')", _("Dashboard"), show=False),
-        Binding("c", "goto('conversations')", _("Conversations"), show=False),
-        Binding("h", "goto('archive')", _("Archive"), show=False),
-        Binding("s", "goto('sessions')", _("Live sessions"), show=False),
-        Binding("a", "goto('analytics')", _("Analytics"), show=False),
-        Binding("n", "new_conversation", _("New conversation"), show=False),
-        Binding("question_mark", "key_help", _("Help")),
+        *[keymap.binding(f"views.{view}", f"goto('{view}')", label, show=False) for view, label in VIEWS],
+        keymap.binding("views.new_conversation", "new_conversation", _("New conversation"), show=False),
+        keymap.binding("views.help", "key_help", _("Help")),
     ]
 
     def __init__(self, storage):
@@ -351,8 +356,8 @@ class SidebarScreen(Screen):
     def compose(self):
         yield Header(icon=" ")
         nav_items = []
-        for key, label, hotkey in VIEWS:
-            item = Static(f"{label}  [dim]{hotkey}[/dim]", id=f"nav-{key}", classes="nav-item")
+        for key, label in VIEWS:
+            item = Static(self._nav_text(key, label), id=f"nav-{key}", classes="nav-item")
             if key == self.VIEW:
                 item.add_class("-active")
             nav_items.append(item)
@@ -399,9 +404,24 @@ class SidebarScreen(Screen):
         self.query_one("#daemon-state", Static).update(text)
         self.sync_retry_button()
 
-    @staticmethod
-    def _make_button(spec: SidebarButton) -> Button:
-        button = Button(spec.label, id=spec.id, classes=f"sidebar-button sidebar-button-{spec.color}")
+    def _keys(self) -> dict[str, str]:
+        return keymap.current(self.storage)
+
+    def _nav_text(self, view: str, label: str) -> str:
+        return f"{label}  [dim]{escape(keymap.pretty(self._keys()[f'views.{view}']))}[/dim]"
+
+    def refresh_key_labels(self) -> None:
+        """The nav list's and buttons' keys again (shortcuts changed)."""
+        keys = self._keys()
+        for view, label in VIEWS:
+            for item in self.query(f"#nav-{view}"):
+                item.update(self._nav_text(view, label))
+        for spec in self.sidebar_buttons():
+            for button in self.query(f"#{spec.id}"):
+                button.label = spec.text(keys)
+
+    def _make_button(self, spec: SidebarButton) -> Button:
+        button = Button(spec.text(self._keys()), id=spec.id, classes=f"sidebar-button sidebar-button-{spec.color}")
         # Every button has its own hotkey; keeping them out of the focus
         # chain means initial focus (and Enter) lands on the screen's list,
         # not on whichever button happens to come first in the sidebar.

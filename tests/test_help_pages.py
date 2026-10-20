@@ -66,7 +66,7 @@ def test_links_and_images_point_somewhere(page):
 def test_every_view_opens_on_a_topic():
     from ccc.tui.layout import VIEWS
 
-    assert {view for view, _, _ in VIEWS} == set(guide.VIEW_TOPICS)
+    assert {view for view, _ in VIEWS} == set(guide.VIEW_TOPICS)
     assert set(guide.VIEW_TOPICS.values()) <= {slug for slug, _ in guide.TOPICS}
 
 

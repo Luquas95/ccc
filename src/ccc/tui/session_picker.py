@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from rich.text import Text
-from textual.binding import Binding
 from textual.containers import Container, Horizontal
 from textual.content import Content
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Static, TextArea
 
+from ccc import keymap
 from ccc.i18n import _
 from ccc.orchestrator import attach_to_session
 from ccc.session_discovery import DiscoveredSession, discover_sessions
@@ -14,7 +14,8 @@ from ccc.storage import Storage
 from ccc.tui.layout import ADD_PROMPT_BUTTON, MODAL_CSS, SidebarButton, SidebarScreen, panel
 
 
-REFRESH_BUTTON = SidebarButton("sidebar-refresh", _("Reload session list (r)"), "blue", "refresh")
+REFRESH_BUTTON = SidebarButton("sidebar-refresh", _("Reload session list ({key})"), "blue", "refresh",
+                              "sessions.refresh")
 
 SESSION_STATUS_STYLES = {"idle": "green", "busy": "yellow", "blocked": "bold red"}
 # Claude Code's own status / kind words, as shown in the table.
@@ -34,9 +35,9 @@ class SessionPickerScreen(SidebarScreen):
     SUB_TITLE = _("Live sessions")
 
     BINDINGS = [
-        Binding("escape", "back", _("Back"), show=False),
-        Binding("r", "refresh", _("Reload session list"), show=False),
-        Binding("plus", "add_prompt", _("Add prompt"), show=False),
+        keymap.binding("screen.back", "back", _("Back"), show=False),
+        keymap.binding("sessions.refresh", "refresh", _("Reload session list"), show=False),
+        keymap.binding("screen.add_prompt", "add_prompt", _("Add prompt"), show=False),
     ]
 
     def __init__(self, storage: Storage):
@@ -94,7 +95,7 @@ class AttachSessionModal(ModalScreen):
     }
     """
 
-    BINDINGS = [("escape", "cancel", _("Cancel"))]
+    BINDINGS = [keymap.binding("window.cancel", "cancel", _("Cancel"))]
 
     def __init__(self, storage: Storage, session: DiscoveredSession):
         super().__init__()

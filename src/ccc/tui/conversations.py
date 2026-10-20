@@ -11,6 +11,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.content import Content
 from textual.widgets import Collapsible, DataTable, Markdown, Static
 
+from ccc import keymap
 from ccc.i18n import _
 from ccc.launch_options import describe_flags
 from ccc.models import DeliveryMode, Queue, QueueStatus
@@ -46,21 +47,26 @@ class ConversationsScreen(SidebarScreen):
 
     BINDINGS = [
         # Back = Dashboard (d) and Retry has its sidebar button.
-        Binding("escape", "back", _("Back"), show=False),
-        Binding("r", "retry_queue", _("Retry / resume"), show=False),
-        ("t", "tasks", _("Tasks")),
-        ("x", "toggle_archive", _("Archive")),
-        # No Ctrl+D (delete): it exits Claude Code — new key in #31.
-        ("slash", "search", _("Search")),
-        ("e", "export", _("Export conversation")),
-        ("p", "approve", _("Approve")),
+        keymap.binding("screen.back", "back", _("Back"), show=False),
+        keymap.binding("screen.retry", "retry_queue", _("Retry / resume"), show=False),
+        keymap.binding("conversations.tasks", "tasks", _("Tasks")),
+        keymap.binding("conversations.archive", "toggle_archive", _("Archive")),
+        # No Ctrl+D (delete): it exits Claude Code (#31).
+        keymap.binding("conversations.search", "search", _("Search")),
+        keymap.binding("conversations.export", "export", _("Export conversation")),
+        keymap.binding("conversations.approve", "approve", _("Approve")),
         # While Claude Code is open beside ccc — listed in the key strip;
         # pressed in the Claude pane they're tmux's (cli_pane.key_bindings,
         # attach_cli's Ctrl+]), clicked in the strip they land here.
-        Binding("alt+0", "focus_claude", "Claude ↔ ccc", key_display="Alt+0"),
-        Binding("ctrl+right_square_bracket", "close_claude", _("Close Claude"), key_display="Ctrl+]"),
+        # key_display: only for the default key — a moved one shows itself
+        # (CCContinueApp.get_key_display).
+        keymap.binding("conversations.focus_claude", "focus_claude", "Claude ↔ ccc", key_display="Alt+0"),
+        keymap.binding("conversations.close_claude", "close_claude", _("Close Claude"), key_display="Ctrl+]"),
         # Preset prompts (Settings); priority so they work while typing.
-        *[Binding(f"alt+{n}", f"prompt_preset({n})", _("Preset {n}").format(n=n), show=False, priority=True) for n in range(1, 10)],
+        *[keymap.binding(f"conversations.preset{n}", f"prompt_preset({n})", _("Preset {n}").format(n=n), show=False,
+                         priority=True) for n in range(1, 10)],
+        # Alt+digit as some terminals send it (a character). No id: a preset
+        # moved to another key leaves these behind, harmlessly.
         *[Binding(ALT_DIGIT_CHARS[n], f"prompt_preset({n}, True)", _("Preset {n}").format(n=n), show=False, priority=True)
           for n in range(1, 10)],
     ]
@@ -602,8 +608,9 @@ class ConversationsScreen(SidebarScreen):
         bar = self.query_one("#prompt-presets-bar", Horizontal)
         await bar.remove_children()
         presets = load_prompt_presets(self.storage)
+        keys = keymap.current(self.storage)
         await bar.mount_all(
-            Static(bar_item(n, p), id=f"prompt-preset-{n}", classes="prompt-preset-item")
+            Static(bar_item(n, p, keys), id=f"prompt-preset-{n}", classes="prompt-preset-item")
             for n, p in enumerate(presets, start=1)
         )
         if presets:

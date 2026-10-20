@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import date
 
 from rich.text import Text
-from textual.binding import Binding
 from textual.widgets import DataTable, Static
 
+from ccc import keymap
 from ccc.i18n import _
 from ccc.models import QueueStatus
 from ccc.storage import Storage
@@ -45,7 +45,7 @@ class DashboardScreen(SidebarScreen):
     BINDINGS = [
         # Only an overview: a blocked queue is retried in Conversations or
         # its queue detail (Enter). Ctrl+Q closes ccc everywhere.
-        Binding("q", "quit", _("Close"), show=False),
+        keymap.binding("dashboard.quit", "quit", _("Close"), show=False),
     ]
 
     def __init__(self, storage: Storage):

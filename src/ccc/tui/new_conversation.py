@@ -8,6 +8,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, DirectoryTree, Input, OptionList, Select, Static
 from textual.widgets.option_list import Option
 
+from ccc import keymap
 from ccc.i18n import _
 from ccc.launch_options import (
     DEFAULT_SELECTION, FORK, GROUPS, SESSION_FROM_PR, SESSION_NEW, SESSION_RESUME, session_mode, toggle,
@@ -33,7 +34,7 @@ class PresetNameModal(ModalScreen):
     """Asks for a preset name. Dismisses with the name, or None."""
 
     DEFAULT_CSS = MODAL_CSS.format(cls="PresetNameModal")
-    BINDINGS = [("escape", "cancel", _("Cancel"))]
+    BINDINGS = [keymap.binding("window.cancel", "cancel", _("Cancel"))]
 
     def compose(self):
         box = Container(
@@ -135,7 +136,7 @@ class NewConversationModal(ModalScreen):
     }
     """
 
-    BINDINGS = [("escape", "cancel", _("Cancel"))]
+    BINDINGS = [keymap.binding("window.cancel", "cancel", _("Cancel"))]
 
     def __init__(self, storage: Storage, browse_root: Path | None = None):
         super().__init__()

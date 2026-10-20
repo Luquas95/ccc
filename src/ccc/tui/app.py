@@ -5,8 +5,8 @@ from datetime import datetime
 from pathlib import Path
 
 from textual.app import App
-from textual.binding import Binding
 
+from ccc import keymap
 from ccc.export_paths import SCREENSHOTS, export_dir
 from ccc.i18n import _
 from ccc.storage import Storage
@@ -28,10 +28,10 @@ class CCContinueApp(App):
     ESCAPE_TO_MINIMIZE = False
 
     BINDINGS = [
-        Binding("ctrl+p", "settings", _("Settings"), priority=True),
+        keymap.binding("app.settings", "settings", _("Settings"), priority=True),
         # Not Ctrl+T, Claude Code's to-do list key (#31); Alt+S is free there.
-        Binding("alt+s", "take_screenshot", _("Screenshot"), show=False, priority=True),
-        Binding("ctrl+q", "quit", _("Close"), priority=True),
+        keymap.binding("app.screenshot", "take_screenshot", _("Screenshot"), show=False, priority=True),
+        keymap.binding("app.quit", "quit", _("Close"), priority=True),
     ]
 
     def __init__(self, db_path: str):
@@ -44,11 +44,13 @@ class CCContinueApp(App):
         theme = saved_theme(self.storage, self.available_themes)
         if theme:
             self.theme = theme
+        # The user's shortcuts (Settings → Keyboard shortcuts).
+        self.set_keymap(keymap.load(self.storage))
         from ccc.tui import cli_pane
 
         # Same frame in every view (see cli_pane.style_window); there the
         # key list is the strip under the window (footer_strip).
-        cli_pane.style_window()
+        cli_pane.style_window(keymap.current(self.storage))
         if cli_pane.available():
             # A Claude Code pane left by the previous ccc process (killed,
             # restarted): no screen of this one owns it, so none would close
@@ -63,6 +65,33 @@ class CCContinueApp(App):
 
     footer_strip = False
     _published_footer: str | None = None
+    # True while the shortcuts window waits for a key: no binding fires,
+    # every key goes to that window (tui.keys).
+    capturing_key = False
+
+    def check_action(self, action: str, parameters: tuple) -> bool | None:
+        return False if self.capturing_key else True
+
+    def get_key_display(self, binding) -> str:
+        # Ctrl keys as Textual shows them (^p); others the way ccc names
+        # them everywhere (Alt+S, Ctrl+], +).
+        if binding.key_display:
+            return binding.key_display
+        if binding.key.startswith("ctrl+") and len(binding.key) == 6:
+            return super().get_key_display(binding)
+        return keymap.pretty(binding.key)
+
+    def apply_keymap(self) -> None:
+        """The saved shortcuts changed: use them everywhere — bindings,
+        the menu's and buttons' keys, ccc's tmux keys."""
+        from ccc.tui import cli_pane
+        from ccc.tui.layout import SidebarScreen
+
+        self.set_keymap(keymap.load(self.storage))
+        for screen in self.screen_stack:
+            if isinstance(screen, SidebarScreen):
+                screen.refresh_key_labels()
+        cli_pane.apply_keys(keymap.current(self.storage), self.storage.db_path)
 
     def publish_footer(self) -> None:
         """Hand the current screen's keys to the strip under the window."""

@@ -4,6 +4,10 @@ Klávesy bez Ctrl nebo Alt nefungují, když píšeš do textového pole;
 klávesy s Ctrl a Alt fungují všude. Lišta dole v okně ukazuje
 klávesy obrazovky, na které jsi — kliknutím klávesu stiskneš.
 
+Každou zkratku jde změnit v Nastavení → Klávesové zkratky (nebo příkazem
+`ccc keys`); ccc ověří, že je nová klávesa volná. Ostatní stránky příručky
+uvádějí výchozí klávesy.
+
 ## Všude
 
 | Klávesa | |
@@ -15,10 +19,11 @@ klávesy obrazovky, na které jsi — kliknutím klávesu stiskneš.
 | `a` | Analytika |
 | `n` | Nová konverzace |
 | `?` | Tato nápověda |
-| `Ctrl+P` | Nastavení (jazyk, motiv, Telegram, fronty, předvolby, záloha) |
+| `Ctrl+P` | Nastavení (jazyk, motiv, Telegram, fronty, předvolby, zkratky, záloha) |
 | `Alt+S` | Snímek obrazovky ccc (SVG do složky exportů, viz Nastavení) |
 | `Ctrl+Q` | Zavřít ccc (běží dál; `ccc` ho zase otevře) |
-| `Esc` | Zpět / zavřít |
+| `Esc` | Zpět |
+| `Esc` | Zavřít okno / zrušit |
 
 ## Přehled
 
@@ -89,6 +94,14 @@ klávesy obrazovky, na které jsi — kliknutím klávesu stiskneš.
 | `y` | Povolit |
 | `a` | Vždy povolit tento nástroj v této konverzaci |
 | `n` | Zamítnout |
+
+## Potvrzení (např. mazání)
+
+| Klávesa | |
+|---|---|
+| `y` | Ano |
+| `Enter` | Ano |
+| `n` | Ne |
 
 ## Analytika
 

@@ -9,6 +9,7 @@ from textual.containers import Container, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Static
 
+from ccc import keymap
 from ccc.i18n import _
 from ccc.models import PermissionRequest
 from ccc.storage import Storage
@@ -36,10 +37,10 @@ class PermissionModal(ModalScreen):
     """
 
     BINDINGS = [
-        ("y", "decide('allow')", _("Allow")),
-        ("a", "decide('always')", _("Always allow")),
-        ("n", "decide('deny')", _("Deny")),
-        ("escape", "close", _("Later")),
+        keymap.binding("answer.yes", "decide('allow')", _("Allow")),
+        keymap.binding("approval.always", "decide('always')", _("Always allow")),
+        keymap.binding("answer.no", "decide('deny')", _("Deny")),
+        keymap.binding("window.cancel", "close", _("Later")),
     ]
 
     def __init__(self, storage: Storage, request: PermissionRequest):

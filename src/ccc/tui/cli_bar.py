@@ -12,7 +12,7 @@ from textual.app import App
 from textual.containers import Horizontal
 from textual.widgets import Static
 
-from ccc import clipboard_bridge
+from ccc import clipboard_bridge, keymap
 from ccc.cli_input import apply_preset
 from ccc.i18n import _
 from ccc.prompt_presets import load_prompt_presets
@@ -71,8 +71,9 @@ class CliBar(App):
         row = self.query_one("#bar-presets", Horizontal)
         await row.remove_children()
         if presets:
+            keys = keymap.current(self.storage)
             await row.mount_all(
-                Static(bar_item(n, p), id=f"bar-preset-{n}", classes="bar-preset")
+                Static(bar_item(n, p, keys), id=f"bar-preset-{n}", classes="bar-preset")
                 for n, p in enumerate(presets, start=1)
             )
         else:

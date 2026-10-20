@@ -17,6 +17,7 @@ změny zahodí. Tlačítka jako *Poslat testovací zprávu*, *Vypnout* nebo
 | Fronty | text *pokračuj* posílaný po limitu využití a rezerva využití — viz [Limity využití](limits.md) |
 | Přednastavené prompty | tvé prompty na `Alt+1` … `Alt+9` — viz níže |
 | Předvolby nové konverzace | smaže předvolby uložené v okně [Nová konverzace](new-conversation.md) |
+| Klávesové zkratky | změna libovolné klávesy, export / import — viz níže |
 | Exporty | složka pro exportované konverzace (`e`) a snímky obrazovky (`Alt+S`); volitelně posílat každý export na Telegram / Discord |
 | Měsíční archiv analytiky | viz [Analytika](analytics.md) |
 | Data | kde je databáze a její denní zálohy, *Zálohovat hned* |
@@ -40,6 +41,41 @@ v každé konverzaci přes `Alt+1` … `Alt+9`.
     abys je dopsal(a), třeba přidal(a) název souboru.
 
 ![Editor přednastaveného promptu](../../../../docs/screenshots/prompt_preset.png)
+
+## Klávesové zkratky
+
+Každou klávesu v ccc jde změnit: *Klávesové zkratky* → *Upravit
+zkratky…* otevře okno se všemi akcemi a jejich klávesami (změněné jsou
+žlutě).
+
+- **Změna:** vyber akci, pak *Stisknout klávesu* a stiskni novou klávesu
+  (jakoukoli — i Esc nebo Ctrl+P), nebo napiš její název (`Ctrl+O`,
+  `Alt+S`, `F5`, `+`) a *Nastavit*. *Výchozí* vrátí jednu, *Vše výchozí*
+  všechny.
+- **Nejdřív kontrola:** klávesa, která koliduje, se odmítne a okno řekne
+  proč — nikdy se neuloží. Kolize je:
+  - jiná akce na stejné klávese tam, kde fungují obě zároveň (např. dva
+    pohledy, nebo pohled a klávesa, která funguje všude),
+  - klávesa, kterou terminál nerozliší (Ctrl+I je Tab, Ctrl+M je Enter,
+    Ctrl+H je Backspace), Ctrl+C, Ctrl+B (prefix tmuxu) nebo
+    Ctrl+Shift+C / V (kopírovat / vložit),
+  - klávesa, kterou potřebují seznamy a textová pole (šipky, Enter, Tab,
+    mezerník, editační klávesy jako Ctrl+A / E / K / U / W),
+  - u kláves, které fungují i z panelu Claude Code (přepnutí, zavření
+    Claude, přednastavené prompty, Nastavení, snímek obrazovky, zavření
+    ccc): klávesa Claude Code (Ctrl+T, Ctrl+O, Ctrl+R, Alt+P, …) nebo
+    klávesa bez Ctrl / Alt (F-klávesy jsou v pořádku) — do Claude Code by
+    už nešla napsat.
+- **Uložit** (`Ctrl+S`) a nové klávesy platí hned — ukazuje je menu,
+  tlačítka i `?`. Toto okno ukládá samo, nezávisle na Uložit v Nastavení.
+- **Export / Import:** napiš složku (předvyplněná je složka exportů) —
+  *Exportovat* do ní zapíše `ccc-keys.json`, *Importovat* ho z ní načte
+  (nebo ze souboru, který zadáš) a zkontroluje stejně: jediná kolize a
+  nenaimportuje se nic. Soubor přenes na jiný počítač a máš tam své
+  klávesy.
+
+Totéž z příkazové řádky: `ccc keys` (viz [Příkazová řádka](command-line.md)).
+Ostatní stránky příručky uvádějí výchozí klávesy.
 
 ## Notifikace přes Telegram
 

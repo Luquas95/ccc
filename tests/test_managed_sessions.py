@@ -28,7 +28,11 @@ def test_interactive_command_has_no_remote_control():
 
 def test_start_makes_the_server_transparent(monkeypatch):
     calls = []
-    monkeypatch.setattr(ms, "_tmux", lambda *args, input_text=None: calls.append(args))
+    def fake(*args, input_text=None):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 1, "", "")  # no detach key bound yet
+
+    monkeypatch.setattr(ms, "_tmux", fake)
     ms.start(_queue(delivery_mode=DeliveryMode.INTERACTIVE), ["claude"])
     assert calls[0][:4] == ("new-session", "-d", "-s", "q7")
     assert ("set-option", "-g", "prefix", "None") in calls
@@ -40,6 +44,20 @@ def test_start_makes_the_server_transparent(monkeypatch):
     # Mouse copies only fill a paste buffer (clipboard_bridge takes it on).
     assert ("bind-key", "-T", "copy-mode", "MouseDragEnd1Pane", "send-keys", "-X", "copy-pipe-and-cancel") in calls
     assert not any("terminal-features" in c and "clipboard" in str(c) for c in calls)
+
+
+def test_a_changed_detach_key_replaces_the_old_one(monkeypatch):
+    calls = []
+
+    def fake(*args, input_text=None):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, "C-]\n", "")
+
+    monkeypatch.setattr(ms, "_tmux", fake)
+    ms.set_detach_key("F5")
+    assert ("unbind-key", "-n", "C-]") in calls
+    assert ("bind-key", "-n", "F5", "detach-client") in calls
+    assert ("set-option", "-g", ms.DETACH_OPTION, "F5") in calls
 
 
 def test_command_existing_session_resumes():

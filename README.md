@@ -86,6 +86,9 @@ phone via Remote Control.
 - **Settings** (`Ctrl+P`) — colour theme, Telegram, Discord, continue text, usage
   reserve, preset prompts, launch presets and database backup in one
   window.
+- **Your own keyboard shortcuts** — every key can be changed (Settings or
+  `ccc keys`), each new one is checked for collisions with ccc, Claude
+  Code and the terminal first; export / import them as `ccc-keys.json`.
 - Search across conversations, Markdown export, archive/delete, daily
   database backups, and a built-in guide: `?` on any screen.
 

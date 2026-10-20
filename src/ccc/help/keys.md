@@ -4,6 +4,10 @@ Keys without Ctrl or Alt don't work while you're typing in a text field;
 Ctrl and Alt keys work everywhere. The bar at the bottom of the window
 lists the keys of the screen you're on — click one to press it.
 
+Every shortcut can be changed in Settings → Keyboard shortcuts (or with
+`ccc keys`); ccc checks the new key is free. The other pages of this guide
+name the default keys.
+
 ## Everywhere
 
 | Key | |
@@ -15,10 +19,11 @@ lists the keys of the screen you're on — click one to press it.
 | `a` | Analytics |
 | `n` | New conversation |
 | `?` | This help |
-| `Ctrl+P` | Settings (language, theme, Telegram, queues, presets, backup) |
+| `Ctrl+P` | Settings (language, theme, Telegram, queues, presets, shortcuts, backup) |
 | `Alt+S` | Screenshot of ccc (an SVG in the export folder, see Settings) |
 | `Ctrl+Q` | Close ccc (it keeps running; `ccc` opens it again) |
-| `Esc` | Back / close |
+| `Esc` | Back |
+| `Esc` | Close the window / cancel |
 
 ## Dashboard
 
@@ -89,6 +94,14 @@ lists the keys of the screen you're on — click one to press it.
 | `y` | Allow |
 | `a` | Always allow this tool in this conversation |
 | `n` | Deny |
+
+## Confirmation (e.g. deleting)
+
+| Key | |
+|---|---|
+| `y` | Yes |
+| `Enter` | Yes |
+| `n` | No |
 
 ## Analytics
 

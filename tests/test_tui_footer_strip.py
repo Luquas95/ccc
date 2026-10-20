@@ -14,7 +14,7 @@ def test_tmux_keys():
     assert footer_strip.tmux_key("question_mark") == "?"
     assert footer_strip.tmux_key("slash") == "/"
     assert footer_strip.tmux_key("t") == "t"
-    assert footer_strip.tmux_key("ctrl+down") is None
+    assert footer_strip.tmux_key("ctrl+down") == "C-Down"
     assert footer_strip.tmux_key("alt+0") == "M-0"
     assert footer_strip.tmux_key("ctrl+right_square_bracket") == "C-]"
 

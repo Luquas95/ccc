@@ -17,25 +17,13 @@ from textual.app import App
 from textual.containers import Horizontal
 from textual.widgets import Static
 
+from ccc import keymap
+
 FOOTER_OPTION = "@ccc-footer"
 POLL_SECONDS = 0.3
 
 # Textual key names → tmux key names, for clicks (send-keys).
-_TMUX_KEYS = {"question_mark": "?", "slash": "/", "escape": "Escape", "enter": "Enter",
-              "delete": "DC", "ctrl+right_square_bracket": "C-]", "space": "Space", "left": "Left", "right": "Right", "up": "Up", "down": "Down"}
-
-
-def tmux_key(key: str) -> str | None:
-    """`ctrl+q` → `C-q`, `question_mark` → `?`; None for keys we can't send."""
-    if key in _TMUX_KEYS:
-        return _TMUX_KEYS[key]
-    if key.startswith("ctrl+") and len(key) == 6:
-        return f"C-{key[-1]}"
-    if key.startswith("alt+") and len(key) == 5:
-        return f"M-{key[-1]}"
-    if len(key) == 1:
-        return key
-    return None
+tmux_key = keymap.tmux_key
 
 
 def footer_items(app) -> list[list[str]]:

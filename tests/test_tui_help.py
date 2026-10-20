@@ -2,38 +2,45 @@ import pytest
 from textual.app import App
 
 from ccc.storage import Storage
-from ccc.tui.conversations import ConversationsScreen
 from ccc.tui.prompt_presets import ALT_DIGIT_CHARS
 from ccc.tui.dashboard import DashboardScreen
-from ccc.tui.help import KEY_HELP, HelpScreen
-from ccc.tui.tasks import TasksModal
+from ccc import keymap
+from ccc.tui.help import KEY_HELP, HelpScreen, keys_markdown
 
 
-def _keys(cls):
-    keys = set()
-    for klass in cls.__mro__:
-        if not klass.__module__.startswith("ccc."):
-            continue  # Textual's own built-ins (Tab, Ctrl+C copy, ...)
-        for binding in getattr(klass, "BINDINGS", []):
-            key = binding[0] if isinstance(binding, tuple) else binding.key
-            keys.update(key.split(","))
-    return keys
+def _ccc_bindings():
+    """Every Binding in ccc's TUI classes."""
+    import importlib
+    import inspect
+    import pkgutil
+
+    import ccc.tui
+
+    for info in pkgutil.iter_modules(ccc.tui.__path__):
+        module = importlib.import_module(f"ccc.tui.{info.name}")
+        for _name, cls in inspect.getmembers(module, inspect.isclass):
+            if cls.__module__ == module.__name__:
+                yield from cls.__dict__.get("BINDINGS", [])
 
 
-def _documented(section):
-    return {k for k, _ in dict(KEY_HELP)[section]}
+def test_every_binding_is_a_documented_keymap_action():
+    # Every key can be changed (keymap ids) and is listed in the help;
+    # only Alt+digit as some terminals send it rides along with Alt+N.
+    documented = {ref for _section, entries in KEY_HELP for ref, _ in entries}
+    for binding in _ccc_bindings():
+        if binding.id is None:
+            assert binding.key in ALT_DIGIT_CHARS.values(), binding
+            continue
+        assert binding.id in keymap.BY_ID, binding
+        assert binding.key == keymap.BY_ID[binding.id].default, binding
+        assert binding.id in documented, binding
+    assert set(keymap.BY_ID) <= documented
 
 
-@pytest.mark.parametrize("section,cls,ignore", [
-    ("Everywhere", DashboardScreen, {"r", "q", "enter"}),
-    # Alt+digit as it arrives through most terminals — documented as alt+N.
-    ("Conversations", ConversationsScreen, {"d", "c", "h", "s", "a", "n", "question_mark", *ALT_DIGIT_CHARS.values()}),
-    ("Tasks editor (t)", TasksModal, set()),
-])
-def test_help_lists_every_binding(section, cls, ignore):
-    documented = {k for sec, entries in KEY_HELP for k, _ in entries} if section == "Everywhere" else _documented(section)
-    missing = _keys(cls) - documented - ignore - {"escape"}
-    assert not missing, f"{section}: undocumented keys {missing}"
+def test_help_shows_the_users_keys():
+    keys = {**keymap.defaults(), "views.analytics": "f5"}
+    assert "| `F5` | Analytics |" in keys_markdown(keys)
+    assert "| `a` | Analytics |" in keys_markdown()
 
 
 def _host(screen):

@@ -17,6 +17,7 @@ now* act right away.
 | Queues | the *continue* text sent after a usage limit, and the usage reserve — see [Usage limits](limits.md) |
 | Preset prompts | your prompts on `Alt+1` … `Alt+9` — see below |
 | New-conversation presets | delete presets saved in the [New conversation](new-conversation.md) window |
+| Keyboard shortcuts | change any key, export / import them — see below |
 | Exports | the folder for exported conversations (`e`) and screenshots (`Alt+S`); optionally send each export to Telegram / Discord |
 | Monthly analytics archive | see [Analytics](analytics.md) |
 | Data | where the database and its daily backups are, *Back up now* |
@@ -39,6 +40,40 @@ fails", "review this file: " — saved once, used in any conversation with
     you to finish, e.g. add a file name.
 
 ![Preset prompt editor](../../../docs/screenshots/prompt_preset.png)
+
+## Keyboard shortcuts
+
+Every key in ccc can be changed: *Keyboard shortcuts* → *Edit
+shortcuts…* opens a window listing every action with its key (changed
+ones in yellow).
+
+- **Change:** pick an action, then *Press the key* and press its new key
+  (any key — Esc, Ctrl+P too), or type its name (`Ctrl+O`, `Alt+S`, `F5`,
+  `+`) and *Set*. *Default* puts one back, *All defaults* all of them.
+- **Checked first:** a key that collides is refused, and the window says
+  why — it's never saved. A collision is:
+  - another action on the same key where both work at once (e.g. two
+    views, or a view and a key that works everywhere),
+  - a key the terminal can't tell apart (Ctrl+I is Tab, Ctrl+M is Enter,
+    Ctrl+H is Backspace), Ctrl+C, Ctrl+B (tmux's prefix) or
+    Ctrl+Shift+C / V (copy / paste),
+  - a key the lists and text fields need (arrows, Enter, Tab, Space,
+    editing keys like Ctrl+A / E / K / U / W),
+  - for keys that also work from the Claude Code pane (switch, close
+    Claude, presets, Settings, screenshot, close ccc): one of Claude
+    Code's keys (Ctrl+T, Ctrl+O, Ctrl+R, Alt+P, …), or a key without
+    Ctrl / Alt (F-keys are fine) — it couldn't be typed into Claude
+    Code any more.
+- **Save** (`Ctrl+S`) and the new keys work right away — the menu, the
+  buttons and `?` show them. This window saves on its own, independently
+  of Settings' Save.
+- **Export / Import:** type a folder (the export folder is prefilled) —
+  *Export* writes `ccc-keys.json` there, *Import* reads it (or the file
+  you name) and is checked the same way: one collision and nothing is
+  imported. Copy the file to another machine to take your keys along.
+
+The same from the shell: `ccc keys` (see [Command line](command-line.md)).
+The other pages of this guide name the default keys.
 
 ## Telegram notifications
 
