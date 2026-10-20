@@ -285,7 +285,7 @@ async def test_app_start_closes_a_pane_left_by_the_previous_process(storage, pan
     from ccc.tui.app import CCContinueApp
     from ccc.tui.dashboard import DashboardScreen
 
-    monkeypatch.setattr(cli_pane, "style_window", lambda: None)
+    monkeypatch.setattr(cli_pane, "style_window", lambda keys=None: None)
     monkeypatch.setattr(cli_pane, "find_strip", lambda: None)
     pane.shown, pane.bar = _ids(storage)["cli"], True  # left by a killed ccc
     app = CCContinueApp(str(storage.db_path))

@@ -3,7 +3,8 @@ ccc runs (tui.cli_pane): wait until the daemon has started the
 conversation's interactive `claude`, then show it — a nested tmux client
 attached to its session on the ccc-sessions server, so it's the real CLI
 with every feature. Ctrl+] (or the session ending) closes the pane;
-Claude keeps running."""
+Claude keeps running. `python -m ccc.attach_cli QUEUE_ID [DETACH_KEY]`:
+the tmux name of the key that closes it, when it isn't Ctrl+]."""
 from __future__ import annotations
 
 import os
@@ -39,14 +40,15 @@ def wait_for_session(queue_id: int, out=sys.stdout, sleep=time.sleep, clock=time
 
 def main(argv: list[str] | None = None) -> None:
     args = sys.argv[1:] if argv is None else argv
-    if len(args) != 1 or not args[0].isdigit():
-        sys.exit("usage: python -m ccc.attach_cli QUEUE_ID")
+    if len(args) not in (1, 2) or not args[0].isdigit():
+        sys.exit("usage: python -m ccc.attach_cli QUEUE_ID [DETACH_KEY]")
     queue_id = int(args[0])
+    detach_key = args[1] if len(args) == 2 else None
     try:
         wait_for_session(queue_id)
     except KeyboardInterrupt:
         return
-    managed_sessions.make_transparent()
+    managed_sessions.make_transparent(detach_key)
     # A nested client: tmux refuses to attach while TMUX says we're
     # already inside a tmux (ccc's own).
     env = {k: v for k, v in os.environ.items() if k not in ("TMUX", "TMUX_PANE")}

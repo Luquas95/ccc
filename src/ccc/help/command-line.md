@@ -3,7 +3,9 @@
 Everything ccc does can be reached from the TUI; a few things also work
 from the shell — e.g. in scripts or over SSH. The commands live in the
 checkout's virtualenv (`~/ccc/.venv/bin/`); add it to your `PATH` or call
-them with the full path. Their output is in ccc's language.
+them with the full path. Their output is in ccc's language. Shortcuts changed with `ccc keys`
+reach the running ccc when it restarts (`systemctl --user restart
+ccc-tui`); changed in Settings they work right away.
 
 | Command | |
 |---|---|
@@ -20,4 +22,10 @@ them with the full path. Their output is in ccc's language.
 | `ccc config telegram-test` | send a test message to Telegram |
 | `ccc config discord-webhook [URL\|off]` | show (masked) / set / remove the Discord webhook |
 | `ccc config discord-test` | send a test message to Discord |
+| `ccc keys list` | every [keyboard shortcut](settings.md#keyboard-shortcuts): action id, key (`*` = changed), what it does |
+| `ccc keys check KEY [ACTION]` | is the key free? (who has it, or why it can't be used); with an action id: free for that action — exit code 1 when it isn't |
+| `ccc keys set ACTION KEY` | give the action a new key — refused (exit code 1) when it collides |
+| `ccc keys reset [ACTION]` | back to the default key (one action, or all) |
+| `ccc keys export FOLDER` | write the shortcuts to `FOLDER/ccc-keys.json` |
+| `ccc keys import PATH` | use the shortcuts from a `ccc-keys.json` (or the folder with it) — nothing is imported when they collide |
 | `ccc-daemon` | the daemon itself (normally run by `ccc.service`) |

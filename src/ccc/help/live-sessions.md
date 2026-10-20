@@ -10,7 +10,7 @@ ccc — with its status and folder.
 |---|---|
 | `Enter` | send the selected session a prompt |
 | `r` | reload the list |
-| `a` | add a prompt to any project's queue (runs [headless](conversations.md)) |
+| `+` | add a prompt to any project's queue (runs [headless](conversations.md)) |
 
 ## Sending a prompt to a running session
 

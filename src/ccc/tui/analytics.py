@@ -5,10 +5,10 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
 from rich.text import Text
-from textual.binding import Binding
 from textual.containers import Container, Horizontal, VerticalScroll
 from textual.widgets import DataTable, ProgressBar, Sparkline, Static
 
+from ccc import keymap
 from ccc import i18n
 from ccc.i18n import N_, _
 from ccc.storage import Storage
@@ -86,10 +86,10 @@ class AnalyticsScreen(SidebarScreen):
     SUB_TITLE = _("Analytics")
 
     BINDINGS = [
-        Binding("escape", "back", _("Back"), show=False),
+        keymap.binding("screen.back", "back", _("Back"), show=False),
         # priority: the tables would otherwise take the arrows.
-        Binding("left", "month(-1)", _("Prev month"), priority=True),
-        Binding("right", "month(1)", _("Next month"), priority=True),
+        keymap.binding("analytics.prev", "month(-1)", _("Prev month"), priority=True),
+        keymap.binding("analytics.next", "month(1)", _("Next month"), priority=True),
     ]
 
     DEFAULT_CSS = """

@@ -15,6 +15,7 @@ class FakeTmux:
         self.width = width
         self.next_id = 1
         self.features = ["xterm*:clipboard:ccolour", "rxvt*:ignorefkeys"]
+        self.server_options = {}
 
     def __call__(self, *args):
         self.calls.append(args)
@@ -35,6 +36,12 @@ class FakeTmux:
             out = "\n".join(f"terminal-features[{i}] {v}" for i, v in enumerate(self.features))
         elif args[0] == "kill-pane":
             self.panes.pop(args[2], None)
+        elif args[:2] == ("set-option", "-s") and len(args) == 4:
+            self.server_options[args[2]] = args[3]
+        elif args[:2] == ("set-option", "-su"):
+            self.server_options.pop(args[2], None)
+        elif args[:2] == ("show-options", "-sv"):
+            out = self.server_options.get(args[2], "")
         return subprocess.CompletedProcess(args, 0, out + "\n", "")
 
 
@@ -60,7 +67,7 @@ def test_open_splits_next_to_ccc_keeping_the_sidebar(tmux):
     pane = cli_pane.open(4)
     split = next(c for c in tmux.calls if c[0] == "split-window")
     assert split[split.index("-l") + 1] == str(200 - cli_pane.SIDEBAR_COLUMNS - 1)
-    assert split[-1].endswith("-m ccc.attach_cli 4")
+    assert split[-1].endswith("-m ccc.attach_cli 4 'C-]'")
     assert "-d" in split  # ccc keeps the keyboard until focus()
     assert cli_pane.find() == (pane, 4)
     assert ("set-option", "-t", "%0", "mouse", "on") in tmux.calls
@@ -127,7 +134,7 @@ def test_bar_opens_across_the_window_and_keys_are_bound(tmux):
     bar = cli_pane.find_bar()
     assert bar is not None and bar != pane
     bound = {c[2]: c for c in tmux.calls if c[0] == "bind-key" and c[1] == "-n" and c[2] not in ("C-S-c", "C-S-v", "C-q")}
-    assert set(bound) == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p"}
+    assert set(bound) == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p", "M-s"}
     assert f"select-pane -t {pane}" in bound["M-0"][6]
     assert "#{e|<|:#{window_width},100}" in bound["M-0"][6]  # numeric, not string compare
     assert "preset 3 --queue 4 --db /data/h.db" in bound["M-3"][7] and "#{socket_path}" in bound["M-3"][7]
@@ -156,7 +163,7 @@ def test_close_removes_bar_and_keys(tmux):
     assert [c for c in tmux.calls if c[0] == "set-hook"][-1][5] == f"resize-pane -t {strip} -y 1"
     assert cli_pane.find() is None and cli_pane.find_bar() is None
     unbound = {c[2] for c in tmux.calls if c[:2] == ("unbind-key", "-n")}
-    assert unbound == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p"}
+    assert unbound == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p", "M-s"}
 
 
 def test_no_keys_bound_on_a_foreign_tmux(tmux, monkeypatch):
@@ -168,6 +175,12 @@ def test_no_keys_bound_on_a_foreign_tmux(tmux, monkeypatch):
 def test_bindings_never_take_claude_code_keys():
     keys = {b[2] for b in cli_pane.key_bindings("%0", "%1", 1, "/data/h.db")}
     assert not keys & {"Tab", "BTab", "C-t", "C-d", "C-c", "C-o", "C-r", "C-b", "M-p", "M-o", "M-t", "M-v"}
+
+
+def test_alt_s_screenshots_ccc_without_moving_the_keyboard():
+    binding = next(b for b in cli_pane.key_bindings("%0", "%1", 1, "/data/h.db") if b[2] == "M-s")
+    # In ccc it's ccc's key; in Claude it goes to ccc, the keyboard stays.
+    assert binding[-2:] == ("send-keys M-s", "send-keys -t %0 M-s")
 
 
 def test_title_bars_from_the_start_on_the_ccc_server(tmux):
@@ -241,3 +254,28 @@ def test_terminal_feature_added_once_and_copies_removed(tmux):
 def test_no_zoom_key_on_the_ccc_server(tmux):
     cli_pane.style_window()
     assert ("unbind-key", "-T", "prefix", "z") in tmux.calls
+
+
+def test_changed_shortcuts_move_the_tmux_keys(tmux, tmp_path, monkeypatch):
+    from ccc import keymap, managed_sessions
+    from ccc.storage import Storage
+
+    detach = []
+    monkeypatch.setattr(managed_sessions, "set_detach_key", detach.append)
+    db = str(tmp_path / "h.db")
+    keymap.save(Storage(db), {**keymap.defaults(), "app.screenshot": "f6"})
+    cli_pane.open(4, "Kompas", db)
+    bound = {c[2] for c in tmux.calls if c[:2] == ("bind-key", "-n")}
+    assert "F6" in bound and "M-s" not in bound
+    # attach_cli gets the close-Claude key.
+    assert next(c for c in tmux.calls if c[0] == "split-window")[-1].endswith("4 'C-]'")
+
+    tmux.calls.clear()
+    keys = {**keymap.defaults(), "app.screenshot": "f7", "conversations.close_claude": "f8", "app.quit": "f9"}
+    cli_pane.apply_keys(keys, db)
+    unbound = {c[2] for c in tmux.calls if c[:2] == ("unbind-key", "-n")}
+    rebound = {c[2] for c in tmux.calls if c[:2] == ("bind-key", "-n")}
+    assert {"F6", "C-q"} <= unbound  # what was bound before…
+    assert {"F7", "F9"} <= rebound  # …gives way to the new keys
+    assert ("bind-key", "-n", "F9", "detach-client") in tmux.calls
+    assert detach == ["F8"]

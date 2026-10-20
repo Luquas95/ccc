@@ -54,7 +54,7 @@ Dobré vědět:
 
 ## Konverzace na pozadí
 
-Prompty zařazené přes `a` (Živé relace, detail fronty) nebo `ccc add`
+Prompty zařazené přes `+` (Živé relace, detail fronty) nebo `ccc add`
 běží **na pozadí** (headless): daemon pro každý úkol spustí `claude -p`
 bez terminálu. U nich ukazuje přepis sám ccc:
 

@@ -54,7 +54,7 @@ Good to know:
 
 ## Headless conversations
 
-Prompts queued with `a` (Live sessions, queue detail) or `ccc add` run
+Prompts queued with `+` (Live sessions, queue detail) or `ccc add` run
 **headless**: the daemon runs `claude -p` for each task, without a
 terminal. For these ccc shows the transcript itself:
 

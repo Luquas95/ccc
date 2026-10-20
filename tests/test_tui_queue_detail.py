@@ -19,9 +19,9 @@ async def test_add_prompt_modal_queues_item(tmp_path):
 
     async with app.run_test() as pilot:
         await pilot.pause()
-        await pilot.press("s")  # "a" belongs to Live sessions / queue detail
+        await pilot.press("s")  # "+" belongs to Live sessions / queue detail
         await pilot.pause()
-        await pilot.press("a")
+        await pilot.press("plus")
         await pilot.pause()
         path_input = app.screen.query_one("#add-prompt-path")
         text_area = app.screen.query_one("#add-prompt-text")
@@ -43,9 +43,9 @@ async def test_add_prompt_modal_shows_error_for_missing_directory(tmp_path):
 
     async with app.run_test() as pilot:
         await pilot.pause()
-        await pilot.press("s")  # "a" belongs to Live sessions / queue detail
+        await pilot.press("s")  # "+" belongs to Live sessions / queue detail
         await pilot.pause()
-        await pilot.press("a")
+        await pilot.press("plus")
         await pilot.pause()
         path_input = app.screen.query_one("#add-prompt-path")
         text_area = app.screen.query_one("#add-prompt-text")

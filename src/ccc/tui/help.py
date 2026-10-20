@@ -8,119 +8,134 @@ from textual.widgets import Markdown, OptionList
 from textual.widgets.option_list import Option
 
 from ccc import help as help_topics
+from ccc import keymap
 from ccc.i18n import N_, _
 from ccc.tui.layout import MODAL_CSS
 
-# (section, [(binding key, description)]) — keys as Textual names them;
-# tests check every screen's bindings are listed here.
+# (section, [(ref, description)]): ref is a keymap action id (its key is
+# the user's) or, for keys of lists and text fields that aren't ccc's
+# bindings, the key itself. Tests check every screen's bindings are listed.
 KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
     (N_("Everywhere"), [
-        ("d", N_("Dashboard")),
-        ("c", N_("Conversations")),
-        ("h", N_("Archive (archived conversations)")),
-        ("s", N_("Live sessions")),
-        ("v", N_("Analytics")),
-        ("n", N_("New conversation")),
-        ("question_mark", N_("This help")),
-        ("ctrl+p", N_("Settings (language, theme, Telegram, queues, presets, backup)")),
-        ("ctrl+q", N_("Close ccc (it keeps running; `ccc` opens it again)")),
-        ("escape", N_("Back / close")),
+        ("views.dashboard", N_("Dashboard")),
+        ("views.conversations", N_("Conversations")),
+        ("views.archive", N_("Archive (archived conversations)")),
+        ("views.sessions", N_("Live sessions")),
+        ("views.analytics", N_("Analytics")),
+        ("views.new_conversation", N_("New conversation")),
+        ("views.help", N_("This help")),
+        ("app.settings", N_("Settings (language, theme, Telegram, queues, presets, shortcuts, backup)")),
+        ("app.screenshot", N_("Screenshot of ccc (an SVG in the export folder, see Settings)")),
+        ("app.quit", N_("Close ccc (it keeps running; `ccc` opens it again)")),
+        ("screen.back", N_("Back")),
+        ("window.cancel", N_("Close the window / cancel")),
     ]),
     (N_("Dashboard"), [
         ("enter", N_("Open the queue detail")),
-        ("q", N_("Close ccc (same as Ctrl+Q)")),
+        ("dashboard.quit", N_("Close ccc (same as Ctrl+Q)")),
     ]),
     (N_("Live sessions"), [
         ("enter", N_("Send the selected session a prompt")),
-        ("r", N_("Reload the session list")),
-        ("a", N_("Add a prompt to a project's queue")),
+        ("sessions.refresh", N_("Reload the session list")),
+        ("screen.add_prompt", N_("Add a prompt to a project's queue")),
     ]),
     (N_("Conversations"), [
         ("enter", N_("Open the conversation's Claude Code CLI (in the list) / send the message (in the box)")),
-        ("r", N_("Blocked: run the failed task again / resume one paused at a limit")),
-        ("t", N_("Tasks editor (queue, schedule, pause, auto-continue)")),
-        ("p", N_("Approve a tool call Claude is waiting on")),
-        ("x", N_("Archive (moves it to Archive, h)")),
-        ("alt+0", N_("Switch between ccc and Claude Code (while it's open beside ccc)")),
-        ("ctrl+right_square_bracket", N_("Close Claude Code beside ccc (it keeps running; Enter in the list opens it)")),
-        ("slash", N_("Search all conversations")),
-        ("e", N_("Export the conversation as Markdown")),
+        ("screen.retry", N_("Blocked: run the failed task again / resume one paused at a limit")),
+        ("conversations.tasks", N_("Tasks editor (queue, schedule, pause, auto-continue)")),
+        ("conversations.approve", N_("Approve a tool call Claude is waiting on")),
+        ("conversations.archive", N_("Archive (moves it to Archive, h)")),
+        ("conversations.focus_claude", N_("Switch between ccc and Claude Code (while it's open beside ccc)")),
+        ("conversations.close_claude",
+         N_("Close Claude Code beside ccc (it keeps running; Enter in the list opens it)")),
+        ("conversations.search", N_("Search all conversations")),
+        ("conversations.export", N_("Export the conversation as Markdown")),
         ("ctrl+j", N_("New line in the message box (Shift+Enter where supported)")),
-        ("alt+1", N_("Preset prompt 1–9 (⏎ sends it, ✎ puts it into the message box; set in Settings)")),
-        ("alt+2", N_("Preset prompt 2")),
-        ("alt+3", N_("Preset prompt 3")),
-        ("alt+4", N_("Preset prompt 4")),
-        ("alt+5", N_("Preset prompt 5")),
-        ("alt+6", N_("Preset prompt 6")),
-        ("alt+7", N_("Preset prompt 7")),
-        ("alt+8", N_("Preset prompt 8")),
-        ("alt+9", N_("Preset prompt 9")),
+        ("conversations.preset1", N_("Preset prompt 1–9 (⏎ sends it, ✎ puts it into the message box; set in Settings)")),
+        *[(f"conversations.preset{n}", N_("Preset prompt {n}")) for n in range(2, 10)],
     ]),
     (N_("Archive"), [
-        ("x", N_("Restore the conversation")),
+        ("conversations.archive", N_("Restore the conversation")),
         ("enter", N_("Restore it and open it in Conversations")),
-        ("delete", N_("Delete the conversation from ccc (asks first; Claude Code's transcript stays)")),
-        ("slash", N_("Search all conversations")),
-        ("e", N_("Export the conversation as Markdown")),
+        ("archive.delete", N_("Delete the conversation from ccc (asks first; Claude Code's transcript stays)")),
+        ("conversations.search", N_("Search all conversations")),
+        ("conversations.export", N_("Export the conversation as Markdown")),
     ]),
     (N_("Tasks editor (t)"), [
-        ("a", N_("Add a task")),
-        ("e", N_("Edit the task (also Enter)")),
-        ("delete", N_("Remove the task")),
-        ("ctrl+up", N_("Move up")),
-        ("ctrl+down", N_("Move down")),
-        ("p", N_("Pause / resume the queue")),
-        ("o", N_("Toggle auto-continue")),
-        ("ctrl+s", N_("Save in the task editor")),
+        ("tasks.add", N_("Add a task")),
+        ("tasks.edit", N_("Edit the task (also Enter)")),
+        ("tasks.remove", N_("Remove the task")),
+        ("tasks.up", N_("Move up")),
+        ("tasks.down", N_("Move down")),
+        ("tasks.pause", N_("Pause / resume the queue")),
+        ("tasks.auto", N_("Toggle auto-continue")),
+        ("window.save", N_("Save in the task editor")),
     ]),
     (N_("Approval window (p)"), [
-        ("y", N_("Allow")),
-        ("a", N_("Always allow this tool in this conversation")),
-        ("n", N_("Deny")),
+        ("answer.yes", N_("Allow")),
+        ("approval.always", N_("Always allow this tool in this conversation")),
+        ("answer.no", N_("Deny")),
+    ]),
+    (N_("Confirmation (e.g. deleting)"), [
+        ("answer.yes", N_("Yes")),
+        ("confirm.enter", N_("Yes")),
+        ("answer.no", N_("No")),
     ]),
     (N_("Analytics"), [
-        ("left", N_("Previous calendar month")),
-        ("right", N_("Next calendar month")),
+        ("analytics.prev", N_("Previous calendar month")),
+        ("analytics.next", N_("Next calendar month")),
     ]),
     (N_("Queue detail"), [
         ("enter", N_("Show the run's commit diff")),
-        ("a", N_("Add a prompt (this queue's path prefilled)")),
-        ("r", N_("Blocked: run the failed task again / resume one paused at a limit")),
+        ("screen.add_prompt", N_("Add a prompt (this queue's path prefilled)")),
+        ("screen.retry", N_("Blocked: run the failed task again / resume one paused at a limit")),
     ]),
     (N_("Preset prompt editor (Settings → Add / Edit)"), [
-        ("ctrl+s", N_("Save")),
-        ("escape", N_("Cancel")),
+        ("window.save", N_("Save")),
+        ("window.cancel", N_("Cancel")),
     ]),
     (N_("Settings (Ctrl+P)"), [
-        ("ctrl+s", N_("Save")),
-        ("escape", N_("Cancel (the theme goes back too)")),
+        ("window.save", N_("Save")),
+        ("window.cancel", N_("Cancel (the theme goes back too)")),
     ]),
 ]
 
-_PRETTY = {
-    "question_mark": "?", "escape": "Esc", "enter": "Enter", "slash": "/", "delete": "Del",
-    "ctrl+d": "Ctrl+D", "ctrl+p": "Ctrl+P", "ctrl+t": "Ctrl+T", "ctrl+q": "Ctrl+Q", "left": "←", "right": "→",
-    **{f"alt+{n}": f"Alt+{n}" for n in range(0, 10)}, "ctrl+right_square_bracket": "Ctrl+]", "ctrl+j": "Ctrl+J", "ctrl+s": "Ctrl+S", "ctrl+up": "Ctrl+↑", "ctrl+down": "Ctrl+↓",
-}
+
+def section_of(action_id: str) -> str:
+    """The help section an action is listed in first (untranslated)."""
+    for section, entries in KEY_HELP:
+        if any(ref == action_id for ref, _description in entries):
+            return section
+    return ""
 
 
-def pretty_key(key: str) -> str:
-    return _PRETTY.get(key, key)
+def pretty_key(ref: str, keys: dict[str, str] | None = None) -> str:
+    """The key of a KEY_HELP ref: an action's (the user's `keys`, default
+    keys without them) or the fixed key itself."""
+    if ref in keymap.BY_ID:
+        return keymap.pretty((keys or keymap.defaults())[ref])
+    return keymap.pretty(ref)
 
 
-def keys_markdown() -> str:
-    """KEY_HELP as the "Keyboard shortcuts" help topic (help/keys.md is
-    this, kept in sync by a test)."""
+def keys_markdown(keys: dict[str, str] | None = None) -> str:
+    """KEY_HELP as the "Keyboard shortcuts" help topic, with the user's
+    `keys` (help/keys.md is this with the defaults, kept in sync by a
+    test)."""
     lines = [
         "# " + _("Keyboard shortcuts"),
         "",
         _("Keys without Ctrl or Alt don't work while you're typing in a text field;\n"
           "Ctrl and Alt keys work everywhere. The bar at the bottom of the window\n"
           "lists the keys of the screen you're on — click one to press it."),
+        "",
+        _("Every shortcut can be changed in Settings → Keyboard shortcuts (or with\n"
+          "`ccc keys`); ccc checks the new key is free. The other pages of this guide\n"
+          "name the default keys."),
     ]
     for section, entries in KEY_HELP:
         lines += ["", f"## {_(section)}", "", "| " + _("Key") + " | |", "|---|---|"]
-        lines += [f"| `{pretty_key(key)}` | {_(description).replace('|', '\\|')} |" for key, description in entries]
+        lines += [f"| `{pretty_key(ref, keys)}` | {_(description).replace('{n}', ref[-1]).replace('|', '\\|')} |"
+                  for ref, description in entries]
     return "\n".join(lines) + "\n"
 
 
@@ -154,7 +169,7 @@ class HelpScreen(ModalScreen):
     }
     """
 
-    BINDINGS = [("escape", "close", _("Close")), ("question_mark", "close", _("Close"))]
+    BINDINGS = [keymap.binding("window.cancel", "close", _("Close")), keymap.binding("views.help", "close", _("Close"))]
 
     def __init__(self, topic: str = "getting-started"):
         super().__init__()
@@ -180,7 +195,9 @@ class HelpScreen(ModalScreen):
 
     def show_topic(self, slug: str) -> None:
         self.topic = slug
-        text = keys_markdown() if slug == "keys" else help_topics.for_terminal(help_topics.read(slug))
+        storage = getattr(self.app, "storage", None)
+        keys = keymap.current(storage) if storage is not None else None
+        text = keys_markdown(keys) if slug == "keys" else help_topics.for_terminal(help_topics.read(slug))
         self.query_one("#help-text", Markdown).update(text)
         self.query_one("#help-scroll", VerticalScroll).scroll_home(animate=False)
 

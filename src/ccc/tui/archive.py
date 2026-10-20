@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from textual.widgets import DataTable
 
+from ccc import keymap
 from ccc.i18n import _
 from ccc.models import Queue
 from ccc.tui.conversations import ConversationsScreen
@@ -22,10 +23,10 @@ class ArchiveScreen(ConversationsScreen):
     BANNER_TEXT = _("EMPTY")
 
     BINDINGS = [
-        ("x", "toggle_archive", _("Restore")),
+        keymap.binding("conversations.archive", "toggle_archive", _("Restore")),
         # Safe here: no Claude Code runs next to the Archive (Ctrl+D is
         # Claude's exit, #31).
-        ("delete", "delete_conversation", _("Delete")),
+        keymap.binding("archive.delete", "delete_conversation", _("Delete")),
     ]
 
     DEFAULT_CSS = """

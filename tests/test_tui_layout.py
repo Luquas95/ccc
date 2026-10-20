@@ -40,7 +40,7 @@ async def test_hotkeys_switch_views_without_growing_the_stack(tmp_path):
 
         for key, expected in [
             ("c", ConversationsScreen),
-            ("v", AnalyticsScreen),
+            ("a", AnalyticsScreen),
             ("s", SessionPickerScreen),
         ]:
             await pilot.press(key)
@@ -59,7 +59,7 @@ async def test_every_view_highlights_its_own_nav_item(tmp_path):
     app = _app(tmp_path)
     async with app.run_test() as pilot:
         await pilot.pause()
-        for key, view in [("d", "dashboard"), ("c", "conversations"), ("s", "sessions"), ("v", "analytics")]:
+        for key, view in [("d", "dashboard"), ("c", "conversations"), ("s", "sessions"), ("a", "analytics")]:
             await pilot.press(key)
             await pilot.pause()
             active = [w.id for w in app.screen.query(".nav-item.-active")]
@@ -81,7 +81,7 @@ async def test_escape_returns_to_dashboard_but_never_leaves_it(tmp_path):
     app = _app(tmp_path)
     async with app.run_test() as pilot:
         await pilot.pause()
-        await pilot.press("v")
+        await pilot.press("a")
         await pilot.pause()
         await pilot.press("escape")
         await pilot.pause()
@@ -126,8 +126,8 @@ async def test_sidebar_buttons_are_only_the_views_own_actions(tmp_path):
     app = _app(tmp_path)
     expected = {
         "d": [],  # only an overview
-        "s": ["Add prompt (a)", "Reload session list (r)"],
-        "v": [],
+        "s": ["Add prompt (+)", "Reload session list (r)"],
+        "a": [],
         "c": ["New conversation (n)", "Retry blocked queue (r)"],
     }
     async with app.run_test() as pilot:
@@ -146,7 +146,7 @@ async def test_add_prompt_prefills_queue_detail_path(tmp_path):
         await pilot.press("enter")
         await pilot.pause()
         assert isinstance(app.screen, QueueDetailScreen)
-        await pilot.press("a")
+        await pilot.press("plus")
         await pilot.pause()
         assert isinstance(app.screen, AddPromptModal)
         assert app.screen.query_one("#add-prompt-path", Input).value == "/tmp/proj-a"
@@ -156,23 +156,23 @@ async def test_add_prompt_prefills_queue_detail_path(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_a_works_only_in_views_with_add_prompt(tmp_path):
-    # Keys belong to the view that uses them: "a" is Live sessions' and
+async def test_plus_works_only_in_views_with_add_prompt(tmp_path):
+    # Keys belong to the view that uses them: "+" is Live sessions' and
     # queue detail's Add prompt, nothing on the other views.
     app = _app(tmp_path)
     async with app.run_test() as pilot:
         await pilot.pause()
-        for view, screen_type in (("d", DashboardScreen), ("v", AnalyticsScreen), ("c", ConversationsScreen)):
+        for view, screen_type in (("d", DashboardScreen), ("a", AnalyticsScreen), ("c", ConversationsScreen)):
             await pilot.press(view)
             await pilot.pause()
             if screen_type is ConversationsScreen:
                 app.screen.set_focus(None)
-            await pilot.press("a")
+            await pilot.press("plus")
             await pilot.pause()
             assert isinstance(app.screen, screen_type), view
         await pilot.press("s")
         await pilot.pause()
-        await pilot.press("a")
+        await pilot.press("plus")
         await pilot.pause()
         assert isinstance(app.screen, AddPromptModal)
 
@@ -192,3 +192,19 @@ async def test_n_opens_new_conversation_and_lands_in_conversations(tmp_path):
         assert isinstance(app.screen, ConversationsScreen)
         newest = max(q.id for q in app.screen.storage.list_queues())
         assert app.screen._current_queue_id == newest
+
+
+@pytest.mark.asyncio
+async def test_alt_s_takes_a_screenshot_on_any_view(tmp_path, monkeypatch):
+    # Not Ctrl+T: that's Claude Code's to-do list (#31).
+    taken = []
+    monkeypatch.setattr(CCContinueApp, "action_take_screenshot", lambda self: taken.append(type(self.screen)))
+    app = _app(tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        for view in ("d", "a", "c"):
+            await pilot.press(view)
+            await pilot.pause()
+            await pilot.press("alt+s")
+            await pilot.pause()
+    assert taken == [DashboardScreen, AnalyticsScreen, ConversationsScreen]

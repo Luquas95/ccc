@@ -4,6 +4,10 @@ Klávesy bez Ctrl nebo Alt nefungují, když píšeš do textového pole;
 klávesy s Ctrl a Alt fungují všude. Lišta dole v okně ukazuje
 klávesy obrazovky, na které jsi — kliknutím klávesu stiskneš.
 
+Každou zkratku jde změnit v Nastavení → Klávesové zkratky (nebo příkazem
+`ccc keys`); ccc ověří, že je nová klávesa volná. Ostatní stránky příručky
+uvádějí výchozí klávesy.
+
 ## Všude
 
 | Klávesa | |
@@ -12,12 +16,14 @@ klávesy obrazovky, na které jsi — kliknutím klávesu stiskneš.
 | `c` | Konverzace |
 | `h` | Archiv (archivované konverzace) |
 | `s` | Živé relace |
-| `v` | Analytika |
+| `a` | Analytika |
 | `n` | Nová konverzace |
 | `?` | Tato nápověda |
-| `Ctrl+P` | Nastavení (jazyk, motiv, Telegram, fronty, předvolby, záloha) |
+| `Ctrl+P` | Nastavení (jazyk, motiv, Telegram, fronty, předvolby, zkratky, záloha) |
+| `Alt+S` | Snímek obrazovky ccc (SVG do složky exportů, viz Nastavení) |
 | `Ctrl+Q` | Zavřít ccc (běží dál; `ccc` ho zase otevře) |
-| `Esc` | Zpět / zavřít |
+| `Esc` | Zpět |
+| `Esc` | Zavřít okno / zrušit |
 
 ## Přehled
 
@@ -32,7 +38,7 @@ klávesy obrazovky, na které jsi — kliknutím klávesu stiskneš.
 |---|---|
 | `Enter` | Poslat vybrané relaci prompt |
 | `r` | Znovu načíst seznam relací |
-| `a` | Přidat prompt do fronty projektu |
+| `+` | Přidat prompt do fronty projektu |
 
 ## Konverzace
 
@@ -89,6 +95,14 @@ klávesy obrazovky, na které jsi — kliknutím klávesu stiskneš.
 | `a` | Vždy povolit tento nástroj v této konverzaci |
 | `n` | Zamítnout |
 
+## Potvrzení (např. mazání)
+
+| Klávesa | |
+|---|---|
+| `y` | Ano |
+| `Enter` | Ano |
+| `n` | Ne |
+
 ## Analytika
 
 | Klávesa | |
@@ -101,7 +115,7 @@ klávesy obrazovky, na které jsi — kliknutím klávesu stiskneš.
 | Klávesa | |
 |---|---|
 | `Enter` | Ukázat diff commitu z běhu |
-| `a` | Přidat prompt (s předvyplněnou cestou této fronty) |
+| `+` | Přidat prompt (s předvyplněnou cestou této fronty) |
 | `r` | Zablokovaná: znovu spustit selhaný úkol / pokračovat po pauze na limitu |
 
 ## Editor přednastaveného promptu (Nastavení → Přidat / Upravit)

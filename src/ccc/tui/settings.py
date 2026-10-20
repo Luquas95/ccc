@@ -7,7 +7,6 @@ from pathlib import Path
 
 from rich.text import Text
 from textual import work
-from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Input, Select, Static
@@ -22,7 +21,7 @@ from ccc.notify import (
     send_telegram,
 )
 from ccc.analytics_archive import FOLDER_KEY as ARCHIVE_FOLDER_KEY, archive
-from ccc import i18n
+from ccc import i18n, keymap
 from ccc.i18n import N_, _
 from ccc.export_paths import (
     FOLDER_KEY as EXPORT_FOLDER_KEY, SEND_CHOICES, SEND_KEY as EXPORT_SEND_KEY, default_export_folder, home_short,
@@ -31,7 +30,7 @@ from ccc.orchestrator import DEFAULT_CONTINUE_TEXT, RESERVE_KEY, usage_reserve
 from ccc.presets import delete_preset, list_presets
 from ccc.prompt_presets import MAX_PRESETS, load_prompt_presets, save_prompt_presets
 from ccc.tui.layout import MODAL_CSS
-from ccc.tui.prompt_presets import PromptPresetModal, mode_label
+from ccc.tui.prompt_presets import PromptPresetModal, mode_label, preset_key
 
 THEME_KEY = "tui_theme"
 RESERVE_CHOICES = [50, 60, 70, 75, 80, 85, 90, 95]
@@ -40,7 +39,7 @@ DISCORD_TEST_MESSAGE = N_("✅ ccc: Discord notifications work.")
 DISCORD_PLACEHOLDER = "https://discord.com/api/webhooks/…"
 # Preset prompt table: fixed columns, the prompt gets the rest of the row
 # and ends in "…" when it doesn't fit — the full text is in Edit.
-PRESET_COLUMNS = ((N_("Key"), 5), (N_("Mode"), 8), (N_("Name"), 16))
+PRESET_COLUMNS = ((N_("Key"), 9), (N_("Mode"), 8), (N_("Name"), 16))
 MIN_PROMPT_WIDTH = 10
 
 
@@ -134,8 +133,8 @@ class SettingsModal(ModalScreen):
     """
 
     BINDINGS = [
-        Binding("ctrl+s", "save", _("Save"), priority=True),
-        Binding("escape", "cancel", _("Cancel"), priority=True),
+        keymap.binding("window.save", "save", _("Save"), priority=True),
+        keymap.binding("window.cancel", "cancel", _("Cancel"), priority=True),
     ]
 
     def __init__(self, storage):
@@ -245,12 +244,23 @@ class SettingsModal(ModalScreen):
             Horizontal(Button(_("Delete preset"), id="settings-preset-delete", classes="settings-danger",
                               disabled=not presets), classes="settings-actions"),
         )
+        changed = len(keymap.load(s))
+        shortcuts = _section(
+            _("Keyboard shortcuts"),
+            Static(_("Every key can be changed; a key that collides with another shortcut, with Claude Code or "
+                     "with the terminal is refused. Export / import them to any folder. Saved in their own window."),
+                   classes="settings-hint"),
+            Horizontal(Button(_("Edit shortcuts…"), id="settings-keys"),
+                       Static(_("{n} changed").format(n=changed) if changed else _("all default"),
+                              id="settings-keys-state", classes="settings-status"),
+                       classes="settings-actions"),
+        )
         exports = _section(
             _("Exports"),
             _row(_("Export folder"), Input(s.get_setting(EXPORT_FOLDER_KEY) or "",
                                         placeholder=_("empty = {folder}").format(folder=home_short(default_export_folder())),
                                         id="settings-export-folder")),
-            Static(_("Exported conversations (e) go to conversations/, screenshots (Ctrl+T) to screenshots/\n"
+            Static(_("Exported conversations (e) go to conversations/, screenshots (Alt+S) to screenshots/\n"
                      "inside it. Empty = ccc in your documents folder (~/ccc-exports where there is none)."),
                    classes="settings-hint"),
             _row(_("After export"), Select(
@@ -266,7 +276,7 @@ class SettingsModal(ModalScreen):
             _row(_("Folder"), Input(s.get_setting(ARCHIVE_FOLDER_KEY) or "", placeholder=_("empty = off, e.g. ~/Documents/ccc_analytics"),
                                  id="settings-archive-folder")),
             Static(
-                _("The current month is here in Analytics (v). When a month ends, ccc archives it into this\n"
+                _("The current month is here in Analytics (a). When a month ends, ccc archives it into this\n"
                   "folder as Markdown notes for Obsidian (no plugins): ccc_analytics.md with all months, one\n"
                   "note per month with a calendar and charts, one per day. Empty = no archive."),
                 classes="settings-hint",
@@ -284,7 +294,8 @@ class SettingsModal(ModalScreen):
             Horizontal(Button(_("Back up now"), id="settings-backup"), classes="settings-actions"),
         )
         box = Container(
-            VerticalScroll(appearance, telegram, discord, queues, prompt_box, preset_box, exports, archive_box, data, id="settings-scroll"),
+            VerticalScroll(appearance, telegram, discord, queues, prompt_box, preset_box, shortcuts, exports, archive_box, data,
+                           id="settings-scroll"),
             Horizontal(
                 Static(_("Ctrl+S save  ·  Esc cancel"), classes="modal-hint"),
                 Button(_("Cancel"), id="settings-cancel", classes="modal-cancel"),
@@ -332,6 +343,7 @@ class SettingsModal(ModalScreen):
             "settings-discord-off": self._discord_off,
             "settings-preset-delete": self._delete_preset,
             "settings-backup": self._backup,
+            "settings-keys": self._edit_keys,
             "settings-archive-now": self._archive_now,
             "settings-prompt-add": self._add_prompt_preset,
             "settings-prompt-edit": self._edit_prompt_preset,
@@ -341,6 +353,16 @@ class SettingsModal(ModalScreen):
         }.get(event.button.id or "")
         if handler:
             handler()
+
+    def _edit_keys(self) -> None:
+        from ccc.tui.keys import KeysModal
+
+        def done(_saved) -> None:
+            changed = len(keymap.load(self.storage))
+            self.query_one("#settings-keys-state", Static).update(
+                _("{n} changed").format(n=changed) if changed else _("all default"))
+
+        self.app.push_screen(KeysModal(self.storage), done)
 
     # --- preset prompts (kept in the form until Save) ---------------------
 
@@ -353,12 +375,13 @@ class SettingsModal(ModalScreen):
             table.add_column(_(label), width=width)
         table.add_column(_("Prompt"), width=prompt_width)
         name_width = dict(PRESET_COLUMNS)["Name"]
+        keys = keymap.current(self.storage)
         for number, preset in enumerate(self._prompt_presets, start=1):
             text = preset.text.strip()
             first_line = text.splitlines()[0] if text else ""
             if "\n" in text:
                 first_line += " …"
-            table.add_row(f"Alt+{number}", mode_label(preset), _fit(preset.name, name_width),
+            table.add_row(preset_key(number, keys), mode_label(preset), _fit(preset.name, name_width),
                           _fit(first_line, prompt_width))
         if not self._prompt_presets:
             table.add_row("", "", Text(_("no preset prompts yet — Add one"), style="dim"), "")

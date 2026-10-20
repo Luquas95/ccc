@@ -227,7 +227,7 @@ async def test_arrows_switch_calendar_month(tmp_path, monkeypatch):
     app = CCContinueApp(str(tmp_path / "history.db"))
     async with app.run_test(size=(140, 45)) as pilot:
         await pilot.pause()
-        await pilot.press("v")
+        await pilot.press("a")
         await pilot.pause()
         screen = app.screen
         assert screen.query_one("#analytics-project-table", DataTable).row_count == 0
@@ -260,7 +260,7 @@ async def test_remote_control_replies_show_in_analytics_and_dashboard(tmp_path, 
         await pilot.pause()
         dash = app.screen.query_one("#dashboard-table", DataTable)
         assert "10" in [str(c) for c in dash.get_row_at(0)]
-        await pilot.press("v")
+        await pilot.press("a")
         await pilot.pause()
         table = app.screen.query_one("#analytics-project-table", DataTable)
         assert [str(c) for c in table.get_row_at(0)][:2] == ["phone-chat", "10"]

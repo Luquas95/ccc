@@ -76,9 +76,9 @@ CS: dict[str, str] = {
     "background": "na pozadí",
 
     # --- frame (tui/layout.py) -------------------------------------------------
-    "Add prompt (a)": "Přidat prompt (a)",
-    "Retry blocked queue (r)": "Znovu spustit frontu (r)",
-    "New conversation (n)": "Nová konverzace (n)",
+    "Add prompt ({key})": "Přidat prompt ({key})",
+    "Retry blocked queue ({key})": "Znovu spustit frontu ({key})",
+    "New conversation ({key})": "Nová konverzace ({key})",
     "New conversation": "Nová konverzace",
     "y / Enter yes  ·  n / Esc no": "y / Enter ano  ·  n / Esc ne",
     "Esc close": "Esc zavřít",
@@ -286,10 +286,11 @@ CS: dict[str, str] = {
         "Zkontroluj {target} v Nastavení (Ctrl+P), nebo je soubor moc velký.",
     "Not sent to {target}": "Neodesláno na {target}",
     "Screenshot saved": "Snímek obrazovky uložen",
+    "Screenshot": "Snímek obrazovky",
     "⌨ typing here": "⌨ píšeš sem",
 
     # --- Live sessions ------------------------------------------------------------
-    "Reload session list (r)": "Načíst relace znovu (r)",
+    "Reload session list ({key})": "Načíst relace znovu ({key})",
     "Reload session list": "Načíst relace znovu",
     "Enter on a session to send it a prompt — typed into its own terminal once it's idle.":
         "Enter na relaci jí pošle prompt — napíše se do jejího terminálu, jakmile bude nečinná.",
@@ -387,9 +388,9 @@ CS: dict[str, str] = {
     "Exports": "Exporty",
     "Export folder": "Složka pro exporty",
     "empty = {folder}": "prázdné = {folder}",
-    "Exported conversations (e) go to conversations/, screenshots (Ctrl+T) to screenshots/\n"
+    "Exported conversations (e) go to conversations/, screenshots (Alt+S) to screenshots/\n"
     "inside it. Empty = ccc in your documents folder (~/ccc-exports where there is none).":
-        "Exportované konverzace (e) jdou do podsložky conversations/, snímky obrazovky (Ctrl+T)\n"
+        "Exportované konverzace (e) jdou do podsložky conversations/, snímky obrazovky (Alt+S)\n"
         "do screenshots/. Prázdné = ccc ve složce dokumentů (kde není, tak ~/ccc-exports).",
     "After export": "Po exportu",
     "Only save to the folder": "Jen uložit do složky",
@@ -402,10 +403,10 @@ CS: dict[str, str] = {
         "Použije Telegram / Discord nastavený výše.",
     "Monthly analytics archive": "Měsíční archiv analytiky",
     "empty = off, e.g. ~/Documents/ccc_analytics": "prázdné = vypnuto, např. ~/Dokumenty/ccc_analytics",
-    "The current month is here in Analytics (v). When a month ends, ccc archives it into this\n"
+    "The current month is here in Analytics (a). When a month ends, ccc archives it into this\n"
     "folder as Markdown notes for Obsidian (no plugins): ccc_analytics.md with all months, one\n"
     "note per month with a calendar and charts, one per day. Empty = no archive.":
-        "Aktuální měsíc je tady v Analytice (v). Když měsíc skončí, ccc ho uloží do této složky\n"
+        "Aktuální měsíc je tady v Analytice (a). Když měsíc skončí, ccc ho uloží do této složky\n"
         "jako Markdown poznámky pro Obsidian (bez pluginů): ccc_analytics.md se všemi měsíci,\n"
         "poznámku za měsíc s kalendářem a grafy a jednu za každý den. Prázdné = bez archivu.",
     "Archive finished months now": "Archivovat skončené měsíce hned",
@@ -455,10 +456,12 @@ CS: dict[str, str] = {
     "Everywhere": "Všude",
     "Archive (archived conversations)": "Archiv (archivované konverzace)",
     "This help": "Tato nápověda",
-    "Settings (language, theme, Telegram, queues, presets, backup)":
-        "Nastavení (jazyk, motiv, Telegram, fronty, předvolby, záloha)",
+    "Settings (language, theme, Telegram, queues, presets, shortcuts, backup)":
+        "Nastavení (jazyk, motiv, Telegram, fronty, předvolby, zkratky, záloha)",
+    "Screenshot of ccc (an SVG in the export folder, see Settings)":
+        "Snímek obrazovky ccc (SVG do složky exportů, viz Nastavení)",
     "Close ccc (it keeps running; `ccc` opens it again)": "Zavřít ccc (běží dál; `ccc` ho zase otevře)",
-    "Back / close": "Zpět / zavřít",
+    "Back": "Zpět",
     "Open the queue detail": "Otevřít detail fronty",
     "Close ccc (same as Ctrl+Q)": "Zavřít ccc (stejně jako Ctrl+Q)",
     "Send the selected session a prompt": "Poslat vybrané relaci prompt",
@@ -481,14 +484,7 @@ CS: dict[str, str] = {
     "New line in the message box (Shift+Enter where supported)": "Nový řádek v poli pro zprávu (Shift+Enter, kde funguje)",
     "Preset prompt 1–9 (⏎ sends it, ✎ puts it into the message box; set in Settings)":
         "Přednastavený prompt 1–9 (⏎ odešle, ✎ vloží do pole pro zprávu; nastavíš v Nastavení)",
-    "Preset prompt 2": "Přednastavený prompt 2",
-    "Preset prompt 3": "Přednastavený prompt 3",
-    "Preset prompt 4": "Přednastavený prompt 4",
-    "Preset prompt 5": "Přednastavený prompt 5",
-    "Preset prompt 6": "Přednastavený prompt 6",
-    "Preset prompt 7": "Přednastavený prompt 7",
-    "Preset prompt 8": "Přednastavený prompt 8",
-    "Preset prompt 9": "Přednastavený prompt 9",
+    "Preset prompt {n}": "Přednastavený prompt {n}",
     "Restore the conversation": "Obnovit konverzaci",
     "Restore it and open it in Conversations": "Obnovit ji a otevřít v Konverzacích",
     "Delete the conversation from ccc (asks first; Claude Code's transcript stays)":
@@ -668,4 +664,92 @@ CS: dict[str, str] = {
     "nothing new": "nic nového",
     "Archived: {months} ({folder})": "Archivováno: {months} ({folder})",
     "Backed up to {path}": "Zálohováno do {path}",
+
+    # Keyboard shortcuts (keymap, Settings → Keyboard shortcuts, ccc keys)
+    "copies / interrupts everywhere": "všude kopíruje / přerušuje",
+    "the terminal sends it as Tab": "terminál ji posílá jako Tab",
+    "the terminal sends it as Enter": "terminál ji posílá jako Enter",
+    "the terminal sends it as Esc": "terminál ji posílá jako Esc",
+    "the terminal sends it as Backspace": "terminál ji posílá jako Backspace",
+    "tmux's prefix key": "prefix tmuxu",
+    "copies the selection (ccc's tmux)": "kopíruje výběr (tmux ccc)",
+    "pastes (ccc's tmux)": "vkládá (tmux ccc)",
+    "Screenshot of ccc": "Snímek obrazovky ccc",
+    "Close ccc": "Zavřít ccc",
+    "Close the window / cancel": "Zavřít okno / zrušit",
+    "Close ccc (on the Dashboard)": "Zavřít ccc (na Přehledu)",
+    "Retry a blocked queue / resume one paused at a limit":
+        "Znovu spustit zablokovanou frontu / obnovit frontu pozastavenou na limitu",
+    "Tasks editor": "Editor úkolů",
+    "Archive / restore the conversation": "Archivovat / obnovit konverzaci",
+    "Approve a tool call": "Schválit volání nástroje",
+    "Switch between ccc and Claude Code": "Přepnout mezi ccc a Claude Code",
+    "Close Claude Code beside ccc": "Zavřít Claude Code vedle ccc",
+    "Delete the conversation (Archive)": "Smazat konverzaci (Archiv)",
+    "Edit the task": "Upravit úkol",
+    "Yes / allow": "Ano / povolit",
+    "No / deny": "Ne / zamítnout",
+    "Yes (confirmation)": "Ano (potvrzení)",
+    "“{key}” isn't a key ccc knows.": "„{key}“ není klávesa, kterou ccc zná.",
+    "{key} can't be used: {why}.": "{key} nejde použít: {why}.",
+    "{key} is used by lists and text fields.": "{key} používají seznamy a textová pole.",
+    "{path} isn't a ccc shortcuts file.": "{path} není soubor se zkratkami ccc.",
+    "{key} works from the Claude Code pane too, so it needs Ctrl or Alt (or F1–F12) — otherwise it couldn't be typed into Claude Code.":
+        "{key} funguje i z panelu Claude Code, proto potřebuje Ctrl nebo Alt (nebo F1–F12) — jinak by ji nešlo napsat do Claude Code.",
+    "{key} is a Claude Code key.": "{key} je klávesa Claude Code.",
+    "{key} can't be bound in tmux.": "{key} nejde navázat v tmuxu.",
+    "{key} is already “{label}”.": "{key} už je „{label}“.",
+    "Can't read {path}: {error}": "Nejde přečíst {path}: {error}",
+    "Saved. The running ccc uses it after a restart (systemctl --user restart ccc-tui).":
+        "Uloženo. Běžící ccc to použije po restartu (systemctl --user restart ccc-tui).",
+    "Show, check, change, export or import ccc's keyboard shortcuts":
+        "Ukázat, ověřit, změnit, exportovat nebo importovat klávesové zkratky ccc",
+    "Every shortcut: action id, key, what it does": "Všechny zkratky: id akce, klávesa, co dělá",
+    "Is a key free? With an action id: free for that action": "Je klávesa volná? S id akce: volná pro tu akci",
+    "e.g. ctrl+o, Alt+S, F5, +": "např. ctrl+o, Alt+S, F5, +",
+    "action id (see `ccc keys list`)": "id akce (viz `ccc keys list`)",
+    "Give an action a new key (refused if it collides)": "Dát akci novou klávesu (při kolizi odmítnuto)",
+    "Back to the default key (one action, or all)": "Zpět na výchozí klávesu (jedna akce, nebo všechny)",
+    "Write the shortcuts to FOLDER/ccc-keys.json": "Zapsat zkratky do SLOŽKA/ccc-keys.json",
+    "Use the shortcuts from a ccc-keys.json (or the folder with it)":
+        "Použít zkratky ze souboru ccc-keys.json (nebo ze složky s ním)",
+    "* = changed (default: `ccc keys reset ACTION`)": "* = změněno (výchozí: `ccc keys reset AKCE`)",
+    "Unknown action “{action}” — see `ccc keys list`.": "Neznámá akce „{action}“ — viz `ccc keys list`.",
+    "{key} is free.": "{key} je volná.",
+    "{key} is a Claude Code key (fine for keys that only work in ccc, not for the ones that work from the Claude Code pane).":
+        "{key} je klávesa Claude Code (nevadí u kláves, které fungují jen v ccc, ale u těch, které fungují i z panelu Claude Code, ano).",
+    "Not changed:": "Nezměněno:",
+    "Export failed: {error}": "Export selhal: {error}",
+    "Not imported — the shortcuts in it collide:": "Neimportováno — zkratky v něm kolidují:",
+    "Confirmation (e.g. deleting)": "Potvrzení (např. mazání)",
+    "Every shortcut can be changed in Settings → Keyboard shortcuts (or with\n`ccc keys`); ccc checks the new key is free. The other pages of this guide\nname the default keys.":
+        "Každou zkratku jde změnit v Nastavení → Klávesové zkratky (nebo příkazem\n`ccc keys`); ccc ověří, že je nová klávesa volná. Ostatní stránky příručky\nuvádějí výchozí klávesy.",
+    "Where": "Kde",
+    "Windows": "Okna",
+    "Action": "Akce",
+    "works from the Claude Code pane too": "funguje i z panelu Claude Code",
+    "Imported — Save to use them.": "Importováno — použiješ je přes Uložit.",
+    "Pick a shortcut, then “Press the key” and press its new key — or type its name (Ctrl+P, Alt+S, F5, +) and “Set”. A key that collides with another one is refused, with the reason.":
+        "Vyber zkratku, pak „Stisknout klávesu“ a stiskni novou klávesu — nebo napiš její název (Ctrl+P, Alt+S, F5, +) a „Nastavit“. Klávesa, která s něčím koliduje, se odmítne i s důvodem.",
+    "Nothing changed.": "Nic se nezměnilo.",
+    "Set": "Nastavit",
+    "Press the key": "Stisknout klávesu",
+    "Default": "Výchozí",
+    "All defaults": "Vše výchozí",
+    "Export": "Exportovat",
+    "Import": "Importovat",
+    "“{action}” is now {key} — free. Save to keep it.": "„{action}“ je teď {key} — volná. Ulož, aby zůstala.",
+    "Press the new key for “{action}”… (any key, Esc too; click anywhere to stop)":
+        "Stiskni novou klávesu pro „{action}“… (jakoukoli, i Esc; kliknutím kamkoli to zrušíš)",
+    "Key name, e.g. Ctrl+O or Alt+S": "Název klávesy, např. Ctrl+O nebo Alt+S",
+    "Folder (or a ccc-keys.json file)": "Složka (nebo soubor ccc-keys.json)",
+    "Not changed — “{action}”: {why}": "Nezměněno — „{action}“: {why}",
+    "All shortcuts are back to their defaults — Save to keep it.": "Všechny zkratky jsou zpět na výchozích — ulož, aby to zůstalo.",
+    "Not saved:": "Neuloženo:",
+    "default: {key}": "výchozí: {key}",
+    "Every key can be changed; a key that collides with another shortcut, with Claude Code or with the terminal is refused. Export / import them to any folder. Saved in their own window.":
+        "Každou klávesu jde změnit; klávesa, která koliduje s jinou zkratkou, s Claude Code nebo s terminálem, se odmítne. Export / import do libovolné složky. Ukládá se ve vlastním okně.",
+    "Edit shortcuts…": "Upravit zkratky…",
+    "all default": "vše výchozí",
+    "{n} changed": "změněno: {n}",
 }

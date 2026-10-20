@@ -6,12 +6,12 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from rich.text import Text
-from textual.binding import Binding
 from textual.containers import Container
 from textual.content import Content
 from textual.screen import ModalScreen
 from textual.widgets import DataTable, Input, Static, TextArea
 
+from ccc import keymap
 from ccc.i18n import _
 from ccc.limits import RESET_BUFFER
 from ccc.schedule import format_when, parse_when
@@ -56,8 +56,8 @@ class TaskEditModal(ModalScreen):
 
     BINDINGS = [
         # priority: TextArea would otherwise swallow these keys.
-        Binding("ctrl+s", "save", _("Save"), priority=True),
-        Binding("escape", "cancel", _("Cancel"), priority=True),
+        keymap.binding("window.save", "save", _("Save"), priority=True),
+        keymap.binding("window.cancel", "cancel", _("Cancel"), priority=True),
     ]
 
     def __init__(self, text: str = "", title: str | None = None, not_before: datetime | None = None):
@@ -123,14 +123,14 @@ class TasksModal(ModalScreen):
     """
 
     BINDINGS = [
-        ("a", "add", _("Add")),
-        ("e", "edit", _("Edit")),
-        ("delete", "delete", _("Delete")),
-        ("ctrl+up", "move(-1)", _("Move up")),
-        ("ctrl+down", "move(1)", _("Move down")),
-        ("p", "toggle_pause", _("Pause/resume")),
-        ("o", "toggle_auto", _("Auto-continue")),
-        ("escape", "close", _("Close")),
+        keymap.binding("tasks.add", "add", _("Add")),
+        keymap.binding("tasks.edit", "edit", _("Edit")),
+        keymap.binding("tasks.remove", "delete", _("Delete")),
+        keymap.binding("tasks.up", "move(-1)", _("Move up")),
+        keymap.binding("tasks.down", "move(1)", _("Move down")),
+        keymap.binding("tasks.pause", "toggle_pause", _("Pause/resume")),
+        keymap.binding("tasks.auto", "toggle_auto", _("Auto-continue")),
+        keymap.binding("window.cancel", "close", _("Close")),
     ]
 
     def __init__(self, storage: Storage, queue_id: int):

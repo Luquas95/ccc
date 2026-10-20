@@ -6,6 +6,7 @@ from textual.containers import Container
 from textual.screen import ModalScreen
 from textual.widgets import DataTable, Input, Static
 
+from ccc import keymap
 from ccc.i18n import _
 from ccc.search import search_conversations
 from ccc.storage import Storage
@@ -35,7 +36,7 @@ class SearchModal(ModalScreen):
     }
     """
 
-    BINDINGS = [("escape", "close", _("Close"))]
+    BINDINGS = [keymap.binding("window.cancel", "close", _("Close"))]
 
     def __init__(self, storage: Storage):
         super().__init__()

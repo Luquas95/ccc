@@ -4,6 +4,10 @@ Keys without Ctrl or Alt don't work while you're typing in a text field;
 Ctrl and Alt keys work everywhere. The bar at the bottom of the window
 lists the keys of the screen you're on — click one to press it.
 
+Every shortcut can be changed in Settings → Keyboard shortcuts (or with
+`ccc keys`); ccc checks the new key is free. The other pages of this guide
+name the default keys.
+
 ## Everywhere
 
 | Key | |
@@ -12,12 +16,14 @@ lists the keys of the screen you're on — click one to press it.
 | `c` | Conversations |
 | `h` | Archive (archived conversations) |
 | `s` | Live sessions |
-| `v` | Analytics |
+| `a` | Analytics |
 | `n` | New conversation |
 | `?` | This help |
-| `Ctrl+P` | Settings (language, theme, Telegram, queues, presets, backup) |
+| `Ctrl+P` | Settings (language, theme, Telegram, queues, presets, shortcuts, backup) |
+| `Alt+S` | Screenshot of ccc (an SVG in the export folder, see Settings) |
 | `Ctrl+Q` | Close ccc (it keeps running; `ccc` opens it again) |
-| `Esc` | Back / close |
+| `Esc` | Back |
+| `Esc` | Close the window / cancel |
 
 ## Dashboard
 
@@ -32,7 +38,7 @@ lists the keys of the screen you're on — click one to press it.
 |---|---|
 | `Enter` | Send the selected session a prompt |
 | `r` | Reload the session list |
-| `a` | Add a prompt to a project's queue |
+| `+` | Add a prompt to a project's queue |
 
 ## Conversations
 
@@ -89,6 +95,14 @@ lists the keys of the screen you're on — click one to press it.
 | `a` | Always allow this tool in this conversation |
 | `n` | Deny |
 
+## Confirmation (e.g. deleting)
+
+| Key | |
+|---|---|
+| `y` | Yes |
+| `Enter` | Yes |
+| `n` | No |
+
 ## Analytics
 
 | Key | |
@@ -101,7 +115,7 @@ lists the keys of the screen you're on — click one to press it.
 | Key | |
 |---|---|
 | `Enter` | Show the run's commit diff |
-| `a` | Add a prompt (this queue's path prefilled) |
+| `+` | Add a prompt (this queue's path prefilled) |
 | `r` | Blocked: run the failed task again / resume one paused at a limit |
 
 ## Preset prompt editor (Settings → Add / Edit)

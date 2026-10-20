@@ -3,11 +3,11 @@ labels shown in the bar under a conversation's message box."""
 from __future__ import annotations
 
 from rich.text import Text
-from textual.binding import Binding
 from textual.containers import Container
 from textual.screen import ModalScreen
 from textual.widgets import Checkbox, Input, Static, TextArea
 
+from ccc import keymap
 from ccc.i18n import _
 from ccc.prompt_presets import PromptPreset
 from ccc.tui.layout import MODAL_CSS
@@ -34,8 +34,13 @@ def mode_label(preset: PromptPreset) -> str:
     return f"{SEND_MARK} " + _("send") if preset.send_now else f"{INSERT_MARK} " + _("insert")
 
 
-def bar_item(number: int, preset: PromptPreset) -> Text:
-    return Text.assemble((f"Alt+{number} ", "bold cyan"), (mode_mark(preset) + " ", "yellow"), preset.name)
+def preset_key(number: int, keys: dict[str, str] | None = None) -> str:
+    """Preset `number`'s key as shown (Alt+1 by default)."""
+    return keymap.pretty((keys or keymap.defaults())[f"conversations.preset{number}"])
+
+
+def bar_item(number: int, preset: PromptPreset, keys: dict[str, str] | None = None) -> Text:
+    return Text.assemble((f"{preset_key(number, keys)} ", "bold cyan"), (mode_mark(preset) + " ", "yellow"), preset.name)
 
 
 class PromptPresetModal(ModalScreen):
@@ -64,8 +69,8 @@ class PromptPresetModal(ModalScreen):
 
     BINDINGS = [
         # priority: TextArea would otherwise swallow these keys.
-        Binding("ctrl+s", "save", _("Save"), priority=True),
-        Binding("escape", "cancel", _("Cancel"), priority=True),
+        keymap.binding("window.save", "save", _("Save"), priority=True),
+        keymap.binding("window.cancel", "cancel", _("Cancel"), priority=True),
     ]
 
     def __init__(self, preset: PromptPreset | None = None, title: str | None = None):

@@ -46,7 +46,7 @@ tam stojí *daemon neběží*, nic se neděje — viz
 Každá obrazovka vypadá stejně:
 
 - **Vlevo:** menu ccc — obrazovky s klávesami (`d` Přehled, `c`
-  Konverzace, `h` Archiv, `s` Živé relace, `v` Analytika; dají se
+  Konverzace, `h` Archiv, `s` Živé relace, `a` Analytika; dají se
   i kliknout), vlastní seznam obrazovky a její tlačítka.
 - **Vpravo:** samotná obrazovka.
 - **Spodní lišta:** klávesy obrazovky, na které jsi, a k tomu `?`

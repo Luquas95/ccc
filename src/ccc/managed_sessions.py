@@ -65,13 +65,16 @@ def is_running(queue_id: int) -> bool:
 # The server is shown inside ccc's own tmux window (tui.cli_pane) through a
 # nested client, so it must be invisible: no prefix (every key goes to
 # Claude; Ctrl+B is the outer tmux's), no status bar, mouse wheel scrolls
-# Claude's history, and Ctrl+] leaves (detaches) — Claude keeps running.
+# Claude's history, and Ctrl+] (keymap's conversations.close_claude) leaves
+# (detaches) — Claude keeps running.
 # set-clipboard is pinned to "external" (only tmux itself may set the
 # clipboard): "on" would let any text shown in the session (tool output,
 # file contents) write the user's clipboard through an OSC 52 escape. Set
 # explicitly, not left to the default, so a server started with another
 # value is put back on every start.
 DETACH_KEY = "C-]"
+# The detach key bound now (server option), so a changed one replaces it.
+DETACH_OPTION = "@ccc-detach-key"
 TRANSPARENT_OPTIONS: tuple[tuple[str, ...], ...] = (
     ("set-option", "-g", "prefix", "None"),
     ("set-option", "-g", "prefix2", "None"),
@@ -83,7 +86,6 @@ TRANSPARENT_OPTIONS: tuple[tuple[str, ...], ...] = (
     ("set-option", "-g", "set-clipboard", "external"),
     ("set-option", "-g", "default-terminal", "tmux-256color"),
     ("set-option", "-ga", "terminal-features", ",*:RGB"),
-    ("bind-key", "-n", DETACH_KEY, "detach-client"),
     # tmux copy mode (mouse, Ctrl+Shift+C): copy into a paste buffer and
     # leave copy mode. clipboard_bridge takes new buffers — these and
     # Claude Code's own copies — to your device's clipboard.
@@ -100,11 +102,25 @@ def start(queue: Queue, command: list[str]) -> None:
     make_transparent()
 
 
-def make_transparent() -> None:
+def make_transparent(detach_key: str | None = None) -> None:
     """Server-wide options (idempotent; the server may have been started
-    before ccc set them)."""
+    before ccc set them). The detach key: `detach_key`, else the one bound
+    already, else Ctrl+]."""
     for args in TRANSPARENT_OPTIONS:
         _tmux(*args)
+    set_detach_key(detach_key)
+
+
+def set_detach_key(key: str | None = None) -> None:
+    """Bind `key` (tmux name) to leave the session; the previous one is
+    unbound. None keeps the current one (Ctrl+] when there's none)."""
+    result = _tmux("show-options", "-gv", DETACH_OPTION)
+    old = result.stdout.strip() if result.returncode == 0 else ""
+    key = key or old or DETACH_KEY
+    if old and old != key:
+        _tmux("unbind-key", "-n", old)
+    _tmux("bind-key", "-n", key, "detach-client")
+    _tmux("set-option", "-g", DETACH_OPTION, key)
 
 
 def _pid_alive(pid: int) -> bool:

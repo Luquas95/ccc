@@ -46,7 +46,7 @@ says *daemon not running*, nothing gets done — see
 Every screen looks the same:
 
 - **Left:** ccc's menu — the screens with their keys (`d` Dashboard, `c`
-  Conversations, `h` Archive, `s` Live sessions, `v` Analytics; click
+  Conversations, `h` Archive, `s` Live sessions, `a` Analytics; click
   them too), the screen's own list, and its buttons.
 - **Right:** the screen itself.
 - **Bottom bar:** the keys of the screen you're on, plus `?` Help,

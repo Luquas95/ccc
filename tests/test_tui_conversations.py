@@ -516,5 +516,5 @@ async def test_status_line_for_usage_reserve(tmp_path, monkeypatch):
 
 def test_export_is_labelled_export_conversation():
     # The footer shows the binding description; plain "Export" didn't say what.
-    descriptions = {b[0]: b[2] for b in ConversationsScreen.BINDINGS if isinstance(b, tuple)}
-    assert descriptions["e"] == "Export conversation"
+    descriptions = {b.id: b.description for b in ConversationsScreen.BINDINGS}
+    assert descriptions["conversations.export"] == "Export conversation"

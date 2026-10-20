@@ -1,6 +1,6 @@
 # Analytika
 
-Analytika (`v`) ukazuje, kolik ze svých limitů Clauda využíváš a kolik
+Analytika (`a`) ukazuje, kolik ze svých limitů Clauda využíváš a kolik
 spotřebovalo ccc, měsíc po měsíci.
 
 ![Analytika](../../../../docs/screenshots/analytics.png)

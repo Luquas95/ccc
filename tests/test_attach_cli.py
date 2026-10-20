@@ -28,7 +28,8 @@ def test_waits_for_the_session_and_hints_about_the_daemon(monkeypatch):
 
 def test_main_execs_a_nested_client_without_tmux_env(monkeypatch):
     monkeypatch.setattr(managed_sessions, "is_running", lambda queue_id: True)
-    monkeypatch.setattr(managed_sessions, "make_transparent", lambda: None)
+    detach = []
+    monkeypatch.setattr(managed_sessions, "make_transparent", lambda key=None: detach.append(key))
     monkeypatch.setenv("TMUX", "/tmp/tmux-1000/ccc,1,0")
     monkeypatch.setenv("TMUX_PANE", "%1")
     called = {}
@@ -37,8 +38,9 @@ def test_main_execs_a_nested_client_without_tmux_env(monkeypatch):
         called.update(file=file, args=args, env=env)
 
     monkeypatch.setattr(attach_cli.os, "execvpe", fake_exec)
-    attach_cli.main(["5"])
+    attach_cli.main(["5", "F5"])
     assert called["args"] == attach_cli.attach_command(5)
+    assert detach == ["F5"]  # the user's close-Claude key (cli_pane passes it)
     assert "TMUX" not in called["env"] and "TMUX_PANE" not in called["env"]
 
 

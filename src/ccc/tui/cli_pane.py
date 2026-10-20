@@ -14,10 +14,12 @@ from __future__ import annotations
 
 import os
 import shlex
+import sqlite3
 import subprocess
 import sys
 
-from ccc import instance
+from ccc import instance, keymap
+from ccc.storage import Storage
 from ccc.i18n import _
 
 PANE_OPTION = "@ccc-cli"
@@ -28,12 +30,13 @@ TITLE_OPTION = "@ccc-title"
 # Rows of the bar under Claude Code: the preset prompts.
 BAR_ROWS = 1
 # Keys bound on ccc's server while the pane is open (root table: they
-# work in every pane, before the pane's program sees them). None of them
-# is a Claude Code key: Alt+digits and Ctrl+P are unused there; Tab
-# (autocomplete), Ctrl+T (to-dos) and Ctrl+D (exit) are Claude's.
-SWITCH_KEY = "M-0"
-PRESET_KEYS = tuple(f"M-{n}" for n in range(1, 10))
-SETTINGS_KEY = "C-p"
+# work in every pane, before the pane's program sees them) — keymap's
+# `tmux` actions, on the user's keys. keymap.check() keeps them off
+# Claude Code's keys (by default Alt+0, Alt+1 … Alt+9, Ctrl+P, Alt+S).
+# The keys bound last are kept in BOUND_OPTION (server), so they're the
+# ones unbound — also after the shortcuts changed.
+BOUND_OPTION = "@ccc-bound-keys"
+QUIT_OPTION = "@ccc-quit-key"
 # On ccc's own server: a title bar on each pane, and the pane you type in
 # marked — otherwise nothing shows whether keys go to ccc or to Claude.
 # Only while Claude Code is open (#{P:} looks through the window's panes
@@ -71,36 +74,70 @@ def _tmux(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(["tmux", *args], capture_output=True, text=True, timeout=5)
 
 
-def attach_command(queue_id: int) -> str:
-    return shlex.join([sys.executable, "-m", "ccc.attach_cli", str(queue_id)])
+def attach_command(queue_id: int, keys: dict[str, str] | None = None) -> str:
+    detach = keymap.tmux_key((keys or keymap.defaults())["conversations.close_claude"])
+    return shlex.join([sys.executable, "-m", "ccc.attach_cli", str(queue_id), detach])
+
+
+def _keys(db_path: str | None) -> dict[str, str]:
+    """The user's shortcuts (the defaults without a readable database)."""
+    if db_path is None:
+        return keymap.defaults()
+    try:
+        return keymap.current(Storage(db_path))
+    except sqlite3.Error:
+        return keymap.defaults()
 
 
 def bar_command(db_path: str) -> str:
     return shlex.join([sys.executable, "-m", "ccc.tui.cli_bar", str(db_path)])
 
 
-def key_bindings(main: str, cli: str, queue_id: int, db_path: str) -> list[tuple[str, ...]]:
-    """tmux commands binding ccc's keys for the open Claude Code pane:
-    - Alt+0 switches between ccc (`main`) and Claude (`cli`; on narrow
+def key_bindings(main: str, cli: str, queue_id: int, db_path: str,
+                 keys: dict[str, str] | None = None) -> list[tuple[str, ...]]:
+    """tmux commands binding ccc's keys for the open Claude Code pane
+    (defaults in brackets; `keys` = the user's keymap):
+    - switch (Alt+0) between ccc (`main`) and Claude (`cli`; on narrow
       windows Claude then takes the whole window),
-    - Alt+1 … Alt+9 type a preset into Claude (`ccc preset`); in ccc's
-      own pane they go to ccc as before,
-    - Ctrl+P opens ccc's Settings from anywhere."""
+    - presets (Alt+1 … Alt+9) type a preset into Claude (`ccc preset`);
+      in ccc's own pane they go to ccc as before,
+    - Settings (Ctrl+P) opens ccc's Settings from anywhere,
+    - screenshot (Alt+S) takes ccc's from anywhere (the keyboard stays)."""
+    keys = keys or keymap.defaults()
+
+    def key(action_id: str) -> str:
+        return keymap.tmux_key(keys[action_id])
+
     in_ccc = f"#{{==:#{{pane_id}},{main}}}"
     # e|<| compares numbers; plain #{<:} compares strings ("80" > "100").
     to_claude = f"select-pane -t {cli} ; if-shell -F '#{{e|<|:#{{window_width}},{NARROW_COLUMNS}}}' 'resize-pane -Z -t {cli}'"
-    bindings = [("bind-key", "-n", SWITCH_KEY, "if-shell", "-F", in_ccc, to_claude, f"select-pane -t {main}")]
-    for number, key in enumerate(PRESET_KEYS, start=1):
+    switch = key("conversations.focus_claude")
+    bindings = [("bind-key", "-n", switch, "if-shell", "-F", in_ccc, to_claude, f"select-pane -t {main}")]
+    for number in range(1, 10):
+        preset_key = key(f"conversations.preset{number}")
         preset = shlex.join([sys.executable, "-m", "ccc.cli", "preset", str(number),
                              "--queue", str(queue_id), "--db", str(db_path)])
         # Errors are shown on the client that pressed the key, on this server.
         bindings.append((
-            "bind-key", "-n", key, "if-shell", "-F", in_ccc, f"send-keys {key}",
+            "bind-key", "-n", preset_key, "if-shell", "-F", in_ccc, f"send-keys {preset_key}",
             f"run-shell -b \"{preset} --client '#{{client_tty}}' --socket '#{{socket_path}}'\"",
         ))
-    bindings.append(("bind-key", "-n", SETTINGS_KEY, "if-shell", "-F", in_ccc, f"send-keys {SETTINGS_KEY}",
-                     f"select-pane -t {main} ; send-keys -t {main} {SETTINGS_KEY}"))
+    settings = key("app.settings")
+    bindings.append(("bind-key", "-n", settings, "if-shell", "-F", in_ccc, f"send-keys {settings}",
+                     f"select-pane -t {main} ; send-keys -t {main} {settings}"))
+    screenshot = key("app.screenshot")
+    bindings.append(("bind-key", "-n", screenshot, "if-shell", "-F", in_ccc, f"send-keys {screenshot}",
+                     f"send-keys -t {main} {screenshot}"))
     return bindings
+
+
+def bind_keys(main: str, cli: str, queue_id: int, db_path: str, keys: dict[str, str] | None = None) -> None:
+    """Bind key_bindings() (after unbinding what was bound before)."""
+    unbind_keys()
+    bindings = key_bindings(main, cli, queue_id, db_path, keys)
+    for binding in bindings:
+        _tmux(*binding)
+    _tmux("set-option", "-s", BOUND_OPTION, " ".join(b[2] for b in bindings))
 
 
 def fit_command(main: str, bar: str | None, strip: str | None = None, sidebar: bool = True) -> str:
@@ -156,8 +193,40 @@ def ensure_strip() -> str | None:
 
 
 def unbind_keys() -> None:
-    for key in (SWITCH_KEY, *PRESET_KEYS, SETTINGS_KEY):
+    """Unbind the keys bind_keys() bound (the defaults when it's unknown —
+    bound by a ccc from before shortcuts could change)."""
+    result = _tmux("show-options", "-sv", BOUND_OPTION)
+    bound = result.stdout.split() if result.returncode == 0 and result.stdout.strip() else \
+        [b[2] for b in key_bindings("%0", "%0", 0, "")]
+    for key in bound:
         _tmux("unbind-key", "-n", key)
+    _tmux("set-option", "-su", BOUND_OPTION)
+
+
+def bind_quit_key(keys: dict[str, str] | None = None) -> None:
+    """The close-ccc key detaches the terminal that pressed it (see
+    CLIPBOARD_COMMANDS); the previous one is unbound."""
+    key = keymap.tmux_key((keys or keymap.defaults())["app.quit"])
+    result = _tmux("show-options", "-sv", QUIT_OPTION)
+    old = result.stdout.strip() if result.returncode == 0 else ""
+    if old and old != key:
+        _tmux("unbind-key", "-n", old)
+    _tmux("bind-key", "-n", key, "detach-client")
+    _tmux("set-option", "-s", QUIT_OPTION, key)
+
+
+def apply_keys(keys: dict[str, str], db_path: str) -> None:
+    """The shortcuts changed: move ccc's tmux keys (here and, for closing
+    Claude Code, on the sessions' server) to the new ones."""
+    from ccc import managed_sessions
+
+    if not (available() and _on_ccc_server()):
+        return  # no Claude Code pane here; attach_cli gets the key when one opens
+    managed_sessions.set_detach_key(keymap.tmux_key(keys["conversations.close_claude"]))
+    bind_quit_key(keys)
+    current = find()
+    if current is not None:
+        bind_keys(_own_pane(), current[0], current[1], db_path, keys)
 
 
 def find_bar() -> str | None:
@@ -209,10 +278,9 @@ CLIPBOARD_COMMANDS: tuple[tuple[str, ...], ...] = (
       for table in ("copy-mode", "copy-mode-vi")],
     ("bind-key", "-n", "C-S-c", "if-shell", "-F", "#{pane_in_mode}", "send-keys -X copy-pipe-and-cancel", ""),
     ("bind-key", "-n", "C-S-v", "paste-buffer", "-p"),
-    # Ctrl+Q closes ccc for the terminal that pressed it: detach that
-    # client (ccc keeps running; `ccc` opens it again). Quitting the TUI
-    # would only restart it. Not a Claude Code key.
-    ("bind-key", "-n", "C-q", "detach-client"),
+    # Ctrl+Q (keymap's app.quit) closes ccc for the terminal that pressed
+    # it: detach that client (ccc keeps running; `ccc` opens it again).
+    # Quitting the TUI would only restart it. Bound by bind_quit_key().
 )
 
 
@@ -236,7 +304,7 @@ def ensure_terminal_feature(feature: str = TERMINAL_FEATURE) -> None:
         _tmux("set-option", "-as", "terminal-features", f",{feature}")
 
 
-def style_window() -> None:
+def style_window(keys: dict[str, str] | None = None) -> None:
     """On ccc's own server: pane title bars (and the mouse) from the start,
     not only once Claude Code opens — a title row appearing and staying
     would shift all of ccc down by a row when switching views."""
@@ -249,6 +317,7 @@ def style_window() -> None:
     _tmux("set-option", "-p", "-t", _own_pane(), TITLE_OPTION, "ccc")
     for command in CLIPBOARD_COMMANDS:
         _tmux(*command)
+    bind_quit_key(keys)
     ensure_terminal_feature()
     # No zoom (Ctrl+B z): ccc's layout stays as it is.
     _tmux("unbind-key", "-T", "prefix", "z")
@@ -263,7 +332,8 @@ def open(queue_id: int, title: str = "", db_path: str | None = None) -> str | No
     """Show the conversation in the pane (create it, or switch what it
     shows) and, with db_path, the bar under it. Returns the pane id, None
     if tmux refused."""
-    command = attach_command(queue_id)
+    keys = _keys(db_path)
+    command = attach_command(queue_id, keys)
     current = find()
     if current is not None:
         pane, shown = current
@@ -278,7 +348,7 @@ def open(queue_id: int, title: str = "", db_path: str | None = None) -> str | No
         if result.returncode != 0:
             return None
         pane = result.stdout.strip()
-        style_window()
+        style_window(keys)
     _tmux("set-option", "-p", "-t", pane, PANE_OPTION, str(queue_id))
     _tmux("set-option", "-p", "-t", pane, TITLE_OPTION, f"Claude Code · {title}" if title else "Claude Code")
     if db_path is not None and find_bar() is None:
@@ -290,8 +360,7 @@ def open(queue_id: int, title: str = "", db_path: str | None = None) -> str | No
             _tmux("set-option", "-p", "-t", bar, BAR_OPTION, "1")
             _tmux("set-option", "-p", "-t", bar, TITLE_OPTION, "ccc · presets & keys")
     if _on_ccc_server() and db_path is not None:
-        for binding in key_bindings(_own_pane(), pane, queue_id, db_path):
-            _tmux(*binding)
+        bind_keys(_own_pane(), pane, queue_id, db_path, keys)
     bar = find_bar()
     _tmux("set-hook", "-w", "-t", _own_pane(), "window-resized", fit_command(_own_pane(), bar, find_strip()))
     # And now: split-window -l counts the border row too, the bar got 1 row.

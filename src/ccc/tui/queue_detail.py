@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from rich.text import Text
-from textual.binding import Binding
 from textual.containers import Container, Horizontal, VerticalScroll
 from textual.content import Content
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Input, Static, TextArea
 
+from ccc import keymap
 from ccc.i18n import _
 from ccc.launch_options import describe_flags
 from ccc.models import DeliveryMode, QueueStatus, RunStatus
@@ -48,7 +48,7 @@ RUN_STATUS_STYLES = {
 class AddPromptModal(ModalScreen):
     DEFAULT_CSS = MODAL_CSS.format(cls="AddPromptModal")
 
-    BINDINGS = [("escape", "cancel", _("Cancel"))]
+    BINDINGS = [keymap.binding("window.cancel", "cancel", _("Cancel"))]
 
     def __init__(self, storage: Storage, default_path: str = ""):
         super().__init__()
@@ -110,7 +110,7 @@ class DiffModal(ModalScreen):
     }
     """
 
-    BINDINGS = [("escape", "close", _("Close"))]
+    BINDINGS = [keymap.binding("window.cancel", "close", _("Close"))]
 
     def __init__(self, project_path: str, commit: str):
         super().__init__()
@@ -142,9 +142,9 @@ class QueueDetailScreen(SidebarScreen):
     SUB_TITLE = _("Queue detail")
 
     BINDINGS = [
-        ("escape", "back", _("Back")),
-        Binding("r", "retry_queue", _("Retry blocked"), show=False),
-        Binding("a", "add_prompt", _("Add prompt"), show=False),
+        keymap.binding("screen.back", "back", _("Back")),
+        keymap.binding("screen.retry", "retry_queue", _("Retry blocked"), show=False),
+        keymap.binding("screen.add_prompt", "add_prompt", _("Add prompt"), show=False),
     ]
 
     def __init__(self, storage: Storage, queue_id: int):
