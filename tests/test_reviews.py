@@ -61,8 +61,9 @@ def test_the_reviewer_can_only_read_and_isnt_saved():
     cmd = reviews.command("check it", "opus")
     assert cmd[:3] == ["claude", "-p", "check it"]
     assert "--no-session-persistence" in cmd
-    assert cmd[cmd.index("--tools") + 1] == "Read,Grep,Glob,Bash"
+    assert cmd[cmd.index("--tools") + 1] == "Read,Grep,Glob"  # no Bash: it can't run anything
     assert cmd[cmd.index("--permission-mode") + 1] == "dontAsk"
+    assert cmd[cmd.index("--setting-sources") + 1] == "user"  # none of the reviewed project's settings
     assert cmd[-2:] == ["--model", "opus"]
     assert "--model" not in reviews.command("check it", None)
 
@@ -238,3 +239,58 @@ def test_cli_wait_exit_codes(storage, queue, status, verdict, code):
 
     assert reviews_cli.wait(storage, review.id, sleep) == code
     assert polls == [1]
+
+
+def _git(cwd, *args):
+    import subprocess
+
+    subprocess.run(["git", "-C", str(cwd), *args], check=True, capture_output=True)
+
+
+@pytest.fixture
+def repo(tmp_path):
+    path = tmp_path / "repo"
+    path.mkdir()
+    _git(path, "init", "-q")
+    _git(path, "config", "user.email", "t@t")
+    _git(path, "config", "user.name", "t")
+    (path / "calc.py").write_text("def add(a, b):\n    return a + b\n")
+    _git(path, "add", ".")
+    _git(path, "commit", "-qm", "init")
+    return path
+
+
+def test_review_diff_of_commits_and_of_uncommitted_changes(repo):
+    from ccc import gitops
+
+    (repo / "calc.py").write_text("def add(a, b):\n    return a - b\n")
+    _git(repo, "commit", "-qam", "break it")
+    head = gitops._git(str(repo), "rev-parse", "HEAD").stdout.strip()
+    diff = gitops.review_diff(str(repo), [head, "--output=/tmp/x"])  # an option is never passed on
+    assert "-    return a + b" in diff and "+    return a - b" in diff
+    (repo / "calc.py").write_text("def add(a, b):\n    return b + a\n")
+    (repo / "new.py").write_text("x = 1\n")
+    diff = gitops.review_diff(str(repo), [])
+    assert "+    return b + a" in diff and "New files (read them whole):\nnew.py" in diff
+
+
+def test_review_diff_refuses_an_unsafe_repo_config(repo):
+    from ccc import gitops
+
+    _git(repo, "config", "core.pager", "touch /tmp/pwned")
+    assert gitops.review_diff(str(repo), []) is None
+
+
+@pytest.mark.asyncio
+async def test_the_reviewer_gets_the_diff_in_its_prompt(storage, repo):
+    from ccc import gitops
+
+    queue = storage.create_queue("calc", str(repo), "s2")  # legacy flags: may run commands
+    (repo / "calc.py").write_text("def add(a, b):\n    return a - b\n")
+    _git(repo, "commit", "-qam", "break it")
+    head = gitops._git(str(repo), "rev-parse", "HEAD").stdout.strip()
+    _task_run(storage, queue, "change add", head, "Changed add.")
+    reviews.request(storage, queue.id)
+    fake = FakeReviewer("VERDICT: FAIL — calc.py:2 subtracts")
+    await reviews.tick(storage, fake, usage_fn=_no_usage)
+    assert "+    return a - b" in fake.calls[0][1]

@@ -10,9 +10,11 @@ reviewer that never saw its reasoning reads the code as it is.
   tasks since the last review; else the uncommitted changes in its git
   repository; else the files of the tasks since then. Nothing new: no
   model is called (status NOTHING).
-- The reviewer can't change anything: only read tools (Read, Grep, Glob,
-  and Bash for read-only commands such as git diff) and dontAsk, which
-  refuses everything else without asking.
+- The reviewer can't change or run anything: only Read, Grep and Glob,
+  with dontAsk refusing everything else. ccc gives it the diff itself
+  (gitops.review_diff, hardened git). It loads only your user settings —
+  none of the project's (no allow rules, hooks or .mcp.json from the
+  repo it reviews).
 - Its findings can go back to the conversation as a task (apply()); with
   "until it passes" that happens by itself, and once the fix is done the
   next round reviews again — until PASS or the round limit."""
@@ -36,7 +38,7 @@ MODEL_CHOICES = [("", N_("Same as the conversation")), ("opus", "Opus"), ("sonne
                  ("haiku", "Haiku"), ("fable", "Fable")]
 DEFAULT_ROUNDS = 5
 MAX_ROUNDS = 12
-TOOLS = "Read,Grep,Glob,Bash"
+TOOLS = "Read,Grep,Glob"
 # A review never starts sooner than this after a usage-limit answer with
 # no reset time.
 LIMIT_BACKOFF = timedelta(minutes=15)
@@ -50,9 +52,11 @@ ReviewRunFn = Callable[[str, str, "str | None"], Awaitable[RunResult]]
 
 
 def command(prompt: str, model: str | None) -> list[str]:
-    """`claude -p` that can only read: a fresh session that isn't saved."""
+    """`claude -p` that can only read: a fresh session that isn't saved,
+    without the reviewed project's settings."""
     return ["claude", "-p", prompt, "--output-format", "json", "--no-session-persistence",
-            "--tools", TOOLS, "--permission-mode", "dontAsk", *(["--model", model] if model else [])]
+            "--tools", TOOLS, "--permission-mode", "dontAsk", "--setting-sources", "user",
+            *(["--model", model] if model else [])]
 
 
 async def execute(project_path: str, prompt: str, model: str | None) -> RunResult:
@@ -126,15 +130,20 @@ def scope(storage, queue: Queue, review: Review) -> tuple[str, str, int] | None:
     reviewer, newest run covered); None when there's nothing new."""
     runs = storage.task_runs_after(queue.id, review.base_run_id)
     last = max([r.id for r in runs], default=review.base_run_id)
-    commits = [r.git_commit[:12] for r in runs if r.git_commit]
+    commits = [r.git_commit for r in runs if r.git_commit]
+    # ccc runs git only where Claude may run commands anyway (see gitops).
+    git_allowed = gitops.claude_can_run_commands(queue)
     if commits:
-        return (_("commits {commits}").format(commits=", ".join(commits)),
-                f"The commits {', '.join(commits)} — look at each with `git show <commit>`.", last)
-    snapshot = gitops.snapshot(queue.project_path) if gitops.claude_can_run_commands(queue) else None
+        diff = gitops.review_diff(queue.project_path, commits) if git_allowed else None
+        short = ", ".join(c[:12] for c in commits)
+        what = f"The commits {short}" + (f":\n\n```diff\n{diff}\n```" if diff else
+                                         " (their diff isn't available — read the files the tasks changed).")
+        return _("commits {commits}").format(commits=short), what, last
+    snapshot = gitops.snapshot(queue.project_path) if git_allowed else None
     if snapshot is not None and not snapshot.blocked and not snapshot.clean:
+        diff = gitops.review_diff(queue.project_path, []) or ""
         return (_("uncommitted changes"),
-                "The uncommitted changes in the working tree — `git status` and `git diff HEAD`, and read new "
-                "files whole.", last)
+                f"The uncommitted changes in the working tree:\n\n```diff\n{diff}\n```", last)
     if any(r.status == RunStatus.SUCCESS for r in runs):
         return (_("the files of the tasks since the last review"),
                 "The files the tasks below changed (there's no git history to diff — find them from the tasks).",

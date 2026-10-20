@@ -170,6 +170,35 @@ def commit_task(cwd: str, before: Snapshot, task_text: str, conversation: str) -
     return CommitOutcome(head, _("committed"))
 
 
+REVIEW_DIFF_MAX_CHARS = 60_000
+_COMMIT = re.compile(r"^[0-9a-f]{7,40}$")
+
+
+def review_diff(cwd: str, commits: list[str]) -> str | None:
+    """What a reviewer reads (ccc.reviews): the commits, or with none the
+    uncommitted changes and the names of new files. None when cwd isn't a
+    git work tree or its config isn't safe to run git with."""
+    try:
+        inside = _git(cwd, "rev-parse", "--is-inside-work-tree")
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if inside.returncode != 0 or inside.stdout.strip() != "true" or _config_problem(_local_config(cwd)):
+        return None
+    commits = [c for c in commits if _COMMIT.match(c)]
+    if commits:
+        result = _git(cwd, "show", "--stat", "--patch", "--no-color", "--no-ext-diff", "--no-textconv", *commits)
+        text = result.stdout if result.returncode == 0 else ""
+    else:
+        diff = _git(cwd, "diff", "--no-color", "--no-ext-diff", "--no-textconv", "HEAD")
+        new = _git(cwd, "ls-files", "--others", "--exclude-standard")
+        text = diff.stdout if diff.returncode == 0 else ""
+        if new.returncode == 0 and new.stdout.strip():
+            text += "\nNew files (read them whole):\n" + new.stdout
+    if len(text) > REVIEW_DIFF_MAX_CHARS:
+        text = text[:REVIEW_DIFF_MAX_CHARS] + f"\n… (cut at {REVIEW_DIFF_MAX_CHARS} characters; read the files for the rest)"
+    return text
+
+
 def show(cwd: str, commit: str) -> str:
     problem = _config_problem(_local_config(cwd))
     if problem:

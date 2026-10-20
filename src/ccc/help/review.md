@@ -38,10 +38,12 @@ What the conversation changed **since the last review**:
 
 Nothing new: no model is called, the review says *nothing new*.
 
-The reviewer **can't change anything**: it only has read tools (reading
-and searching files, read-only commands such as `git diff`), everything
-else is refused. Its run isn't saved as a Claude Code session; its
-tokens count in [Analytics](analytics.md) like a task's.
+The reviewer **can't change or run anything**: it can only read and
+search files, everything else is refused. ccc gives it the diff itself.
+It loads only your own Claude Code settings, none from the project it
+reviews (no permissions, hooks or MCP servers from that repository). Its
+run isn't saved as a Claude Code session; its tokens count in
+[Analytics](analytics.md) like a task's.
 
 ## After the verdict
 

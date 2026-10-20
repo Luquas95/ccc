@@ -38,10 +38,12 @@ Co konverzace změnila **od poslední recenze**:
 
 Nic nového: model se nevolá, recenze řekne *nic nového*.
 
-Recenzent **nemůže nic změnit**: má jen nástroje pro čtení (čtení a
-hledání v souborech, čtecí příkazy jako `git diff`), všechno ostatní se
-odmítne. Jeho běh se neukládá jako relace Claude Code; jeho tokeny se
-počítají v [Analytice](analytics.md) jako u úkolu.
+Recenzent **nemůže nic změnit ani spustit**: umí jen číst a hledat
+v souborech, všechno ostatní se odmítne. Diff mu připraví ccc. Načte jen
+tvoje vlastní nastavení Claude Code, žádné z recenzovaného projektu
+(žádná oprávnění, hooky ani MCP servery z toho repozitáře). Jeho běh se
+neukládá jako relace Claude Code; jeho tokeny se počítají v
+[Analytice](analytics.md) jako u úkolu.
 
 ## Po verdiktu
 
