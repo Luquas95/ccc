@@ -30,8 +30,8 @@ nezacyklily:
 - konverzace má najednou nejvýš 3 otevřené otázky;
 - Claude se nemůže ptát konverzace, která smí víc než ta jeho — vyšší
   režim oprávnění (jen plán < ptát se < automaticky přijímat úpravy <
-  přeskočit všechny kontroly), nebo při stejném víc nástrojů, které jsi
-  tam vždy povolil(a) — protože otázka tam běží s jejími oprávněními. Ty
+  přeskočit všechny kontroly), nebo jakýkoli nástroj, který jsi tam vždy
+  povolil(a) a v tazatelce ne — protože otázka tam běží s jejími oprávněními. Ty
   můžeš (`k`).
 
 V konverzaci bez *Přeskočit všechny kontroly oprávnění* se Claude Code

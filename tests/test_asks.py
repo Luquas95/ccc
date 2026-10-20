@@ -204,3 +204,12 @@ def test_same_mode_but_more_always_allowed_tools_counts_as_more(storage, tmp_pat
     assert not asks.may_ask(storage, a, b)
     storage.always_allow_tool(a.id, "Bash")
     assert asks.may_ask(storage, a, b)
+
+
+def test_a_lower_mode_with_extra_always_allowed_tools_is_still_more(storage, tmp_path):
+    asker = storage.create_queue("a", str(tmp_path), "sa", launch_flags=["--permission-mode", "acceptEdits"])
+    target = storage.create_queue("b", str(tmp_path), "sb", launch_flags=["--permission-mode", "default"])
+    storage.always_allow_tool(target.id, "Bash")  # lower mode, but Bash without asking
+    assert not asks.may_ask(storage, asker, target)
+    skip = storage.create_queue("c", str(tmp_path), "sc")  # may do anything itself
+    assert asks.may_ask(storage, skip, target)

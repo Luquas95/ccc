@@ -56,27 +56,30 @@ def answer_prompt(ask: Ask, target: Queue) -> str:
 
 
 # How much a conversation may do on its own, by its permission mode.
-_RANKS = {"plan": 0, "dontAsk": 1, "default": 1, "acceptEdits": 2, "auto": 3, "bypassPermissions": 4}
+SKIP_RANK = 4
+_RANKS = {"plan": 0, "dontAsk": 1, "default": 1, "acceptEdits": 2, "auto": 3, "bypassPermissions": SKIP_RANK}
 
 
 def permission_rank(queue: Queue) -> int:
     flags = queue.launch_flags
     if flags is None or "--dangerously-skip-permissions" in flags:
-        return 4  # legacy queues ran with it
+        return SKIP_RANK  # legacy queues ran with it
     for flag, value in zip(flags, flags[1:]):
         if flag == "--permission-mode":
-            return _RANKS.get(value, 4)  # an unknown mode counts as the most
+            return _RANKS.get(value, SKIP_RANK)  # an unknown mode counts as the most
     return 1
 
 
 def may_ask(storage, asker: Queue, target: Queue) -> bool:
     """Claude may put a question to `target` only if that doesn't let it
     do more than its own conversation may: the target's permission mode
-    isn't higher, and at the same level it hasn't been always-allowed
-    tools the asker hasn't."""
-    mine, theirs = permission_rank(asker), permission_rank(target)
-    if theirs != mine:
-        return theirs < mine
+    isn't higher AND it has no always-allowed tools the asker hasn't (both,
+    whatever the modes) — unless the asker may do anything anyway."""
+    mine = permission_rank(asker)
+    if mine >= SKIP_RANK:
+        return True
+    if permission_rank(target) > mine:
+        return False
     return storage.always_allowed_tools(target.id) <= storage.always_allowed_tools(asker.id)
 
 

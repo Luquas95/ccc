@@ -33,7 +33,8 @@ talking in circles:
 - a conversation has at most 3 questions open at a time;
 - Claude can't ask a conversation that may do more than its own — a
   higher permission mode (plan < ask < auto-accept edits < skip all
-  checks), or at the same one more tools you always allowed there —
+  checks), or any tool you always allowed there and not in the asking
+  one —
   because the question runs there with those permissions. You still
   can (`k`).
 
