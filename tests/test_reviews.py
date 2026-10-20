@@ -294,3 +294,26 @@ async def test_the_reviewer_gets_the_diff_in_its_prompt(storage, repo):
     fake = FakeReviewer("VERDICT: FAIL — calc.py:2 subtracts")
     await reviews.tick(storage, fake, usage_fn=_no_usage)
     assert "+    return a - b" in fake.calls[0][1]
+
+
+@pytest.mark.asyncio
+async def test_an_interactive_conversation_is_reviewed_once_claude_is_idle(storage, tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from ccc import managed_sessions
+    from ccc.models import DeliveryMode
+
+    queue = storage.create_queue("live", str(tmp_path), "s9", delivery_mode=DeliveryMode.INTERACTIVE)
+    _task_run(storage, queue)
+    status = {"now": "busy"}
+    monkeypatch.setattr(managed_sessions, "is_running", lambda queue_id: True)
+    monkeypatch.setattr(managed_sessions, "pane_pid", lambda queue_id: 42)
+    monkeypatch.setattr("ccc.session_discovery.discover_sessions",
+                        lambda: [SimpleNamespace(pid=42, session_id="s9", status=status["now"])])
+    review = reviews.request(storage, queue.id)
+    fake = FakeReviewer("VERDICT: PASS — ok")
+    await reviews.tick(storage, fake, usage_fn=_no_usage)
+    assert fake.calls == []  # the task was pasted, Claude still works on it
+    status["now"] = "idle"
+    await reviews.tick(storage, fake, usage_fn=_no_usage)
+    assert storage.get_review(review.id).verdict == Verdict.PASS

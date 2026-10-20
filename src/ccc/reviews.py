@@ -213,7 +213,25 @@ def ready(storage, queue: Queue) -> bool:
     """The conversation has nothing running or waiting — reviewing code
     that's still changing would judge code that's about to be gone."""
     # A queue working on a task isn't IDLE (RUNNING, waiting for a limit, blocked).
-    return queue.status == QueueStatus.IDLE and storage.count_pending_items(queue.id) == 0
+    if queue.status != QueueStatus.IDLE or storage.count_pending_items(queue.id):
+        return False
+    # An interactive conversation's task is done once pasted; Claude may
+    # still be working on it — ask the session itself.
+    return not queue.delivery_mode.managed or managed_idle(queue)
+
+
+def managed_idle(queue: Queue) -> bool:
+    """The conversation's interactive Claude Code isn't working (or isn't
+    running at all), as `claude agents` reports it."""
+    from ccc import managed_sessions
+    from ccc.session_discovery import discover_sessions
+
+    if not managed_sessions.is_running(queue.id):
+        return True
+    pid = managed_sessions.pane_pid(queue.id)
+    session = next((s for s in discover_sessions()
+                    if (pid is not None and s.pid == pid) or s.session_id == queue.session_id), None)
+    return session is None or session.status == "idle"
 
 
 def _record_run(storage, queue: Queue, review: Review, result: RunResult, started: datetime) -> None:
@@ -249,7 +267,7 @@ async def run(storage, review: Review, run_fn: ReviewRunFn = execute, notifier=N
     if queue is None:
         storage.update_review(review.id, status=ReviewStatus.ERROR, error=_("The conversation was deleted."))
         return storage.get_review(review.id)
-    if not ready(storage, queue):
+    if not await asyncio.to_thread(ready, storage, queue):
         return review
     found = scope(storage, queue, review)
     if found is None:
