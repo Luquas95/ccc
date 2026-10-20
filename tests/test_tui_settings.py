@@ -47,7 +47,8 @@ async def test_footer_shows_only_what_the_sidebar_does_not(tmp_path):
         await pilot.press("c")
         await pilot.pause()
         keys = _footer_keys(app)
-        assert not keys & {"d", "c", "s", "v", "a", "n", "r", "escape"}
+        assert not keys & {"d", "c", "s", "a", "n", "r", "escape"}
+        assert "v" in keys  # the conversation's Review is its own action, not a view
 
 
 @pytest.mark.asyncio

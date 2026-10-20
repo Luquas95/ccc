@@ -54,8 +54,10 @@ def _schedule(args) -> tuple[str, str]:
     return routines.CRON, args.cron
 
 
-def _conversation(storage, ref: str) -> int:
-    queues = [q for q in storage.list_queues() if not q.archived and q.routine_id is None]
+def conversation_id(storage, ref: str, include_archived: bool = False) -> int:
+    """A conversation by id or exact name (ValueError otherwise)."""
+    queues = [q for q in storage.list_queues()
+              if (include_archived or not q.archived) and q.routine_id is None]
     if ref.isdigit() and any(q.id == int(ref) for q in queues):
         return int(ref)
     named = [q for q in queues if q.name == ref]
@@ -83,7 +85,7 @@ def run(storage, args: argparse.Namespace) -> int:
         if command == "add":
             kind, value = _schedule(args)
             target = RoutineTarget.FRESH if args.fresh else RoutineTarget.SAME
-            routine = routines.add(storage, _conversation(storage, args.conversation), args.name, args.prompt,
+            routine = routines.add(storage, conversation_id(storage, args.conversation), args.name, args.prompt,
                                    kind, value, target)
             print(_("Routine {id} added — next run {at}.").format(
                 id=routine.id, at=format_when(routine.next_run_at, datetime.now())))

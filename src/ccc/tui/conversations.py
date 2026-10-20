@@ -54,6 +54,7 @@ class ConversationsScreen(SidebarScreen):
         # No Ctrl+D (delete): it exits Claude Code (#31).
         keymap.binding("conversations.search", "search", _("Search")),
         keymap.binding("conversations.export", "export", _("Export conversation")),
+        keymap.binding("screen.review", "review", _("Review")),
         keymap.binding("conversations.approve", "approve", _("Approve")),
         # While Claude Code is open beside ccc — listed in the key strip;
         # pressed in the Claude pane they're tmux's (cli_pane.key_bindings,

@@ -179,10 +179,11 @@ def main(argv: list[str] | None = None) -> None:
         "archive-analytics", help=_("Archive finished months into the analytics folder now (the daemon does it hourly)")
     )
 
-    from ccc import keys_cli, routines_cli
+    from ccc import keys_cli, reviews_cli, routines_cli
 
     keys_cli.add_parser(subparsers)
     routines_cli.add_parser(subparsers)
+    reviews_cli.add_parser(subparsers)
 
     config_parser = subparsers.add_parser("config", help=_("Show or change ccc settings"))
     config_sub = config_parser.add_subparsers(dest="setting", required=True)
@@ -259,6 +260,9 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.command == "routine":
         sys.exit(routines_cli.run(Storage(str(default_db_path())), args))
+
+    if args.command == "review":
+        sys.exit(reviews_cli.run(Storage(str(default_db_path())), args))
 
     if args.command == "add":
         try:

@@ -84,10 +84,28 @@ async def routines_loop(storage: Storage, interval: float = ROUTINE_CHECK_SECOND
         await asyncio.sleep(interval)
 
 
+REVIEW_CHECK_SECONDS = 10.0
+
+
+async def reviews_loop(storage: Storage, notifier: Notifier, interval: float = REVIEW_CHECK_SECONDS) -> None:
+    """Run the reviews that wait (ccc.reviews) once their conversation is idle."""
+    from ccc import reviews
+
+    while True:
+        try:
+            for review in await reviews.tick(storage, notifier=notifier):
+                logger.info("review %d of queue %d: %s %s", review.id, review.queue_id, review.status.value,
+                            review.verdict.value if review.verdict else "")
+        except Exception:
+            logger.exception("running reviews failed")
+        await asyncio.sleep(interval)
+
+
 async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     storage = Storage(db_path)
     i18n.load(storage)
-    orchestrator = Orchestrator(storage, run_fn=run_fn, notifier=Notifier(storage))
+    notifier = Notifier(storage)
+    orchestrator = Orchestrator(storage, run_fn=run_fn, notifier=notifier)
     await orchestrator.start_all()
     logger.info("ccc daemon started, db=%s, queues=%d", db_path, len(orchestrator.runtimes))
 
@@ -101,6 +119,7 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     usage = asyncio.create_task(usage_loop(storage))
     archives = asyncio.create_task(archive_loop(storage))
     scheduled = asyncio.create_task(routines_loop(storage))
+    reviewing = asyncio.create_task(reviews_loop(storage, notifier))
     await stop_event.wait()
     logger.info("ccc daemon shutting down")
     heartbeat.cancel()
@@ -108,6 +127,7 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     usage.cancel()
     archives.cancel()
     scheduled.cancel()
+    reviewing.cancel()
     await orchestrator.stop_all()
 
 

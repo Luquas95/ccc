@@ -33,4 +33,8 @@ ccc-tui`); změněné v Nastavení platí hned.
 | `ccc routine run ROUTINA` | spustí ji hned (id nebo název) |
 | `ccc routine on ROUTINA` / `off ROUTINA` | zapne / vypne ji |
 | `ccc routine remove ROUTINA` | smaže ji |
+| `ccc review start KONVERZACE ["co zkontrolovat"]` | požádá o [recenzi](review.md) (daemon ji spustí, až konverzace nic nedělá); `--until-pass [--rounds N]` = poslat nálezy zpět a recenzovat znovu; `--wait` = počkat na verdikt, návratový kód 0 PASS (nebo nic nového), 3 FAIL, 4 PARTIAL, 1 chyba |
+| `ccc review list [KONVERZACE]` | recenze od nejnovější: id, čas, verdikt, co se recenzovalo |
+| `ccc review show RECENZE` | zpráva recenze |
+| `ccc review stop KONVERZACE` | zastaví její recenzi (smyčku) |
 | `ccc-daemon` | samotný daemon (normálně ho spouští `ccc.service`) |

@@ -131,6 +131,8 @@ class PromptRun:
     # Auto-commit after a successful headless task in a git repo.
     git_commit: str | None = None
     git_note: str | None = None
+    # The run of a review (ccc.reviews), not of a task.
+    review_id: int | None = None
 
 
 @dataclass
@@ -171,3 +173,43 @@ class Routine:
     last_status: str = ""  # what the last firing did (ccc.routines.STATUS_*)
     skipped: int = 0  # firings skipped because the previous run still went
     created_at: datetime = field(default_factory=datetime.now)
+
+
+class ReviewStatus(str, Enum):
+    PENDING = "pending"  # waits for the conversation to be idle / a limit
+    RUNNING = "running"
+    DONE = "done"  # has a verdict
+    NOTHING = "nothing"  # no changes to review: no model was called
+    ERROR = "error"
+    STOPPED = "stopped"  # a review-until-pass loop stopped by the user
+
+
+class Verdict(str, Enum):
+    PASS = "PASS"
+    FAIL = "FAIL"
+    PARTIAL = "PARTIAL"
+
+
+@dataclass
+class Review:
+    """A fresh-context review of what a conversation changed (ccc.reviews)."""
+    id: int
+    queue_id: int
+    status: ReviewStatus = ReviewStatus.PENDING
+    instructions: str = ""
+    # Review until it passes: the findings go back as a task, then the
+    # next round reviews again (loop_id = the first review's id).
+    until_pass: bool = False
+    round: int = 1
+    max_rounds: int = 1
+    loop_id: int | None = None
+    scope: str = ""  # what was reviewed, in words
+    base_run_id: int = 0  # it covers the conversation's runs after this one…
+    last_run_id: int = 0  # …up to this one
+    verdict: Verdict | None = None
+    report: str = ""
+    error: str = ""
+    fix_item_id: int | None = None  # the task queued with its findings
+    not_before: datetime | None = None
+    created_at: datetime = field(default_factory=datetime.now)
+    finished_at: datetime | None = None

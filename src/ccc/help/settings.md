@@ -14,7 +14,7 @@ now* act right away.
 | Appearance | language — *Auto* follows the system (`LANG`), saving another one restarts ccc's window; colour theme — changes as you pick, kept after Save |
 | Telegram notifications | see below |
 | Discord notifications | see below |
-| Queues | the *continue* text sent after a usage limit, and the usage reserve — see [Usage limits](limits.md) |
+| Queues | the *continue* text sent after a usage limit, and the usage reserve — see [Usage limits](limits.md); the [reviewer's](review.md) model |
 | Preset prompts | your prompts on `Alt+1` … `Alt+9` — see below |
 | New-conversation presets | delete presets saved in the [New conversation](new-conversation.md) window |
 | Keyboard shortcuts | change any key, export / import them — see below |
