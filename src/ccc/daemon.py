@@ -67,6 +67,23 @@ async def archive_loop(storage: Storage, interval: float = ARCHIVE_CHECK_SECONDS
         await asyncio.sleep(interval)
 
 
+ROUTINE_CHECK_SECONDS = 20.0
+
+
+async def routines_loop(storage: Storage, interval: float = ROUTINE_CHECK_SECONDS) -> None:
+    """Queue the routines that are due (ccc.routines); the queues' own
+    runtimes pick their tasks up."""
+    from ccc import routines
+
+    while True:
+        try:
+            for routine, status in await asyncio.to_thread(routines.tick, storage):
+                logger.info("routine %d (%s): %s", routine.id, routine.name, status)
+        except Exception:
+            logger.exception("running routines failed")
+        await asyncio.sleep(interval)
+
+
 async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     storage = Storage(db_path)
     i18n.load(storage)
@@ -83,12 +100,14 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     backups = asyncio.create_task(backup_loop(db_path, default_backup_dir(db_path)))
     usage = asyncio.create_task(usage_loop(storage))
     archives = asyncio.create_task(archive_loop(storage))
+    scheduled = asyncio.create_task(routines_loop(storage))
     await stop_event.wait()
     logger.info("ccc daemon shutting down")
     heartbeat.cancel()
     backups.cancel()
     usage.cancel()
     archives.cancel()
+    scheduled.cancel()
     await orchestrator.stop_all()
 
 

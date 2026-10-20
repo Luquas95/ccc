@@ -4,6 +4,7 @@ import json
 import sqlite3
 from contextlib import closing
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 
 from ccc.models import (
@@ -14,6 +15,8 @@ from ccc.models import (
     Queue,
     QueueItem,
     QueueStatus,
+    Routine,
+    RoutineTarget,
     RunStatus,
 )
 
@@ -48,6 +51,25 @@ CREATE TABLE IF NOT EXISTS queue_items (
     added_at TEXT NOT NULL,
     continue_on_retry INTEGER NOT NULL DEFAULT 0,
     not_before TEXT
+);
+
+-- Prompts queued on a schedule (ccc.routines). queue_id is the routine's
+-- conversation; target 'fresh' starts a new conversation per run.
+CREATE TABLE IF NOT EXISTS routines (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    queue_id INTEGER NOT NULL REFERENCES queues(id),
+    name TEXT NOT NULL,
+    prompt_text TEXT NOT NULL,
+    schedule_kind TEXT NOT NULL,
+    schedule_value TEXT NOT NULL,
+    cron TEXT NOT NULL,
+    target TEXT NOT NULL DEFAULT 'same',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    next_run_at TEXT,
+    last_run_at TEXT,
+    last_status TEXT NOT NULL DEFAULT '',
+    skipped INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS permission_requests (
@@ -211,6 +233,13 @@ class Storage:
         if "continue_on_retry" not in item_columns:
             conn.execute("ALTER TABLE queue_items ADD COLUMN continue_on_retry INTEGER NOT NULL DEFAULT 0")
             conn.commit()
+        # Which routine queued an item / started a conversation (ccc.routines).
+        if "routine_id" not in item_columns:
+            conn.execute("ALTER TABLE queue_items ADD COLUMN routine_id INTEGER")
+            conn.commit()
+        if "routine_id" not in columns:
+            conn.execute("ALTER TABLE queues ADD COLUMN routine_id INTEGER")
+            conn.commit()
 
     def _connect(self) -> sqlite3.Connection:
         # timeout: wait for another process's write lock instead of raising
@@ -230,13 +259,14 @@ class Storage:
         launch_flags: list[str] | None = None,
         first_run_flags: list[str] | None = None,
         auto_continue: bool = True,
+        routine_id: int | None = None,
     ) -> Queue:
         now = datetime.now().isoformat()
         with closing(self._connect()) as conn:
             cur = conn.execute(
                 "INSERT INTO queues (name, project_path, session_id, status, created_at, updated_at, "
-                "always_resume, delivery_mode, launch_flags, first_run_flags, auto_continue) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "always_resume, delivery_mode, launch_flags, first_run_flags, auto_continue, routine_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     name,
                     project_path,
@@ -249,6 +279,7 @@ class Storage:
                     _dump_flags(launch_flags),
                     _dump_flags(first_run_flags),
                     int(auto_continue),
+                    routine_id,
                 ),
             )
             conn.commit()
@@ -351,17 +382,18 @@ class Storage:
             conn.commit()
             return True
 
-    def add_queue_item(self, queue_id: int, prompt_text: str, not_before: datetime | None = None) -> QueueItem:
+    def add_queue_item(self, queue_id: int, prompt_text: str, not_before: datetime | None = None,
+                       routine_id: int | None = None) -> QueueItem:
         with closing(self._connect()) as conn:
             max_pos = conn.execute(
                 "SELECT COALESCE(MAX(position), -1) FROM queue_items WHERE queue_id = ?", (queue_id,)
             ).fetchone()[0]
             now = datetime.now().isoformat()
             cur = conn.execute(
-                "INSERT INTO queue_items (queue_id, prompt_text, position, status, added_at, not_before) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO queue_items (queue_id, prompt_text, position, status, added_at, not_before, routine_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (queue_id, prompt_text, max_pos + 1, ItemStatus.PENDING.value, now,
-                 not_before.isoformat() if not_before else None),
+                 not_before.isoformat() if not_before else None, routine_id),
             )
             conn.commit()
             item_id = cur.lastrowid
@@ -480,10 +512,96 @@ class Storage:
                 (queue_id,),
             )
             conn.execute("DELETE FROM queue_items WHERE queue_id = ?", (queue_id,))
+            conn.execute("DELETE FROM routines WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM permission_requests WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM permission_allow WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM queues WHERE id = ?", (queue_id,))
             conn.commit()
+
+    # --- routines (ccc.routines) -----------------------------------------------
+
+    def add_routine(self, queue_id: int, name: str, prompt_text: str, schedule_kind: str, schedule_value: str,
+                    cron: str, target: RoutineTarget, next_run_at: datetime | None) -> Routine:
+        with closing(self._connect()) as conn:
+            cur = conn.execute(
+                "INSERT INTO routines (queue_id, name, prompt_text, schedule_kind, schedule_value, cron, target, "
+                "next_run_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (queue_id, name, prompt_text, schedule_kind, schedule_value, cron, target.value,
+                 next_run_at.isoformat() if next_run_at else None, datetime.now().isoformat()),
+            )
+            conn.commit()
+            routine_id = cur.lastrowid
+        return self.get_routine(routine_id)
+
+    def find_routine(self, routine_id: int) -> Routine | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT * FROM routines WHERE id = ?", (routine_id,)).fetchone()
+            return self._row_to_routine(row) if row else None
+
+    def get_routine(self, routine_id: int) -> Routine:
+        routine = self.find_routine(routine_id)
+        if routine is None:
+            raise KeyError(routine_id)
+        return routine
+
+    def list_routines(self) -> list[Routine]:
+        with closing(self._connect()) as conn:
+            rows = conn.execute("SELECT * FROM routines ORDER BY id").fetchall()
+            return [self._row_to_routine(r) for r in rows]
+
+    def update_routine(self, routine_id: int, **fields) -> None:
+        """Set columns of a routine (datetimes and enums are stored as text)."""
+        if not fields:
+            return
+        values = []
+        for value in fields.values():
+            if isinstance(value, datetime):
+                value = value.isoformat()
+            elif isinstance(value, Enum):
+                value = value.value
+            elif isinstance(value, bool):
+                value = int(value)
+            values.append(value)
+        columns = ", ".join(f"{name} = ?" for name in fields)
+        with closing(self._connect()) as conn:
+            conn.execute(f"UPDATE routines SET {columns} WHERE id = ?", (*values, routine_id))
+            conn.commit()
+
+    def delete_routine(self, routine_id: int) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute("DELETE FROM routines WHERE id = ?", (routine_id,))
+            conn.commit()
+
+    def routine_items_active(self, routine_id: int) -> int:
+        """Tasks a routine queued that haven't finished (pending or running)."""
+        with closing(self._connect()) as conn:
+            return conn.execute(
+                "SELECT COUNT(*) FROM queue_items WHERE routine_id = ? AND status IN (?, ?)",
+                (routine_id, ItemStatus.PENDING.value, ItemStatus.RUNNING.value),
+            ).fetchone()[0]
+
+    def routine_queues(self, routine_id: int | None = None, archived: bool | None = None) -> list[Queue]:
+        """Conversations routines started (one routine's, or every one)."""
+        sql, args = "SELECT * FROM queues WHERE routine_id IS NOT NULL", []
+        if routine_id is not None:
+            sql, args = sql + " AND routine_id = ?", [*args, routine_id]
+        if archived is not None:
+            sql, args = sql + " AND archived = ?", [*args, int(archived)]
+        with closing(self._connect()) as conn:
+            return [self._row_to_queue(r) for r in conn.execute(sql + " ORDER BY id", args).fetchall()]
+
+    @staticmethod
+    def _row_to_routine(row: sqlite3.Row) -> Routine:
+        def when(column: str) -> datetime | None:
+            return datetime.fromisoformat(row[column]) if row[column] else None
+
+        return Routine(
+            id=row["id"], queue_id=row["queue_id"], name=row["name"], prompt_text=row["prompt_text"],
+            schedule_kind=row["schedule_kind"], schedule_value=row["schedule_value"], cron=row["cron"],
+            target=RoutineTarget(row["target"]), enabled=bool(row["enabled"]), next_run_at=when("next_run_at"),
+            last_run_at=when("last_run_at"), last_status=row["last_status"], skipped=row["skipped"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+        )
 
     # --- tool permission requests -------------------------------------------
 
@@ -842,6 +960,7 @@ class Storage:
             archived=bool(row["archived"]),
             last_seen_at=datetime.fromisoformat(row["last_seen_at"]) if row["last_seen_at"] else None,
             remote_control_url=row["remote_control_url"],
+            routine_id=row["routine_id"],
         )
 
     @staticmethod
@@ -855,6 +974,7 @@ class Storage:
             added_at=datetime.fromisoformat(row["added_at"]),
             continue_on_retry=bool(row["continue_on_retry"]),
             not_before=datetime.fromisoformat(row["not_before"]) if row["not_before"] else None,
+            routine_id=row["routine_id"],
         )
 
     @staticmethod

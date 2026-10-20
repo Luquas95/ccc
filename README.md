@@ -86,6 +86,9 @@ phone via Remote Control.
 - **Settings** (`Ctrl+P`) — colour theme, Telegram, Discord, continue text, usage
   reserve, preset prompts, launch presets and database backup in one
   window.
+- **Routines** (`o`) — prompts queued on a schedule (every N minutes, daily,
+  on weekdays, weekly, cron), into their conversation or a new one every
+  run; the daemon runs them with ccc closed too, catches up a missed run once.
 - **Your own keyboard shortcuts** — every key can be changed (Settings or
   `ccc keys`), each new one is checked for collisions with ccc, Claude
   Code and the terminal first; export / import them as `ccc-keys.json`.
@@ -155,6 +158,7 @@ Language):
 - [Conversations](src/ccc/help/conversations.md)
 - [Starting a conversation](src/ccc/help/new-conversation.md)
 - [Task queue](src/ccc/help/tasks.md)
+- [Routines](src/ccc/help/routines.md)
 - [Archive](src/ccc/help/archive.md)
 - [Usage limits & blocked queues](src/ccc/help/limits.md)
 - [Approving tool calls](src/ccc/help/approvals.md)

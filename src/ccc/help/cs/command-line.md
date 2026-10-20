@@ -28,4 +28,9 @@ ccc-tui`); změněné v Nastavení platí hned.
 | `ccc keys reset [AKCE]` | zpět na výchozí klávesu (jedna akce, nebo všechny) |
 | `ccc keys export SLOŽKA` | zapíše zkratky do `SLOŽKA/ccc-keys.json` |
 | `ccc keys import CESTA` | použije zkratky ze souboru `ccc-keys.json` (nebo ze složky s ním) — při kolizi nenaimportuje nic |
+| `ccc routine list` | všechny [routiny](routines.md): id, zapnuto / vypnuto, konverzace, plán, další běh |
+| `ccc routine add KONVERZACE "PROMPT" --daily 18:00` | přidá konverzaci (id nebo název) routinu; plán je jedno z `--every 30m` / `2h`, `--hourly`, `--daily [HH:MM]`, `--weekdays [HH:MM]`, `--on "po 08:00"`, `--cron "0 22 * * *"`; `--fresh` = při každém běhu nová konverzace, `--name` = název |
+| `ccc routine run ROUTINA` | spustí ji hned (id nebo název) |
+| `ccc routine on ROUTINA` / `off ROUTINA` | zapne / vypne ji |
+| `ccc routine remove ROUTINA` | smaže ji |
 | `ccc-daemon` | samotný daemon (normálně ho spouští `ccc.service`) |

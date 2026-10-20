@@ -19,6 +19,7 @@ name the default keys.
 | `a` | Analytics |
 | `n` | New conversation |
 | `?` | This help |
+| `o` | Routines: prompts on a schedule |
 | `Ctrl+P` | Settings (language, theme, Telegram, queues, presets, shortcuts, backup) |
 | `Alt+S` | Screenshot of ccc (an SVG in the export folder, see Settings) |
 | `Ctrl+Q` | Close ccc (it keeps running; `ccc` opens it again) |
@@ -86,6 +87,17 @@ name the default keys.
 | `p` | Pause / resume the queue |
 | `o` | Toggle auto-continue |
 | `Ctrl+S` | Save in the task editor |
+
+## Routines (o)
+
+| Key | |
+|---|---|
+| `a` | Add a routine |
+| `e` | Edit the routine (also Enter) |
+| `Space` | Turn it on / off |
+| `r` | Run it now (its next time stays) |
+| `Del` | Delete it (tasks it queued stay) |
+| `Ctrl+S` | Save in the routine editor |
 
 ## Approval window (p)
 

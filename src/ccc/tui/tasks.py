@@ -178,6 +178,8 @@ class TasksModal(ModalScreen):
         for n, item in enumerate(items, start=1):
             lines = item.prompt_text.strip().splitlines() or [""]
             preview = lines[0][:PREVIEW_CHARS] + (" …" if len(lines) > 1 or len(lines[0]) > PREVIEW_CHARS else "")
+            if item.routine_id is not None:
+                preview = "↻ " + preview  # queued by a routine
             table.add_row(str(n), format_when(item.not_before, datetime.now()) or "—", Text(preview))
         if not items:
             return

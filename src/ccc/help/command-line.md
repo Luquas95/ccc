@@ -28,4 +28,9 @@ ccc-tui`); changed in Settings they work right away.
 | `ccc keys reset [ACTION]` | back to the default key (one action, or all) |
 | `ccc keys export FOLDER` | write the shortcuts to `FOLDER/ccc-keys.json` |
 | `ccc keys import PATH` | use the shortcuts from a `ccc-keys.json` (or the folder with it) — nothing is imported when they collide |
+| `ccc routine list` | every [routine](routines.md): id, on / off, conversation, schedule, next run |
+| `ccc routine add CONVERSATION "PROMPT" --daily 18:00` | add a routine to a conversation (id or name); the schedule is one of `--every 30m` / `2h`, `--hourly`, `--daily [HH:MM]`, `--weekdays [HH:MM]`, `--on "monday 08:00"`, `--cron "0 22 * * *"`; `--fresh` = a new conversation every run, `--name` = its name |
+| `ccc routine run ROUTINE` | run it now (id or name) |
+| `ccc routine on ROUTINE` / `off ROUTINE` | turn it on / off |
+| `ccc routine remove ROUTINE` | delete it |
 | `ccc-daemon` | the daemon itself (normally run by `ccc.service`) |
