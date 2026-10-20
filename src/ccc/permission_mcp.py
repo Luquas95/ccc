@@ -50,7 +50,7 @@ _TOOL = {
 def _ask_tool(storage: Storage, queue_id: int) -> dict:
     """The ask tool, its description listing the conversations there are now."""
     others = [q for q in storage.list_queues() if not q.archived and q.id != queue_id and q.routine_id is None]
-    names = "; ".join(f"{q.name} ({q.project_path})" for q in others[:30]) or "none"
+    names = "; ".join(q.name for q in others[:30]) or "none"
     return {
         "name": ASK_TOOL,
         "description": ("Ask another Claude Code conversation that ccc runs (e.g. the one working on the API, or a "

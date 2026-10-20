@@ -28,8 +28,12 @@ waits: Claude carries on, and the answer comes as a later message. So
 two conversations asking each other can't lock up, and to keep them from
 talking in circles:
 
-- a conversation that is answering a question can't ask one itself;
-- a conversation has at most 3 questions open at a time.
+- a conversation that has a question to answer can't ask one itself;
+- Claude has one question open per conversation it asks;
+- a conversation has at most 3 questions open at a time;
+- Claude can't ask a conversation that may do more than its own — one
+  with *Skip all permission checks* from one without — because the
+  question runs there with those permissions. You still can (`k`).
 
 In a conversation without *Skip all permission checks* Claude Code asks
 you first, as for any tool.

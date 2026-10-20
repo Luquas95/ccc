@@ -8,8 +8,10 @@ itself through the ccc MCP tool `ask_conversation` (ccc.permission_mcp),
 which ccc gives every conversation it runs. Asking never waits: the
 answer comes later as a message, so two conversations asking each other
 can't lock up. To keep agents from talking in circles, a conversation
-that is answering a question can't ask one itself, and it can have only
-a few questions open at a time.
+that has a question to answer can't ask one itself, it has one question
+open per conversation it asks and only a few in all. Claude can't ask a conversation allowed
+to do more than its own (one with "Skip all permission checks" from one
+without): the question would run with those permissions.
 
 The daemon collects the answers (tick()): a headless conversation's from
 its run, an interactive one's from its transcript once Claude is idle."""
@@ -18,7 +20,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 
-from ccc import reviews
+from ccc import gitops, reviews
 from ccc.i18n import _
 from ccc.models import Ask, AskStatus, ItemStatus, Queue
 from ccc.transcript import reply_after
@@ -54,7 +56,7 @@ def answer_prompt(ask: Ask, target: Queue) -> str:
 
 def find_conversation(storage, ref: str, asker_id: int) -> Queue:
     """Another active conversation by id or name (case-insensitive)."""
-    queues = [q for q in storage.list_queues() if not q.archived and q.id != asker_id]
+    queues = [q for q in storage.list_queues() if not q.archived and q.id != asker_id and q.routine_id is None]
     ref = ref.strip()
     if ref.isdigit():
         found = [q for q in queues if q.id == int(ref)]
@@ -68,9 +70,8 @@ def find_conversation(storage, ref: str, asker_id: int) -> Queue:
 
 
 def answering(storage, queue_id: int) -> bool:
-    """The conversation is busy answering a question right now."""
-    item = storage.running_item(queue_id)
-    return item is not None and any(a.to_item_id == item.id for a in storage.list_asks(status=AskStatus.ASKED))
+    """The conversation has a question to answer (queued or running)."""
+    return any(a.to_queue_id == queue_id for a in storage.list_asks(status=AskStatus.ASKED))
 
 
 def ask(storage, from_queue_id: int, to: str | int, question: str, deliver: bool = True,
@@ -84,10 +85,18 @@ def ask(storage, from_queue_id: int, to: str | int, question: str, deliver: bool
     if asker is None:
         raise ValueError(_("That conversation doesn't exist."))
     target = find_conversation(storage, str(to), from_queue_id)
+    # The question runs as a task with the target's permissions: Claude in
+    # a restricted conversation must not use one that may run anything as
+    # a way around its own limits. You can (TUI, `ccc ask`) — it's you.
+    if by_agent and gitops.claude_can_run_commands(target) and not gitops.claude_can_run_commands(asker):
+        raise ValueError(_("“{name}” may run any command and this conversation may not — ask it yourself in ccc "
+                           "(k) if you want to.").format(name=target.name))
     if by_agent and answering(storage, from_queue_id):
-        raise ValueError(_("This conversation is answering a question itself — answer it first; it can't ask "
+        raise ValueError(_("This conversation has a question to answer itself — answer it first; it can't ask "
                            "another one meanwhile (no circles)."))
     open_asks = [a for a in storage.list_asks(status=AskStatus.ASKED) if a.from_queue_id == from_queue_id]
+    if by_agent and any(a.to_queue_id == target.id for a in open_asks):
+        raise ValueError(_("A question to “{name}” is still open — wait for its answer.").format(name=target.name))
     if len(open_asks) >= MAX_OPEN:
         raise ValueError(_("{n} questions are still open — wait for their answers first.").format(n=len(open_asks)))
     created = storage.add_ask(from_queue_id, target.id, question[:QUESTION_CHARS], by_agent, deliver)

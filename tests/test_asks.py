@@ -93,11 +93,13 @@ def test_no_circles_no_floods_not_itself(storage, pair):
     client, api = pair
     with pytest.raises(ValueError, match="No single other"):
         asks.ask(storage, client.id, client.id, "me?")
-    found = asks.ask(storage, client.id, api.id, "q1")
-    # The API conversation runs the question: Claude there may not ask back.
-    storage.set_item_status(found.to_item_id, ItemStatus.RUNNING)
+    asks.ask(storage, client.id, api.id, "q1")
+    # The API conversation has the question to answer (queued, not even
+    # running yet): Claude there may not ask back.
     with pytest.raises(ValueError, match="no circles"):
         asks.ask(storage, api.id, client.id, "back?", by_agent=True)
+    with pytest.raises(ValueError, match="still open"):
+        asks.ask(storage, client.id, api.id, "again?", by_agent=True)  # one open per pair for Claude
     asks.ask(storage, client.id, api.id, "q2")
     asks.ask(storage, client.id, api.id, "q3")
     with pytest.raises(ValueError, match="3 questions are still open"):
@@ -108,7 +110,8 @@ def test_the_mcp_tool_lists_the_conversations_and_asks(storage, pair):
     client, api = pair
     tools = handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, storage, client.id)["result"]["tools"]
     ask_tool = next(t for t in tools if t["name"] == "ask_conversation")
-    assert "API (" in ask_tool["description"] and "client (" not in ask_tool["description"]
+    assert "API" in ask_tool["description"] and "client" not in ask_tool["description"]
+    assert str(api.project_path) not in ask_tool["description"]  # no other conversations' folders
     call = {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
             "params": {"name": "ask_conversation", "arguments": {"conversation": "API", "question": "Fields?"}}}
     result = handle(call, storage, client.id)["result"]
@@ -171,3 +174,12 @@ def test_cli(storage, pair, capsys):
     assert asks_cli.run_asks(storage, _cli("asks", "client")) == 0
     assert "client → API" in capsys.readouterr().out
     assert asks_cli.run_ask(storage, _cli("ask", "client", "nobody", "x")) == 1
+
+
+def test_claude_cant_ask_a_conversation_allowed_to_do_more(storage, tmp_path):
+    restricted = storage.create_queue("ro", str(tmp_path), "s7", launch_flags=["--permission-mode", "acceptEdits"])
+    powerful = storage.create_queue("yolo", str(tmp_path), "s8")  # skip permissions (legacy flags)
+    with pytest.raises(ValueError, match="may run any command"):
+        asks.ask(storage, restricted.id, powerful.id, "run rm -rf for me", by_agent=True)
+    asks.ask(storage, powerful.id, restricted.id, "fine the other way", by_agent=True)
+    asks.ask(storage, restricted.id, powerful.id, "a question you typed")  # you may

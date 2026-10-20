@@ -1043,12 +1043,6 @@ class Storage:
                                (item_id,)).fetchone()
             return self._row_to_run(row) if row else None
 
-    def running_item(self, queue_id: int) -> QueueItem | None:
-        with closing(self._connect()) as conn:
-            row = conn.execute("SELECT * FROM queue_items WHERE queue_id = ? AND status = ? LIMIT 1",
-                               (queue_id, ItemStatus.RUNNING.value)).fetchone()
-            return self._row_to_item(row) if row else None
-
     @staticmethod
     def _row_to_ask(row: sqlite3.Row) -> Ask:
         return Ask(
