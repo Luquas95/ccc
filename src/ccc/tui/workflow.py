@@ -187,7 +187,7 @@ class WorkflowModal(ModalScreen):
         preview = workflows.describe(definition)
         if name not in workflows.BUILT_IN:
             preview += "\n" + workflows.details(definition)  # your own template: everything it says and runs
-        self.query_one("#workflow-preview", Static).update(preview)
+        self.query_one("#workflow-preview", Static).update(Text(preview))  # plain text, never markup
         self.query_one("#workflow-rounds", Input).value = str(definition.get("max_rounds", 3))
 
     def on_select_changed(self, event: Select.Changed) -> None:

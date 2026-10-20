@@ -108,9 +108,7 @@ def validate(definition: dict) -> dict:
         step = {"type": raw["type"]}
         for key in ("brief", "text", "command"):
             if raw.get(key) is not None:
-                if not isinstance(raw[key], str):
-                    raise ValueError(_("Step {n}: {key} must be text.").format(n=n, key=key))
-                step[key] = raw[key]
+                step[key] = _text(raw[key], n, key)
         if raw.get("model") is not None:
             step["model"] = _model(raw["model"], n)
         if step["type"] == "review":
@@ -121,8 +119,9 @@ def validate(definition: dict) -> dict:
             for reviewer in reviewers:
                 if not isinstance(reviewer, dict) or not isinstance(reviewer.get("brief", ""), str):
                     raise ValueError(_("Step {n}: each reviewer needs a brief.").format(n=n))
-                clean = {"name": str(reviewer.get("name") or f"reviewer {len(step['reviewers']) + 1}")[:40],
-                         "brief": reviewer.get("brief", "")}
+                clean = {"name": _text(str(reviewer.get("name") or f"reviewer {len(step['reviewers']) + 1}")[:40],
+                                       n, "name"),
+                         "brief": _text(reviewer.get("brief", ""), n, "brief")}
                 if reviewer.get("model") is not None:
                     clean["model"] = _model(reviewer["model"], n)
                 step["reviewers"].append(clean)
@@ -136,8 +135,18 @@ def validate(definition: dict) -> dict:
         raise ValueError(_("max_rounds must be a whole number from 1 to {max}.").format(max=MAX_ROUNDS))
     clean = {"max_rounds": rounds, "steps": steps}
     if isinstance(definition.get("title"), str):
-        clean["title"] = definition["title"]
+        clean["title"] = _text(definition["title"], 0, "title")
     return clean
+
+
+def _text(value, n: int, key: str) -> str:
+    """A template's text: no control characters (an ESC or \\r could fake
+    what `ccc workflow import` shows before you say --yes)."""
+    if not isinstance(value, str):
+        raise ValueError(_("Step {n}: {key} must be text.").format(n=n, key=key))
+    if any(ord(c) < 32 and c not in "\n\t" or 127 <= ord(c) < 160 for c in value):
+        raise ValueError(_("Step {n}: {key} has control characters.").format(n=n, key=key))
+    return value
 
 
 def _model(value, n: int) -> str:
@@ -195,16 +204,19 @@ def _read_json(path: Path):
         raise ValueError(_("{path} isn't JSON.").format(path=path)) from error
 
 
-def read_template(path: str | Path) -> dict:
-    """A template file, validated, to show before importing it."""
-    return validate(_read_json(Path(path).expanduser()))
+def read_template(path: str | Path) -> tuple[dict, dict]:
+    """A template file read once: (its data — pass it to import_template —,
+    the validated template to show before importing it)."""
+    data = _read_json(Path(path).expanduser())
+    return data, validate(data)
 
 
-def import_template(storage, path: str | Path, name: str | None = None) -> str:
+def import_template(storage, path: str | Path, name: str | None = None, data: dict | None = None) -> str:
     """Save a template from a JSON file (ValueError when it isn't one).
-    `ccc workflow import` shows details() first and needs --yes."""
+    `ccc workflow import` reads it once, shows details() and passes the
+    same `data` here after --yes — the file can't change in between."""
     path = Path(path).expanduser()
-    data = _read_json(path)
+    data = _read_json(path) if data is None else data
     name = (name or (data.get("name") if isinstance(data, dict) else None) or path.name.removesuffix(EXPORT_SUFFIX)
             .removesuffix(".json")).strip()
     if not name or name in BUILT_IN:

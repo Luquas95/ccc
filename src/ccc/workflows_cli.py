@@ -79,14 +79,14 @@ def run(storage, args: argparse.Namespace, sleep=time.sleep) -> int:
                 print(f"    {workflows.describe(workflows.validate(definition))}")
             return 0
         if command == "import":
-            definition = workflows.read_template(args.path)
+            data, definition = workflows.read_template(args.path)
             print(workflows.describe(definition))
             print(workflows.details(definition))
             if not args.yes:
                 print(_("Not saved. A template tells the agents what to do (and a check command runs in the project) "
                         "— read the above; save it with --yes."))
                 return 1
-            name = workflows.import_template(storage, args.path, args.name)
+            name = workflows.import_template(storage, args.path, args.name, data)
             print(_("Template “{name}” saved.").format(name=name))
             return 0
         if command == "export":

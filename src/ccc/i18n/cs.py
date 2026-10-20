@@ -1147,4 +1147,5 @@ CS: dict[str, str] = {
     "save it — after reading what it tells the agents and what it runs": "uložit ji — až si přečteš, co říká agentům a co spouští",
     "Not saved. A template tells the agents what to do (and a check command runs in the project) — read the above; save it with --yes.":
         "Neuloženo. Šablona říká agentům, co dělat (a kontrolní příkaz se spouští v projektu) — přečti si výpis výše; ulož ji s --yes.",
+    "Step {n}: {key} has control characters.": "Krok {n}: {key} obsahuje řídicí znaky.",
 }

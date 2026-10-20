@@ -230,3 +230,10 @@ async def test_your_check_command_wins_and_a_template_brief_is_marked_as_the_tem
     ran = []
     await _advance(storage, run, Agents(), check=lambda command, cwd: ran.append(command) or (True, ""))
     assert ran == ["pytest -q"]
+
+
+@pytest.mark.parametrize("text", ["fine\x1b[2Kfake", "a\rb", "x\x9by"])
+def test_control_characters_in_a_template_are_refused(text):
+    with pytest.raises(ValueError, match="control characters"):
+        workflows.validate({"steps": [{"type": "code", "brief": text}]})
+    assert workflows.validate({"steps": [{"type": "code", "brief": "two\nlines\tok"}]})
