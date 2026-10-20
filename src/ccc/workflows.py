@@ -26,6 +26,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import unicodedata
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -140,11 +141,17 @@ def validate(definition: dict) -> dict:
 
 
 def _text(value, n: int, key: str) -> str:
-    """A template's text: no control characters (an ESC or \\r could fake
-    what `ccc workflow import` shows before you say --yes)."""
+    """A template's text without anything that could fake what `ccc
+    workflow import` shows before you say --yes: no control characters
+    (ESC, \\r) and no invisible / direction-changing Unicode. A command is
+    one line of printable ASCII — what you read is what runs."""
     if not isinstance(value, str):
         raise ValueError(_("Step {n}: {key} must be text.").format(n=n, key=key))
-    if any(ord(c) < 32 and c not in "\n\t" or 127 <= ord(c) < 160 for c in value):
+    if key == "command":
+        if not all(32 <= ord(c) < 127 for c in value):
+            raise ValueError(_("Step {n}: a command is one line of plain ASCII characters.").format(n=n))
+        return value
+    if any(c not in "\n\t" and unicodedata.category(c) in ("Cc", "Cf", "Zl", "Zp", "Co", "Cs") for c in value):
         raise ValueError(_("Step {n}: {key} has control characters.").format(n=n, key=key))
     return value
 
@@ -173,7 +180,7 @@ def describe(definition: dict) -> str:
         if step["type"] == "review":
             label += f" ×{len(step['reviewers'])}"
         if step["type"] == "check" and step.get("command"):
-            label += f" `{step['command']}`"
+            label += f" {step['command']!r}"
         parts.append(label)
     return " → ".join(parts) + "  " + _("(back to build at most {n}×)").format(n=definition.get("max_rounds", 3))
 
@@ -188,7 +195,7 @@ def details(definition: dict) -> str:
             if step.get(key):
                 lines.append(f"   {key}: {step[key]}")
         if step.get("command"):
-            lines.append("   " + _("command (runs in the project folder): {command}").format(command=step["command"]))
+            lines.append("   " + _("command (runs in the project folder): {command}").format(command=repr(step["command"])))
         for reviewer in step.get("reviewers", []):
             lines.append(f"   - {reviewer['name']}" + (f" (model {reviewer['model']})" if reviewer.get("model") else "")
                          + f": {reviewer['brief']}")

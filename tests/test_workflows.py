@@ -221,7 +221,7 @@ def test_import_shows_what_a_template_says_and_runs_and_needs_yes(storage, tmp_p
 async def test_your_check_command_wins_and_a_template_brief_is_marked_as_the_templates(storage, queue):
     _template(storage, [{"type": "code", "brief": "Prefer small functions."},
                         {"type": "check", "command": "make test"}])
-    assert "check `make test`" in workflows.describe(workflows.templates(storage)["t"])
+    assert "check 'make test'" in workflows.describe(workflows.templates(storage)["t"])
     run = workflows.start(storage, queue.id, "t", "task", "pytest -q")
     run = await _advance(storage, run, Agents())
     prompt = storage.get_item(run.item_id).prompt_text
@@ -232,8 +232,15 @@ async def test_your_check_command_wins_and_a_template_brief_is_marked_as_the_tem
     assert ran == ["pytest -q"]
 
 
-@pytest.mark.parametrize("text", ["fine\x1b[2Kfake", "a\rb", "x\x9by"])
+@pytest.mark.parametrize("text", ["fine\x1b[2Kfake", "a\rb", "x\x9by", "safe\u202erm", "zero\u200bwidth",
+                                  "line\u2028sep"])
 def test_control_characters_in_a_template_are_refused(text):
     with pytest.raises(ValueError, match="control characters"):
         workflows.validate({"steps": [{"type": "code", "brief": text}]})
-    assert workflows.validate({"steps": [{"type": "code", "brief": "two\nlines\tok"}]})
+    assert workflows.validate({"steps": [{"type": "code", "brief": "dvě\nřádky\tok"}]})
+
+
+@pytest.mark.parametrize("command", ["make test\nrm -rf ~", "make\ttest", "make tést"])
+def test_a_command_is_one_line_of_ascii(command):
+    with pytest.raises(ValueError, match="one line of plain ASCII"):
+        workflows.validate({"steps": [{"type": "code"}, {"type": "check", "command": command}]})
