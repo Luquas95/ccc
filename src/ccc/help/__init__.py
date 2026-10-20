@@ -19,6 +19,7 @@ TOPICS: list[tuple[str, str]] = [
     ("routines", N_("Routines")),
     ("review", N_("Reviews")),
     ("goal", N_("Goal loop")),
+    ("workflows", N_("Workflows")),
     ("archive", N_("Archive")),
     ("limits", N_("Usage limits & blocked queues")),
     ("approvals", N_("Approving tool calls")),

@@ -530,6 +530,16 @@ class SidebarScreen(Screen):
             return
         self.app.push_screen(GoalModal(self.storage, queue_id))
 
+    def action_workflow(self) -> None:
+        """A multi-agent workflow on the conversation's task (ccc.workflows)."""
+        from ccc.tui.workflow import WorkflowModal
+
+        queue_id = self.selected_queue_id()
+        if queue_id is None:
+            self.notify(_("Select a conversation first."), severity="warning")
+            return
+        self.app.push_screen(WorkflowModal(self.storage, queue_id))
+
     def action_routines(self) -> None:
         from ccc.tui.routines import RoutinesModal
 

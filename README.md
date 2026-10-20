@@ -95,6 +95,9 @@ phone via Remote Control.
 - **Goal loop** (`g`) — say once what done looks like; the conversation
   works in rounds (task → your check command → fresh review) until the
   reviewer says it's met, switching to stronger models when it stalls.
+- **Workflows** (`w`) — a chain of agents on one task: planner, your
+  approval, the build, a check, reviewers in parallel and an arbiter, with
+  bounded rounds back to the build; your own templates as JSON.
 - **Your own keyboard shortcuts** — every key can be changed (Settings or
   `ccc keys`), each new one is checked for collisions with ccc, Claude
   Code and the terminal first; export / import them as `ccc-keys.json`.
@@ -167,6 +170,7 @@ Language):
 - [Routines](src/ccc/help/routines.md)
 - [Reviews](src/ccc/help/review.md)
 - [Goal loop](src/ccc/help/goal.md)
+- [Workflows](src/ccc/help/workflows.md)
 - [Archive](src/ccc/help/archive.md)
 - [Usage limits & blocked queues](src/ccc/help/limits.md)
 - [Approving tool calls](src/ccc/help/approvals.md)

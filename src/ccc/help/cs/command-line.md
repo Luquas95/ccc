@@ -42,4 +42,10 @@ ccc-tui`); změněné v Nastavení platí hned.
 | `ccc goal stop KONVERZACE` | zastaví její smyčku k cíli |
 | `ccc runs KONVERZACE` | běhy konverzace: id, čas, stav, commit (`↺` = vrácený), úkol |
 | `ccc revert BĚH [--tell]` | [vrátí běh](git.md#vrácení-běhu): jeho commit vrátí novým commitem; `--tell` = zařadí i poznámku pro Clauda |
+| `ccc workflow templates` | šablony [workflow](workflows.md) a jejich kroky |
+| `ccc workflow start KONVERZACE ŠABLONA "ÚKOL"` | spustí workflow; `--check "pytest -q"`, `--rounds N`, `--wait` = počkat do konce (návratový kód 0, když prošlo) |
+| `ccc workflow list [KONVERZACE]` / `show BĚH` | běhy od nejnovějšího / kroky běhu a co který agent řekl |
+| `ccc workflow approve KONVERZACE` / `reject KONVERZACE` | odpoví na krok, na kterém běh čeká (`--note "…"` pro další krok) |
+| `ccc workflow stop KONVERZACE` | zastaví její workflow |
+| `ccc workflow import SOUBOR` / `export ŠABLONA SLOŽKA` / `delete ŠABLONA` | vlastní šablony jako JSON |
 | `ccc-daemon` | samotný daemon (normálně ho spouští `ccc.service`) |

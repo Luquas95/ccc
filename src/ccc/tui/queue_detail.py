@@ -158,6 +158,7 @@ class QueueDetailScreen(SidebarScreen):
         keymap.binding("screen.add_prompt", "add_prompt", _("Add prompt"), show=False),
         keymap.binding("screen.review", "review", _("Review")),
         keymap.binding("screen.goal", "goal", _("Goal")),
+        keymap.binding("screen.workflow", "workflow", _("Workflow")),
         keymap.binding("queue_detail.revert", "revert_run", _("Revert run")),
     ]
 

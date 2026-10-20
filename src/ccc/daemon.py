@@ -118,6 +118,21 @@ async def goals_loop(storage: Storage, notifier: Notifier, interval: float = GOA
         await asyncio.sleep(interval)
 
 
+WORKFLOW_CHECK_SECONDS = 5.0
+
+
+async def workflows_loop(storage: Storage, notifier: Notifier, interval: float = WORKFLOW_CHECK_SECONDS) -> None:
+    """Advance the multi-agent workflows (ccc.workflows), each in its own task."""
+    from ccc import workflows
+
+    while True:
+        try:
+            await workflows.tick(storage, notifier)
+        except Exception:
+            logger.exception("running workflows failed")
+        await asyncio.sleep(interval)
+
+
 async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     storage = Storage(db_path)
     i18n.load(storage)
@@ -138,6 +153,7 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     scheduled = asyncio.create_task(routines_loop(storage))
     reviewing = asyncio.create_task(reviews_loop(storage, notifier))
     goal_loops = asyncio.create_task(goals_loop(storage, notifier))
+    flows = asyncio.create_task(workflows_loop(storage, notifier))
     await stop_event.wait()
     logger.info("ccc daemon shutting down")
     heartbeat.cancel()
@@ -147,6 +163,7 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     scheduled.cancel()
     reviewing.cancel()
     goal_loops.cancel()
+    flows.cancel()
     await orchestrator.stop_all()
 
 

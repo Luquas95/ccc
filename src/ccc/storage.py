@@ -24,6 +24,9 @@ from ccc.models import (
     RoutineTarget,
     RunStatus,
     Verdict,
+    WorkflowEvent,
+    WorkflowRun,
+    WorkflowStatus,
 )
 
 SCHEMA = """
@@ -116,6 +119,45 @@ CREATE TABLE IF NOT EXISTS goals (
     last_reason TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     finished_at TEXT
+);
+
+-- Multi-agent workflows (ccc.workflows): your templates, runs, step history.
+CREATE TABLE IF NOT EXISTS workflow_templates (
+    name TEXT PRIMARY KEY,
+    definition TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS workflow_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    queue_id INTEGER NOT NULL REFERENCES queues(id),
+    name TEXT NOT NULL,
+    template TEXT NOT NULL,
+    task TEXT NOT NULL,
+    check_command TEXT NOT NULL DEFAULT '',
+    max_rounds INTEGER NOT NULL DEFAULT 3,
+    status TEXT NOT NULL DEFAULT 'running',
+    step INTEGER NOT NULL DEFAULT 0,
+    round INTEGER NOT NULL DEFAULT 1,
+    base_run_id INTEGER NOT NULL DEFAULT 0,
+    item_id INTEGER,
+    plan TEXT NOT NULL DEFAULT '',
+    findings TEXT NOT NULL DEFAULT '',
+    last_reason TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    finished_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS workflow_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER NOT NULL REFERENCES workflow_runs(id),
+    step INTEGER NOT NULL,
+    round INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL,
+    verdict TEXT NOT NULL DEFAULT '',
+    output TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS permission_requests (
@@ -277,6 +319,9 @@ class Storage:
             conn.commit()
         if "reverted_by" not in run_columns:
             conn.execute("ALTER TABLE prompt_runs ADD COLUMN reverted_by TEXT")
+            conn.commit()
+        if "workflow_run_id" not in run_columns:
+            conn.execute("ALTER TABLE prompt_runs ADD COLUMN workflow_run_id INTEGER")
             conn.commit()
         item_columns = {row[1] for row in conn.execute("PRAGMA table_info(queue_items)").fetchall()}
         if "not_before" not in item_columns:
@@ -575,6 +620,9 @@ class Storage:
             conn.execute("DELETE FROM routines WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM reviews WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM goals WHERE queue_id = ?", (queue_id,))
+            conn.execute("DELETE FROM workflow_events WHERE run_id IN (SELECT id FROM workflow_runs WHERE queue_id = ?)",
+                         (queue_id,))
+            conn.execute("DELETE FROM workflow_runs WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM permission_requests WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM permission_allow WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM queues WHERE id = ?", (queue_id,))
@@ -733,7 +781,8 @@ class Storage:
         """The conversation's task runs (not reviews) newer than run_id, oldest first."""
         with closing(self._connect()) as conn:
             rows = conn.execute(
-                "SELECT * FROM prompt_runs WHERE queue_id = ? AND id > ? AND review_id IS NULL ORDER BY id",
+                "SELECT * FROM prompt_runs WHERE queue_id = ? AND id > ? AND review_id IS NULL "
+                "AND workflow_run_id IS NULL ORDER BY id",
                 (queue_id, run_id),
             ).fetchall()
             return [self._row_to_run(r) for r in rows]
@@ -741,7 +790,8 @@ class Storage:
     def last_run_id(self, queue_id: int) -> int:
         with closing(self._connect()) as conn:
             return conn.execute(
-                "SELECT COALESCE(MAX(id), 0) FROM prompt_runs WHERE queue_id = ? AND review_id IS NULL", (queue_id,)
+                "SELECT COALESCE(MAX(id), 0) FROM prompt_runs WHERE queue_id = ? AND review_id IS NULL "
+                "AND workflow_run_id IS NULL", (queue_id,)
             ).fetchone()[0]
 
     def get_item(self, item_id: int) -> QueueItem | None:
@@ -821,6 +871,107 @@ class Storage:
             phase=GoalPhase(row["phase"]), item_id=row["item_id"], review_id=row["review_id"],
             base_run_id=row["base_run_id"], last_reason=row["last_reason"],
             created_at=datetime.fromisoformat(row["created_at"]),
+            finished_at=datetime.fromisoformat(row["finished_at"]) if row["finished_at"] else None,
+        )
+
+    # --- workflows (ccc.workflows) -----------------------------------------------
+
+    def save_workflow_template(self, name: str, definition: dict) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute("INSERT INTO workflow_templates (name, definition) VALUES (?, ?) "
+                         "ON CONFLICT(name) DO UPDATE SET definition = excluded.definition",
+                         (name, json.dumps(definition, ensure_ascii=False)))
+            conn.commit()
+
+    def workflow_templates(self) -> dict[str, dict]:
+        with closing(self._connect()) as conn:
+            rows = conn.execute("SELECT name, definition FROM workflow_templates ORDER BY name").fetchall()
+            return {r["name"]: json.loads(r["definition"]) for r in rows}
+
+    def delete_workflow_template(self, name: str) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute("DELETE FROM workflow_templates WHERE name = ?", (name,))
+            conn.commit()
+
+    def add_workflow_run(self, queue_id: int, name: str, template: dict, task: str, check_command: str,
+                         max_rounds: int, base_run_id: int) -> WorkflowRun:
+        with closing(self._connect()) as conn:
+            cur = conn.execute(
+                "INSERT INTO workflow_runs (queue_id, name, template, task, check_command, max_rounds, base_run_id, "
+                "created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (queue_id, name, json.dumps(template, ensure_ascii=False), task, check_command, max_rounds,
+                 base_run_id, datetime.now().isoformat()),
+            )
+            conn.commit()
+            run_id = cur.lastrowid
+        return self.get_workflow_run(run_id)
+
+    def find_workflow_run(self, run_id: int) -> WorkflowRun | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT * FROM workflow_runs WHERE id = ?", (run_id,)).fetchone()
+            return self._row_to_workflow_run(row) if row else None
+
+    def get_workflow_run(self, run_id: int) -> WorkflowRun:
+        run = self.find_workflow_run(run_id)
+        if run is None:
+            raise KeyError(run_id)
+        return run
+
+    def list_workflow_runs(self, queue_id: int | None = None) -> list[WorkflowRun]:
+        """Newest first."""
+        sql, args = "SELECT * FROM workflow_runs", []
+        if queue_id is not None:
+            sql, args = sql + " WHERE queue_id = ?", [queue_id]
+        with closing(self._connect()) as conn:
+            return [self._row_to_workflow_run(r) for r in conn.execute(sql + " ORDER BY id DESC", args).fetchall()]
+
+    def update_workflow_run(self, run_id: int, **fields) -> None:
+        if not fields:
+            return
+        values = []
+        for value in fields.values():
+            if isinstance(value, datetime):
+                value = value.isoformat()
+            elif isinstance(value, Enum):
+                value = value.value
+            values.append(value)
+        columns = ", ".join(f"{name} = ?" for name in fields)
+        with closing(self._connect()) as conn:
+            conn.execute(f"UPDATE workflow_runs SET {columns} WHERE id = ?", (*values, run_id))
+            conn.commit()
+
+    def add_workflow_event(self, run_id: int, step: int, round: int, kind: str, name: str, status: str = "running",
+                           verdict: str = "", output: str = "") -> int:
+        with closing(self._connect()) as conn:
+            cur = conn.execute(
+                "INSERT INTO workflow_events (run_id, step, round, kind, name, status, verdict, output, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (run_id, step, round, kind, name, status, verdict, output, datetime.now().isoformat()),
+            )
+            conn.commit()
+            return cur.lastrowid
+
+    def update_workflow_event(self, event_id: int, status: str, verdict: str = "", output: str = "") -> None:
+        with closing(self._connect()) as conn:
+            conn.execute("UPDATE workflow_events SET status = ?, verdict = ?, output = ? WHERE id = ?",
+                         (status, verdict, output, event_id))
+            conn.commit()
+
+    def workflow_events(self, run_id: int) -> list[WorkflowEvent]:
+        with closing(self._connect()) as conn:
+            rows = conn.execute("SELECT * FROM workflow_events WHERE run_id = ? ORDER BY id", (run_id,)).fetchall()
+            return [WorkflowEvent(id=r["id"], run_id=r["run_id"], step=r["step"], round=r["round"], kind=r["kind"],
+                                  name=r["name"], status=r["status"], verdict=r["verdict"], output=r["output"],
+                                  created_at=datetime.fromisoformat(r["created_at"])) for r in rows]
+
+    @staticmethod
+    def _row_to_workflow_run(row: sqlite3.Row) -> WorkflowRun:
+        return WorkflowRun(
+            id=row["id"], queue_id=row["queue_id"], name=row["name"], template=json.loads(row["template"]),
+            task=row["task"], check_command=row["check_command"], max_rounds=row["max_rounds"],
+            status=WorkflowStatus(row["status"]), step=row["step"], round=row["round"],
+            base_run_id=row["base_run_id"], item_id=row["item_id"], plan=row["plan"], findings=row["findings"],
+            last_reason=row["last_reason"], created_at=datetime.fromisoformat(row["created_at"]),
             finished_at=datetime.fromisoformat(row["finished_at"]) if row["finished_at"] else None,
         )
 
@@ -978,8 +1129,8 @@ class Storage:
             cur = conn.execute(
                 "INSERT INTO prompt_runs (queue_id, queue_item_id, prompt_text, started_at, finished_at, "
                 "status, cost_usd, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, "
-                "duration_ms, num_turns, result_text, error_text, git_commit, git_note, review_id) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "duration_ms, num_turns, result_text, error_text, git_commit, git_note, review_id, workflow_run_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     run.queue_id,
                     run.queue_item_id,
@@ -999,6 +1150,7 @@ class Storage:
                     run.git_commit,
                     run.git_note,
                     run.review_id,
+                    run.workflow_run_id,
                 ),
             )
             conn.commit()
@@ -1223,4 +1375,5 @@ class Storage:
             git_note=row["git_note"],
             review_id=row["review_id"],
             reverted_by=row["reverted_by"],
+            workflow_run_id=row["workflow_run_id"],
         )
