@@ -1,5 +1,5 @@
 """Where ccc writes files for you: exported conversations (e) and
-screenshots (Ctrl+T), each in its own subfolder of one export folder.
+screenshots (Alt+S), each in its own subfolder of one export folder.
 
 The folder is the "Export folder" setting; empty means the default —
 ccc/ in your documents folder, whatever it's called in your language

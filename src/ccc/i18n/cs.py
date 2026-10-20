@@ -76,7 +76,7 @@ CS: dict[str, str] = {
     "background": "na pozadí",
 
     # --- frame (tui/layout.py) -------------------------------------------------
-    "Add prompt (a)": "Přidat prompt (a)",
+    "Add prompt (+)": "Přidat prompt (+)",
     "Retry blocked queue (r)": "Znovu spustit frontu (r)",
     "New conversation (n)": "Nová konverzace (n)",
     "New conversation": "Nová konverzace",
@@ -286,6 +286,7 @@ CS: dict[str, str] = {
         "Zkontroluj {target} v Nastavení (Ctrl+P), nebo je soubor moc velký.",
     "Not sent to {target}": "Neodesláno na {target}",
     "Screenshot saved": "Snímek obrazovky uložen",
+    "Screenshot": "Snímek obrazovky",
     "⌨ typing here": "⌨ píšeš sem",
 
     # --- Live sessions ------------------------------------------------------------
@@ -387,9 +388,9 @@ CS: dict[str, str] = {
     "Exports": "Exporty",
     "Export folder": "Složka pro exporty",
     "empty = {folder}": "prázdné = {folder}",
-    "Exported conversations (e) go to conversations/, screenshots (Ctrl+T) to screenshots/\n"
+    "Exported conversations (e) go to conversations/, screenshots (Alt+S) to screenshots/\n"
     "inside it. Empty = ccc in your documents folder (~/ccc-exports where there is none).":
-        "Exportované konverzace (e) jdou do podsložky conversations/, snímky obrazovky (Ctrl+T)\n"
+        "Exportované konverzace (e) jdou do podsložky conversations/, snímky obrazovky (Alt+S)\n"
         "do screenshots/. Prázdné = ccc ve složce dokumentů (kde není, tak ~/ccc-exports).",
     "After export": "Po exportu",
     "Only save to the folder": "Jen uložit do složky",
@@ -402,10 +403,10 @@ CS: dict[str, str] = {
         "Použije Telegram / Discord nastavený výše.",
     "Monthly analytics archive": "Měsíční archiv analytiky",
     "empty = off, e.g. ~/Documents/ccc_analytics": "prázdné = vypnuto, např. ~/Dokumenty/ccc_analytics",
-    "The current month is here in Analytics (v). When a month ends, ccc archives it into this\n"
+    "The current month is here in Analytics (a). When a month ends, ccc archives it into this\n"
     "folder as Markdown notes for Obsidian (no plugins): ccc_analytics.md with all months, one\n"
     "note per month with a calendar and charts, one per day. Empty = no archive.":
-        "Aktuální měsíc je tady v Analytice (v). Když měsíc skončí, ccc ho uloží do této složky\n"
+        "Aktuální měsíc je tady v Analytice (a). Když měsíc skončí, ccc ho uloží do této složky\n"
         "jako Markdown poznámky pro Obsidian (bez pluginů): ccc_analytics.md se všemi měsíci,\n"
         "poznámku za měsíc s kalendářem a grafy a jednu za každý den. Prázdné = bez archivu.",
     "Archive finished months now": "Archivovat skončené měsíce hned",
@@ -457,6 +458,8 @@ CS: dict[str, str] = {
     "This help": "Tato nápověda",
     "Settings (language, theme, Telegram, queues, presets, backup)":
         "Nastavení (jazyk, motiv, Telegram, fronty, předvolby, záloha)",
+    "Screenshot of ccc (an SVG in the export folder, see Settings)":
+        "Snímek obrazovky ccc (SVG do složky exportů, viz Nastavení)",
     "Close ccc (it keeps running; `ccc` opens it again)": "Zavřít ccc (běží dál; `ccc` ho zase otevře)",
     "Back / close": "Zpět / zavřít",
     "Open the queue detail": "Otevřít detail fronty",

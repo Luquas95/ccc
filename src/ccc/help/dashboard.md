@@ -59,7 +59,7 @@ What to do with the last two: [Usage limits & blocked queues](limits.md).
 - the **run history**: every task with its result, tokens and — in a git
   repository — its commit. `Enter` on a run shows the commit's diff (see
   [Git](git.md));
-- `a` adds a task to this conversation, `r` gets it going again when it's
+- `+` adds a task to this conversation, `r` gets it going again when it's
   blocked or paused at a limit. `Esc` goes back.
 
 ![Queue detail](../../../docs/screenshots/queue_detail.png)

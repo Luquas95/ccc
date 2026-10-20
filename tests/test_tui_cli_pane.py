@@ -127,7 +127,7 @@ def test_bar_opens_across_the_window_and_keys_are_bound(tmux):
     bar = cli_pane.find_bar()
     assert bar is not None and bar != pane
     bound = {c[2]: c for c in tmux.calls if c[0] == "bind-key" and c[1] == "-n" and c[2] not in ("C-S-c", "C-S-v", "C-q")}
-    assert set(bound) == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p"}
+    assert set(bound) == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p", "M-s"}
     assert f"select-pane -t {pane}" in bound["M-0"][6]
     assert "#{e|<|:#{window_width},100}" in bound["M-0"][6]  # numeric, not string compare
     assert "preset 3 --queue 4 --db /data/h.db" in bound["M-3"][7] and "#{socket_path}" in bound["M-3"][7]
@@ -156,7 +156,7 @@ def test_close_removes_bar_and_keys(tmux):
     assert [c for c in tmux.calls if c[0] == "set-hook"][-1][5] == f"resize-pane -t {strip} -y 1"
     assert cli_pane.find() is None and cli_pane.find_bar() is None
     unbound = {c[2] for c in tmux.calls if c[:2] == ("unbind-key", "-n")}
-    assert unbound == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p"}
+    assert unbound == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p", "M-s"}
 
 
 def test_no_keys_bound_on_a_foreign_tmux(tmux, monkeypatch):
@@ -168,6 +168,12 @@ def test_no_keys_bound_on_a_foreign_tmux(tmux, monkeypatch):
 def test_bindings_never_take_claude_code_keys():
     keys = {b[2] for b in cli_pane.key_bindings("%0", "%1", 1, "/data/h.db")}
     assert not keys & {"Tab", "BTab", "C-t", "C-d", "C-c", "C-o", "C-r", "C-b", "M-p", "M-o", "M-t", "M-v"}
+
+
+def test_alt_s_screenshots_ccc_without_moving_the_keyboard():
+    binding = next(b for b in cli_pane.key_bindings("%0", "%1", 1, "/data/h.db") if b[2] == "M-s")
+    # In ccc it's ccc's key; in Claude it goes to ccc, the keyboard stays.
+    assert binding[-2:] == ("send-keys M-s", "send-keys -t %0 M-s")
 
 
 def test_title_bars_from_the_start_on_the_ccc_server(tmux):

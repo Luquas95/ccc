@@ -29,11 +29,12 @@ TITLE_OPTION = "@ccc-title"
 BAR_ROWS = 1
 # Keys bound on ccc's server while the pane is open (root table: they
 # work in every pane, before the pane's program sees them). None of them
-# is a Claude Code key: Alt+digits and Ctrl+P are unused there; Tab
-# (autocomplete), Ctrl+T (to-dos) and Ctrl+D (exit) are Claude's.
+# is a Claude Code key: Alt+digits, Alt+S and Ctrl+P are unused there;
+# Tab (autocomplete), Ctrl+T (to-dos) and Ctrl+D (exit) are Claude's.
 SWITCH_KEY = "M-0"
 PRESET_KEYS = tuple(f"M-{n}" for n in range(1, 10))
 SETTINGS_KEY = "C-p"
+SCREENSHOT_KEY = "M-s"
 # On ccc's own server: a title bar on each pane, and the pane you type in
 # marked — otherwise nothing shows whether keys go to ccc or to Claude.
 # Only while Claude Code is open (#{P:} looks through the window's panes
@@ -85,7 +86,8 @@ def key_bindings(main: str, cli: str, queue_id: int, db_path: str) -> list[tuple
       windows Claude then takes the whole window),
     - Alt+1 … Alt+9 type a preset into Claude (`ccc preset`); in ccc's
       own pane they go to ccc as before,
-    - Ctrl+P opens ccc's Settings from anywhere."""
+    - Ctrl+P opens ccc's Settings from anywhere,
+    - Alt+S takes ccc's screenshot from anywhere (the keyboard stays)."""
     in_ccc = f"#{{==:#{{pane_id}},{main}}}"
     # e|<| compares numbers; plain #{<:} compares strings ("80" > "100").
     to_claude = f"select-pane -t {cli} ; if-shell -F '#{{e|<|:#{{window_width}},{NARROW_COLUMNS}}}' 'resize-pane -Z -t {cli}'"
@@ -100,6 +102,8 @@ def key_bindings(main: str, cli: str, queue_id: int, db_path: str) -> list[tuple
         ))
     bindings.append(("bind-key", "-n", SETTINGS_KEY, "if-shell", "-F", in_ccc, f"send-keys {SETTINGS_KEY}",
                      f"select-pane -t {main} ; send-keys -t {main} {SETTINGS_KEY}"))
+    bindings.append(("bind-key", "-n", SCREENSHOT_KEY, "if-shell", "-F", in_ccc, f"send-keys {SCREENSHOT_KEY}",
+                     f"send-keys -t {main} {SCREENSHOT_KEY}"))
     return bindings
 
 
@@ -156,7 +160,7 @@ def ensure_strip() -> str | None:
 
 
 def unbind_keys() -> None:
-    for key in (SWITCH_KEY, *PRESET_KEYS, SETTINGS_KEY):
+    for key in (SWITCH_KEY, *PRESET_KEYS, SETTINGS_KEY, SCREENSHOT_KEY):
         _tmux("unbind-key", "-n", key)
 
 

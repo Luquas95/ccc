@@ -57,7 +57,7 @@ Co s posledními dvěma: [Limity využití a zablokované fronty](limits.md).
 - **historii běhů**: každý úkol s výsledkem, tokeny a — v git
   repozitáři — commitem. `Enter` na běhu ukáže diff commitu (viz
   [Git](git.md));
-- `a` přidá konverzaci úkol, `r` ji znovu rozběhne, když je zablokovaná
+- `+` přidá konverzaci úkol, `r` ji znovu rozběhne, když je zablokovaná
   nebo pozastavená na limitu. `Esc` vrací zpět.
 
 ![Detail fronty](../../../../docs/screenshots/queue_detail.png)

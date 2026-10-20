@@ -10,7 +10,7 @@ s jejich stavem a složkou.
 |---|---|
 | `Enter` | pošle vybrané relaci prompt |
 | `r` | znovu načte seznam |
-| `a` | přidá prompt do fronty libovolného projektu (běží [na pozadí](conversations.md)) |
+| `+` | přidá prompt do fronty libovolného projektu (běží [na pozadí](conversations.md)) |
 
 ## Poslání promptu běžící relaci
 

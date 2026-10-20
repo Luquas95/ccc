@@ -17,7 +17,7 @@ now* act right away.
 | Queues | the *continue* text sent after a usage limit, and the usage reserve — see [Usage limits](limits.md) |
 | Preset prompts | your prompts on `Alt+1` … `Alt+9` — see below |
 | New-conversation presets | delete presets saved in the [New conversation](new-conversation.md) window |
-| Exports | the folder for exported conversations (`e`) and screenshots; optionally send each export to Telegram / Discord |
+| Exports | the folder for exported conversations (`e`) and screenshots (`Alt+S`); optionally send each export to Telegram / Discord |
 | Monthly analytics archive | see [Analytics](analytics.md) |
 | Data | where the database and its daily backups are, *Back up now* |
 

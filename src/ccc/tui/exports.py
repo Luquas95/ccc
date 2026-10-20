@@ -1,4 +1,4 @@
-"""After a file is exported (e, Ctrl+T): also send it to Telegram /
+"""After a file is exported (e, Alt+S): also send it to Telegram /
 Discord when Settings → Exports says so."""
 from __future__ import annotations
 

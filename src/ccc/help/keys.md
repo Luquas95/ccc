@@ -12,10 +12,11 @@ lists the keys of the screen you're on — click one to press it.
 | `c` | Conversations |
 | `h` | Archive (archived conversations) |
 | `s` | Live sessions |
-| `v` | Analytics |
+| `a` | Analytics |
 | `n` | New conversation |
 | `?` | This help |
 | `Ctrl+P` | Settings (language, theme, Telegram, queues, presets, backup) |
+| `Alt+S` | Screenshot of ccc (an SVG in the export folder, see Settings) |
 | `Ctrl+Q` | Close ccc (it keeps running; `ccc` opens it again) |
 | `Esc` | Back / close |
 
@@ -32,7 +33,7 @@ lists the keys of the screen you're on — click one to press it.
 |---|---|
 | `Enter` | Send the selected session a prompt |
 | `r` | Reload the session list |
-| `a` | Add a prompt to a project's queue |
+| `+` | Add a prompt to a project's queue |
 
 ## Conversations
 
@@ -101,7 +102,7 @@ lists the keys of the screen you're on — click one to press it.
 | Key | |
 |---|---|
 | `Enter` | Show the run's commit diff |
-| `a` | Add a prompt (this queue's path prefilled) |
+| `+` | Add a prompt (this queue's path prefilled) |
 | `r` | Blocked: run the failed task again / resume one paused at a limit |
 
 ## Preset prompt editor (Settings → Add / Edit)

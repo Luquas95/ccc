@@ -12,10 +12,11 @@ klávesy obrazovky, na které jsi — kliknutím klávesu stiskneš.
 | `c` | Konverzace |
 | `h` | Archiv (archivované konverzace) |
 | `s` | Živé relace |
-| `v` | Analytika |
+| `a` | Analytika |
 | `n` | Nová konverzace |
 | `?` | Tato nápověda |
 | `Ctrl+P` | Nastavení (jazyk, motiv, Telegram, fronty, předvolby, záloha) |
+| `Alt+S` | Snímek obrazovky ccc (SVG do složky exportů, viz Nastavení) |
 | `Ctrl+Q` | Zavřít ccc (běží dál; `ccc` ho zase otevře) |
 | `Esc` | Zpět / zavřít |
 
@@ -32,7 +33,7 @@ klávesy obrazovky, na které jsi — kliknutím klávesu stiskneš.
 |---|---|
 | `Enter` | Poslat vybrané relaci prompt |
 | `r` | Znovu načíst seznam relací |
-| `a` | Přidat prompt do fronty projektu |
+| `+` | Přidat prompt do fronty projektu |
 
 ## Konverzace
 
@@ -101,7 +102,7 @@ klávesy obrazovky, na které jsi — kliknutím klávesu stiskneš.
 | Klávesa | |
 |---|---|
 | `Enter` | Ukázat diff commitu z běhu |
-| `a` | Přidat prompt (s předvyplněnou cestou této fronty) |
+| `+` | Přidat prompt (s předvyplněnou cestou této fronty) |
 | `r` | Zablokovaná: znovu spustit selhaný úkol / pokračovat po pauze na limitu |
 
 ## Editor přednastaveného promptu (Nastavení → Přidat / Upravit)

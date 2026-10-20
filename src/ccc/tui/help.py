@@ -19,10 +19,11 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("c", N_("Conversations")),
         ("h", N_("Archive (archived conversations)")),
         ("s", N_("Live sessions")),
-        ("v", N_("Analytics")),
+        ("a", N_("Analytics")),
         ("n", N_("New conversation")),
         ("question_mark", N_("This help")),
         ("ctrl+p", N_("Settings (language, theme, Telegram, queues, presets, backup)")),
+        ("alt+s", N_("Screenshot of ccc (an SVG in the export folder, see Settings)")),
         ("ctrl+q", N_("Close ccc (it keeps running; `ccc` opens it again)")),
         ("escape", N_("Back / close")),
     ]),
@@ -33,7 +34,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
     (N_("Live sessions"), [
         ("enter", N_("Send the selected session a prompt")),
         ("r", N_("Reload the session list")),
-        ("a", N_("Add a prompt to a project's queue")),
+        ("plus", N_("Add a prompt to a project's queue")),
     ]),
     (N_("Conversations"), [
         ("enter", N_("Open the conversation's Claude Code CLI (in the list) / send the message (in the box)")),
@@ -84,7 +85,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
     ]),
     (N_("Queue detail"), [
         ("enter", N_("Show the run's commit diff")),
-        ("a", N_("Add a prompt (this queue's path prefilled)")),
+        ("plus", N_("Add a prompt (this queue's path prefilled)")),
         ("r", N_("Blocked: run the failed task again / resume one paused at a limit")),
     ]),
     (N_("Preset prompt editor (Settings → Add / Edit)"), [
@@ -99,7 +100,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
 
 _PRETTY = {
     "question_mark": "?", "escape": "Esc", "enter": "Enter", "slash": "/", "delete": "Del",
-    "ctrl+d": "Ctrl+D", "ctrl+p": "Ctrl+P", "ctrl+t": "Ctrl+T", "ctrl+q": "Ctrl+Q", "left": "←", "right": "→",
+    "ctrl+p": "Ctrl+P", "ctrl+q": "Ctrl+Q", "alt+s": "Alt+S", "plus": "+", "left": "←", "right": "→",
     **{f"alt+{n}": f"Alt+{n}" for n in range(0, 10)}, "ctrl+right_square_bracket": "Ctrl+]", "ctrl+j": "Ctrl+J", "ctrl+s": "Ctrl+S", "ctrl+up": "Ctrl+↑", "ctrl+down": "Ctrl+↓",
 }
 

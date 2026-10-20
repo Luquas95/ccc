@@ -1,6 +1,6 @@
 # Analytics
 
-Analytics (`v`) shows how much of your Claude limits you use and what ccc
+Analytics (`a`) shows how much of your Claude limits you use and what ccc
 used, month by month.
 
 ![Analytics](../../../docs/screenshots/analytics.png)

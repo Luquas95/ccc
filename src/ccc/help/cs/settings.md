@@ -17,7 +17,7 @@ změny zahodí. Tlačítka jako *Poslat testovací zprávu*, *Vypnout* nebo
 | Fronty | text *pokračuj* posílaný po limitu využití a rezerva využití — viz [Limity využití](limits.md) |
 | Přednastavené prompty | tvé prompty na `Alt+1` … `Alt+9` — viz níže |
 | Předvolby nové konverzace | smaže předvolby uložené v okně [Nová konverzace](new-conversation.md) |
-| Exporty | složka pro exportované konverzace (`e`) a snímky obrazovky; volitelně posílat každý export na Telegram / Discord |
+| Exporty | složka pro exportované konverzace (`e`) a snímky obrazovky (`Alt+S`); volitelně posílat každý export na Telegram / Discord |
 | Měsíční archiv analytiky | viz [Analytika](analytics.md) |
 | Data | kde je databáze a její denní zálohy, *Zálohovat hned* |
 

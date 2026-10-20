@@ -24,7 +24,7 @@ from ccc.models import Queue, QueueStatus
 class SidebarButton:
     id: str
     # Fixed, hardcoded labels only — Button labels are parsed as Rich
-    # markup, so use "(a)" rather than "[a]" (brackets get silently eaten).
+    # markup, so use "(+)" rather than "[+]" (brackets get silently eaten).
     label: str
     color: str  # "green" | "blue" | "red" — see .sidebar-button-* CSS
     action: str  # action name on the screen, without the "action_" prefix
@@ -36,10 +36,10 @@ VIEWS: list[tuple[str, str, str]] = [
     ("conversations", _("Conversations"), "c"),
     ("archive", _("Archive"), "h"),
     ("sessions", _("Live sessions"), "s"),
-    ("analytics", _("Analytics"), "v"),
+    ("analytics", _("Analytics"), "a"),
 ]
 
-ADD_PROMPT_BUTTON = SidebarButton("sidebar-add-prompt", _("Add prompt (a)"), "green", "add_prompt")
+ADD_PROMPT_BUTTON = SidebarButton("sidebar-add-prompt", _("Add prompt (+)"), "green", "add_prompt")
 RETRY_BUTTON = SidebarButton("sidebar-retry", _("Retry blocked queue (r)"), "red", "retry_queue")
 # What r (and the retry button) can get going again.
 RETRYABLE = (QueueStatus.BLOCKED_ERROR, QueueStatus.PAUSED_LIMIT)
@@ -315,13 +315,13 @@ class SidebarScreen(Screen):
     # sidebar buttons have their hotkey printed right next to them.
     # The buttons are only the extra controls of the current view —
     # switching views is the nav list's job, not a button's. A view's own
-    # keys (like "a" for its Add prompt button) live in that view only.
+    # keys (like "+" for its Add prompt button) live in that view only.
     BINDINGS = [
         Binding("d", "goto('dashboard')", _("Dashboard"), show=False),
         Binding("c", "goto('conversations')", _("Conversations"), show=False),
         Binding("h", "goto('archive')", _("Archive"), show=False),
         Binding("s", "goto('sessions')", _("Live sessions"), show=False),
-        Binding("v", "goto('analytics')", _("Analytics"), show=False),
+        Binding("a", "goto('analytics')", _("Analytics"), show=False),
         Binding("n", "new_conversation", _("New conversation"), show=False),
         Binding("question_mark", "key_help", _("Help")),
     ]

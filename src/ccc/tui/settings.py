@@ -250,7 +250,7 @@ class SettingsModal(ModalScreen):
             _row(_("Export folder"), Input(s.get_setting(EXPORT_FOLDER_KEY) or "",
                                         placeholder=_("empty = {folder}").format(folder=home_short(default_export_folder())),
                                         id="settings-export-folder")),
-            Static(_("Exported conversations (e) go to conversations/, screenshots (Ctrl+T) to screenshots/\n"
+            Static(_("Exported conversations (e) go to conversations/, screenshots (Alt+S) to screenshots/\n"
                      "inside it. Empty = ccc in your documents folder (~/ccc-exports where there is none)."),
                    classes="settings-hint"),
             _row(_("After export"), Select(
@@ -266,7 +266,7 @@ class SettingsModal(ModalScreen):
             _row(_("Folder"), Input(s.get_setting(ARCHIVE_FOLDER_KEY) or "", placeholder=_("empty = off, e.g. ~/Documents/ccc_analytics"),
                                  id="settings-archive-folder")),
             Static(
-                _("The current month is here in Analytics (v). When a month ends, ccc archives it into this\n"
+                _("The current month is here in Analytics (a). When a month ends, ccc archives it into this\n"
                   "folder as Markdown notes for Obsidian (no plugins): ccc_analytics.md with all months, one\n"
                   "note per month with a calendar and charts, one per day. Empty = no archive."),
                 classes="settings-hint",
