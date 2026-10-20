@@ -19,6 +19,7 @@ uvádějí výchozí klávesy.
 | `a` | Analytika |
 | `n` | Nová konverzace |
 | `?` | Tato nápověda |
+| `o` | Routiny: prompty podle plánu |
 | `Ctrl+P` | Nastavení (jazyk, motiv, Telegram, fronty, předvolby, zkratky, záloha) |
 | `Alt+S` | Snímek obrazovky ccc (SVG do složky exportů, viz Nastavení) |
 | `Ctrl+Q` | Zavřít ccc (běží dál; `ccc` ho zase otevře) |
@@ -86,6 +87,17 @@ uvádějí výchozí klávesy.
 | `p` | Pozastavit / obnovit frontu |
 | `o` | Zapnout / vypnout automatické pokračování |
 | `Ctrl+S` | Uložit v editoru úkolu |
+
+## Routiny (o)
+
+| Klávesa | |
+|---|---|
+| `a` | Přidat routinu |
+| `e` | Upravit routinu (také Enter) |
+| `Space` | Zapnout / vypnout ji |
+| `r` | Spustit ji hned (další čas podle plánu zůstane) |
+| `Del` | Smazat ji (úkoly, které zařadila, zůstanou) |
+| `Ctrl+S` | Uložit v editoru routiny |
 
 ## Okno schválení (p)
 

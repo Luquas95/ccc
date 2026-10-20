@@ -329,6 +329,7 @@ class SidebarScreen(Screen):
         *[keymap.binding(f"views.{view}", f"goto('{view}')", label, show=False) for view, label in VIEWS],
         keymap.binding("views.new_conversation", "new_conversation", _("New conversation"), show=False),
         keymap.binding("views.help", "key_help", _("Help")),
+        keymap.binding("views.routines", "routines", _("Routines")),
     ]
 
     def __init__(self, storage):
@@ -503,6 +504,16 @@ class SidebarScreen(Screen):
 
     def open_conversation(self, queue_id: int) -> None:
         self._navigate("conversations", self._make_view("conversations", select_queue_id=queue_id))
+
+    def selected_queue_id(self) -> int | None:
+        """The conversation this screen is about (a new routine's default)."""
+        target = self.retry_target()
+        return target.id if target is not None else None
+
+    def action_routines(self) -> None:
+        from ccc.tui.routines import RoutinesModal
+
+        self.app.push_screen(RoutinesModal(self.storage, self.selected_queue_id()))
 
     def action_add_prompt(self) -> None:
         from ccc.tui.queue_detail import AddPromptModal

@@ -36,12 +36,12 @@ FORMAT = "ccc-keys"
 # pane beside ccc (only the keys ccc binds in tmux reach ccc from there).
 VIEWS = ("dashboard", "conversations", "archive", "sessions", "analytics", "queue_detail")
 WINDOWS = ("help", "confirm", "approval", "tasks", "task_edit", "preset_edit", "settings", "keys",
-           "new_conversation", "preset_name", "add_prompt", "diff", "search", "attach")
+           "new_conversation", "preset_name", "add_prompt", "diff", "search", "attach", "routines", "routine_edit")
 CLAUDE = "claude"
 EVERYWHERE = (*VIEWS, *WINDOWS, CLAUDE)
 _CONVERSATIONS = ("conversations", "archive")
 _BACK = ("conversations", "archive", "sessions", "analytics", "queue_detail")
-_EDITORS = ("task_edit", "preset_edit", "settings", "keys")
+_EDITORS = ("task_edit", "preset_edit", "settings", "keys", "routine_edit")
 
 
 @dataclass(frozen=True)
@@ -61,6 +61,7 @@ ACTIONS: tuple[KeyAction, ...] = (
     KeyAction("views.analytics", "a", N_("Analytics"), VIEWS),
     KeyAction("views.new_conversation", "n", N_("New conversation"), VIEWS),
     KeyAction("views.help", "question_mark", N_("This help"), (*VIEWS, "help")),
+    KeyAction("views.routines", "o", N_("Routines (prompts on a schedule)"), VIEWS),
     KeyAction("app.settings", "ctrl+p", N_("Settings"), EVERYWHERE, tmux=True),
     KeyAction("app.screenshot", "alt+s", N_("Screenshot of ccc"), EVERYWHERE, tmux=True),
     KeyAction("app.quit", "ctrl+q", N_("Close ccc"), EVERYWHERE, tmux=True),
@@ -91,6 +92,11 @@ ACTIONS: tuple[KeyAction, ...] = (
     KeyAction("tasks.down", "ctrl+down", N_("Move down"), ("tasks",)),
     KeyAction("tasks.pause", "p", N_("Pause / resume the queue"), ("tasks",)),
     KeyAction("tasks.auto", "o", N_("Toggle auto-continue"), ("tasks",)),
+    KeyAction("routines.add", "a", N_("Add a routine"), ("routines",)),
+    KeyAction("routines.edit", "e", N_("Edit the routine"), ("routines",)),
+    KeyAction("routines.toggle", "space", N_("Turn the routine on / off"), ("routines",)),
+    KeyAction("routines.run", "r", N_("Run the routine now"), ("routines",)),
+    KeyAction("routines.delete", "delete", N_("Delete the routine"), ("routines",)),
     KeyAction("answer.yes", "y", N_("Yes / allow"), ("approval", "confirm")),
     KeyAction("approval.always", "a", N_("Always allow this tool in this conversation"), ("approval",)),
     KeyAction("answer.no", "n", N_("No / deny"), ("approval", "confirm")),

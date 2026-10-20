@@ -24,6 +24,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("views.analytics", N_("Analytics")),
         ("views.new_conversation", N_("New conversation")),
         ("views.help", N_("This help")),
+        ("views.routines", N_("Routines: prompts on a schedule")),
         ("app.settings", N_("Settings (language, theme, Telegram, queues, presets, shortcuts, backup)")),
         ("app.screenshot", N_("Screenshot of ccc (an SVG in the export folder, see Settings)")),
         ("app.quit", N_("Close ccc (it keeps running; `ccc` opens it again)")),
@@ -70,6 +71,14 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("tasks.pause", N_("Pause / resume the queue")),
         ("tasks.auto", N_("Toggle auto-continue")),
         ("window.save", N_("Save in the task editor")),
+    ]),
+    (N_("Routines (o)"), [
+        ("routines.add", N_("Add a routine")),
+        ("routines.edit", N_("Edit the routine (also Enter)")),
+        ("routines.toggle", N_("Turn it on / off")),
+        ("routines.run", N_("Run it now (its next time stays)")),
+        ("routines.delete", N_("Delete it (tasks it queued stay)")),
+        ("window.save", N_("Save in the routine editor")),
     ]),
     (N_("Approval window (p)"), [
         ("answer.yes", N_("Allow")),

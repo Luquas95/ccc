@@ -89,6 +89,8 @@ class Queue:
     last_seen_at: datetime | None = None
     # Remote-control link printed by the managed interactive session.
     remote_control_url: str | None = None
+    # Started by this routine for one run (target "fresh"); archived when done.
+    routine_id: int | None = None
 
 
 @dataclass
@@ -104,6 +106,8 @@ class QueueItem:
     continue_on_retry: bool = False
     # Don't start before this (naive local time); None = as soon as possible.
     not_before: datetime | None = None
+    # Queued by this routine (ccc.routines); None = by hand.
+    routine_id: int | None = None
 
 
 @dataclass
@@ -140,3 +144,30 @@ class PermissionRequest:
     input: dict
     created_at: datetime
     status: str = "pending"  # "pending" | "allowed" | "denied"
+
+
+class RoutineTarget(str, Enum):
+    # The task goes into the routine's conversation (same Claude session).
+    SAME = "same"
+    # Every run starts a new headless conversation in the same folder,
+    # archived once it's done (a clean context each time).
+    FRESH = "fresh"
+
+
+@dataclass
+class Routine:
+    """A prompt ccc queues on a schedule (ccc.routines)."""
+    id: int
+    queue_id: int  # its conversation (FRESH: the template: folder, flags)
+    name: str
+    prompt_text: str
+    schedule_kind: str  # ccc.routines.KINDS
+    schedule_value: str
+    cron: str
+    target: RoutineTarget = RoutineTarget.SAME
+    enabled: bool = True
+    next_run_at: datetime | None = None
+    last_run_at: datetime | None = None
+    last_status: str = ""  # what the last firing did (ccc.routines.STATUS_*)
+    skipped: int = 0  # firings skipped because the previous run still went
+    created_at: datetime = field(default_factory=datetime.now)
