@@ -133,6 +133,23 @@ async def workflows_loop(storage: Storage, notifier: Notifier, interval: float =
         await asyncio.sleep(interval)
 
 
+ASK_CHECK_SECONDS = 5.0
+
+
+async def asks_loop(storage: Storage, notifier: Notifier, interval: float = ASK_CHECK_SECONDS) -> None:
+    """Pass answers between conversations (ccc.asks)."""
+    from ccc import asks
+
+    while True:
+        try:
+            for found in await asks.tick(storage, notifier):
+                logger.info("ask %d (%d → %d): %s", found.id, found.from_queue_id, found.to_queue_id,
+                            found.status.value)
+        except Exception:
+            logger.exception("passing answers between conversations failed")
+        await asyncio.sleep(interval)
+
+
 async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     storage = Storage(db_path)
     i18n.load(storage)
@@ -154,6 +171,7 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     reviewing = asyncio.create_task(reviews_loop(storage, notifier))
     goal_loops = asyncio.create_task(goals_loop(storage, notifier))
     flows = asyncio.create_task(workflows_loop(storage, notifier))
+    answers = asyncio.create_task(asks_loop(storage, notifier))
     await stop_event.wait()
     logger.info("ccc daemon shutting down")
     heartbeat.cancel()
@@ -164,6 +182,7 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     reviewing.cancel()
     goal_loops.cancel()
     flows.cancel()
+    answers.cancel()
     await orchestrator.stop_all()
 
 

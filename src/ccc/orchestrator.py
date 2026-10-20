@@ -198,9 +198,9 @@ def usage_reserve(storage) -> int | None:
     return value if value is not None and 0 < value < 100 else None
 
 
-def permission_tool_flags(queue_id: int, db_path: str) -> list[str]:
-    """Attach ccc's permission MCP server (see permission_mcp) so tool
-    approvals wait for the user instead of being denied in -p mode."""
+def ccc_mcp_flags(queue_id: int, db_path: str) -> list[str]:
+    """Attach ccc's MCP server (permission_mcp): ask_conversation (ccc.asks)
+    for every conversation, approve where permission_tool_flags uses it."""
     config = {
         "mcpServers": {
             "ccc": {
@@ -212,7 +212,13 @@ def permission_tool_flags(queue_id: int, db_path: str) -> list[str]:
             }
         }
     }
-    return ["--mcp-config", json.dumps(config), "--permission-prompt-tool", "mcp__ccc__approve"]
+    return ["--mcp-config", json.dumps(config)]
+
+
+def permission_tool_flags(queue_id: int, db_path: str) -> list[str]:
+    """ccc's MCP server as the permission prompt tool, so tool approvals
+    wait for the user instead of being denied in -p mode."""
+    return [*ccc_mcp_flags(queue_id, db_path), "--permission-prompt-tool", "mcp__ccc__approve"]
 
 
 def _inside_git_repo(path: str) -> bool:
@@ -422,6 +428,9 @@ class QueueRuntime:
             # Restricted permission mode: tool approvals go to the user in
             # the TUI instead of being denied automatically.
             flags = list(flags or []) + permission_tool_flags(queue.id, self.storage.db_path)
+        else:
+            # Asking other conversations works everywhere (ccc.asks).
+            flags = list(flags if flags is not None else LEGACY_FLAGS) + ccc_mcp_flags(queue.id, self.storage.db_path)
         started_at = datetime.now()
         result = await self.run_fn(
             queue.project_path, queue.session_id, text, resume, flags, queue.first_run_flags
@@ -561,7 +570,8 @@ class QueueRuntime:
 
         if not await asyncio.to_thread(managed_sessions.is_running, queue.id):
             has_transcript = find_transcript_path(queue.session_id) is not None
-            command = managed_sessions.build_interactive_command(queue, has_transcript)
+            command = managed_sessions.build_interactive_command(
+                queue, has_transcript, ccc_mcp_flags(queue.id, self.storage.db_path))
             logger.info("Starting interactive session for '%s'", queue.name)
             await asyncio.to_thread(managed_sessions.start, queue, command)
             self._managed_was_blocked = False

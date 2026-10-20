@@ -209,3 +209,18 @@ def last_human_text(session_id: str) -> str | None:
     events, _offset = parse_transcript_events(path)
     humans = [e for e in events if e.kind == "human"]
     return humans[-1].text if humans else None
+
+
+def reply_after(session_id: str, marker: str) -> str | None:
+    """Claude's text after the last human message containing `marker` (a
+    question ccc pasted into an interactive conversation, ccc.asks); None
+    when the message isn't in the transcript yet."""
+    path = find_transcript_path(session_id)
+    if path is None:
+        return None
+    events, _offset = parse_transcript_events(path)
+    start = next((n for n in range(len(events) - 1, -1, -1)
+                  if events[n].kind == "human" and marker in events[n].text), None)
+    if start is None:
+        return None
+    return "\n\n".join(e.text.strip() for e in events[start + 1:] if e.kind == "assistant_text" and e.text.strip())
