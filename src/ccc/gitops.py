@@ -170,6 +170,39 @@ def commit_task(cwd: str, before: Snapshot, task_text: str, conversation: str) -
     return CommitOutcome(head, _("committed"))
 
 
+def revert_commit(cwd: str, commit: str, conversation: str) -> CommitOutcome:
+    """Undo one of ccc's task commits with a new commit (git revert). Only
+    in a clean work tree on a branch, for a commit in its history; a
+    revert that conflicts with later changes is abandoned (nothing
+    changes). CommitOutcome.commit is the revert commit, or None with why."""
+    if not _COMMIT.match(commit or ""):
+        return CommitOutcome(None, _("not reverted: that isn't a commit"))
+    before = snapshot(cwd)
+    if before is None:
+        return CommitOutcome(None, _("not reverted: not a git repository"))
+    if before.blocked:
+        return CommitOutcome(None, _("not reverted: {reason}").format(reason=before.blocked))
+    if not before.clean:
+        return CommitOutcome(None, _("not reverted: there are uncommitted changes — commit or stash them first"))
+    if not before.on_branch:
+        return CommitOutcome(None, _("not reverted: detached HEAD"))
+    if _git(cwd, "merge-base", "--is-ancestor", commit, "HEAD").returncode != 0:
+        return CommitOutcome(None, _("not reverted: the commit isn't in this branch's history"))
+    subject = _git(cwd, "log", "-1", "--format=%s", commit).stdout.strip()
+    reverted = _git(cwd, "revert", "--no-edit", "--no-commit", commit)
+    if reverted.returncode != 0:
+        _git(cwd, "revert", "--abort")
+        return CommitOutcome(None, _("not reverted: it conflicts with later changes — nothing was changed"))
+    if _git(cwd, "status", "--porcelain").stdout.strip() == "":
+        return CommitOutcome(None, _("not reverted: its changes are already gone"))
+    message = f"ccc: revert {commit[:7]} ({subject[:60]})\n\nccc-conversation: {conversation}\nccc-reverts: {commit}\n"
+    committed = _git(cwd, "commit", "-q", "--no-verify", "-m", message)
+    if committed.returncode != 0:
+        _git(cwd, "revert", "--abort")
+        return CommitOutcome(None, _("not reverted: git commit failed"))
+    return CommitOutcome(_git(cwd, "rev-parse", "HEAD").stdout.strip(), _("reverted"))
+
+
 REVIEW_DIFF_MAX_CHARS = 60_000
 _COMMIT = re.compile(r"^[0-9a-f]{7,40}$")
 

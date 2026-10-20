@@ -9,6 +9,29 @@ In a git repository, ccc commits the result of every successful
   commit of each run; `Enter` on a run shows its changed files and the
   coloured diff.
 
+## Undoing a run
+
+In the queue detail, pick a run with a commit and press `u`: ccc
+reverts it with a **new commit** (`git revert`) — nothing is rewritten,
+and the revert can be undone in turn. The run then shows `↺` by its
+commit. ccc asks whether to **tell Claude** with a short note in the
+conversation's queue; otherwise its next task may still assume the
+changes are there.
+
+It works when:
+
+- the conversation does nothing at the moment (no task running or
+  queued) — a task editing the files would mix its edits into the
+  revert;
+- the folder has no uncommitted changes, and the commit is in the
+  branch's history;
+- the conversation was started with **Skip all permission checks** (as
+  for the commits themselves, see below).
+
+A revert that conflicts with later changes is abandoned: nothing
+changes and ccc says so. From the shell: `ccc runs CONVERSATION` lists
+the runs with their ids, `ccc revert RUN [--tell]` undoes one.
+
 ## When ccc doesn't commit
 
 The run history says why:

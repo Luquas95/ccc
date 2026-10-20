@@ -74,6 +74,7 @@ ACTIONS: tuple[KeyAction, ...] = (
               (*_CONVERSATIONS, "queue_detail")),
     KeyAction("screen.add_prompt", "plus", N_("Add prompt"), ("sessions", "queue_detail")),
     KeyAction("sessions.refresh", "r", N_("Reload the session list"), ("sessions",)),
+    KeyAction("queue_detail.revert", "u", N_("Revert the selected run's commit"), ("queue_detail",)),
     KeyAction("screen.review", "v", N_("Review the conversation's changes"), (*_CONVERSATIONS, "queue_detail")),
     KeyAction("screen.goal", "g", N_("Goal loop: work in rounds until a reviewer says it's met"),
               (*_CONVERSATIONS, "queue_detail")),

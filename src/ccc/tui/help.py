@@ -106,6 +106,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
     ]),
     (N_("Queue detail"), [
         ("enter", N_("Show the run's commit diff")),
+        ("queue_detail.revert", N_("Revert the selected run's commit (a new commit; asks first)")),
         ("screen.add_prompt", N_("Add a prompt (this queue's path prefilled)")),
         ("screen.review", N_("Review its changes with a fresh reviewer (once or until it passes)")),
         ("screen.goal", N_("Goal loop: rounds of work, check and review until the goal is met")),

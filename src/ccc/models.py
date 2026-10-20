@@ -136,6 +136,8 @@ class PromptRun:
     git_note: str | None = None
     # The run of a review (ccc.reviews), not of a task.
     review_id: int | None = None
+    # Its commit was undone by this revert commit (ccc.revert).
+    reverted_by: str | None = None
 
 
 @dataclass

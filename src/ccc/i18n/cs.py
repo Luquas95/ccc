@@ -987,4 +987,40 @@ CS: dict[str, str] = {
     "timed out after {n} min": "vypršel čas po {n} min",
     "wait until it ends; exit code 0 when the goal is met": "počkat do konce; návratový kód 0, když je cíl splněný",
     "{icon} {name}: goal {status} after {n} round(s) — {reason}": "{icon} {name}: cíl — {status} po {n} kolech — {reason}",
+
+    # Reverting a run (ccc.revert, queue detail u, ccc runs / revert)
+    "A conversation's runs: id, time, status, commit, task": "Běhy konverzace: id, čas, stav, commit, úkol",
+    "Claude gets a note in its queue.": "Claude dostane poznámku do fronty.",
+    "No run {id} — see `ccc runs CONVERSATION`.": "Běh {id} neexistuje — viz `ccc runs KONVERZACE`.",
+    "Not reverted": "Nevráceno",
+    "Note: the changes of your task “{task}” were reverted (commit {commit} undoes {original}). The files are back as they were before it. Take them as they are now and don't redo that work unless I ask. Just acknowledge in one line.":
+        "Poznámka: změny tvého úkolu „{task}“ byly vráceny (commit {commit} vrací {original}). Soubory jsou zpět, jak byly před ním. Ber je tak, jak jsou teď, a tu práci nedělej znovu, dokud o to nepožádám. Jen to jedním řádkem potvrď.",
+    "Queue a short note so Claude knows its changes were undone? (Otherwise its next task may still assume them.)":
+        "Zařadit krátkou poznámku, ať Claude ví, že jeho změny jsou vrácené? (Jinak s nimi jeho další úkol může pořád počítat.)",
+    "Revert run": "Vrátit běh",
+    "Revert the commit of a run (a new commit; see `ccc runs`)": "Vrátit commit běhu (novým commitem; viz `ccc runs`)",
+    "Revert the selected run's commit": "Vrátit commit vybraného běhu",
+    "Revert the selected run's commit (a new commit; asks first)": "Vrátit commit vybraného běhu (novým commitem; nejdřív se zeptá)",
+    "Reverted — commit {commit}.": "Vráceno — commit {commit}.",
+    "Tell Claude?": "Říct to Claudovi?",
+    "The conversation is working — revert once it's idle.": "Konverzace pracuje — vrať to, až nic nedělá.",
+    "This run made no commit — there's nothing to revert.": "Tento běh neudělal commit — není co vracet.",
+    "This run was already reverted ({commit}).": "Tento běh už je vrácený ({commit}).",
+    "Undo the commit {commit} of the task “{task}”? ccc makes a new commit that reverts it — nothing is rewritten, and the revert can be undone too.":
+        "Vrátit commit {commit} úkolu „{task}“? ccc udělá nový commit, který ho vrátí — nic se nepřepisuje a i vrácení jde vrátit.",
+    "also queue a note so Claude knows": "zařadit i poznámku, ať to Claude ví",
+    "ccc runs git only in conversations started with “Skip all permission checks”.":
+        "ccc spouští git jen v konverzacích spuštěných s „Přeskočit všechny kontroly oprávnění“.",
+    "not reverted: detached HEAD": "nevráceno: odpojený HEAD",
+    "not reverted: git commit failed": "nevráceno: git commit selhal",
+    "not reverted: it conflicts with later changes — nothing was changed": "nevráceno: koliduje s pozdějšími změnami — nic se nezměnilo",
+    "not reverted: its changes are already gone": "nevráceno: jeho změny už tam nejsou",
+    "not reverted: not a git repository": "nevráceno: není to git repozitář",
+    "not reverted: that isn't a commit": "nevráceno: tohle není commit",
+    "not reverted: the commit isn't in this branch's history": "nevráceno: commit není v historii této větve",
+    "not reverted: there are uncommitted changes — commit or stash them first":
+        "nevráceno: jsou tu necommitnuté změny — nejdřív je commitni nebo odlož",
+    "not reverted: {reason}": "nevráceno: {reason}",
+    "reverted": "vráceno",
+    "the run's id": "id běhu",
 }

@@ -40,4 +40,6 @@ ccc-tui`); changed in Settings they work right away.
 | `ccc goal start CONVERSATION "GOAL"` | start a [goal loop](goal.md); `--check "pytest -q"` = run after each round, `--rounds N` = at most N rounds, `--wait` = wait until it ends, exit code 0 when the goal is met |
 | `ccc goal list [CONVERSATION]` | goals, newest first: id, start, round, state |
 | `ccc goal stop CONVERSATION` | stop its goal loop |
+| `ccc runs CONVERSATION` | the conversation's runs: id, time, status, commit (`↺` = reverted), task |
+| `ccc revert RUN [--tell]` | [undo a run](git.md#undoing-a-run): revert its commit with a new commit; `--tell` = also queue a note for Claude |
 | `ccc-daemon` | the daemon itself (normally run by `ccc.service`) |
