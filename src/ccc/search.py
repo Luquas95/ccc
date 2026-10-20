@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from ccc.notify import known_secrets
+from ccc.redact import redact
 from ccc.storage import Storage
 from ccc.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
 
@@ -80,5 +82,6 @@ def export_markdown(storage: Storage, queue_id: int, out_dir: Path) -> Path:
             lines += [f"- ⚙ {event.text}"]
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{_safe_name(queue.name)}-{datetime.now():%Y%m%d-%H%M%S}.md"
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    # Masked: an export is a file you share; see ccc.redact.
+    path.write_text(redact("\n".join(lines) + "\n", known_secrets(storage)), encoding="utf-8")
     return path

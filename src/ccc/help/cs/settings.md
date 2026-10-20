@@ -105,6 +105,18 @@ URL nikomu nedávej: kdo ji má, může do kanálu psát. Tokeny a webhooky
 se ukládají v databázi ccc, zobrazují se zamaskované a nikdy se
 nelogují.
 
+## Tajemství se maskují
+
+Co z ccc odchází — každá zpráva na Telegram / Discord a každá exportovaná
+konverzace (`e`) — má tajemství nejdřív nahrazená za `[redacted]`: API
+klíče a tokeny známého tvaru (`sk-ant-…`, `ghp_…`, `AKIA…`, Slack, Stripe,
+JWT, bloky soukromých klíčů…), hesla v URL, hlavičky `Bearer …` a hodnoty
+pojmenované jako tajemství (`DB_PASSWORD=…`, `"client_secret": …`).
+Rozpoznatelný začátek zůstane, takže z `ANTHROPIC_API_KEY=sk-ant-[redacted]`
+pořád poznáš, co tam bylo. Je to pojistka, ne záruka: tajemství bez
+známého tvaru a bez výmluvného názvu projde. Snímky obrazovky (`Alt+S`)
+jsou obrázky obrazovky a nemaskují se.
+
 ## Zálohy
 
 Daemon každý den zálohuje databázi ccc a drží posledních 14

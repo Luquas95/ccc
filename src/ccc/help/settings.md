@@ -101,6 +101,18 @@ Keep the URL private: anyone who has it can post to the channel.
 Tokens and webhooks are stored in ccc's database, shown masked and never
 logged.
 
+## Secrets are masked
+
+Whatever leaves ccc — every Telegram / Discord message and every exported
+conversation (`e`) — has secrets replaced by `[redacted]` first: API keys
+and tokens with a known shape (`sk-ant-…`, `ghp_…`, `AKIA…`, Slack, Stripe,
+JWTs, private-key blocks…), passwords in URLs, `Bearer …` headers, and
+values named like a secret (`DB_PASSWORD=…`, `"client_secret": …`). The
+recognisable prefix stays, so `ANTHROPIC_API_KEY=sk-ant-[redacted]` still
+tells you what was there. It's a safety net, not a guarantee: a secret with
+no known shape and no telling name gets through. Screenshots (`Alt+S`) are
+pictures of the screen and are not masked.
+
 ## Backups
 
 The daemon backs up ccc's database every day and keeps the last 14

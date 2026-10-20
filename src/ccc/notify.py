@@ -3,6 +3,9 @@ limit / reset) to Telegram and/or Discord. Telegram: `ccc config
 telegram-token` + `telegram-chat`; Discord: `ccc config discord-webhook`.
 Without any of them nothing is sent.
 
+Every text and caption goes through `ccc.redact` first, so an API key or a
+password quoted in a conversation never reaches the chat.
+
 The Telegram bot token and the Discord webhook URL are secrets: they're only
 ever put into the request URL, never into a log message or an exception text
 we log."""
@@ -17,6 +20,8 @@ import urllib.request
 import uuid
 from pathlib import Path
 from typing import Callable
+
+from ccc.redact import redact
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +118,11 @@ def send_discord_file(webhook_url: str, path: Path, text: str) -> None:
         response.read()
 
 
+def known_secrets(storage) -> list[str | None]:
+    """ccc's own secrets, masked wherever text leaves ccc."""
+    return [storage.get_setting(TELEGRAM_TOKEN_KEY), storage.get_setting(DISCORD_WEBHOOK_KEY)]
+
+
 class Notifier:
     def __init__(self, storage, sender: Sender | None = None, discord_sender: DiscordSender | None = None):
         self.storage = storage
@@ -139,12 +149,15 @@ class Notifier:
     def configured(self) -> bool:
         return self.telegram_configured() or self.discord_configured()
 
+    def _clean(self, text: str) -> str:
+        return redact(text, known_secrets(self.storage))
+
     def send_telegram_now(self, text: str) -> bool:
         config = self._telegram_config()
         if config is None:
             return False
         try:
-            (self.sender or send_telegram)(config[0], config[1], text)
+            (self.sender or send_telegram)(config[0], config[1], self._clean(text))
             return True
         except Exception as exc:  # network down, bad token, ...
             # Only the exception type: its text may contain the URL (token).
@@ -156,7 +169,7 @@ class Notifier:
         if url is None:
             return False
         try:
-            (self.discord_sender or send_discord)(url, text)
+            (self.discord_sender or send_discord)(url, self._clean(text))
             return True
         except Exception as exc:
             # Only the exception type: its text may contain the webhook URL.
@@ -168,7 +181,7 @@ class Notifier:
         if config is None or path.stat().st_size > TELEGRAM_MAX_FILE_BYTES:
             return False
         try:
-            send_telegram_file(config[0], config[1], path, caption)
+            send_telegram_file(config[0], config[1], path, self._clean(caption))
             return True
         except Exception as exc:
             logger.warning("Telegram file upload failed (%s)", type(exc).__name__)
@@ -179,7 +192,7 @@ class Notifier:
         if url is None or path.stat().st_size > DISCORD_MAX_FILE_BYTES:
             return False
         try:
-            send_discord_file(url, path, text)
+            send_discord_file(url, path, self._clean(text))
             return True
         except Exception as exc:
             logger.warning("Discord file upload failed (%s)", type(exc).__name__)
