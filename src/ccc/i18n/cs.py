@@ -1258,4 +1258,12 @@ CS: dict[str, str] = {
     "Telegram / Discord message once when a conversation reaches the warning.":
         "Zpráva do Telegramu / Discordu jednou, když konverzace dosáhne varování.",
     "The context warning must be lower than the alarm.": "Varování kontextu musí být nižší než poplach.",
+    # --- list filter (list_filter) --------------------------------------------
+    "Filter the list (name, folder, state)": "Filtrovat seznam (název, složka, stav)",
+    "Filter": "Filtr",
+    "name, folder · ! ? x *": "název, složka · ! ? x *",
+    "Nothing matches": "Nic neodpovídá",
+    "Queues · filter: {text}": "Fronty · filtr: {text}",
+    "Filter the list: name or folder; ! working, ? approval, x error, * new (Esc cancels)":
+        "Filtrovat seznam: název nebo složka; ! pracuje, ? schválení, x chyba, * nové (Esc zruší)",
 }

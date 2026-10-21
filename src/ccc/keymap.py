@@ -88,6 +88,7 @@ ACTIONS: tuple[KeyAction, ...] = (
     KeyAction("conversations.archive", "x", N_("Archive / restore the conversation"), _CONVERSATIONS),
     KeyAction("conversations.approve", "p", N_("Approve a tool call"), _CONVERSATIONS),
     KeyAction("conversations.search", "slash", N_("Search all conversations"), _CONVERSATIONS),
+    KeyAction("conversations.filter", "f", N_("Filter the list (name, folder, state)"), _CONVERSATIONS),
     KeyAction("conversations.export", "e", N_("Export the conversation as Markdown"), _CONVERSATIONS),
     KeyAction("conversations.focus_claude", "alt+0", N_("Switch between ccc and Claude Code"),
               (*_CONVERSATIONS, CLAUDE), tmux=True),

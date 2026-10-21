@@ -554,3 +554,100 @@ async def test_list_and_header_show_the_git_status(tmp_path, monkeypatch):
         assert asked == ["/tmp/wt"]  # never runs git where Claude can't run commands
         header = str(app.screen.query_one("#conversation-header", Static).render())
         assert "+12−3 ↑2" in header and "main" in header
+
+
+def _filter_host(screen):
+    class Host(App):
+        async def on_mount(self):
+            await self.push_screen(screen)
+
+    return Host()
+
+
+def _list_names(app) -> list[str]:
+    table = app.screen.query_one("#conversation-queue-list", DataTable)
+    return [str(table.get_row(k)[0])[2:].split(" ")[0] for k in table.rows]
+
+
+@pytest.mark.asyncio
+async def test_f_filters_the_list_by_name_and_state_esc_cancels(tmp_path, monkeypatch):
+    from textual.widgets import Input
+
+    from ccc.models import QueueStatus
+
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    storage = Storage(tmp_path / "h.db")
+    storage.create_queue("shop-api", "/tmp/shop", "sa")
+    docs = storage.create_queue("Dokumentace", "/tmp/docs", "sb")
+    broken = storage.create_queue("infra", "/tmp/infra", "sc")
+    storage.update_queue_status(broken.id, QueueStatus.BLOCKED_ERROR)
+
+    app = _filter_host(ConversationsScreen(storage))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.screen.query_one("#conversation-queue-list").focus()
+        await pilot.press("f")
+        box = app.screen.query_one("#conversation-filter", Input)
+        assert box.has_focus
+
+        await pilot.press(*"dokumentace")
+        await pilot.pause()
+        assert _list_names(app) == ["Dokumentace"]
+        assert app.screen._current_queue_id == docs.id  # follows the first result
+        label = str(app.screen.query_one("#conversation-list-label", Static).render())
+        assert "filter: dokumentace" in label
+
+        box.value = "x"
+        await pilot.pause()
+        assert _list_names(app) == ["infra"]
+
+        box.value = "nothing-like-this"
+        await pilot.pause()
+        assert _list_names(app) == []
+        assert app.screen.query_one("#conversation-filter-empty").display
+
+        # Survives the periodic refresh.
+        await app.screen._refresh_current()
+        assert _list_names(app) == []
+
+        await pilot.press("escape")
+        await pilot.pause()
+        assert len(_list_names(app)) == 3
+        assert not app.screen.query_one("#conversation-filter-empty").display
+        assert not app.screen.has_class("-filter-open")
+        assert str(app.screen.query_one("#conversation-list-label", Static).render()) == "Queues"
+
+
+@pytest.mark.asyncio
+async def test_filter_enter_opens_the_first_result_which_stays_listed(tmp_path, monkeypatch):
+    from textual.widgets import Input
+
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    storage = Storage(tmp_path / "h.db")
+    storage.create_queue("a", "/tmp/a", "sa")
+    b = storage.create_queue("b", "/tmp/b", "sb")
+    storage.add_queue_item(b.id, "x")
+    from datetime import datetime
+
+    from ccc.models import PromptRun, RunStatus
+
+    now = datetime.now()
+    storage.insert_prompt_run(PromptRun(id=0, queue_id=b.id, queue_item_id=None, prompt_text="p",
+                                        started_at=now, finished_at=now, status=RunStatus.SUCCESS))
+    assert b.id in storage.unseen_queue_ids()
+
+    app = _filter_host(ConversationsScreen(storage))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.screen.query_one("#conversation-queue-list").focus()
+        await pilot.press("f", "asterisk")
+        await pilot.pause()
+        assert _list_names(app) == ["b"]
+        await pilot.press("enter")
+        await pilot.pause()
+        assert app.screen._current_queue_id == b.id
+        assert app.screen.query_one("#message-input").has_focus
+        # Looked at: no longer new, but stays listed until the filter changes.
+        await app.screen._refresh_current()
+        assert _list_names(app) == ["b"]
+        assert app.screen.query_one("#conversation-filter", Input).value == "*"

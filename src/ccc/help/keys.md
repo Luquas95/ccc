@@ -54,6 +54,7 @@ name the default keys.
 | `Alt+0` | Switch between ccc and Claude Code (while it's open beside ccc) |
 | `Ctrl+]` | Close Claude Code beside ccc (it keeps running; Enter in the list opens it) |
 | `/` | Search all conversations |
+| `f` | Filter the list: name or folder; ! working, ? approval, x error, * new (Esc cancels) |
 | `e` | Export the conversation as Markdown |
 | `v` | Review its changes with a fresh reviewer (once or until it passes) |
 | `g` | Goal loop: rounds of work, check and review until the goal is met |
@@ -78,6 +79,7 @@ name the default keys.
 | `Enter` | Restore it and open it in Conversations |
 | `Del` | Delete the conversation from ccc (asks first; Claude Code's transcript stays) |
 | `/` | Search all conversations |
+| `f` | Filter the list: name or folder; ! working, ? approval, x error, * new (Esc cancels) |
 | `e` | Export the conversation as Markdown |
 
 ## Tasks editor (t)

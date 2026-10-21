@@ -226,3 +226,23 @@ async def test_no_delete_key_in_conversations(storage):
         await pilot.pause()
         assert not isinstance(app.screen, ConfirmModal)
         assert storage.find_queue(b.id) is not None
+
+
+@pytest.mark.asyncio
+async def test_archive_filter_enter_shows_the_first_result_without_restoring(storage):
+    from ccc.tui.archive import ArchiveScreen
+
+    a = storage.create_queue("alpha", "/tmp/a", "sa")
+    b = storage.create_queue("beta", "/tmp/b", "sb")
+    storage.set_queue_archived(a.id, True)
+    storage.set_queue_archived(b.id, True)
+    app = _host(ArchiveScreen(storage))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.screen.query_one("#conversation-queue-list", DataTable).focus()
+        await pilot.press("f", *"bet", "enter")
+        await pilot.pause()
+        assert [n.strip() for n in _names(app.screen.query_one("#conversation-queue-list", DataTable))] == ["beta"]
+        assert app.screen._current_queue_id == b.id
+        assert storage.get_queue(b.id).archived
+        assert app.screen.query_one("#conversation-queue-list", DataTable).has_focus

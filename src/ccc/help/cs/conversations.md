@@ -26,6 +26,32 @@ Za názvem je, jak moc je zaplněné kontextové okno konverzace, např.
 Když nemáš žádnou konverzaci, stojí vpravo **BEZ KONVERZACE** — stiskni
 `n` a nějakou založ.
 
+## Filtr seznamu
+
+Při desítkách konverzací otevře `f` nad seznamem filtr. Píšeš a seznam
+se zúží na konverzace, jejichž **název nebo složka** obsahuje napsaný
+text — bez ohledu na velikost písmen a diakritiku (`prilis` najde
+*Příliš*); víc slov musí sedět všechna.
+
+Značky na začátku filtrují podle **stavu** — každá jako samostatné slovo,
+kombinovat je jde s textem (`? api`, `!? api`, `x`):
+
+| Značka | Ukáže |
+|---|---|
+| `!` | Claude pracuje |
+| `?` | čeká na tvoje schválení |
+| `x` | zastavila se chybou |
+| `*` | nová odpověď, kterou jsi ještě neviděl(a) |
+
+Víc značek ukáže kterýkoli z těch stavů. `Enter` otevře první výsledek,
+`Esc` filtr zruší. Dokud platí, je vidět v titulku seznamu
+(`Fronty · filtr: api`); když nic nesedí, stojí v seznamu *Nic
+neodpovídá*. Filtr vydrží obnovování seznamu, dokud ho nezrušíš nebo
+neodejdeš z pohledu; konverzace, kterou z něj otevřeš, v seznamu zůstane,
+i když přestane odpovídat (`*` přestane být nová, jakmile se na ni
+podíváš). Klávesu změníš v Nastavení → Klávesové zkratky. Stejně to
+funguje i v [Archivu](archive.md).
+
 ## Claude Code vedle ccc
 
 Konverzace založená přes `n` spouští **skutečné Claude Code** — totéž,
@@ -128,5 +154,6 @@ konverzace dosáhne varování (znovu až poté, co klesla pod něj, např. po
 | `p` | [schválí nástroj](approvals.md), na který Claude čeká |
 | `x` | [archivuje](archive.md) konverzaci |
 | `/` | hledá ve všech konverzacích (i archivovaných); `Enter` na výsledku ho otevře |
+| `f` | filtruje seznam podle názvu, složky a stavu (viz *Filtr seznamu*) |
 | `e` | exportuje konverzaci jako Markdown (do `conversations/` ve složce pro exporty, viz [Nastavení](settings.md)) |
 | `n` | [založí novou konverzaci](new-conversation.md) |
