@@ -68,6 +68,42 @@ class CccApi(
     suspend fun create(request: NewConversation): ConversationDetail =
         post("conversations", json.encodeToString(NewConversation.serializer(), request))
 
+    /** Into the Archive (true) or back (false). */
+    suspend fun archive(id: Int, archived: Boolean): ConversationDetail =
+        post("conversations/$id/archive", """{"archived":$archived}""")
+
+    /** Out of ccc with its tasks and history (not while it runs); Claude Code's transcript stays. */
+    suspend fun delete(id: Int) {
+        call<Unit>(request("conversations/$id").delete().build())
+    }
+
+    /** Into an own group ([name], made if new), or out of it (null). */
+    suspend fun setGroup(id: Int, name: String?): ConversationDetail =
+        post("conversations/$id/group", json.encodeToString(NameBody.serializer(), NameBody(name)))
+
+    suspend fun groups(): Groups = get("groups")
+
+    suspend fun renameGroup(old: String, new: String): Groups =
+        post("groups/rename", json.encodeToString(RenameBody.serializer(), RenameBody(old, new)))
+
+    suspend fun deleteGroup(name: String): Groups =
+        post("groups/delete", json.encodeToString(NameBody.serializer(), NameBody(name)))
+
+    suspend fun search(text: String): List<SearchHit> = get("search", mapOf("q" to text))
+
+    suspend fun export(id: Int): Export = get("conversations/$id/export")
+
+    /** Files of the conversation's folder for an @-mention, best first. */
+    suspend fun files(id: Int, text: String): List<String> = get("conversations/$id/files", mapOf("q" to text))
+
+    suspend fun waiting(): List<Waiting> = get("waiting")
+
+    suspend fun promptPresets(): List<PromptPreset> = get("prompt-presets")
+
+    suspend fun launchPresets(): LaunchPresets = get("launch-presets")
+
+    suspend fun sessions(path: String): List<Session> = get("sessions", mapOf("path" to path))
+
     suspend fun permissions(): List<Permission> = get("permissions")
 
     /** [decision]: "allow", "always" (this tool in this conversation from now on) or "deny". */
@@ -135,9 +171,18 @@ class CccApi(
     @Serializable
     private data class ErrorBody(val error: String)
 
+    @Serializable
+    private data class NameBody(val name: String?)
+
+    @Serializable
+    private data class RenameBody(val old: String, val new: String)
+
     companion object {
         private val JSON = "application/json; charset=utf-8".toMediaType()
-        val json = Json { ignoreUnknownKeys = true }
+        val json = Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+        }
         private val defaultClient = OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)

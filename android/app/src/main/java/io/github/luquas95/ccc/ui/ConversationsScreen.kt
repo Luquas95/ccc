@@ -1,9 +1,11 @@
 package io.github.luquas95.ccc.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,50 +15,77 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.luquas95.ccc.R
 import io.github.luquas95.ccc.data.Conversation
+import io.github.luquas95.ccc.data.ConversationStatus
+import io.github.luquas95.ccc.data.Group
+import io.github.luquas95.ccc.data.ListFilter
 import io.github.luquas95.ccc.ui.theme.CccColors
+
+/** What the list can do, besides showing [HomeState]. */
+class ConversationsActions(
+    val open: (Int) -> Unit,
+    val approvals: () -> Unit,
+    val settings: () -> Unit,
+    val new: () -> Unit,
+    val refresh: () -> Unit,
+    val search: () -> Unit,
+    val showArchive: (Boolean) -> Unit,
+    val filter: (String) -> Unit,
+    val nextWaiting: () -> Unit,
+    val renameGroup: (String, String) -> Unit,
+    val deleteGroup: (String) -> Unit,
+)
+
+private val MARKERS = listOf(ListFilter.WORKING, ListFilter.APPROVAL, ListFilter.ERROR, ListFilter.UNSEEN)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConversationsScreen(
-    state: HomeState,
-    snackbar: SnackbarHostState,
-    onOpen: (Int) -> Unit,
-    onApprovals: () -> Unit,
-    onSettings: () -> Unit,
-    onNew: () -> Unit,
-    onRefresh: () -> Unit,
-) {
+fun ConversationsScreen(state: HomeState, snackbar: SnackbarHostState, actions: ConversationsActions) {
+    var groupMenu by remember { mutableStateOf<String?>(null) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -67,67 +96,99 @@ fun ConversationsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onApprovals) {
+                    IconButton(onClick = actions.search) { Icon(Icons.Filled.Search, stringResource(R.string.search)) }
+                    IconButton(onClick = actions.approvals) {
                         BadgedBox(badge = {
                             if (state.permissions.isNotEmpty()) Badge { Text(state.permissions.size.toString()) }
                         }) { Icon(Icons.Filled.Notifications, stringResource(R.string.approvals)) }
                     }
-                    IconButton(onClick = onSettings) { Icon(Icons.Filled.Settings, stringResource(R.string.settings)) }
+                    IconButton(onClick = actions.settings) { Icon(Icons.Filled.Settings, stringResource(R.string.settings)) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CccColors.Background),
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onNew,
-                icon = { Icon(Icons.Filled.Add, null) },
-                text = { Text(stringResource(R.string.new_conversation)) },
-                containerColor = CccColors.Claude,
-                contentColor = androidx.compose.ui.graphics.Color.Black,
-            )
+            if (!state.showArchive) {
+                ExtendedFloatingActionButton(
+                    onClick = actions.new,
+                    icon = { Icon(Icons.Filled.Add, null) },
+                    text = { Text(stringResource(R.string.new_conversation)) },
+                    containerColor = CccColors.Claude,
+                    contentColor = Color.Black,
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        PullToRefreshBox(
-            isRefreshing = state.refreshing,
-            onRefresh = onRefresh,
-            modifier = Modifier.fillMaxSize().padding(padding),
-        ) {
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 96.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            PrimaryTabRow(
+                selectedTabIndex = if (state.showArchive) 1 else 0,
+                containerColor = CccColors.Background,
+                contentColor = CccColors.Title,
             ) {
-                state.usage?.let { usage ->
-                    item(key = "usage") {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = CccColors.Surface),
-                            border = BorderStroke(1.dp, CccColors.Line),
-                        ) { UsageCard(usage, Modifier.padding(12.dp)) }
-                    }
-                }
-                if (state.permissions.isNotEmpty()) {
-                    item(key = "approvals") { ApprovalsBanner(state.permissions.size, onApprovals) }
-                }
-                if (state.loaded && state.conversations.isEmpty()) {
-                    item(key = "empty") {
-                        Text(
-                            stringResource(R.string.conversations_empty),
-                            Modifier.fillMaxWidth().padding(32.dp),
-                            color = CccColors.Muted,
-                        )
-                    }
-                }
-                var group: String? = null
-                state.conversations.forEach { conversation ->
-                    val title = conversation.group?.title
-                    if (title != null && title != group) {
-                        item(key = "group:${conversation.group.key}") { GroupHeader(title) }
-                    }
-                    group = title
-                    item(key = conversation.id) { ConversationRow(conversation) { onOpen(conversation.id) } }
+                Tab(selected = !state.showArchive, onClick = { actions.showArchive(false) },
+                    text = { Text("${stringResource(R.string.conversations)} (${state.conversations.size})") })
+                Tab(selected = state.showArchive, onClick = { actions.showArchive(true) },
+                    text = { Text("${stringResource(R.string.archive)} (${state.archived.size})") })
+            }
+            PullToRefreshBox(
+                isRefreshing = state.refreshing,
+                onRefresh = actions.refresh,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                ConversationList(state, actions) { groupMenu = it }
+            }
+        }
+    }
+    groupMenu?.let { name -> GroupDialog(name, actions, onClose = { groupMenu = null }) }
+}
+
+@Composable
+private fun ConversationList(state: HomeState, actions: ConversationsActions, onGroupMenu: (String) -> Unit) {
+    val filter = ListFilter.parse(state.filter)
+    val shown = (if (state.showArchive) state.archived else state.conversations).filter(filter::matches)
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (!state.showArchive) {
+            state.usage?.let { usage ->
+                item(key = "usage") {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = CccColors.Surface),
+                        border = BorderStroke(1.dp, CccColors.Line),
+                    ) { UsageCard(usage, Modifier.padding(12.dp)) }
                 }
             }
+            if (state.waiting.isNotEmpty()) {
+                item(key = "waiting") { WaitingBanner(state, actions.nextWaiting) }
+            }
+        }
+        item(key = "filter") { FilterField(state.filter, actions.filter) }
+        if (state.loaded && shown.isEmpty()) {
+            item(key = "empty") {
+                Text(
+                    stringResource(
+                        when {
+                            filter.active -> R.string.filter_nothing
+                            state.showArchive -> R.string.archive_empty
+                            else -> R.string.conversations_empty
+                        },
+                    ),
+                    Modifier.fillMaxWidth().padding(32.dp),
+                    color = CccColors.Muted,
+                )
+            }
+        }
+        var group: String? = null
+        shown.forEach { conversation ->
+            val heading = conversation.group
+            if (heading != null && heading.key != group) {
+                item(key = "group:${heading.key}") { GroupHeader(heading, onGroupMenu) }
+            }
+            group = heading?.key
+            item(key = conversation.id) { ConversationRow(conversation) { actions.open(conversation.id) } }
         }
     }
 }
@@ -149,31 +210,122 @@ private fun DaemonLine(state: HomeState) {
     }
 }
 
+/** Who needs you, most urgent first; a tap opens the first (Alt+N in ccc). */
 @Composable
-private fun ApprovalsBanner(count: Int, onClick: () -> Unit) {
+private fun WaitingBanner(state: HomeState, onNext: () -> Unit) {
+    val first = state.waiting.first()
+    val color = when (first.kind) {
+        "approval" -> CccColors.Approval
+        "error" -> CccColors.Error
+        "limit" -> CccColors.Waiting
+        else -> CccColors.Title
+    }
     Card(
-        Modifier.fillMaxWidth().clickable(onClick = onClick),
+        Modifier.fillMaxWidth().clickable(onClick = onNext),
         colors = CardDefaults.cardColors(containerColor = CccColors.Surface),
-        border = BorderStroke(1.dp, CccColors.Approval),
+        border = BorderStroke(1.dp, color),
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.Notifications, null, tint = CccColors.Approval)
-            Spacer(Modifier.width(12.dp))
-            Text(
-                "${stringResource(R.string.approvals)}: $count",
-                color = CccColors.Approval,
-                fontWeight = FontWeight.Bold,
-            )
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.needs_you, state.waiting.size), style = MaterialTheme.typography.labelMedium,
+                    color = CccColors.Muted)
+                Text("${first.name} — ${first.label}", color = color, fontWeight = FontWeight.Bold, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis)
+            }
+            TextButton(onClick = onNext) { Text(stringResource(R.string.open_next)) }
         }
     }
 }
 
 @Composable
-private fun GroupHeader(title: String) {
-    Column(Modifier.padding(top = 12.dp)) {
-        Text(title, style = MaterialTheme.typography.titleSmall, color = CccColors.Title, fontWeight = FontWeight.Bold)
+private fun FilterField(text: String, onChange: (String) -> Unit) {
+    Column {
+        OutlinedTextField(
+            value = text,
+            onValueChange = onChange,
+            placeholder = { Text(stringResource(R.string.filter_hint)) },
+            trailingIcon = {
+                if (text.isNotEmpty()) {
+                    IconButton(onClick = { onChange("") }) { Icon(Icons.Filled.Clear, stringResource(R.string.clear)) }
+                }
+            },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        val parsed = ListFilter.parse(text)
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            MARKERS.zip(listOf(R.string.filter_working, R.string.filter_approval, R.string.filter_error, R.string.filter_unseen))
+                .forEach { (marker, label) ->
+                    FilterChip(
+                        selected = marker in parsed.states,
+                        onClick = { onChange(toggleMarker(text, marker)) },
+                        label = { Text("$marker ${stringResource(label)}") },
+                    )
+                }
+        }
+    }
+}
+
+/** The filter text with [marker] added to / taken from its markers at the start. */
+internal fun toggleMarker(text: String, marker: Char): String {
+    val states = ListFilter.parse(text).states
+    val markers = if (marker in states) states - marker else states + marker
+    val words = text.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        .dropWhile { token -> token.lowercase().all { it in MARKERS } }
+    val prefix = MARKERS.filter { it in markers }.joinToString("")
+    return (listOf(prefix).filter { it.isNotEmpty() } + words).joinToString(" ")
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun GroupHeader(group: Group, onMenu: (String) -> Unit) {
+    val own = group.key.removePrefix("own:").takeIf { group.key.startsWith("own:") }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp)
+            .combinedClickable(onClick = { own?.let(onMenu) }, onLongClick = { own?.let(onMenu) }),
+    ) {
+        Text(group.title, style = MaterialTheme.typography.titleSmall, color = CccColors.Title, fontWeight = FontWeight.Bold)
         HorizontalDivider(Modifier.padding(top = 4.dp), color = CccColors.Line)
     }
+}
+
+/** An own group's heading tapped: rename it (into an existing one: they merge) or delete it. */
+@Composable
+private fun GroupDialog(name: String, actions: ConversationsActions, onClose: () -> Unit) {
+    var newName by rememberSaveable(name) { mutableStateOf(name) }
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(stringResource(R.string.group_title, name)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    label = { Text(stringResource(R.string.group_rename)) },
+                    singleLine = true,
+                )
+                Text(stringResource(R.string.group_delete_hint), style = MaterialTheme.typography.bodySmall,
+                    color = CccColors.Muted)
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    actions.renameGroup(name, newName.trim())
+                    onClose()
+                },
+                enabled = newName.isNotBlank() && newName.trim() != name,
+            ) { Text(stringResource(R.string.save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = {
+                actions.deleteGroup(name)
+                onClose()
+            }) { Text(stringResource(R.string.group_delete), color = CccColors.Error) }
+        },
+    )
 }
 
 @Composable
@@ -199,7 +351,7 @@ private fun ConversationRow(conversation: Conversation, onClick: () -> Unit) {
                     )
                     if (conversation.unseen) {
                         Spacer(Modifier.width(8.dp))
-                        Box(Modifier) { StatusDot(CccColors.Title) }
+                        StatusDot(CccColors.Title)
                     }
                 }
                 val details = buildList {
@@ -207,14 +359,13 @@ private fun ConversationRow(conversation: Conversation, onClick: () -> Unit) {
                     if (conversation.pending > 0) add(stringResource(R.string.pending_count, conversation.pending))
                     if (conversation.unseen) add(stringResource(R.string.new_reply))
                 }
+                val highlighted = state != ConversationStatus.IDLE || conversation.needsApproval
                 Text(
                     details.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
-                    color = statusColor(state, conversation.needsApproval).takeIf {
-                        state != io.github.luquas95.ccc.data.ConversationStatus.IDLE || conversation.needsApproval
-                    } ?: CccColors.Muted,
+                    color = if (highlighted) statusColor(state, conversation.needsApproval) else CccColors.Muted,
                 )
-                conversation.lastError?.takeIf { state == io.github.luquas95.ccc.data.ConversationStatus.BLOCKED_ERROR }?.let {
+                conversation.lastError?.takeIf { state == ConversationStatus.BLOCKED_ERROR }?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = CccColors.Error, maxLines = 2,
                         overflow = TextOverflow.Ellipsis)
                 }

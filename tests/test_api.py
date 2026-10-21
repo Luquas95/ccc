@@ -342,3 +342,111 @@ def test_cli_shows_a_token_only_when_it_makes_one(storage, capsys):
     assert made not in capsys.readouterr().out
     api_cli.run(storage, "", Namespace(api_command="token", new=True))
     assert not api.token_valid(storage, made)
+
+
+# --- round 1: managing conversations ---------------------------------------------
+
+
+def test_archive_and_restore(storage, tmp_path):
+    q = _queue(storage, tmp_path)
+    endpoint = api.Api(storage)
+
+    assert endpoint.route("POST", f"/api/v1/conversations/{q.id}/archive", {}, {"archived": True})[1]["archived"]
+    assert endpoint.conversations() == []
+    endpoint.archive(q.id, {"archived": False})
+    assert [c["id"] for c in endpoint.conversations()] == [q.id]
+    with pytest.raises(api.ApiError) as error:
+        endpoint.archive(q.id, {"archived": "yes"})
+    assert error.value.status == 400
+
+
+def test_delete_but_not_while_it_runs(storage, tmp_path):
+    q = _queue(storage, tmp_path)
+    storage.update_queue_status(q.id, QueueStatus.RUNNING)
+    endpoint = api.Api(storage)
+    with pytest.raises(api.ApiError) as error:
+        endpoint.route("DELETE", f"/api/v1/conversations/{q.id}", {}, {})
+    assert error.value.status == 409
+
+    storage.update_queue_status(q.id, QueueStatus.IDLE)
+    assert endpoint.route("DELETE", f"/api/v1/conversations/{q.id}", {}, {}) == (200, {"deleted": q.id})
+    assert storage.find_queue(q.id) is None
+
+
+def test_own_groups_put_rename_delete(storage, tmp_path):
+    q = _queue(storage, tmp_path)
+    other = _queue(storage, tmp_path, "docs", "s2")
+    endpoint = api.Api(storage)
+
+    endpoint.set_group(q.id, {"name": " Release "})
+    endpoint.set_group(other.id, {"name": "Release"})
+    assert endpoint.groups() == {"mode": "own", "own": ["Release"]}
+    assert {c["group"]["title"] for c in endpoint.conversations()} == {"Release"}
+    assert endpoint.conversation(q.id)["group"] == {"key": "own:Release", "title": "Release"}
+
+    endpoint.rename_group({"old": "Release", "new": "v2"})
+    assert endpoint.groups()["own"] == ["v2"]
+    endpoint.set_group(other.id, {"name": None})
+    assert storage.conversation_groups() == {q.id: "v2"}
+    endpoint.delete_group({"name": "v2"})
+    assert endpoint.groups()["own"] == []
+    with pytest.raises(api.ApiError):
+        endpoint.rename_group({"old": "", "new": "x"})
+
+
+def test_search_export_and_files(storage, tmp_path, projects):
+    q = _queue(storage, tmp_path)
+    (projects / "s1.jsonl").write_text(_transcript_line("user", "Add rate limiting") +
+                                       _transcript_line("assistant", "Rate limiting added", 1))
+    (tmp_path / "shop" / "src").mkdir()
+    (tmp_path / "shop" / "src" / "limits.py").write_text("")
+    endpoint = api.Api(storage)
+
+    hits = endpoint.route("GET", "/api/v1/search", {"q": "rate LIMITING"}, {})[1]
+    assert [h["kind"] for h in hits] == ["assistant_text", "human"]
+    assert hits[0]["conversation_id"] == q.id
+
+    exported = endpoint.export(q.id)
+    assert exported["filename"].startswith("shop-") and exported["filename"].endswith(".md")
+    assert "Rate limiting added" in exported["markdown"]
+
+    assert endpoint.files(q.id, "limit") == ["src/limits.py"]
+
+
+def test_waiting_prompt_presets_and_sessions(storage, tmp_path, projects, monkeypatch):
+    from ccc.prompt_presets import PromptPreset, save_prompt_presets
+
+    q = _queue(storage, tmp_path)
+    storage.create_permission_request(q.id, "Bash", {})
+    save_prompt_presets(storage, [PromptPreset("Tests", "Run the tests", send_now=True)])
+    endpoint = api.Api(storage)
+
+    assert endpoint.waiting() == [{"conversation_id": q.id, "name": "shop", "kind": "approval",
+                                   "label": "waits for approval"}]
+    assert endpoint.prompt_presets() == [{"number": 1, "name": "Tests", "text": "Run the tests", "send_now": True}]
+
+    folder = tmp_path / "shop"
+    session_dir = projects.parent / api_encode(str(folder))
+    session_dir.mkdir()
+    (session_dir / "abc.jsonl").write_text(_transcript_line("user", "first prompt"))
+    sessions = endpoint.sessions(str(folder))
+    assert [(s["session_id"], s["first_prompt"]) for s in sessions] == [("abc", "first prompt")]
+    assert endpoint.sessions("/no/such") == []
+
+
+def api_encode(path):
+    from ccc.transcript import encode_project_dir
+
+    return encode_project_dir(path)
+
+
+def test_creating_remembers_the_choice_like_the_tui(storage, tmp_path):
+    folder = tmp_path / "new"
+    folder.mkdir()
+    endpoint = api.Api(storage)
+    assert endpoint.launch_presets() == {"last": None, "presets": []}
+
+    endpoint.create({"path": str(folder), "options": ["model_opus"], "interactive": False, "auto_continue": False})
+
+    last = endpoint.launch_presets()["last"]
+    assert "model_opus" in last["options"] and last["auto_continue"] is False

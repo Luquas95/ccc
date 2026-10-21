@@ -1,6 +1,21 @@
 package io.github.luquas95.ccc.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.RadioButton
+import androidx.compose.runtime.remember
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
+import io.github.luquas95.ccc.data.Permission
+import io.github.luquas95.ccc.data.PromptPreset
+import io.github.luquas95.ccc.data.mentionAt
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -59,19 +74,35 @@ import io.github.luquas95.ccc.ui.theme.CccColors
 
 private const val PREVIEW_LINES = 3
 
+/** What a conversation can do, besides showing [ConversationState]. */
+class ConversationActions(
+    val back: () -> Unit,
+    val send: (String, () -> Unit) -> Unit,
+    val retry: () -> Unit,
+    val loadOlder: () -> Unit,
+    val decide: (Permission, String) -> Unit,
+    val archive: (Boolean) -> Unit,
+    val delete: () -> Unit,
+    val setGroup: (String?) -> Unit,
+    val export: () -> Unit,
+    val usePreset: (PromptPreset, (String) -> Unit) -> Unit,
+    val mention: (String?) -> Unit,
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConversationScreen(
     state: ConversationState,
+    presets: List<PromptPreset>,
+    ownGroups: List<String>,
     snackbar: SnackbarHostState,
-    onBack: () -> Unit,
-    onSend: (String, () -> Unit) -> Unit,
-    onRetry: () -> Unit,
-    onLoadOlder: () -> Unit,
-    onDecide: (io.github.luquas95.ccc.data.Permission, String) -> Unit,
+    actions: ConversationActions,
 ) {
     val detail = state.detail
-    var draft by rememberSaveable(state.id) { mutableStateOf("") }
+    var draft by rememberSaveable(state.id, stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
+    var menu by remember { mutableStateOf(false) }
+    var dialog by remember { mutableStateOf<String?>(null) }
+    val archived = detail?.archived == true
     val list = rememberLazyListState()
     // reverseLayout: item 0 is the newest, at the bottom; keep it in view when one arrives.
     val newest = state.messages.lastOrNull()?.index
@@ -98,13 +129,28 @@ fun ConversationScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = actions.back) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
                     }
                 },
                 actions = {
-                    if (detail != null && detail.state in RETRYABLE) {
-                        IconButton(onClick = onRetry) { Icon(Icons.Filled.Refresh, stringResource(R.string.retry)) }
+                    if (detail != null && detail.state in RETRYABLE && !archived) {
+                        IconButton(onClick = actions.retry) { Icon(Icons.Filled.Refresh, stringResource(R.string.retry)) }
+                    }
+                    if (detail != null) {
+                        IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.more)) }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(text = { Text(stringResource(R.string.group_put)) },
+                                onClick = { menu = false; dialog = "group" })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.export)) },
+                                onClick = { menu = false; actions.export() })
+                            DropdownMenuItem(
+                                text = { Text(stringResource(if (archived) R.string.restore else R.string.archive_it)) },
+                                onClick = { menu = false; actions.archive(!archived) },
+                            )
+                            DropdownMenuItem(text = { Text(stringResource(R.string.delete), color = CccColors.Error) },
+                                onClick = { menu = false; dialog = "delete" })
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CccColors.Background),
@@ -113,18 +159,51 @@ fun ConversationScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             Column(Modifier.imePadding().padding(8.dp)) {
+                if (archived) {
+                    Button(onClick = { actions.archive(false) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.restore))
+                    }
+                    return@Column
+                }
                 detail?.permissions?.forEach { permission ->
                     ApprovalCard(
                         permission,
                         detail.name,
-                        onDecide = { onDecide(permission, it) },
+                        onDecide = { actions.decide(permission, it) },
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
+                }
+                Mentions(state.mentions) { path ->
+                    val at = mentionAt(draft.text)?.first ?: return@Mentions
+                    val text = draft.text.substring(0, at) + "@$path "
+                    draft = TextFieldValue(text, TextRange(text.length))
+                    actions.mention(null)
+                }
+                if (presets.isNotEmpty()) {
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        presets.forEach { preset ->
+                            AssistChip(
+                                onClick = {
+                                    actions.usePreset(preset) { text ->
+                                        val joined = if (draft.text.isBlank()) text else draft.text.trimEnd() + " " + text
+                                        draft = TextFieldValue(joined, TextRange(joined.length))
+                                    }
+                                },
+                                label = { Text((if (preset.sendNow) "⏎ " else "✎ ") + preset.name) },
+                            )
+                        }
+                    }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = draft,
-                        onValueChange = { draft = it },
+                        onValueChange = {
+                            draft = it
+                            actions.mention(mentionAt(it.text.substring(0, it.selection.end))?.second)
+                        },
                         placeholder = { Text(stringResource(R.string.message_hint)) },
                         modifier = Modifier.weight(1f).heightIn(max = 160.dp),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -137,8 +216,8 @@ fun ConversationScreen(
                         CircularProgressIndicator(Modifier.padding(12.dp).width(24.dp))
                     } else {
                         IconButton(
-                            onClick = { onSend(draft) { draft = "" } },
-                            enabled = draft.isNotBlank(),
+                            onClick = { actions.send(draft.text) { draft = TextFieldValue("") } },
+                            enabled = draft.text.isNotBlank(),
                         ) { Icon(Icons.AutoMirrored.Filled.Send, stringResource(R.string.send), tint = CccColors.Title) }
                     }
                 }
@@ -163,9 +242,9 @@ fun ConversationScreen(
             }
             if (state.hasOlder) {
                 item(key = "older") {
-                    LaunchedEffect(state.messages.firstOrNull()?.index) { onLoadOlder() }
+                    LaunchedEffect(state.messages.firstOrNull()?.index) { actions.loadOlder() }
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        TextButton(onClick = onLoadOlder) { Text(stringResource(R.string.load_older)) }
+                        TextButton(onClick = actions.loadOlder) { Text(stringResource(R.string.load_older)) }
                     }
                 }
             }
@@ -174,6 +253,76 @@ fun ConversationScreen(
             }
         }
     }
+    when (dialog) {
+        "group" -> GroupPicker(detail?.group?.title, ownGroups, actions.setGroup) { dialog = null }
+        "delete" -> AlertDialog(
+            onDismissRequest = { dialog = null },
+            title = { Text(stringResource(R.string.delete_title)) },
+            text = { Text(stringResource(R.string.delete_text, detail?.name.orEmpty())) },
+            confirmButton = {
+                TextButton(onClick = { dialog = null; actions.delete() }) {
+                    Text(stringResource(R.string.delete), color = CccColors.Error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { dialog = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+}
+
+@Composable
+private fun Mentions(files: List<String>, onPick: (String) -> Unit) {
+    if (files.isEmpty()) return
+    Card(
+        Modifier.fillMaxWidth().padding(bottom = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = CccColors.Surface),
+        border = BorderStroke(1.dp, CccColors.Line),
+    ) {
+        files.forEach { path ->
+            Text(
+                "@$path",
+                Modifier.fillMaxWidth().clickable { onPick(path) }.padding(horizontal = 12.dp, vertical = 8.dp),
+                fontFamily = FontFamily.Monospace,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/** Put the conversation into one of your own groups, a new one, or none. */
+@Composable
+private fun GroupPicker(current: String?, ownGroups: List<String>, onPick: (String?) -> Unit, onClose: () -> Unit) {
+    var name by rememberSaveable { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(stringResource(R.string.group_put)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                (listOf<String?>(null) + ownGroups).forEach { group ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onPick(group); onClose() },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = group == current, onClick = { onPick(group); onClose() })
+                        Text(group ?: stringResource(R.string.group_none))
+                    }
+                }
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.group_new)) },
+                    singleLine = true,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onPick(name.trim()); onClose() }, enabled = name.isNotBlank()) {
+                Text(stringResource(R.string.save))
+            }
+        },
+        dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 private val RETRYABLE = setOf(ConversationStatus.BLOCKED_ERROR, ConversationStatus.PAUSED_LIMIT, ConversationStatus.WAITING_RETRY)

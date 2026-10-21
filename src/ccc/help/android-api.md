@@ -46,9 +46,20 @@ Every path starts with `/api/v1`; every request has the header
 | `POST /conversations/{id}/messages` | `{"text": "…"}` queues a message, as the message box does |
 | `POST /conversations/{id}/retry` | retry / resume a blocked or paused conversation (`r`) |
 | `POST /conversations/{id}/seen` | mark it read |
+| `POST /conversations/{id}/archive` | `{"archived": true \| false}` — into the [Archive](archive.md) / back |
+| `DELETE /conversations/{id}` | delete it from ccc (not while Claude works on it); Claude Code's transcript stays |
+| `POST /conversations/{id}/group` | `{"name": "…"}` into an own group (made if new), `null` out of it |
+| `GET /conversations/{id}/export` | `{"filename", "markdown"}` — the conversation as Markdown, secrets masked |
+| `GET /conversations/{id}/files?q=` | files of its folder for an @-mention, best first |
 | `POST /conversations` | start one: `{"path", "name", "options": [keys], "interactive", "remote_control", "auto_continue", "worktree", "session_id", "pr", "prompt"}` — as in [Starting a conversation](new-conversation.md); options left out are the defaults |
 | `GET /launch-options` | the options a conversation can be started with (keys and labels) |
 | `GET /projects` | recently used folders |
+| `GET /sessions?path=` | Claude Code sessions recorded in a folder, newest first (to resume one: `session_id` in `POST /conversations` with `session_resume`) |
+| `GET /launch-presets` | the New conversation presets and the last choice |
+| `GET /prompt-presets` | the preset prompts (Alt+1 … 9 in ccc) |
+| `GET /groups` | the grouping and your own groups; `POST /groups/rename` `{"old", "new"}`, `POST /groups/delete` `{"name"}` |
+| `GET /search?q=` | search every conversation (archived too), newest first |
+| `GET /waiting` | conversations that need you, most urgent first (Alt+N in ccc) |
 | `GET /permissions` | every [approval](approvals.md) waiting |
 | `POST /permissions/{id}` | `{"decision": "allow" \| "always" \| "deny"}` |
 | `GET /usage` | the [usage limits](limits.md) (null when unknown) |

@@ -66,4 +66,41 @@
     <string name="error_network">ccc není dostupné. Je počítač zapnutý a v tvém tailnetu?</string>
     <string name="error_token">ccc token odmítlo. Vytvoř nový přes ccc api token --new.</string>
     <string name="error_server_address">To není adresa.</string>
+
+    <!-- Kolo 1: správa konverzací -->
+    <string name="conversations">Konverzace</string>
+    <string name="archive">Archiv</string>
+    <string name="archive_empty">V archivu nic není.</string>
+    <string name="archive_it">Archivovat</string>
+    <string name="restore">Obnovit</string>
+    <string name="delete">Smazat</string>
+    <string name="delete_title">Smazat konverzaci</string>
+    <string name="delete_text">Smazat „%1$s“ i s úkoly ve frontě a historií běhů z ccc? Přepis Claude Code zůstane, takže v ní jde později pokračovat.</string>
+    <string name="cancel">Zrušit</string>
+    <string name="save">Uložit</string>
+    <string name="more">Další</string>
+    <string name="clear">Vymazat</string>
+    <string name="search">Hledat</string>
+    <string name="search_hint">Hledat ve všech konverzacích</string>
+    <string name="search_nothing">Nic nenalezeno.</string>
+    <string name="filter_hint">Filtr: název nebo složka</string>
+    <string name="filter_nothing">Filtru nic neodpovídá.</string>
+    <string name="filter_working">pracuje</string>
+    <string name="filter_approval">schválení</string>
+    <string name="filter_error">chyba</string>
+    <string name="filter_unseen">nové</string>
+    <string name="needs_you">Potřebuje tě: %1$d</string>
+    <string name="open_next">Otevřít</string>
+    <string name="export">Exportovat jako Markdown</string>
+    <string name="group_put">Dát do skupiny</string>
+    <string name="group_none">Žádná vlastní skupina</string>
+    <string name="group_new">Nová skupina</string>
+    <string name="group_title">Skupina %1$s</string>
+    <string name="group_rename">Nový název (existující je sloučí)</string>
+    <string name="group_delete">Smazat skupinu</string>
+    <string name="group_delete_hint">Po smazání se její konverzace vrátí pod svůj projekt.</string>
+    <string name="launch_presets">Předvolby</string>
+    <string name="sessions">Relace k pokračování</string>
+    <string name="sessions_none">V této složce není žádná relace Claude Code.</string>
+    <string name="session_messages">zpráv: %1$d</string>
 </resources>
