@@ -231,7 +231,7 @@ async def test_buttons_keep_size_and_colour_on_hover_focus_and_click(tmp_path):
         button.scroll_visible(animate=False)
         await pilot.pause()
         normal = (button.region.height, button.styles.background)
-        assert normal[1] != Color.parse("blue") and normal[1] == Color.parse("#00796b")
+        assert normal[1] != Color.parse("blue") and normal[1] == Color.parse("#008787")
         assert normal[0] == 3
         for state in ("hover", "focus", "active"):
             if state == "hover":
@@ -243,5 +243,22 @@ async def test_buttons_keep_size_and_colour_on_hover_focus_and_click(tmp_path):
             await pilot.pause()
             assert (button.region.height, button.styles.background) == normal, state
             assert button.styles.border_top[0] in ("", "none"), state
-        assert app.screen.query_one("#settings-save", Button).styles.background == Color.parse("#2e7d32")
-        assert app.screen.query_one("#settings-cancel", Button).styles.background == Color.parse("#c62828")
+        assert app.screen.query_one("#settings-save", Button).styles.background == Color.parse("#008700")
+        assert app.screen.query_one("#settings-cancel", Button).styles.background == Color.parse("#af0000")
+
+
+def test_button_colours_stay_distinct_in_a_256_colour_terminal():
+    # #76: in tmux Textual rounds to the 256-colour palette, and the old
+    # teal and green both became #00875f — two sidebar buttons looked like one.
+    import re
+
+    from rich.color import Color, ColorSystem
+
+    from ccc.tui.layout import BUTTON_CSS
+
+    colours = re.findall(r"^\$ccc-button[\w-]*: (#[0-9a-f]{6});", BUTTON_CSS, re.M)
+    assert len(colours) == 3
+    downgraded = {Color.parse(c).downgrade(ColorSystem.EIGHT_BIT).number for c in colours}
+    assert len(downgraded) == 3
+    standard = {Color.parse(c).downgrade(ColorSystem.STANDARD).number for c in colours}
+    assert len(standard) == 3

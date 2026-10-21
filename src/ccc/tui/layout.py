@@ -161,10 +161,13 @@ class ConfirmModal(ModalScreen):
 # size and colour on hover, Tab focus and click. Textual's default turned
 # a clicked button black and two rows shorter (#55). Not blue: blue marks
 # the focused field and the selected row, so a blue button looked focused.
+# The colours sit on the xterm 256-colour cube: in a 256-colour terminal
+# (tmux) Textual rounds to the nearest one, and the old teal #00796b and
+# green #2e7d32 both became #00875f, so two buttons looked like one (#76).
 BUTTON_CSS = """
-$ccc-button: #00796b;
-$ccc-button-ok: #2e7d32;
-$ccc-button-danger: #c62828;
+$ccc-button: #008787;
+$ccc-button-ok: #008700;
+$ccc-button-danger: #af0000;
 Button {
     border: none;
     height: 3;
