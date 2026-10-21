@@ -25,6 +25,7 @@ V Archivu:
 | `Delete` | smaže ji z ccc (nejdřív se zeptá) |
 | `/` | hledá ve všech konverzacích |
 | `f` | [filtruje seznam](conversations.md#filtr-seznamu); `Enter` ukáže první výsledek (neobnoví ho) |
+| `m` | [skupiny](conversations.md#skupiny) jako v Konverzacích; `Enter` na nadpisu ho sbalí (nic neobnoví) |
 | `e` | exportuje ji jako Markdown |
 
 Obnovená konverzace pokračuje tam, kde byla: Claude Code se znovu spustí

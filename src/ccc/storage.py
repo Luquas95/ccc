@@ -253,6 +253,14 @@ CREATE TABLE IF NOT EXISTS session_usage (
     cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
     UNIQUE (queue_id, message_id)
 );
+
+-- The group a conversation was put into in the list (ccc.groups); none =
+-- its project's. A table of its own so the migration is just this table:
+-- an older ccc ignores it, DROP TABLE takes the database back.
+CREATE TABLE IF NOT EXISTS conversation_groups (
+    queue_id INTEGER PRIMARY KEY REFERENCES queues(id),
+    name TEXT NOT NULL
+);
 """
 
 
@@ -644,7 +652,38 @@ class Storage:
             conn.execute("DELETE FROM workflow_runs WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM permission_requests WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM permission_allow WHERE queue_id = ?", (queue_id,))
+            conn.execute("DELETE FROM conversation_groups WHERE queue_id = ?", (queue_id,))
             conn.execute("DELETE FROM queues WHERE id = ?", (queue_id,))
+            conn.commit()
+
+    # --- groups in the list (ccc.groups) -----------------------------------------
+
+    def conversation_groups(self) -> dict[int, str]:
+        with closing(self._connect()) as conn:
+            return {row["queue_id"]: row["name"]
+                    for row in conn.execute("SELECT queue_id, name FROM conversation_groups").fetchall()}
+
+    def set_conversation_group(self, queue_id: int, name: str | None) -> None:
+        """Put a conversation into a group; None / "" takes it out."""
+        with closing(self._connect()) as conn:
+            if name:
+                conn.execute(
+                    "INSERT INTO conversation_groups (queue_id, name) VALUES (?, ?) "
+                    "ON CONFLICT(queue_id) DO UPDATE SET name = excluded.name",
+                    (queue_id, name),
+                )
+            else:
+                conn.execute("DELETE FROM conversation_groups WHERE queue_id = ?", (queue_id,))
+            conn.commit()
+
+    def rename_conversation_group(self, old: str, new: str) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute("UPDATE conversation_groups SET name = ? WHERE name = ?", (new, old))
+            conn.commit()
+
+    def delete_conversation_group(self, name: str) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute("DELETE FROM conversation_groups WHERE name = ?", (name,))
             conn.commit()
 
     # --- routines (ccc.routines) -----------------------------------------------

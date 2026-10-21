@@ -26,6 +26,31 @@ Za názvem je, jak moc je zaplněné kontextové okno konverzace, např.
 Když nemáš žádnou konverzaci, stojí vpravo **BEZ KONVERZACE** — stiskni
 `n` a nějakou založ.
 
+## Skupiny
+
+Seznam je rozdělený do **skupin** pod sbalitelnými nadpisy —
+`▾ shop (3) · ?1 ●2`: název, kolik má konverzací a co dělají (značky
+výše, sečtené). Konverzace patří pod svůj **projekt** — git repozitář,
+ve kterém pracuje ([worktree](new-conversation.md) pod svým
+repozitářem), mimo git pod svou složku; dva projekty se stejným názvem
+ukazují i nadřazenou složku (`work/app`, `home/app`).
+
+| Klávesa | |
+|---|---|
+| `Enter` nebo klik na nadpis | sbalí / rozbalí skupinu — sbalená pořád sčítá, co její konverzace dělají |
+| `Ctrl+↓` / `Ctrl+↑` | skok na další / předchozí nadpis (dokola) |
+| `m` na konverzaci | dá ji do **tvé vlastní skupiny** — vybereš ze seznamu nebo napíšeš nový název; *žádná vlastní* ji vrátí pod projekt |
+| `m` na nadpisu vlastní skupiny | přejmenuje ji (na název existující skupiny: sloučí se), nebo ji smaže — žádná konverzace se nesmaže, vrátí se pod své projekty |
+
+Vlastní skupiny jsou nahoře, pod nimi projekty, obojí podle názvu.
+Sbalené nadpisy zůstanou sbalené (i po restartu ccc); otevřeš-li
+konverzaci ze sbalené skupiny (`Alt+N`, hledání), skupina se rozbalí.
+Filtr (`f`) ukazuje všechny skupiny rozbalené. V Nastavení → Fronty jde
+*Skupiny v seznamu* přepnout na *Jen tvé vlastní skupiny*: ostatní
+konverzace jsou pak pod *Bez skupiny*, a bez jediné vlastní skupiny je
+seznam plochý. [Archiv](archive.md) se seskupuje stejně. Klávesy změníš
+v Nastavení → Klávesové zkratky.
+
 ## Filtr seznamu
 
 Při desítkách konverzací otevře `f` nad seznamem filtr. Píšeš a seznam
@@ -175,5 +200,6 @@ psaní nezpomalí.
 | `x` | [archivuje](archive.md) konverzaci |
 | `/` | hledá ve všech konverzacích (i archivovaných); `Enter` na výsledku ho otevře |
 | `f` | filtruje seznam podle názvu, složky a stavu (viz *Filtr seznamu*) |
+| `m` | dá konverzaci do skupiny / přejmenuje nebo smaže skupinu (viz *Skupiny*) |
 | `e` | exportuje konverzaci jako Markdown (do `conversations/` ve složce pro exporty, viz [Nastavení](settings.md)) |
 | `n` | [založí novou konverzaci](new-conversation.md) |

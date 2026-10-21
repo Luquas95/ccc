@@ -56,6 +56,9 @@ name the default keys.
 | `Ctrl+]` | Close Claude Code beside ccc (it keeps running; Enter in the list opens it) |
 | `/` | Search all conversations |
 | `f` | Filter the list: name or folder; ! working, ? approval, x error, * new (Esc cancels) |
+| `m` | Groups: put the conversation into one of your own; on a group's heading, rename / delete it |
+| `Ctrl+↓` | Jump to the next group's heading (Enter or a click folds / unfolds it) |
+| `Ctrl+↑` | Jump to the previous group's heading |
 | `e` | Export the conversation as Markdown |
 | `v` | Review its changes with a fresh reviewer (once or until it passes) |
 | `g` | Goal loop: rounds of work, check and review until the goal is met |
@@ -81,6 +84,9 @@ name the default keys.
 | `Del` | Delete the conversation from ccc (asks first; Claude Code's transcript stays) |
 | `/` | Search all conversations |
 | `f` | Filter the list: name or folder; ! working, ? approval, x error, * new (Esc cancels) |
+| `m` | Groups: put the conversation into one of your own; on a group's heading, rename / delete it |
+| `Ctrl+↓` | Jump to the next group's heading (Enter or a click folds / unfolds it) |
+| `Ctrl+↑` | Jump to the previous group's heading |
 | `e` | Export the conversation as Markdown |
 
 ## Tasks editor (t)

@@ -28,3 +28,11 @@ def _no_real_tmux(monkeypatch):
     # Tests may run inside tmux: never split the developer's own window.
     monkeypatch.delenv("TMUX", raising=False)
     monkeypatch.delenv("TMUX_PANE", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _flat_conversation_list(monkeypatch):
+    # The list groups conversations by project by default (ccc.groups): each
+    # test's tmp folder would get a heading of its own. Tests of other
+    # features see the flat list; tests/test_groups.py turns grouping on.
+    monkeypatch.setattr("ccc.groups.mode", lambda storage: "own")

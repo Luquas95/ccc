@@ -1285,4 +1285,37 @@ CS: dict[str, str] = {
         "V textovém poli: napsat jeho text v externím editoru (vybraném v Nastavení), vrátí se do pole",
     "Filter the list: name or folder; ! working, ? approval, x error, * new (Esc cancels)":
         "Filtrovat seznam: název nebo složka; ! pracuje, ? schválení, x chyba, * nové (Esc zruší)",
+    # --- conversation groups (groups, tui.groups) ------------------------------
+    "No group": "Bez skupiny",
+    "Put the conversation into a group / rename the group": "Dát konverzaci do skupiny / přejmenovat skupinu",
+    "Next group in the list": "Další skupina v seznamu",
+    "Previous group in the list": "Předchozí skupina v seznamu",
+    "Group": "Skupina",
+    "Next group": "Další skupina",
+    "Previous group": "Předchozí skupina",
+    "A project's group follows the folder — press m on a conversation to put it into a group of your own.":
+        "Skupina projektu se řídí složkou — m na konverzaci ji dá do tvé vlastní skupiny.",
+    "— none of its own (its project's group)": "— žádná vlastní (skupina jejího projektu)",
+    "— No group": "— Bez skupiny",
+    "or a new group": "nebo nová skupina",
+    "Enter renames it (to an existing group's name: they merge). Deleting the group deletes no conversation "
+    "— they go back to their project's group (or No group).":
+        "Enter ji přejmenuje (na název existující skupiny: sloučí se). Smazání skupiny nesmaže žádnou konverzaci "
+        "— vrátí se do skupiny svého projektu (nebo Bez skupiny).",
+    "Group '{name}'": "Skupina „{name}“",
+    "group name, Enter": "název skupiny, Enter",
+    "Delete group": "Smazat skupinu",
+    "Put '{name}' into": "Dát „{name}“ do",
+    "Groups in the list": "Skupiny v seznamu",
+    "By project, and your own groups": "Podle projektu a tvé vlastní skupiny",
+    "Only your own groups": "Jen tvé vlastní skupiny",
+    "Conversations and Archive: m puts a conversation into a group of your own; the others go under their "
+    "project (git repository or folder), or under No group.":
+        "Konverzace a Archiv: m dá konverzaci do tvé vlastní skupiny; ostatní jsou pod svým projektem "
+        "(git repozitář nebo složka), nebo pod Bez skupiny.",
+    "Groups: put the conversation into one of your own; on a group's heading, rename / delete it":
+        "Skupiny: dát konverzaci do vlastní skupiny; na nadpisu skupiny ji přejmenovat / smazat",
+    "Jump to the next group's heading (Enter or a click folds / unfolds it)":
+        "Skočit na nadpis další skupiny (Enter nebo klik ji sbalí / rozbalí)",
+    "Jump to the previous group's heading": "Skočit na nadpis předchozí skupiny",
 }

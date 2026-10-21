@@ -15,7 +15,7 @@ změny zahodí. Tlačítka jako *Poslat testovací zprávu*, *Vypnout* nebo
 | Externí editor | editor, ve kterém `Ctrl+E` otevře text pole — viz níže |
 | Notifikace přes Telegram | viz níže |
 | Notifikace přes Discord | viz níže |
-| Fronty | text *pokračuj* posílaný po limitu využití a rezerva využití — viz [Limity využití](limits.md); model [recenzenta](review.md) |
+| Fronty | text *pokračuj* posílaný po limitu využití a rezerva využití — viz [Limity využití](limits.md); model [recenzenta](review.md); *Skupiny v seznamu* — podle projektu, nebo jen tvé vlastní (viz [Konverzace](conversations.md#skupiny)) |
 | Kontext | velikost kontextového okna, prahy varování / poplachu zaplnění kontextu a zpráva do Telegramu / Discordu, když konverzace dosáhne varování — viz [Konverzace](conversations.md) |
 | Přednastavené prompty | tvé prompty na `Alt+1` … `Alt+9` — viz níže |
 | Předvolby nové konverzace | smaže předvolby uložené v okně [Nová konverzace](new-conversation.md) |

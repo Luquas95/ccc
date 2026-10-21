@@ -55,9 +55,8 @@ class ArchiveScreen(ConversationsScreen):
         await self._show_queue(queue_id)
         self.query_one("#conversation-queue-list", DataTable).focus()
 
-    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        if event.data_table.id == "conversation-queue-list":
-            self.action_restore_and_open()
+    def _conversation_chosen(self) -> None:
+        self.action_restore_and_open()
 
     def action_restore_and_open(self) -> None:
         queue_id = self._current_queue_id
