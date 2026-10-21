@@ -11,6 +11,7 @@ from __future__ import annotations
 NAME = "textual-dark"
 
 VARIABLES = {
+    "ccc-background": "#000000",  # the page behind the panels
     "ccc-sidebar": "#000000",  # the menu on the left
     "ccc-line": "#3a3a3a",  # dividing lines, panel frames
     "ccc-title": "#5fafd7",  # panel and window titles
