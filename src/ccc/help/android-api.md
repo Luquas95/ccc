@@ -1,10 +1,11 @@
 # Android app & API
 
-An Android app for ccc is on its way (`android/` in the repository). It
-talks to ccc over a small HTTP API, which you can already turn on: the
-conversations and their messages, sending a message, approving tool
-calls, starting a conversation, usage limits — and a stream of changes,
-so the phone sees a new reply or an approval right away.
+ccc has an Android app (`android/` in the repository — how to build and
+install it: [android/README.md](../../../android/README.md)). It talks
+to ccc over a small HTTP API: the conversations and their messages,
+sending a message, approving tool calls, starting a conversation, usage
+limits — and a stream of changes, so the phone sees a new reply or an
+approval right away.
 
 Like the TUI, the API only reads and writes ccc's database; the daemon
 does the work. It's reachable only from your
@@ -24,6 +25,8 @@ token.
    nobody can read it from the database. Lost it, or lost the phone?
    `ccc api token --new` makes a new one; the old one stops working at
    once, open connections too.
+4. In the app enter the address (just `<computer>.<tailnet>.ts.net`
+   will do) and the token.
 
 Without the service, `ccc api serve` runs it in the terminal
 (`--port` for another port).
