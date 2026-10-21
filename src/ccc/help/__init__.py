@@ -25,6 +25,7 @@ TOPICS: list[tuple[str, str]] = [
     ("limits", N_("Usage limits & blocked queues")),
     ("approvals", N_("Approving tool calls")),
     ("remote-control", N_("Remote control (phone)")),
+    ("android-api", N_("Android app & API")),
     ("live-sessions", N_("Live sessions")),
     ("analytics", N_("Analytics")),
     ("settings", N_("Settings & notifications")),

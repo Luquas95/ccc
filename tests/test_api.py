@@ -1,0 +1,344 @@
+import json
+import threading
+import urllib.error
+import urllib.request
+from datetime import datetime, timedelta, timezone
+
+import pytest
+
+from ccc import api
+from ccc.models import QueueStatus
+from ccc.storage import Storage
+from ccc.usage_api import ProUsage, WindowUsage
+
+
+@pytest.fixture
+def storage(tmp_path):
+    return Storage(str(tmp_path / "ccc.db"))
+
+
+@pytest.fixture
+def projects(tmp_path, monkeypatch):
+    root = tmp_path / "projects"
+    (root / "-p").mkdir(parents=True)
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", root)
+    return root / "-p"
+
+
+def _queue(storage, tmp_path, name="shop", session="s1"):
+    folder = tmp_path / name
+    folder.mkdir(exist_ok=True)
+    return storage.create_queue(name, str(folder), session)
+
+
+def _transcript_line(role, text, minute=0):
+    return json.dumps({
+        "type": role,
+        "message": {"role": role, "content": text if role == "user" else [{"type": "text", "text": text}]},
+        "timestamp": f"2026-10-21T10:{minute:02d}:00.000Z",
+    }) + "\n"
+
+
+def test_only_the_tokens_fingerprint_is_kept_and_a_new_one_replaces_it(storage):
+    assert not api.has_token(storage)
+    first = api.new_token(storage)
+    assert len(first) > 30
+    assert first not in storage.get_setting(api.TOKEN_KEY)
+    assert api.token_valid(storage, first)
+    second = api.new_token(storage)
+    assert api.token_valid(storage, second)
+    assert not api.token_valid(storage, first)
+    assert not api.token_valid(storage, "")
+
+
+def test_conversations_list_with_state(storage, tmp_path):
+    q = _queue(storage, tmp_path)
+    storage.add_queue_item(q.id, "go on")
+    storage.create_permission_request(q.id, "Bash", {"command": "ls"})
+    archived = _queue(storage, tmp_path, "old", "s2")
+    storage.set_queue_archived(archived.id, True)
+
+    listed = api.Api(storage).conversations()
+
+    assert [c["name"] for c in listed] == ["shop"]
+    assert listed[0]["pending"] == 1
+    assert listed[0]["needs_approval"] is True
+    assert listed[0]["status"] == "idle"
+    assert [c["name"] for c in api.Api(storage).conversations(archived=True)] == ["old"]
+
+
+def test_conversations_carry_their_own_group(storage, tmp_path):
+    q = _queue(storage, tmp_path)
+    storage.set_conversation_group(q.id, "Release")
+
+    listed = api.Api(storage).conversations()
+
+    assert listed[0]["group"] == {"key": "own:Release", "title": "Release"}
+
+
+def test_conversation_detail_has_queued_messages_and_approvals(storage, tmp_path):
+    q = _queue(storage, tmp_path)
+    storage.add_queue_item(q.id, "first")
+    request = storage.create_permission_request(q.id, "Edit", {"file_path": "a.py"})
+
+    detail = api.Api(storage).conversation(q.id)
+
+    assert [m["text"] for m in detail["queued"]] == ["first"]
+    assert detail["permissions"][0]["id"] == request.id
+    assert detail["permissions"][0]["input"] == {"file_path": "a.py"}
+
+
+def test_unknown_conversation_is_404(storage):
+    with pytest.raises(api.ApiError) as error:
+        api.Api(storage).route("GET", "/api/v1/conversations/99", {}, {})
+    assert error.value.status == 404
+
+
+def test_messages_new_ones_after_an_index_and_older_before(storage, tmp_path, projects):
+    q = _queue(storage, tmp_path)
+    path = projects / "s1.jsonl"
+    path.write_text("".join(_transcript_line("user" if i % 2 == 0 else "assistant", f"m{i}", i) for i in range(6)))
+    endpoint = api.Api(storage)
+
+    everything = endpoint.messages(q.id)
+    assert everything["total"] == 6
+    assert [m["text"] for m in everything["messages"]] == [f"m{i}" for i in range(6)]
+    assert everything["messages"][0]["kind"] == "human"
+    assert everything["messages"][1]["kind"] == "assistant_text"
+
+    assert [m["index"] for m in endpoint.messages(q.id, limit=2)["messages"]] == [4, 5]
+    assert [m["index"] for m in endpoint.messages(q.id, before=4, limit=2)["messages"]] == [2, 3]
+
+    with path.open("a") as f:
+        f.write(_transcript_line("assistant", "m6", 6))
+    assert [m["text"] for m in endpoint.messages(q.id, after=5)["messages"]] == ["m6"]
+
+
+def test_messages_of_a_conversation_without_a_transcript(storage, tmp_path, projects):
+    q = _queue(storage, tmp_path)
+    assert api.Api(storage).messages(q.id) == {"total": 0, "messages": []}
+
+
+def test_send_queues_the_message_and_resumes_a_paused_conversation(storage, tmp_path):
+    q = _queue(storage, tmp_path)
+    storage.update_queue_status(q.id, QueueStatus.PAUSED_LIMIT)
+
+    status, result = api.Api(storage).route("POST", f"/api/v1/conversations/{q.id}/messages", {},
+                                            {"text": "  go on  "})
+
+    assert status == 201
+    assert result["text"] == "go on"
+    assert [i.prompt_text for i in storage.list_pending_items(q.id)] == ["go on"]
+    assert storage.get_queue(q.id).status == QueueStatus.IDLE
+
+
+def test_send_refuses_an_empty_message(storage, tmp_path):
+    q = _queue(storage, tmp_path)
+    with pytest.raises(api.ApiError) as error:
+        api.Api(storage).send(q.id, {"text": "   "})
+    assert error.value.status == 400
+    assert storage.list_pending_items(q.id) == []
+
+
+@pytest.mark.parametrize("decision, status, always", [
+    ("allow", "allowed", False), ("always", "allowed", True), ("deny", "denied", False),
+])
+def test_decide_an_approval(storage, tmp_path, decision, status, always):
+    q = _queue(storage, tmp_path)
+    request = storage.create_permission_request(q.id, "Bash", {"command": "ls"})
+    endpoint = api.Api(storage)
+    assert [p["conversation"] for p in endpoint.permissions()] == ["shop"]
+
+    endpoint.decide(request.id, {"decision": decision})
+
+    assert storage.get_permission_request(request.id).status == status
+    assert storage.is_tool_always_allowed(q.id, "Bash") is always
+    assert endpoint.permissions() == []
+    with pytest.raises(api.ApiError) as error:
+        endpoint.decide(request.id, {"decision": "allow"})
+    assert error.value.status == 409
+
+
+def test_decide_needs_a_known_decision(storage, tmp_path):
+    q = _queue(storage, tmp_path)
+    request = storage.create_permission_request(q.id, "Bash", {})
+    with pytest.raises(api.ApiError) as error:
+        api.Api(storage).decide(request.id, {"decision": "maybe"})
+    assert error.value.status == 400
+    assert storage.get_permission_request(request.id).status == "pending"
+
+
+def test_create_a_conversation_with_defaults_and_a_first_message(storage, tmp_path):
+    folder = tmp_path / "new"
+    folder.mkdir()
+
+    status, result = api.Api(storage).route("POST", "/api/v1/conversations", {}, {
+        "path": str(folder), "options": ["model_sonnet"], "interactive": False, "prompt": "hello",
+    })
+
+    assert status == 201
+    queue = storage.get_queue(result["id"])
+    assert queue.name == "new"
+    assert queue.delivery_mode.value == "headless"
+    # The session and permission choices were missing: the defaults.
+    assert queue.launch_flags == ["--dangerously-skip-permissions", "--model", "sonnet"]
+    assert result["queued"][0]["text"] == "hello"
+
+
+@pytest.mark.parametrize("body", [
+    {"path": ""},
+    {"path": "/no/such/folder"},
+    {"path": "/tmp", "options": ["model_opus", "model_haiku"]},
+    {"path": "/tmp", "options": ["nonsense"]},
+    {"path": "/tmp", "options": "model_opus"},
+])
+def test_create_refuses_a_bad_request(storage, body):
+    with pytest.raises(api.ApiError) as error:
+        api.Api(storage).create(body)
+    assert error.value.status == 400
+    assert storage.list_queues() == []
+
+
+def test_launch_options_and_projects(storage, tmp_path):
+    _queue(storage, tmp_path)
+    endpoint = api.Api(storage)
+
+    options = endpoint.launch_options()
+
+    assert options["groups"][0]["key"] == "session"
+    assert {"key": "model_opus", "label": "Opus"} in options["groups"][3]["options"]
+    assert "perm_skip" in options["default"]
+    assert endpoint.projects() == [str(tmp_path / "shop")]
+
+
+def test_usage(storage, monkeypatch):
+    resets = datetime(2026, 10, 21, 20, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr("ccc.usage_api.get_pro_usage",
+                        lambda force_refresh=False: ProUsage(WindowUsage(64.0, resets), None, []))
+
+    usage = api.Api(storage).usage()
+
+    assert usage == {"five_hour": {"percent": 64.0, "resets_at": resets.isoformat()},
+                     "seven_day": None, "per_model": []}
+
+
+def test_changes_name_the_conversations_that_changed(storage, tmp_path, projects):
+    q = _queue(storage, tmp_path)
+    other = _queue(storage, tmp_path, "docs", "s2")
+    endpoint = api.Api(storage)
+    before = endpoint.snapshot()
+    assert endpoint.changes(before, endpoint.snapshot()) is None
+
+    storage.add_queue_item(q.id, "next")
+    (projects / "s2.jsonl").write_text(_transcript_line("user", "hi"))
+    endpoint._transcripts.clear()  # look the new transcript up now
+    storage.delete_queue(other.id)
+
+    assert endpoint.changes(before, endpoint.snapshot()) == {"conversations": [q.id], "removed": [other.id]}
+
+
+# --- over HTTP ------------------------------------------------------------------
+
+
+@pytest.fixture
+def server(storage):
+    httpd = api.make_server(storage, "127.0.0.1", 0)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{httpd.server_address[1]}", api.new_token(storage)
+    httpd.shutdown()
+    httpd.server_close()
+
+
+def _call(url, token=None, method="GET", body=None):
+    request = urllib.request.Request(url, method=method, data=json.dumps(body).encode() if body is not None else None)
+    if token:
+        request.add_header("Authorization", f"Bearer {token}")
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            return response.status, json.loads(response.read())
+    except urllib.error.HTTPError as error:
+        return error.code, json.loads(error.read())
+
+
+def test_http_needs_the_token(server):
+    base, token = server
+    assert _call(f"{base}/api/v1/status")[0] == 401
+    assert _call(f"{base}/api/v1/status", "wrong")[0] == 401
+    status, result = _call(f"{base}/api/v1/status", token)
+    assert status == 200
+    assert result["daemon_running"] is False
+
+
+def test_http_a_new_token_locks_the_old_one_out(server, storage):
+    base, token = server
+    newer = api.new_token(storage)
+    assert _call(f"{base}/api/v1/status", token)[0] == 401
+    assert _call(f"{base}/api/v1/status", newer)[0] == 200
+
+
+def test_http_send_and_read_back(server, storage, tmp_path):
+    base, token = server
+    q = _queue(storage, tmp_path)
+
+    status, _ = _call(f"{base}/api/v1/conversations/{q.id}/messages", token, "POST", {"text": "hello"})
+    assert status == 201
+    status, result = _call(f"{base}/api/v1/conversations/{q.id}", token)
+    assert status == 200
+    assert [m["text"] for m in result["queued"]] == ["hello"]
+
+
+def test_http_errors_are_json(server):
+    base, token = server
+    assert _call(f"{base}/api/v1/nothing", token) == (404, {"error": "Not found."})
+    assert _call(f"{base}/api/v1/conversations/x/messages", token)[0] == 404
+    assert _call(f"{base}/api/v1/conversations/1/messages?after=x", token)[0] == 400
+
+
+def test_http_events_stream_tells_about_a_change(server, storage, tmp_path, monkeypatch):
+    monkeypatch.setattr(api, "EVENTS_POLL_SECONDS", 0.05)
+    base, token = server
+    q = _queue(storage, tmp_path)
+    request = urllib.request.Request(f"{base}/api/v1/events", headers={"Authorization": f"Bearer {token}"})
+    with urllib.request.urlopen(request, timeout=5) as stream:
+        assert stream.headers["Content-Type"] == "text/event-stream"
+        assert stream.readline() == b": connected\n"
+        stream.readline()
+        storage.add_queue_item(q.id, "next")
+        assert stream.readline() == b"event: changed\n"
+        assert json.loads(stream.readline().removeprefix(b"data: ")) == {"conversations": [q.id], "removed": []}
+
+
+def test_retry_and_seen(storage, tmp_path):
+    q = _queue(storage, tmp_path)
+    storage.update_queue_status(q.id, QueueStatus.BLOCKED_ERROR, last_error="boom")
+    endpoint = api.Api(storage)
+
+    assert endpoint.route("POST", f"/api/v1/conversations/{q.id}/retry", {}, {}) == (200, {"retried": True})
+    assert storage.get_queue(q.id).status == QueueStatus.IDLE
+    assert endpoint.route("POST", f"/api/v1/conversations/{q.id}/seen", {}, {})[0] == 200
+    assert storage.get_queue(q.id).last_seen_at > datetime.now() - timedelta(minutes=1)
+
+
+def test_http_events_stream_ends_when_a_new_token_is_made(server, storage, monkeypatch):
+    monkeypatch.setattr(api, "EVENTS_POLL_SECONDS", 0.05)
+    base, token = server
+    request = urllib.request.Request(f"{base}/api/v1/events", headers={"Authorization": f"Bearer {token}"})
+    with urllib.request.urlopen(request, timeout=5) as stream:
+        assert stream.readline() == b": connected\n"
+        api.new_token(storage)
+        assert stream.read() == b"\n"  # the blank line after "connected", then closed
+
+
+def test_cli_shows_a_token_only_when_it_makes_one(storage, capsys):
+    from argparse import Namespace
+
+    from ccc import api_cli
+
+    api_cli.run(storage, "", Namespace(api_command="token", new=False))
+    made = capsys.readouterr().out.splitlines()[0]
+    assert api.token_valid(storage, made)
+    api_cli.run(storage, "", Namespace(api_command="token", new=False))
+    assert made not in capsys.readouterr().out
+    api_cli.run(storage, "", Namespace(api_command="token", new=True))
+    assert not api.token_valid(storage, made)

@@ -85,6 +85,16 @@ def enqueue_prompt(storage: Storage, project_path: str, prompt_text: str, name: 
     return queue
 
 
+def send_message(storage: Storage, queue_id: int, text: str) -> QueueItem:
+    """Queue a message in a conversation (the TUI's message box, the API).
+    Writing to a conversation paused at a limit means "go on". Pure
+    storage write — the daemon picks it up on its next poll."""
+    item = storage.add_queue_item(queue_id, text.strip())
+    if storage.get_queue(queue_id).status == QueueStatus.PAUSED_LIMIT:
+        storage.update_queue_status(queue_id, QueueStatus.IDLE)
+    return item
+
+
 def attach_to_session(
     storage: Storage, session_id: str, cwd: str, name: str, prompt_text: str
 ) -> Queue:

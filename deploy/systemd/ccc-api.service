@@ -1,0 +1,14 @@
+# Template: bin/install.sh --api fills in @CCC_DIR@ (the ccc checkout).
+[Unit]
+Description=ccc HTTP API for the Android app (127.0.0.1:8737, put on the tailnet by tailscale serve)
+After=ccc.service
+RequiresMountsFor=@CCC_DIR@
+
+[Service]
+Type=simple
+ExecStart=@CCC_DIR@/.venv/bin/ccc api serve
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
