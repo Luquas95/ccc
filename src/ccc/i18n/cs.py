@@ -1319,6 +1319,12 @@ CS: dict[str, str] = {
     # --- HTTP API for the Android app (api.py, api_cli.py) -------------------
     "Android app & API": "Aplikace pro Android a API",
     "Not found.": "Nenalezeno.",
+    "This conversation runs without a Claude Code terminal (headless).":
+        "Tato konverzace běží bez terminálu Claude Code (na pozadí).",
+    "Its Claude Code isn't running — the daemon starts it for its next task.":
+        "Její Claude Code neběží — daemon ho spustí pro její další úkol.",
+    "Not delivered.": "Nedoručeno.",
+    "keys must be a list of key names.": "keys musí být seznam názvů kláves.",
     "No such review.": "Taková recenze neexistuje.",
     "This review has no findings to send.": "Tato recenze nemá nálezy k odeslání.",
     "No such workflow template.": "Taková šablona workflow neexistuje.",

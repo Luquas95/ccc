@@ -28,6 +28,19 @@ požadavek potřebuje token.
 Bez služby ho spustí v terminálu `ccc api serve` (`--port` pro jiný
 port).
 
+## V aplikaci
+
+Všechno, co umí okno ccc, upravené pro telefon: konverzace, fronta
+úkolů, běhy a diffy, recenze, cíle, workflow, otázky, rutiny, živé
+relace, analytika, nastavení — a Claude Code interaktivní konverzace
+živě, s klávesami pro jeho nabídky.
+
+**Oznámení** (Připojení → *Oznamovat, i když je aplikace zavřená*):
+aplikace drží spojení s ccc otevřené i na pozadí a dá ti vědět
+o schválení — odpovíš přímo v oznámení —, chybě, limitu využití nebo
+hotové odpovědi. Žádný push server se nepoužívá; na Xiaomi / HyperOS
+aplikaci povol běh na pozadí, jinak ji systém zastaví.
+
 ## Endpointy
 
 Každá cesta začíná `/api/v1`; každý požadavek má hlavičku
@@ -66,6 +79,8 @@ Každá cesta začíná `/api/v1`; každý požadavek má hlavičku
 | `GET /analytics?year=&month=` | tokeny měsíce po dnech, modelech a konverzacích, měsíce s daty ([Analytika](analytics.md)); `POST /analytics/archive` archivuje skončené měsíce hned |
 | `GET /settings` | [nastavení](settings.md) ccc s možnostmi u každého (tajné údaje jen jako nastaveno / nenastaveno); `POST` některá změní; `POST /settings/telegram-test`, `telegram-off`, `discord-test`, `discord-off` |
 | `POST /prompt-presets` | `{"presets": [{"name", "text", "send_now"}]}` — všechny, v pořadí; `POST /launch-presets` uloží předvolbu nové konverzace, `POST /launch-presets/delete` `{"name"}` |
+| `GET /conversations/{id}/terminal` | co teď ukazuje Claude Code interaktivní konverzace — obrazovka s barvami (ANSI) a kurzorem |
+| `POST /conversations/{id}/terminal` | do jejího Claude Code: `{"paste", "submit"}` text jako jedno vložení (potom Enter, pokud `submit` není false), `{"keys": […]}` klávesy (Enter, Escape, Tab, BTab, šipky, Home, End, PageUp, PageDown, BSpace, Space, C-c, C-d, C-l, C-o, C-r, C-t, C-u), `{"type": "y"}` pár znaků |
 | `POST /backup` | zálohovat databázi hned |
 | `GET /launch-options` | volby, se kterými jde konverzace založit (klíče a popisky) |
 | `GET /projects` | naposledy použité složky |

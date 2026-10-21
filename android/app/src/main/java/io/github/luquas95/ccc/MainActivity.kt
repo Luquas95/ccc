@@ -25,7 +25,10 @@ import io.github.luquas95.ccc.ui.CccSettingsScreen
 import io.github.luquas95.ccc.ui.LiveSessionsScreen
 import io.github.luquas95.ccc.ui.RoutinesActions
 import io.github.luquas95.ccc.ui.RoutinesScreen
+import io.github.luquas95.ccc.notify.WatchService
 import io.github.luquas95.ccc.ui.SettingsActions
+import io.github.luquas95.ccc.ui.TerminalActions
+import io.github.luquas95.ccc.ui.TerminalScreen
 import io.github.luquas95.ccc.ui.ApprovalsScreen
 import io.github.luquas95.ccc.ui.ConversationActions
 import io.github.luquas95.ccc.ui.ConversationScreen
@@ -56,6 +59,21 @@ class MainActivity : ComponentActivity() {
             override fun onStop(owner: LifecycleOwner) = model.setForeground(false)
         })
         setContent { CccTheme { App(model) } }
+        openFrom(intent)
+    }
+
+    // A notification tapped: its conversation.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        openFrom(intent)
+    }
+
+    private fun openFrom(intent: Intent?) {
+        val id = intent?.getIntExtra(WatchService.EXTRA_CONVERSATION, -1) ?: -1
+        if (id >= 0) {
+            intent?.removeExtra(WatchService.EXTRA_CONVERSATION)
+            model.openFromNotification(id)
+        }
     }
 }
 
@@ -76,6 +94,8 @@ private fun App(model: AppViewModel) {
     val sessions by model.more.sessions.collectAsStateWithLifecycle()
     val analytics by model.more.analytics.collectAsStateWithLifecycle()
     val cccSettings by model.more.settings.collectAsStateWithLifecycle()
+    val terminal by model.more.terminal.collectAsStateWithLifecycle()
+    val notifications by model.notifications.collectAsStateWithLifecycle()
     val nameOf = { id: Int -> (home.conversations + home.archived).firstOrNull { it.id == id }?.name.orEmpty() }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -104,9 +124,11 @@ private fun App(model: AppViewModel) {
         Screen.Setup -> SetupScreen(
             server = model.server,
             signedIn = screens.size > 1,
+            notifications = notifications,
             snackbar = snackbar,
             onBack = if (screens.size > 1) model::back else null,
             onConnect = model::connect,
+            onNotifications = model::setNotifications,
             onSignOut = model::signOut,
         )
         Screen.Conversations -> ConversationsScreen(
@@ -150,6 +172,7 @@ private fun App(model: AppViewModel) {
                     tasks = { model.open(Screen.Tasks(screen.id)) },
                     runs = { model.open(Screen.Runs(screen.id)) },
                     agents = { model.open(Screen.Agents(screen.id)) },
+                    terminal = { model.open(Screen.Terminal(screen.id)) },
                 ),
             )
         }
@@ -252,6 +275,19 @@ private fun App(model: AppViewModel) {
                 connection = { model.open(Screen.Setup) },
             ),
         )
+        is Screen.Terminal -> terminal?.takeIf { it.id == screen.id }?.let {
+            TerminalScreen(
+                state = it,
+                name = nameOf(screen.id),
+                snackbar = snackbar,
+                actions = TerminalActions(
+                    back = model::back,
+                    paste = model.more::terminalPaste,
+                    keys = model.more::terminalKeys,
+                    type = model.more::terminalType,
+                ),
+            )
+        }
         Screen.Search -> SearchScreen(
             state = search,
             snackbar = snackbar,

@@ -12,13 +12,22 @@ import io.github.luquas95.ccc.data.Routine
 import io.github.luquas95.ccc.data.Routines
 import io.github.luquas95.ccc.data.WorkflowTemplate
 import io.github.luquas95.ccc.data.Workflows
+import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonElement
+
+private const val TERMINAL_REFRESH_MS = 1_000L
+
+/** Conversation [id]'s Claude Code as last seen; [error] when it can't be shown. */
+data class TerminalState(val id: Int, val terminal: io.github.luquas95.ccc.data.Terminal? = null, val error: String? = null)
 
 /** A conversation's reviews, goals, workflows and questions. */
 data class AgentsState(
@@ -51,6 +60,10 @@ class MoreModel(
 
     private val _analytics = MutableStateFlow<Analytics?>(null)
     val analytics: StateFlow<Analytics?> = _analytics.asStateFlow()
+
+    private val _terminal = MutableStateFlow<TerminalState?>(null)
+    val terminal: StateFlow<TerminalState?> = _terminal.asStateFlow()
+    private var watching: Job? = null
 
     private val _settings = MutableStateFlow<CccSettings?>(null)
     val settings: StateFlow<CccSettings?> = _settings.asStateFlow()
@@ -146,6 +159,49 @@ class MoreModel(
         api.archiveAnalytics()
         say(done)
     }
+
+    // --- Claude Code's terminal ----------------------------------------------------------------------
+
+    /** Show conversation [id]'s Claude Code, refreshed every second while [visible]. */
+    fun openTerminal(id: Int, api: () -> CccApi?, visible: () -> Boolean) {
+        _terminal.value = TerminalState(id)
+        watching?.cancel()
+        watching = scope.launch {
+            while (true) {
+                val client = api()
+                if (visible() && client != null) {
+                    try {
+                        val shown = client.terminal(id)
+                        _terminal.update { if (it?.id == id) it.copy(terminal = shown, error = null) else it }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: IOException) {
+                        _terminal.update { if (it?.id == id) it.copy(error = e.message) else it }
+                    }
+                }
+                delay(TERMINAL_REFRESH_MS)
+            }
+        }
+    }
+
+    fun closeTerminal() {
+        watching?.cancel()
+        _terminal.value = null
+    }
+
+    private fun terminalInput(block: suspend (CccApi, Int) -> io.github.luquas95.ccc.data.Terminal) {
+        val id = _terminal.value?.id ?: return
+        go { api ->
+            val shown = block(api, id)
+            _terminal.update { if (it?.id == id) it.copy(terminal = shown, error = null) else it }
+        }
+    }
+
+    fun terminalPaste(text: String, submit: Boolean) = terminalInput { api, id -> api.terminalPaste(id, text, submit) }
+
+    fun terminalKeys(keys: List<String>) = terminalInput { api, id -> api.terminalKeys(id, keys) }
+
+    fun terminalType(text: String) = terminalInput { api, id -> api.terminalType(id, text) }
 
     // --- settings -----------------------------------------------------------------------------------
 

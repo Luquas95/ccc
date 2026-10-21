@@ -90,6 +90,7 @@ class ConversationActions(
     val tasks: () -> Unit,
     val runs: () -> Unit,
     val agents: () -> Unit,
+    val terminal: () -> Unit,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -143,6 +144,10 @@ fun ConversationScreen(
                     if (detail != null) {
                         IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.more)) }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            if (detail.deliveryMode == "interactive" || detail.deliveryMode == "remote_control") {
+                                DropdownMenuItem(text = { Text(stringResource(R.string.terminal)) },
+                                    onClick = { menu = false; actions.terminal() })
+                            }
                             DropdownMenuItem(text = { Text(stringResource(R.string.tasks) + " (${detail.pending})") },
                                 onClick = { menu = false; actions.tasks() })
                             DropdownMenuItem(text = { Text(stringResource(R.string.runs)) },

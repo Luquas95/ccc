@@ -1,5 +1,12 @@
 package io.github.luquas95.ccc.ui
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -50,7 +57,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -374,11 +383,18 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
 fun SetupScreen(
     server: String,
     signedIn: Boolean,
+    notifications: Boolean,
     snackbar: SnackbarHostState,
     onBack: (() -> Unit)?,
     onConnect: (String, String, (Boolean) -> Unit) -> Unit,
+    onNotifications: (Boolean) -> Unit,
     onSignOut: () -> Unit,
 ) {
+    val context = LocalContext.current
+    // Android 13+ asks before an app may notify; on a yes, watching starts.
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) onNotifications(true)
+    }
     var address by rememberSaveable { mutableStateOf(server) }
     var token by rememberSaveable { mutableStateOf("") }
     var busy by rememberSaveable { mutableStateOf(false) }
@@ -431,6 +447,23 @@ fun SetupScreen(
                 if (busy) CircularProgressIndicator(Modifier.height(24.dp)) else Text(stringResource(R.string.setup_connect))
             }
             if (signedIn) {
+                Spacer(Modifier.height(16.dp))
+                Text(stringResource(R.string.notifications), style = MaterialTheme.typography.titleSmall,
+                    color = CccColors.Title, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.notifications_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.notifications_on), Modifier.weight(1f))
+                    Switch(checked = notifications, onCheckedChange = { on ->
+                        val allowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                            PackageManager.PERMISSION_GRANTED
+                        if (on && !allowed) ask.launch(Manifest.permission.POST_NOTIFICATIONS) else onNotifications(on)
+                    })
+                }
+                OutlinedButton(
+                    onClick = { context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.battery)) }
                 Spacer(Modifier.height(24.dp))
                 OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.setup_sign_out), color = CccColors.Error)
