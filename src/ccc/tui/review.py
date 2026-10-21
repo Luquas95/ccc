@@ -74,19 +74,8 @@ class ReviewModal(ModalScreen):
         margin-top: 1;
     }
     ReviewModal .review-actions Button {
-        border: none;
         height: 3;
         margin-right: 1;
-        background: blue;
-        color: white;
-        text-style: bold;
-    }
-    ReviewModal .review-actions Button.review-danger {
-        background: red;
-    }
-    ReviewModal .review-actions Button:disabled {
-        background: $panel;
-        color: $text-muted;
     }
     ReviewModal .modal-hint {
         color: $text-muted;

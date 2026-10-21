@@ -14,7 +14,7 @@ from ccc.storage import Storage
 from ccc.tui.layout import ADD_PROMPT_BUTTON, MODAL_CSS, SidebarButton, SidebarScreen, panel
 
 
-REFRESH_BUTTON = SidebarButton("sidebar-refresh", _("Reload session list ({key})"), "blue", "refresh",
+REFRESH_BUTTON = SidebarButton("sidebar-refresh", _("Reload session list ({key})"), "teal", "refresh",
                               "sessions.refresh")
 
 SESSION_STATUS_STYLES = {"idle": "green", "busy": "yellow", "blocked": "bold red"}

@@ -208,3 +208,40 @@ async def test_alt_s_takes_a_screenshot_on_any_view(tmp_path, monkeypatch):
             await pilot.press("alt+s")
             await pilot.pause()
     assert taken == [DashboardScreen, AnalyticsScreen, ConversationsScreen]
+
+
+@pytest.mark.asyncio
+async def test_buttons_keep_size_and_colour_on_hover_focus_and_click(tmp_path):
+    # #55: Textual's default turned a clicked button black and shorter.
+    from textual.color import Color
+    from textual.widgets import Button
+
+    from ccc.tui.app import CCContinueApp
+    from ccc.tui.dashboard import DashboardScreen
+    from ccc.tui.settings import SettingsModal
+
+    class Host(CCContinueApp):
+        def initial_screens(self):
+            return [DashboardScreen(self.storage), SettingsModal(self.storage)]
+
+    app = Host(str(tmp_path / "h.db"))
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        button = app.screen.query_one("#settings-telegram-test", Button)
+        button.scroll_visible(animate=False)
+        await pilot.pause()
+        normal = (button.region.height, button.styles.background)
+        assert normal[1] != Color.parse("blue") and normal[1] == Color.parse("#00796b")
+        assert normal[0] == 3
+        for state in ("hover", "focus", "active"):
+            if state == "hover":
+                await pilot.hover("#settings-telegram-test")
+            elif state == "focus":
+                button.focus()
+            else:
+                button.add_class("-active")
+            await pilot.pause()
+            assert (button.region.height, button.styles.background) == normal, state
+            assert button.styles.border_top[0] in ("", "none"), state
+        assert app.screen.query_one("#settings-save", Button).styles.background == Color.parse("#2e7d32")
+        assert app.screen.query_one("#settings-cancel", Button).styles.background == Color.parse("#c62828")

@@ -52,19 +52,8 @@ class AskModal(ModalScreen):
         margin-top: 1;
     }
     AskModal .ask-actions Button {
-        border: none;
         height: 3;
         margin-right: 1;
-        background: blue;
-        color: white;
-        text-style: bold;
-    }
-    AskModal .ask-actions Button.ask-danger {
-        background: red;
-    }
-    AskModal .ask-actions Button:disabled {
-        background: $panel;
-        color: $text-muted;
     }
     AskModal .modal-hint {
         color: $text-muted;

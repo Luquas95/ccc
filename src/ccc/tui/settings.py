@@ -102,15 +102,8 @@ class SettingsModal(ModalScreen):
         margin-bottom: 1;
     }
     SettingsModal .settings-actions Button {
-        border: none;
         height: 3;
         margin-right: 1;
-        background: blue;
-        color: white;
-        text-style: bold;
-    }
-    SettingsModal .settings-actions Button.settings-danger {
-        background: red;
     }
     SettingsModal .settings-status {
         padding-top: 1;

@@ -193,15 +193,8 @@ class RoutinesModal(ModalScreen):
         height: 3;
     }
     RoutinesModal .routines-actions Button {
-        border: none;
         height: 3;
         margin-right: 1;
-        background: blue;
-        color: white;
-        text-style: bold;
-    }
-    RoutinesModal .routines-actions Button.routines-danger {
-        background: red;
     }
     """
 
