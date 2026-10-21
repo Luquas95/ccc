@@ -442,7 +442,12 @@ class Api:
 
         if not run.git_commit:
             raise ApiError(HTTPStatus.CONFLICT, run.git_note or _("This run made no commit."))
-        return parse(gitops.show(self._queue(run.queue_id).project_path, run.git_commit))
+        queue = self._queue(run.queue_id)
+        # As everywhere in ccc: git only where Claude may run commands anyway (see gitops).
+        if not gitops.claude_can_run_commands(queue) or not gitops._COMMIT.match(run.git_commit):
+            raise ApiError(HTTPStatus.CONFLICT,
+                           _("ccc runs git only in conversations started with “Skip all permission checks”."))
+        return parse(gitops.show(queue.project_path, run.git_commit))
 
     def diff(self, run_id: int) -> dict:
         """The run's commit (git show), line by line: what each line is, its

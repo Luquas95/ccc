@@ -567,3 +567,15 @@ def test_revert_a_run_and_tell_claude(storage, repo_run):
     with pytest.raises(api.ApiError) as error:
         endpoint.revert(run_id, {})
     assert error.value.status == 409
+
+
+def test_no_diff_where_claude_may_not_run_commands(storage, repo_run):
+    queue, run_id, _repo = repo_run
+    with storage._connect() as conn:
+        conn.execute("UPDATE queues SET launch_flags = ? WHERE id = ?", ('["--permission-mode", "plan"]', queue.id))
+    endpoint = api.Api(storage)
+    with pytest.raises(api.ApiError) as error:
+        endpoint.diff(run_id)
+    assert error.value.status == 409
+    with pytest.raises(api.ApiError):
+        endpoint.comment(run_id, {"comments": [{"index": 0, "text": "x"}]})
