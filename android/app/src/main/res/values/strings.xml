@@ -105,4 +105,36 @@
     <string name="sessions">Session to resume</string>
     <string name="sessions_none">No Claude Code session in this folder.</string>
     <string name="session_messages">%1$d messages</string>
+
+    <!-- Round 2: tasks, runs, diffs -->
+    <string name="tasks">Task queue</string>
+    <string name="tasks_empty">No tasks waiting.</string>
+    <string name="task_add">New task</string>
+    <string name="task_edit">Edit task</string>
+    <string name="task_when">Run at</string>
+    <string name="task_when_hint">empty = as soon as possible · HH:MM · YYYY-MM-DD HH:MM · reset</string>
+    <string name="task_at">at %1$s</string>
+    <string name="task_by_routine">from a routine</string>
+    <string name="task_paused">Pause the queue (start no further tasks)</string>
+    <string name="move_up">Up</string>
+    <string name="move_down">Down</string>
+    <string name="edit">Edit</string>
+    <string name="runs">Runs and commits</string>
+    <string name="runs_empty">No runs yet.</string>
+    <string name="run_success">done</string>
+    <string name="run_rate_limited">usage limit</string>
+    <string name="run_error">error</string>
+    <string name="diff_show">Diff</string>
+    <string name="diff_title">Commit %1$s</string>
+    <string name="revert">Revert</string>
+    <string name="revert_title">Revert run</string>
+    <string name="revert_text">Undo the commit %1$s of the task “%2$s”? ccc makes a new commit that reverts it — nothing is rewritten, and the revert can be undone too.</string>
+    <string name="revert_tell">Tell Claude (queue a short note)</string>
+    <string name="reverted">Reverted.</string>
+    <string name="comment_hint">Your comment for Claude</string>
+    <string name="comments_send">Send %1$d comment(s) to Claude</string>
+    <string name="comments_sent">Comments queued for Claude.</string>
+    <string name="comments_discard">Discard comments?</string>
+    <string name="comments_discard_text">%1$d comment(s) haven\'t been sent to Claude. Close and lose them?</string>
+    <string name="discard">Discard</string>
 </resources>

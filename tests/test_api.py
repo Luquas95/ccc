@@ -450,3 +450,120 @@ def test_creating_remembers_the_choice_like_the_tui(storage, tmp_path):
 
     last = endpoint.launch_presets()["last"]
     assert "model_opus" in last["options"] and last["auto_continue"] is False
+
+
+# --- round 2: the task queue, runs, diffs ------------------------------------------
+
+
+def test_tasks_add_edit_move_remove_and_switches(storage, tmp_path):
+    q = _queue(storage, tmp_path)
+    endpoint = api.Api(storage)
+
+    first = endpoint.route("POST", f"/api/v1/conversations/{q.id}/tasks", {}, {"text": " one ", "when": ""})[1]
+    second = endpoint.add_task(q.id, {"text": "two", "when": "2030-01-02 03:04"})
+    assert second["not_before"] == "2030-01-02T03:04:00"
+    assert [t["text"] for t in endpoint.tasks(q.id)["tasks"]] == ["one", "two"]
+
+    endpoint.move_task(second["id"], {"delta": -1})
+    endpoint.edit_task(first["id"], {"text": "one, better", "when": "2030-05-06 07:08"})
+    listed = endpoint.tasks(q.id)["tasks"]
+    assert [(t["text"], t["not_before"]) for t in listed] == [("two", "2030-01-02T03:04:00"),
+                                                              ("one, better", "2030-05-06T07:08:00")]
+    endpoint.route("DELETE", f"/api/v1/tasks/{second['id']}", {}, {})
+    assert [t["text"] for t in endpoint.tasks(q.id)["tasks"]] == ["one, better"]
+
+    switches = endpoint.switches(q.id, {"paused": True, "auto_continue": False})
+    assert (switches["paused"], switches["auto_continue"]) == (True, False)
+    assert storage.get_queue(q.id).paused
+
+
+@pytest.mark.parametrize("call", [
+    lambda e, q, i: e.add_task(q, {"text": "  "}),
+    lambda e, q, i: e.add_task(q, {"text": "x", "when": "tomorrow-ish"}),
+    lambda e, q, i: e.move_task(i, {"delta": 3}),
+    lambda e, q, i: e.switches(q, {"paused": "yes"}),
+    lambda e, q, i: e.edit_task(i, {"text": ""}),
+])
+def test_tasks_refuse_bad_input(storage, tmp_path, call):
+    q = _queue(storage, tmp_path)
+    item = storage.add_queue_item(q.id, "keep")
+    with pytest.raises(api.ApiError) as error:
+        call(api.Api(storage), q.id, item.id)
+    assert error.value.status == 400
+    assert [i.prompt_text for i in storage.list_pending_items(q.id)] == ["keep"]
+
+
+def test_a_started_task_cant_be_changed(storage, tmp_path):
+    from ccc.models import ItemStatus
+
+    q = _queue(storage, tmp_path)
+    item = storage.add_queue_item(q.id, "running")
+    storage.set_item_status(item.id, ItemStatus.RUNNING)
+    with pytest.raises(api.ApiError) as error:
+        api.Api(storage).remove_task(item.id)
+    assert error.value.status == 409
+
+
+def _git(cwd, *args):
+    import subprocess
+
+    return subprocess.run(["git", "-C", str(cwd), *args], check=True, capture_output=True, text=True).stdout.strip()
+
+
+@pytest.fixture
+def repo_run(storage, tmp_path):
+    from ccc.models import PromptRun, RunStatus
+
+    repo = tmp_path / "calc"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    _git(repo, "config", "user.email", "t@t")
+    _git(repo, "config", "user.name", "t")
+    (repo / "calc.py").write_text("def add(a, b):\n    return a + b\n")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "init")
+    (repo / "calc.py").write_text("def add(a, b):\n    return a - b\n")
+    _git(repo, "commit", "-qam", "ccc: subtract")
+    queue = storage.create_queue("calc", str(repo), "s-calc")
+    run_id = storage.insert_prompt_run(PromptRun(
+        id=0, queue_id=queue.id, queue_item_id=None, prompt_text="Make add subtract\nplease", started_at=datetime.now(),
+        finished_at=datetime.now(), status=RunStatus.SUCCESS, input_tokens=10, output_tokens=5,
+        git_commit=_git(repo, "rev-parse", "HEAD"),
+    ))
+    return queue, run_id, repo
+
+
+def test_runs_diff_and_comments_to_claude(storage, repo_run):
+    queue, run_id, _repo = repo_run
+    endpoint = api.Api(storage)
+
+    runs = endpoint.runs(queue.id)
+    assert [(r["id"], r["status"], r["tokens"]) for r in runs] == [(run_id, "success", 15)]
+
+    diff = endpoint.diff(run_id)
+    assert diff["task"] == "Make add subtract"
+    added = next(line for line in diff["lines"] if line["kind"] == "added")
+    assert added["text"] == "+    return a - b" and added["path"] == "calc.py" and added["new_line"] == 2
+
+    status, sent = endpoint.route("POST", f"/api/v1/runs/{run_id}/comments", {},
+                                  {"comments": [{"index": added["index"], "text": "keep adding"}]})
+    assert status == 201 and sent["comments"] == 1
+    prompt = storage.list_pending_items(queue.id)[0].prompt_text
+    assert "calc.py:2" in prompt and "keep adding" in prompt
+    header = next(line for line in diff["lines"] if not line["commentable"])
+    with pytest.raises(api.ApiError):
+        endpoint.comment(run_id, {"comments": [{"index": header["index"], "text": "no"}]})
+
+
+def test_revert_a_run_and_tell_claude(storage, repo_run):
+    queue, run_id, repo = repo_run
+    endpoint = api.Api(storage)
+
+    commit = endpoint.revert(run_id, {"tell": True})["commit"]
+
+    assert (repo / "calc.py").read_text() == "def add(a, b):\n    return a + b\n"
+    assert storage.find_run(run_id).reverted_by == commit
+    assert "reverted" in storage.list_pending_items(queue.id)[0].prompt_text
+    with pytest.raises(api.ApiError) as error:
+        endpoint.revert(run_id, {})
+    assert error.value.status == 409

@@ -40,6 +40,9 @@ sealed interface Screen {
     data object Approvals : Screen
     data object NewConversation : Screen
     data object Search : Screen
+    data class Tasks(val id: Int) : Screen
+    data class Runs(val id: Int) : Screen
+    data class Diff(val runId: Int) : Screen
 }
 
 data class HomeState(
@@ -86,6 +89,19 @@ data class NewConversationState(
     val creating: Boolean = false,
 )
 
+/** The task queue of conversation [id]. */
+data class TasksState(val id: Int, val tasks: io.github.luquas95.ccc.data.Tasks? = null)
+
+data class RunsState(val id: Int, val runs: List<io.github.luquas95.ccc.data.Run>? = null)
+
+/** A run's diff and your comments on its lines (index to text), not sent yet. */
+data class DiffState(
+    val runId: Int,
+    val diff: io.github.luquas95.ccc.data.Diff? = null,
+    val comments: Map<Int, String> = emptyMap(),
+    val sending: Boolean = false,
+)
+
 data class SearchState(val query: String = "", val hits: List<SearchHit> = emptyList(), val searching: Boolean = false)
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
@@ -103,6 +119,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _newConversation = MutableStateFlow(NewConversationState())
     val newConversation: StateFlow<NewConversationState> = _newConversation.asStateFlow()
+
+    private val _tasks = MutableStateFlow<TasksState?>(null)
+    val tasks: StateFlow<TasksState?> = _tasks.asStateFlow()
+
+    private val _runs = MutableStateFlow<RunsState?>(null)
+    val runs: StateFlow<RunsState?> = _runs.asStateFlow()
+
+    private val _diff = MutableStateFlow<DiffState?>(null)
+    val diff: StateFlow<DiffState?> = _diff.asStateFlow()
 
     private val _search = MutableStateFlow(SearchState())
     val search: StateFlow<SearchState> = _search.asStateFlow()
@@ -129,6 +154,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         when (screen) {
             is Screen.Conversation -> openConversation(screen.id)
             Screen.NewConversation -> loadLaunchOptions()
+            is Screen.Tasks -> {
+                _tasks.value = TasksState(screen.id)
+                action { reloadTasks(screen.id) }
+            }
+            is Screen.Runs -> {
+                _runs.value = RunsState(screen.id)
+                action { reloadRuns(screen.id) }
+            }
+            is Screen.Diff -> {
+                _diff.value = DiffState(screen.runId)
+                action { client -> _diff.update { it?.copy(diff = client.diff(screen.runId)) } }
+            }
             else -> Unit
         }
     }
@@ -227,6 +264,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun onChange(changed: List<Int>, removed: List<Int>) {
         refresh()
+        _tasks.value?.id?.takeIf { it in changed }?.let { reloadTasks(it) }
+        _runs.value?.id?.takeIf { it in changed }?.let { reloadRuns(it) }
         val open = _conversation.value?.id ?: return
         if (open in removed) {
             _screens.update { stack -> stack.filterNot { it is Screen.Conversation && it.id == open } }
@@ -452,6 +491,76 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             delay(200)
             val files = runCatching { client.files(state.id, query) }.getOrDefault(emptyList())
             _conversation.update { if (it?.id == state.id) it.copy(mentions = files) else it }
+        }
+    }
+
+    // --- the task queue --------------------------------------------------------------------------------
+
+    private suspend fun reloadTasks(id: Int) {
+        val client = api ?: return
+        guard {
+            val tasks = client.tasks(id)
+            _tasks.update { if (it?.id == id) it.copy(tasks = tasks) else it }
+        }
+    }
+
+    private fun taskAction(block: suspend (CccApi, Int) -> Unit) {
+        val id = _tasks.value?.id ?: return
+        action { client ->
+            block(client, id)
+            reloadTasks(id)
+        }
+    }
+
+    fun addTask(text: String, whenText: String) = taskAction { client, id -> client.addTask(id, text, whenText) }
+
+    fun editTask(taskId: Int, text: String, whenText: String) = taskAction { client, _ -> client.editTask(taskId, text, whenText) }
+
+    fun removeTask(taskId: Int) = taskAction { client, _ -> client.removeTask(taskId) }
+
+    fun moveTask(taskId: Int, delta: Int) = taskAction { client, _ -> client.moveTask(taskId, delta) }
+
+    fun setPaused(value: Boolean) = taskAction { client, id -> client.switches(id, paused = value) }
+
+    fun setAutoContinue(value: Boolean) = taskAction { client, id -> client.switches(id, autoContinue = value) }
+
+    // --- runs, diffs, reverts --------------------------------------------------------------------------
+
+    private suspend fun reloadRuns(id: Int) {
+        val client = api ?: return
+        guard {
+            val runs = client.runs(id)
+            _runs.update { if (it?.id == id) it.copy(runs = runs) else it }
+        }
+    }
+
+    fun revert(runId: Int, tell: Boolean) {
+        val id = _runs.value?.id ?: return
+        action { client ->
+            client.revert(runId, tell)
+            _message.value = text(R.string.reverted)
+            reloadRuns(id)
+        }
+    }
+
+    /** A comment on diff line [index]; an empty one takes it away. */
+    fun setComment(index: Int, text: String) {
+        _diff.update { state ->
+            state?.copy(comments = if (text.isBlank()) state.comments - index else state.comments + (index to text.trim()))
+        }
+    }
+
+    fun sendComments() {
+        val state = _diff.value ?: return
+        if (state.comments.isEmpty() || state.sending) return
+        _diff.update { it?.copy(sending = true) }
+        viewModelScope.launch {
+            val sent = guard { api?.comment(state.runId, state.comments) }
+            _diff.update { current -> current?.let { it.copy(sending = false, comments = if (sent) emptyMap() else it.comments) } }
+            if (sent) {
+                _message.value = text(R.string.comments_sent)
+                back()
+            }
         }
     }
 

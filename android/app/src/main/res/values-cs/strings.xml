@@ -103,4 +103,36 @@
     <string name="sessions">Relace k pokračování</string>
     <string name="sessions_none">V této složce není žádná relace Claude Code.</string>
     <string name="session_messages">zpráv: %1$d</string>
+
+    <!-- Kolo 2: úkoly, běhy, diffy -->
+    <string name="tasks">Fronta úkolů</string>
+    <string name="tasks_empty">Žádné čekající úkoly.</string>
+    <string name="task_add">Nový úkol</string>
+    <string name="task_edit">Upravit úkol</string>
+    <string name="task_when">Spustit v</string>
+    <string name="task_when_hint">prázdné = co nejdřív · HH:MM · RRRR-MM-DD HH:MM · reset</string>
+    <string name="task_at">v %1$s</string>
+    <string name="task_by_routine">z rutiny</string>
+    <string name="task_paused">Pozastavit frontu (nespouštět další úkoly)</string>
+    <string name="move_up">Nahoru</string>
+    <string name="move_down">Dolů</string>
+    <string name="edit">Upravit</string>
+    <string name="runs">Běhy a commity</string>
+    <string name="runs_empty">Zatím žádné běhy.</string>
+    <string name="run_success">hotovo</string>
+    <string name="run_rate_limited">limit využití</string>
+    <string name="run_error">chyba</string>
+    <string name="diff_show">Diff</string>
+    <string name="diff_title">Commit %1$s</string>
+    <string name="revert">Vrátit</string>
+    <string name="revert_title">Vrátit běh</string>
+    <string name="revert_text">Vrátit commit %1$s úkolu „%2$s“? ccc udělá nový commit, který ho vrátí — nic se nepřepisuje a i vrácení jde vrátit.</string>
+    <string name="revert_tell">Dát vědět Claudovi (zařadit krátkou poznámku)</string>
+    <string name="reverted">Vráceno.</string>
+    <string name="comment_hint">Tvůj komentář pro Clauda</string>
+    <string name="comments_send">Poslat komentáře Claudovi (%1$d)</string>
+    <string name="comments_sent">Komentáře zařazeny pro Clauda.</string>
+    <string name="comments_discard">Zahodit komentáře?</string>
+    <string name="comments_discard_text">Komentáře (%1$d) ještě nejsou poslané Claudovi. Zavřít a přijít o ně?</string>
+    <string name="discard">Zahodit</string>
 </resources>

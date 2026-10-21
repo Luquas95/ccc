@@ -23,6 +23,10 @@ import io.github.luquas95.ccc.ui.ConversationActions
 import io.github.luquas95.ccc.ui.ConversationScreen
 import io.github.luquas95.ccc.ui.ConversationsActions
 import io.github.luquas95.ccc.ui.ConversationsScreen
+import io.github.luquas95.ccc.ui.DiffScreen
+import io.github.luquas95.ccc.ui.RunsScreen
+import io.github.luquas95.ccc.ui.TasksActions
+import io.github.luquas95.ccc.ui.TasksScreen
 import io.github.luquas95.ccc.ui.NewConversationScreen
 import io.github.luquas95.ccc.ui.Screen
 import io.github.luquas95.ccc.ui.SearchScreen
@@ -56,6 +60,10 @@ private fun App(model: AppViewModel) {
     val message by model.message.collectAsStateWithLifecycle()
     val search by model.search.collectAsStateWithLifecycle()
     val share by model.share.collectAsStateWithLifecycle()
+    val tasks by model.tasks.collectAsStateWithLifecycle()
+    val runs by model.runs.collectAsStateWithLifecycle()
+    val diff by model.diff.collectAsStateWithLifecycle()
+    val nameOf = { id: Int -> (home.conversations + home.archived).firstOrNull { it.id == id }?.name.orEmpty() }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     // An export: to the share sheet (save it, mail it, send it to a chat …).
@@ -123,7 +131,44 @@ private fun App(model: AppViewModel) {
                     export = { model.export(screen.id) },
                     usePreset = model::usePreset,
                     mention = model::mention,
+                    tasks = { model.open(Screen.Tasks(screen.id)) },
+                    runs = { model.open(Screen.Runs(screen.id)) },
                 ),
+            )
+        }
+        is Screen.Tasks -> tasks?.takeIf { it.id == screen.id }?.let {
+            TasksScreen(
+                state = it,
+                name = nameOf(screen.id),
+                snackbar = snackbar,
+                actions = TasksActions(
+                    back = model::back,
+                    add = model::addTask,
+                    edit = model::editTask,
+                    remove = model::removeTask,
+                    move = model::moveTask,
+                    paused = model::setPaused,
+                    autoContinue = model::setAutoContinue,
+                ),
+            )
+        }
+        is Screen.Runs -> runs?.takeIf { it.id == screen.id }?.let {
+            RunsScreen(
+                state = it,
+                name = nameOf(screen.id),
+                snackbar = snackbar,
+                onBack = model::back,
+                onDiff = { run -> model.open(Screen.Diff(run)) },
+                onRevert = model::revert,
+            )
+        }
+        is Screen.Diff -> diff?.takeIf { it.runId == screen.runId }?.let {
+            DiffScreen(
+                state = it,
+                snackbar = snackbar,
+                onBack = model::back,
+                onComment = model::setComment,
+                onSend = model::sendComments,
             )
         }
         Screen.Search -> SearchScreen(

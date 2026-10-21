@@ -49,6 +49,13 @@ Každá cesta začíná `/api/v1`; každý požadavek má hlavičku
 | `GET /conversations/{id}/export` | `{"filename", "markdown"}` — konverzace jako Markdown, tajné údaje zamaskované |
 | `GET /conversations/{id}/files?q=` | soubory její složky pro @zmínku, nejlepší první |
 | `POST /conversations` | založit konverzaci: `{"path", "name", "options": [klíče], "interactive", "remote_control", "auto_continue", "worktree", "session_id", "pr", "prompt"}` — jako v [Zahájení konverzace](new-conversation.md); vynechané volby jsou výchozí |
+| `GET /conversations/{id}/tasks` | její [fronta úkolů](tasks.md) a oba přepínače; `POST` přidá `{"text", "when"}` — when je prázdné (co nejdřív), `HH:MM`, `RRRR-MM-DD HH:MM` nebo `reset` |
+| `POST /tasks/{id}` | `{"text"}` / `{"when"}` úkolu, který ještě nezačal; `DELETE` ho odebere; `POST /tasks/{id}/move` `{"delta": -1 \| 1}` |
+| `POST /conversations/{id}/switches` | `{"paused": bool}` nespouštět další úkoly, `{"auto_continue": bool}` po limitu využití |
+| `GET /conversations/{id}/runs` | její běhy, nejnovější první: stav, tokeny, [commit](git.md) |
+| `GET /runs/{id}/diff` | commit běhu po řádcích (druh, soubor, čísla řádků, jde komentovat) |
+| `POST /runs/{id}/comments` | `{"comments": [{"index", "text"}]}` k řádkům diffu, poslané Claudovi jako jeden úkol |
+| `POST /runs/{id}/revert` | vrátí commit běhu novým commitem; `{"tell": true}` k tomu zařadí poznámku pro Clauda |
 | `GET /launch-options` | volby, se kterými jde konverzace založit (klíče a popisky) |
 | `GET /projects` | naposledy použité složky |
 | `GET /sessions?path=` | relace Claude Code ve složce, nejnovější první (k pokračování: `session_id` v `POST /conversations` se `session_resume`) |
