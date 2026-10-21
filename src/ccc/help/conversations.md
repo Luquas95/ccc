@@ -107,6 +107,7 @@ terminal. For these ccc shows the transcript itself:
   the queue: `Enter` sends, `Ctrl+J` starts a new line, `Ctrl+E` opens
   the text in your [external editor](settings.md#external-editor).
   `Alt+1` … `Alt+9` send or insert a [preset prompt](settings.md).
+- `@` in the box mentions a file — see *Mentioning files* below.
 - The line above the box says what's going on: *Ready*, *Next task at
   23:00*, *Waiting for usage limit reset until 14:30*,
   *✖ Blocked: … — press r to retry*, …
@@ -144,6 +145,24 @@ otherwise the % comes out too high until the conversation passes 200k.
 With Telegram or Discord set up, ccc tells you once when a conversation
 reaches the warning (again only after it dropped below, e.g. after
 `/compact`); turn it off in Settings → Context → Notify.
+
+## Mentioning files
+
+To point Claude at a file, type `@` in the message box (or in a
+[task](tasks.md)): a list of the conversation's files opens above the
+box. Typing narrows it — the text in the file name first, then anywhere
+in the path, then its letters in order (`@lgn` finds `login.py`).
+`↑` `↓` pick, `Tab` or `Enter` inserts the path as Claude Code knows it,
+relative to the conversation's folder: `@src/app/login.py`. `Esc` closes
+the list and the `@` stays a plain character; so does an `@` inside a
+word (`me@example.com`).
+
+The files come from `git ls-files` (tracked and new, not ignored) where
+Claude may run commands anyway (*Skip all permission checks*); elsewhere
+ccc walks the folder without running anything — up to 20,000 files,
+skipping `.git`, `node_modules`, `.venv`, `build` and the like. The list
+is read in the background and kept for 30 seconds, so a big repository
+doesn't slow typing down.
 
 ## Other keys
 

@@ -1264,6 +1264,9 @@ CS: dict[str, str] = {
     "name, folder · ! ? x *": "název, složka · ! ? x *",
     "Nothing matches": "Nic neodpovídá",
     "Queues · filter: {text}": "Fronty · filtr: {text}",
+    # --- @-mentions (tui.mentions) --------------------------------------------
+    "Files · ↑↓ Tab/Enter insert · Esc close": "Soubory · ↑↓ Tab/Enter vloží · Esc zavře",
+    "No matching files": "Žádný soubor neodpovídá",
     # --- external editor (external_editor) ------------------------------------
     "Write the text in an external editor (in a text box)": "Napsat text v externím editoru (v textovém poli)",
     "Editor": "Editor",

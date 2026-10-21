@@ -384,7 +384,14 @@ class ConversationsScreen(SidebarScreen):
             await self._show_queue(queue_id)
 
     async def _show_queue(self, queue_id: int) -> None:
+        from ccc import gitops
+
         self._current_queue_id = queue_id
+        queue = self.storage.find_queue(queue_id)
+        if queue is not None:
+            # @ in the message box offers this conversation's files.
+            self.query_one("#message-input", MessageBox).set_mention_source(
+                queue.project_path, gitops.claude_can_run_commands(queue))
         if self._filter.active and queue_id in self._queue_ids:
             self._filter_kept = queue_id
         self.storage.mark_seen(queue_id)

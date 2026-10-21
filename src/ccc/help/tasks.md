@@ -28,7 +28,9 @@ runs or is paused.
 ## Adding a task
 
 `a` opens an editor: write the task (several lines are fine), set when it
-may start and press `Ctrl+S` to save (`Esc` cancels).
+may start and press `Ctrl+S` to save (`Esc` cancels). `@` offers the
+conversation's files, like in the message box — see
+[Mentioning files](conversations.md#mentioning-files).
 
 **Run at:**
 

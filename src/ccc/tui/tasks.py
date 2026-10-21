@@ -18,6 +18,7 @@ from ccc.schedule import format_when, parse_when
 from ccc.storage import Storage
 from ccc.usage_api import get_pro_usage
 from ccc.tui.layout import MODAL_CSS
+from ccc.tui.mentions import MentionArea
 
 PREVIEW_CHARS = 100
 
@@ -60,15 +61,18 @@ class TaskEditModal(ModalScreen):
         keymap.binding("window.cancel", "cancel", _("Cancel"), priority=True),
     ]
 
-    def __init__(self, text: str = "", title: str | None = None, not_before: datetime | None = None):
+    def __init__(self, text: str = "", title: str | None = None, not_before: datetime | None = None,
+                 queue=None):
         super().__init__()
+        # Whose files @ offers in the text (tui.mentions); None: off.
+        self.queue = queue
         self.initial_text = text
         self.box_title = title or _("New task")
         self.initial_when = not_before.strftime("%Y-%m-%d %H:%M") if not_before else ""
 
     def compose(self):
         box = Container(
-            TextArea(self.initial_text, id="task-text"),
+            MentionArea(self.initial_text, id="task-text"),
             Static(_("Run at (empty = as soon as possible; HH:MM · YYYY-MM-DD HH:MM · reset)"), classes="modal-label"),
             Input(self.initial_when, placeholder=_("as soon as possible"), id="task-when"),
             Static("", id="task-error"),
@@ -78,7 +82,12 @@ class TaskEditModal(ModalScreen):
         yield box
 
     def on_mount(self) -> None:
-        self.query_one("#task-text", TextArea).focus()
+        from ccc import gitops
+
+        box = self.query_one("#task-text", MentionArea)
+        if self.queue is not None:
+            box.set_mention_source(self.queue.project_path, gitops.claude_can_run_commands(self.queue))
+        box.focus()
 
     def action_save(self) -> None:
         text = self.query_one("#task-text", TextArea).text.strip()
@@ -95,6 +104,9 @@ class TaskEditModal(ModalScreen):
         self.dismiss(TaskEdit(text, not_before))
 
     def action_cancel(self) -> None:
+        # Esc is a priority key here: first it closes the @ file list.
+        if self.query_one("#task-text", MentionArea).close_mentions():
+            return
         self.dismiss(None)
 
 
@@ -200,7 +212,7 @@ class TasksModal(ModalScreen):
                 item = self.storage.add_queue_item(self.queue_id, edit.text, not_before=edit.not_before)
                 self._refresh(select_item_id=item.id)
 
-        self.app.push_screen(TaskEditModal(), added)
+        self.app.push_screen(TaskEditModal(queue=self.storage.find_queue(self.queue_id)), added)
 
     def action_edit(self) -> None:
         item_id = self._selected_item_id()
@@ -215,7 +227,8 @@ class TasksModal(ModalScreen):
                 self._refresh(select_item_id=item_id)
 
         self.app.push_screen(
-            TaskEditModal(current.prompt_text, title=_("Edit task"), not_before=current.not_before), edited
+            TaskEditModal(current.prompt_text, title=_("Edit task"), not_before=current.not_before,
+                          queue=self.storage.find_queue(self.queue_id)), edited
         )
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:

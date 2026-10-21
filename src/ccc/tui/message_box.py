@@ -1,6 +1,6 @@
 """Multi-line message box under a conversation's transcript: Enter sends,
 Ctrl+J (works in every terminal) or Shift+Enter (where the terminal
-reports it) starts a new line."""
+reports it) starts a new line, @ mentions a file (tui.mentions)."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from textual import events
 from textual.message import Message
 from textual.widgets import TextArea
+
+from ccc.tui.mentions import FileMentions
 
 NEWLINE_KEYS = ("ctrl+j", "shift+enter")
 
@@ -18,7 +20,7 @@ def _alt_digit_keys() -> frozenset[str]:
     return frozenset(ALT_DIGIT_CHARS.values())
 
 
-class MessageBox(TextArea):
+class MessageBox(FileMentions, TextArea):
     DEFAULT_CSS = """
     MessageBox {
         height: auto;
@@ -44,6 +46,8 @@ class MessageBox(TextArea):
         return super().check_consume_key(key, character)
 
     async def _on_key(self, event: events.Key) -> None:
+        if self.mention_key(event):
+            return
         if event.key == "enter":
             event.stop()
             event.prevent_default()
