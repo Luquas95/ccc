@@ -201,6 +201,9 @@ Button:disabled {
 """
 
 SHARED_CSS = """
+SidebarScreen {
+    background: $ccc-background;
+}
 SidebarScreen #sidebar {
     width: 32;
     background: $ccc-sidebar;
