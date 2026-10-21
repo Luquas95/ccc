@@ -108,6 +108,7 @@ bez terminálu. U nich ukazuje přepis sám ccc:
   odešle, `Ctrl+J` začne nový řádek, `Ctrl+E` otevře text v
   [externím editoru](settings.md#externí-editor). `Alt+1` … `Alt+9`
   odešlou nebo vloží [přednastavený prompt](settings.md).
+- `@` v poli zmíní soubor — viz *Zmínky souborů* níže.
 - Řádek nad polem říká, co se děje: *Připraveno*, *Další úkol v 23:00*,
   *Čeká na obnovení limitu do 14:30*,
   *✖ Zablokováno: … — stiskni r pro nový pokus*, …
@@ -145,6 +146,24 @@ moc vysoko, dokud konverzace nepřesáhne 200k.
 S nastaveným Telegramem nebo Discordem ti ccc jednou napíše, když
 konverzace dosáhne varování (znovu až poté, co klesla pod něj, např. po
 `/compact`); vypíná se v Nastavení → Kontext → Upozornit.
+
+## Zmínky souborů
+
+Chceš-li Claudovi ukázat soubor, napiš v poli pro zprávu (nebo v
+[úkolu](tasks.md)) `@`: nad polem se otevře seznam souborů konverzace.
+Psaním se zužuje — nejdřív podle textu v názvu souboru, pak kdekoli v
+cestě, pak podle písmen v pořadí (`@lgn` najde `login.py`). `↑` `↓`
+vybírají, `Tab` nebo `Enter` vloží cestu tak, jak ji zná Claude Code,
+relativně ke složce konverzace: `@src/app/login.py`. `Esc` seznam
+zavře a `@` zůstane obyčejným znakem; stejně tak `@` uvnitř slova
+(`ja@example.com`).
+
+Soubory bere ccc z `git ls-files` (sledované i nové, ne ignorované)
+tam, kde Claude smí spouštět příkazy tak jako tak (*Přeskočit všechny
+kontroly oprávnění*); jinde projde složku bez spouštění čehokoli — až
+20 000 souborů, bez `.git`, `node_modules`, `.venv`, `build` apod.
+Seznam se načítá na pozadí a drží 30 sekund, takže ani velký repozitář
+psaní nezpomalí.
 
 ## Další klávesy
 

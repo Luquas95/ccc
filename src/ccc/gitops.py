@@ -420,6 +420,24 @@ def work_status(cwd: str) -> WorkStatus | None:
         return None
 
 
+def listed_files(cwd: str) -> list[str] | None:
+    """Tracked and untracked, not ignored files under cwd, relative to it
+    (the @-mention picker, ccc.file_mentions). None outside git or where
+    the repo's config isn't safe to run git in. Only call it for
+    conversations that may run commands (see the module docstring)."""
+    try:
+        if _git(cwd, "rev-parse", "--is-inside-work-tree").stdout.strip() != "true":
+            return None
+        if _config_problem(_local_config(cwd)):
+            return None
+        result = _git(cwd, "ls-files", "-z", "--cached", "--others", "--exclude-standard")
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    return list(dict.fromkeys(f for f in result.stdout.split("\x00") if f))
+
+
 REVIEW_DIFF_MAX_CHARS = 60_000
 _COMMIT = re.compile(r"^[0-9a-f]{7,40}$")
 

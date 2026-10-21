@@ -28,7 +28,9 @@ fronta běží, nebo je pozastavená.
 ## Přidání úkolu
 
 `a` otevře editor: napiš úkol (může mít víc řádků), nastav, kdy smí
-začít, a ulož ho přes `Ctrl+S` (`Esc` ruší).
+začít, a ulož ho přes `Ctrl+S` (`Esc` ruší). `@` nabídne soubory
+konverzace jako v poli pro zprávu — viz
+[Zmínky souborů](conversations.md#zmínky-souborů).
 
 **Spustit v:**
 
