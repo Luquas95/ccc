@@ -66,6 +66,7 @@ ACTIONS: tuple[KeyAction, ...] = (
     KeyAction("app.settings", "ctrl+p", N_("Settings"), EVERYWHERE, tmux=True),
     KeyAction("app.screenshot", "alt+s", N_("Screenshot of ccc"), EVERYWHERE, tmux=True),
     KeyAction("app.quit", "ctrl+q", N_("Close ccc"), EVERYWHERE, tmux=True),
+    KeyAction("app.jump_waiting", "alt+n", N_("Open the next conversation that needs you"), EVERYWHERE, tmux=True),
     KeyAction("screen.back", "escape", N_("Back"), _BACK),
     KeyAction("window.cancel", "escape", N_("Close the window / cancel"), WINDOWS),
     KeyAction("window.save", "ctrl+s", N_("Save"), _EDITORS),

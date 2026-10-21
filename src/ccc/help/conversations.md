@@ -34,11 +34,21 @@ the right of its menu:
 | `Enter` on a conversation | open its Claude Code and put the keyboard there |
 | `Alt+0` | switch the keyboard between ccc and Claude (or click where you want to type) |
 | `Ctrl+]` | close Claude's pane — Claude keeps running, `Enter` opens it again |
+| `Alt+N` | open the next conversation that needs you, here in the pane (also from Claude Code) |
 | select with the mouse | copies to your clipboard (also over SSH and in Termux) |
 | `Ctrl+Shift+C` / `Ctrl+Shift+V` | copy the selection / paste the last copy |
 
 Under Claude a bar shows your [preset prompts](settings.md) — click one
 to use it. `Alt+0` and `Ctrl+]` are also in ccc's bar at the bottom.
+
+**What needs you** shows in Claude's title bar, so you see it while you
+type there — or when Claude takes the whole window on a phone, where the
+list isn't visible: `? shop-api waits for approval · ✖ infra error ·
+◆ docs-site done`. The same states as the list's markers — a tool
+approval waiting, an error, paused at a usage limit, a finished run you
+haven't seen — most urgent first, without the conversation you're in;
+what doesn't fit ends as `+N more`. It's gone when nothing waits.
+`Alt+N` opens the first one.
 
 Good to know:
 

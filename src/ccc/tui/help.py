@@ -28,6 +28,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("app.settings", N_("Settings (language, theme, Telegram, queues, presets, shortcuts, backup)")),
         ("app.screenshot", N_("Screenshot of ccc (an SVG in the export folder, see Settings)")),
         ("app.quit", N_("Close ccc (it keeps running; `ccc` opens it again)")),
+        ("app.jump_waiting", N_("Open the next conversation that needs you (also from Claude Code)")),
         ("screen.back", N_("Back")),
         ("window.cancel", N_("Close the window / cancel")),
     ]),

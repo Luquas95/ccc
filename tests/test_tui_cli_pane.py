@@ -134,7 +134,7 @@ def test_bar_opens_across_the_window_and_keys_are_bound(tmux):
     bar = cli_pane.find_bar()
     assert bar is not None and bar != pane
     bound = {c[2]: c for c in tmux.calls if c[0] == "bind-key" and c[1] == "-n" and c[2] not in ("C-S-c", "C-S-v", "C-q")}
-    assert set(bound) == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p", "M-s"}
+    assert set(bound) == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p", "M-s", "M-n"}
     assert f"select-pane -t {pane}" in bound["M-0"][6]
     assert "#{e|<|:#{window_width},100}" in bound["M-0"][6]  # numeric, not string compare
     assert "preset 3 --queue 4 --db /data/h.db" in bound["M-3"][7] and "#{socket_path}" in bound["M-3"][7]
@@ -163,7 +163,7 @@ def test_close_removes_bar_and_keys(tmux):
     assert [c for c in tmux.calls if c[0] == "set-hook"][-1][5] == f"resize-pane -t {strip} -y 1"
     assert cli_pane.find() is None and cli_pane.find_bar() is None
     unbound = {c[2] for c in tmux.calls if c[:2] == ("unbind-key", "-n")}
-    assert unbound == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p", "M-s"}
+    assert unbound == {"M-0", *[f"M-{n}" for n in range(1, 10)], "C-p", "M-s", "M-n"}
 
 
 def test_no_keys_bound_on_a_foreign_tmux(tmux, monkeypatch):
@@ -279,3 +279,23 @@ def test_changed_shortcuts_move_the_tmux_keys(tmux, tmp_path, monkeypatch):
     assert {"F7", "F9"} <= rebound  # …gives way to the new keys
     assert ("bind-key", "-n", "F9", "detach-client") in tmux.calls
     assert detach == ["F8"]
+
+
+def test_alt_n_goes_to_ccc_from_claude_code():
+    binding = next(b for b in cli_pane.key_bindings("%0", "%1", 1, "/data/h.db") if b[2] == "M-n")
+    # ccc opens the waiting conversation in the pane and focuses it there.
+    assert binding[-2:] == ("send-keys M-n", "send-keys -t %0 M-n")
+
+
+def test_waiting_conversations_are_in_the_claude_code_title_only():
+    border = dict(cli_pane.BORDER_OPTIONS)["pane-border-format"]
+    assert f"#{{&&:#{{{cli_pane.PANE_OPTION}}},#{{{cli_pane.WAITING_OPTION}}}}}" in border
+    assert f"#{{{cli_pane.WAITING_OPTION}}}" in border
+
+
+def test_publish_waiting_escapes_hashes(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli_pane, "_tmux", lambda *args: calls.append(args))
+    monkeypatch.setattr(cli_pane, "_own_pane", lambda: "%0")
+    cli_pane.publish_waiting("? #1 #[fg=red] waits")
+    assert calls == [("set-option", "-w", "-t", "%0", cli_pane.WAITING_OPTION, "? ##1 ##[fg=red] waits")]

@@ -23,6 +23,7 @@ name the default keys.
 | `Ctrl+P` | Settings (language, theme, Telegram, queues, presets, shortcuts, backup) |
 | `Alt+S` | Screenshot of ccc (an SVG in the export folder, see Settings) |
 | `Ctrl+Q` | Close ccc (it keeps running; `ccc` opens it again) |
+| `Alt+N` | Open the next conversation that needs you (also from Claude Code) |
 | `Esc` | Back |
 | `Esc` | Close the window / cancel |
 
