@@ -280,7 +280,7 @@ class NewConversationModal(ModalScreen):
         self._sync_session_widgets()
 
     def on_select_changed(self, event: Select.Changed) -> None:
-        if event.select.id != "preset-select" or event.value is Select.BLANK:
+        if event.select.id != "preset-select" or event.value is Select.NULL:
             return
         choice = list_presets(self.storage).get(event.value)
         if choice is not None:
