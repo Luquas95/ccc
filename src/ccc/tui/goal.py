@@ -59,7 +59,7 @@ class GoalModal(ModalScreen):
         margin-bottom: 1;
     }
     GoalModal #goal-table > .datatable--cursor {
-        background: blue;
+        background: $ccc-selection;
         color: white;
         text-style: bold;
     }

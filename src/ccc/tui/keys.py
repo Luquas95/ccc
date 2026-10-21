@@ -39,7 +39,7 @@ class KeysModal(ModalScreen):
         margin-bottom: 1;
     }
     KeysModal #keys-table > .datatable--cursor {
-        background: blue;
+        background: $ccc-selection;
         color: white;
         text-style: bold;
     }

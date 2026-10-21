@@ -17,7 +17,7 @@ from ccc.cli_input import apply_preset
 from ccc.i18n import _
 from ccc.prompt_presets import load_prompt_presets
 from ccc.storage import Storage
-from ccc.tui import cli_pane
+from ccc.tui import cli_pane, theme
 from ccc.tui.prompt_presets import bar_item
 
 REFRESH_SECONDS = 2.0
@@ -46,16 +46,12 @@ class CliBar(App):
         super().__init__()
         self.storage = Storage(db_path)
         self._shown: list | None = None
+        self.theme = theme.NAME
 
     def compose(self):
         yield Horizontal(id="bar-presets")
 
     async def on_mount(self) -> None:
-        from ccc.tui.settings import saved_theme
-
-        theme = saved_theme(self.storage, self.available_themes)
-        if theme:
-            self.theme = theme
         await self.refresh_presets()
         self.set_interval(REFRESH_SECONDS, self.refresh_presets)
         # Copies made in Claude Code → your device's clipboard.

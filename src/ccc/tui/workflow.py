@@ -87,7 +87,7 @@ class WorkflowModal(ModalScreen):
         margin-bottom: 1;
     }
     WorkflowModal #workflow-table > .datatable--cursor {
-        background: blue;
+        background: $ccc-selection;
         color: white;
         text-style: bold;
     }

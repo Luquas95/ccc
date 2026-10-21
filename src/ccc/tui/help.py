@@ -25,7 +25,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("views.new_conversation", N_("New conversation")),
         ("views.help", N_("This help")),
         ("views.routines", N_("Routines: prompts on a schedule")),
-        ("app.settings", N_("Settings (language, theme, Telegram, queues, presets, shortcuts, backup)")),
+        ("app.settings", N_("Settings (language, Telegram, queues, presets, shortcuts, backup)")),
         ("app.screenshot", N_("Screenshot of ccc (an SVG in the export folder, see Settings)")),
         ("app.quit", N_("Close ccc (it keeps running; `ccc` opens it again)")),
         ("app.jump_waiting", N_("Open the next conversation that needs you (also from Claude Code)")),
@@ -143,7 +143,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
     ]),
     (N_("Settings (Ctrl+P)"), [
         ("window.save", N_("Save")),
-        ("window.cancel", N_("Cancel (the theme goes back too)")),
+        ("window.cancel", N_("Cancel (nothing is saved)")),
     ]),
 ]
 

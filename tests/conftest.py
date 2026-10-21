@@ -36,3 +36,14 @@ def _flat_conversation_list(monkeypatch):
     # test's tmp folder would get a heading of its own. Tests of other
     # features see the flat list; tests/test_groups.py turns grouping on.
     monkeypatch.setattr("ccc.groups.mode", lambda storage: "own")
+
+
+@pytest.fixture(autouse=True)
+def _ccc_colours(monkeypatch):
+    # ccc's views use its $ccc-… colours (ccc.tui.theme), which CCContinueApp
+    # hands to Textual; the small host apps of the tests stand in for it.
+    from textual.app import App
+
+    from ccc.tui import theme
+
+    monkeypatch.setattr(App, "get_theme_variable_defaults", lambda self: theme.VARIABLES)

@@ -26,7 +26,7 @@ class SearchModal(ModalScreen):
         height: 1fr;
     }
     SearchModal #search-results > .datatable--cursor {
-        background: blue;
+        background: $ccc-selection;
         color: white;
         text-style: bold;
     }

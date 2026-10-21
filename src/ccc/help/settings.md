@@ -11,7 +11,7 @@ now* act right away.
 
 | Section | |
 |---|---|
-| Appearance | language — *Auto* follows the system (`LANG`), saving another one restarts ccc's window; colour theme — changes as you pick, kept after Save |
+| Appearance | language — *Auto* follows the system (`LANG`), saving another one restarts ccc's window |
 | External editor | the editor `Ctrl+E` opens a text box's text in — see below |
 | Telegram notifications | see below |
 | Discord notifications | see below |

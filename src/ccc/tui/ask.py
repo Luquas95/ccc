@@ -38,7 +38,7 @@ class AskModal(ModalScreen):
         margin: 1 0;
     }
     AskModal #ask-table > .datatable--cursor {
-        background: blue;
+        background: $ccc-selection;
         color: white;
         text-style: bold;
     }

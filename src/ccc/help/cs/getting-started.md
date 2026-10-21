@@ -60,7 +60,7 @@ textového pole — nejdřív klikni do seznamu vlevo.
 
 - [Limity využití a zablokované fronty](limits.md) — co se stane, když
   narazíš na limit Clauda, a jak si část nechat pro sebe.
-- [Nastavení a notifikace](settings.md) — jazyk, barevný motiv, zprávy
+- [Nastavení a notifikace](settings.md) — jazyk, zprávy
   na Telegram / Discord, přednastavené prompty.
 - [Vzdálené ovládání (telefon)](remote-control.md) — pokračuj
   v konverzaci z aplikace Claude.

@@ -20,7 +20,7 @@ uvádějí výchozí klávesy.
 | `n` | Nová konverzace |
 | `?` | Tato nápověda |
 | `o` | Routiny: prompty podle plánu |
-| `Ctrl+P` | Nastavení (jazyk, motiv, Telegram, fronty, předvolby, zkratky, záloha) |
+| `Ctrl+P` | Nastavení (jazyk, Telegram, fronty, předvolby, zkratky, záloha) |
 | `Alt+S` | Snímek obrazovky ccc (SVG do složky exportů, viz Nastavení) |
 | `Ctrl+Q` | Zavřít ccc (běží dál; `ccc` ho zase otevře) |
 | `Alt+N` | Otevřít další konverzaci, která tě potřebuje (i z Claude Code) |
@@ -191,4 +191,4 @@ uvádějí výchozí klávesy.
 | Klávesa | |
 |---|---|
 | `Ctrl+S` | Uložit |
-| `Esc` | Zrušit (vrátí se i motiv) |
+| `Esc` | Zrušit (nic se neuloží) |

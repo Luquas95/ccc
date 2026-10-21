@@ -13,6 +13,7 @@ from ccc.i18n import _
 from ccc.storage import Storage
 from ccc.tui.dashboard import DashboardScreen
 from ccc.tui.exports import send_export
+from ccc.tui import theme
 from ccc.tui.layout import BUTTON_CSS
 
 # How often the Claude Code pane's title bar learns what needs you.
@@ -48,13 +49,12 @@ class CCContinueApp(App):
     def __init__(self, db_path: str):
         super().__init__()
         self.storage = Storage(db_path)
+        self.theme = theme.NAME
+
+    def get_theme_variable_defaults(self) -> dict[str, str]:
+        return theme.VARIABLES
 
     async def on_mount(self) -> None:
-        from ccc.tui.settings import saved_theme
-
-        theme = saved_theme(self.storage, self.available_themes)
-        if theme:
-            self.theme = theme
         # The user's shortcuts (Settings → Keyboard shortcuts).
         self.set_keymap(keymap.load(self.storage))
         from ccc.tui import cli_pane

@@ -20,7 +20,7 @@ name the default keys.
 | `n` | New conversation |
 | `?` | This help |
 | `o` | Routines: prompts on a schedule |
-| `Ctrl+P` | Settings (language, theme, Telegram, queues, presets, shortcuts, backup) |
+| `Ctrl+P` | Settings (language, Telegram, queues, presets, shortcuts, backup) |
 | `Alt+S` | Screenshot of ccc (an SVG in the export folder, see Settings) |
 | `Ctrl+Q` | Close ccc (it keeps running; `ccc` opens it again) |
 | `Alt+N` | Open the next conversation that needs you (also from Claude Code) |
@@ -191,4 +191,4 @@ name the default keys.
 | Key | |
 |---|---|
 | `Ctrl+S` | Save |
-| `Esc` | Cancel (the theme goes back too) |
+| `Esc` | Cancel (nothing is saved) |
