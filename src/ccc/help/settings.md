@@ -15,7 +15,7 @@ now* act right away.
 | External editor | the editor `Ctrl+E` opens a text box's text in — see below |
 | Telegram notifications | see below |
 | Discord notifications | see below |
-| Queues | the *continue* text sent after a usage limit, and the usage reserve — see [Usage limits](limits.md); the [reviewer's](review.md) model |
+| Queues | the *continue* text sent after a usage limit, and the usage reserve — see [Usage limits](limits.md); the [reviewer's](review.md) model; *Groups in the list* — by project, or only your own groups (see [Conversations](conversations.md#groups)) |
 | Context | the context window size and the warning / alarm thresholds of the context fill, and the Telegram / Discord message when a conversation reaches the warning — see [Conversations](conversations.md) |
 | Preset prompts | your prompts on `Alt+1` … `Alt+9` — see below |
 | New-conversation presets | delete presets saved in the [New conversation](new-conversation.md) window |

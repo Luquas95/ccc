@@ -21,7 +21,7 @@ from ccc.notify import (
     send_telegram,
 )
 from ccc.analytics_archive import FOLDER_KEY as ARCHIVE_FOLDER_KEY, archive
-from ccc import context_fill, external_editor, i18n, keymap
+from ccc import context_fill, external_editor, groups, i18n, keymap
 from ccc.reviews import MODEL_CHOICES as REVIEW_MODELS, MODEL_KEY as REVIEW_MODEL_KEY
 from ccc.i18n import N_, _
 from ccc.export_paths import (
@@ -232,6 +232,12 @@ class SettingsModal(ModalScreen):
             )),
             Static(_("The model of reviews (v in Conversations). A strong one pays off: a missed bug costs more."),
                    classes="settings-hint"),
+            _row(_("Groups in the list"), Select(
+                [(_("By project, and your own groups"), groups.BY_PROJECT), (_("Only your own groups"), groups.OWN_ONLY)],
+                value=groups.mode(s), allow_blank=False, id="settings-groups",
+            )),
+            Static(_("Conversations and Archive: m puts a conversation into a group of your own; the others go "
+                     "under their project (git repository or folder), or under No group."), classes="settings-hint"),
         )
         warn, danger = context_fill.thresholds(s)
         window = context_fill.window_setting(s)
@@ -623,6 +629,7 @@ class SettingsModal(ModalScreen):
         s.set_setting(THEME_KEY, self.app.theme)
         editor = self.query_one("#settings-editor", Select).value
         s.set_setting(external_editor.SETTING_KEY, "" if editor == "auto" else str(editor))
+        s.set_setting(groups.MODE_KEY, str(self.query_one("#settings-groups", Select).value))
         token = self.query_one("#settings-telegram-token", Input).value.strip()
         if token:
             s.set_setting(TELEGRAM_TOKEN_KEY, token)

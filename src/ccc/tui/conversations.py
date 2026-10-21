@@ -11,7 +11,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.content import Content
 from textual.widgets import Collapsible, DataTable, Input, Markdown, Static
 
-from ccc import context_fill, keymap, list_filter
+from ccc import context_fill, groups, keymap, list_filter
 from ccc.i18n import _
 from ccc.launch_options import describe_flags
 from ccc.models import DeliveryMode, Queue, QueueStatus
@@ -25,6 +25,7 @@ from ccc.tui.layout import (
     ConfirmModal,
     SidebarScreen,
     queue_label,
+    queue_marker,
 )
 from ccc.tui.message_box import MessageBox
 from ccc.tui.pixel_text import PixelBanner
@@ -37,6 +38,25 @@ CONTEXT_SECONDS = 5.0
 # Newest transcript events mounted when a conversation is opened; older
 # ones are summarised in one line (Markdown + tool widgets cost ~15ms each).
 MAX_RENDERED_EVENTS = 60
+
+# Marker order in a group's heading (layout.queue_marker icons).
+HEADING_MARKERS = ("?", "●", "✖", "‖", "◆")
+
+
+class ConversationList(DataTable):
+    """The sidebar list. One click on a group's heading folds / unfolds it
+    — a plain DataTable selects only a row clicked a second time."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.heading_rows: set[int] = set()
+
+    async def _on_click(self, event) -> None:
+        # Textual runs this before DataTable's own handler: with the cursor
+        # already on the row, that one selects it.
+        row = event.style.meta.get("row")
+        if row in self.heading_rows:
+            self.move_cursor(row=row)
 
 
 class ConversationsScreen(SidebarScreen):
@@ -57,6 +77,9 @@ class ConversationsScreen(SidebarScreen):
         # No Ctrl+D (delete): it exits Claude Code (#31).
         keymap.binding("conversations.search", "search", _("Search")),
         keymap.binding("conversations.filter", "filter", _("Filter")),
+        keymap.binding("conversations.group", "group", _("Group")),
+        keymap.binding("conversations.next_group", "next_group", _("Next group"), show=False),
+        keymap.binding("conversations.prev_group", "prev_group", _("Previous group"), show=False),
         keymap.binding("conversations.export", "export", _("Export conversation")),
         keymap.binding("screen.review", "review", _("Review")),
         keymap.binding("screen.goal", "goal", _("Goal")),
@@ -210,8 +233,16 @@ class ConversationsScreen(SidebarScreen):
         # Opened for a specific (usually just-started) conversation: put the
         # cursor straight into the message box.
         self._focus_input_on_mount = select_queue_id is not None
-        # Queue ids in the order of the sidebar table's rows.
+        # The sidebar table's rows in order: a queue id, or a group key (str)
+        # for a group's heading (ccc.groups). _queue_ids are the conversations
+        # among them; _listed_ids also those in folded groups, and
+        # _group_of their group's key.
+        self._rows: list[int | str] = []
         self._queue_ids: list[int] = []
+        self._listed_ids: list[int] = []
+        self._group_of: dict[int, str] = {}
+        # The heading the cursor is on: it stays there over the refresh.
+        self._cursor_group: str | None = None
         # Plain text of the list rows as last drawn — rebuild when it changes
         # (new/removed conversation, status marker, pending count).
         self._list_signature: list[str] = []
@@ -249,7 +280,7 @@ class ConversationsScreen(SidebarScreen):
         yield Static(_("Queues"), id="conversation-list-label", classes="sidebar-label")
         # Disabled while hidden: the screen's first focus would land in it.
         yield Input(placeholder=_("name, folder · ! ? x *"), id="conversation-filter", disabled=True)
-        yield DataTable(id="conversation-queue-list", classes="sidebar-list")
+        yield ConversationList(id="conversation-queue-list", classes="sidebar-list")
         yield Static(_("Nothing matches"), id="conversation-filter-empty")
         # No Claude Code key hints here: the menu keeps its size in every
         # view — they are in the bar under Claude Code (cli_bar).
@@ -267,8 +298,10 @@ class ConversationsScreen(SidebarScreen):
         table.cursor_type = "row"
         table.show_header = False
         self._rebuild_queue_list()
-        if self._current_queue_id not in self._queue_ids:
-            self._current_queue_id = self._queue_ids[0] if self._queue_ids else None
+        if self._current_queue_id not in self._listed_ids:
+            self._current_queue_id = self._listed_ids[0] if self._listed_ids else None
+        elif self._focus_input_on_mount:
+            self._unfold_group_of(self._current_queue_id)  # opened for it
         if self._current_queue_id is not None:
             # Don't rely solely on RowHighlighted firing for the initial
             # cursor position (focus timing can vary once Header/Footer
@@ -298,7 +331,9 @@ class ConversationsScreen(SidebarScreen):
         table.clear(columns=True)
         table.add_column(_("Queue"))
         rows = self._list_rows()
-        self._queue_ids = [queue_id for queue_id, _label in rows]
+        self._rows = [row for row, _label in rows]
+        self._queue_ids = [row for row in self._rows if isinstance(row, int)]
+        table.heading_rows = {i for i, row in enumerate(self._rows) if isinstance(row, str)}
         self._list_signature = [label.plain for _id, label in rows]
         for _id, label in rows:
             table.add_row(label)
@@ -307,10 +342,15 @@ class ConversationsScreen(SidebarScreen):
         self.query_one("#conversation-list-label", Static).update(
             _("Queues · filter: {text}").format(text=text) if self._filter.active else _("Queues"))
 
-    def _list_rows(self) -> list[tuple[int, Text]]:
+    def _list_rows(self) -> list[tuple[int | str, Text]]:
+        """The list's rows: group headings (ccc.groups) and the
+        conversations under them — none under a folded heading (the filter
+        shows every group unfolded)."""
         unseen = self.storage.unseen_queue_ids()
         waiting = self.storage.queues_waiting_for_approval()
-        rows = []
+        labels: dict[int, Text] = {}
+        markers: dict[int, tuple[str, str]] = {}
+        queues = []
         warn, danger = context_fill.thresholds(self.storage)
         for q in self.storage.list_queues():
             if q.archived != self.ARCHIVED:
@@ -318,6 +358,8 @@ class ConversationsScreen(SidebarScreen):
             is_unseen = q.id in unseen and q.id != self._current_queue_id
             if not self._filter.matches(q, is_unseen, q.id in waiting) and q.id != self._filter_kept:
                 continue
+            queues.append(q)
+            markers[q.id] = queue_marker(q, is_unseen, q.id in waiting)
             label = queue_label(q, is_unseen, self.storage.count_pending_items(q.id), needs_approval=q.id in waiting)
             status = self._git_status.get(q.id)
             if status is not None and status.short():
@@ -326,8 +368,35 @@ class ConversationsScreen(SidebarScreen):
             if fill is not None:
                 label.append(f" {context_fill.list_text(fill)}",
                              style=context_fill.LEVEL_STYLES[context_fill.level(fill, warn, danger)])
-            rows.append((q.id, label))
+            labels[q.id] = label
+        folded = set() if self._filter.active else groups.collapsed(self.storage)
+        rows: list[tuple[int | str, Text]] = []
+        self._listed_ids, self._group_of = [], {}
+        for group, members in groups.grouped(queues, self.storage.conversation_groups(), groups.mode(self.storage)):
+            self._listed_ids += [q.id for q in members]
+            if group is not None:
+                self._group_of.update((q.id, group.key) for q in members)
+                rows.append((group.key, self._heading(group.title, len(members), group.key in folded,
+                                                      [markers[q.id] for q in members])))
+                if group.key in folded:
+                    continue
+            rows += [(q.id, Text.assemble("  ", labels[q.id]) if group is not None else labels[q.id]) for q in members]
         return rows
+
+    @staticmethod
+    def _heading(title: str, count: int, folded: bool, markers: list[tuple[str, str]]) -> Text:
+        """▾ shop (3) · ?1 ●2 — what its conversations are doing, also
+        while it's folded."""
+        label = Text.assemble(("▸ " if folded else "▾ ", "bold"), (title, "bold"), (f" ({count})", "dim"))
+        counts: dict[tuple[str, str], int] = {}
+        for marker in markers:
+            if marker[0] in HEADING_MARKERS:
+                counts[marker] = counts.get(marker, 0) + 1
+        if counts:
+            label.append(" ·", style="dim")
+            for (icon, style), n in sorted(counts.items(), key=lambda item: HEADING_MARKERS.index(item[0][0])):
+                label.append(f" {icon}{n}", style=style)
+        return label
 
     def _refresh_git_status(self) -> None:
         """Lines changed and commits ahead/behind for each conversation's
@@ -368,20 +437,35 @@ class ConversationsScreen(SidebarScreen):
         self._context_fills = result
 
     def _move_cursor_to_current(self) -> None:
-        if self._current_queue_id in self._queue_ids:
+        """Onto the open conversation — or its folded group's heading."""
+        self._cursor_group = None
+        self._restore_cursor()
+
+    def _restore_cursor(self) -> None:
+        """After a rebuild: back onto the heading the cursor was on, else
+        the open conversation (or its folded group's heading)."""
+        target = self._cursor_group if self._cursor_group in self._rows else self._current_queue_id
+        if target not in self._rows:
+            target = self._group_of.get(self._current_queue_id)
+        if target in self._rows:
             table = self.query_one("#conversation-queue-list", DataTable)
-            table.move_cursor(row=self._queue_ids.index(self._current_queue_id))
+            table.move_cursor(row=self._rows.index(target))
 
     async def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         # RowHighlighted fires on arrow-key movement (confirmed live: no
         # Enter needed), unlike RowSelected which only fires on
         # Enter/click — this is what makes switching immediate, per the
-        # design.
-        if event.cursor_row >= len(self._queue_ids):
+        # design. One from before a rebuild (the cursor moved on since) is
+        # left alone.
+        if event.cursor_row >= len(self._rows) or event.cursor_row != event.data_table.cursor_row:
             return
-        queue_id = self._queue_ids[event.cursor_row]
-        if queue_id != self._current_queue_id or self._rendered_key is None:
-            await self._show_queue(queue_id)
+        row = self._rows[event.cursor_row]
+        if isinstance(row, str):
+            self._cursor_group = row  # a heading: the conversation stays
+            return
+        self._cursor_group = None
+        if row != self._current_queue_id or self._rendered_key is None:
+            await self._show_queue(row)
 
     async def _show_queue(self, queue_id: int) -> None:
         from ccc import gitops
@@ -481,6 +565,13 @@ class ConversationsScreen(SidebarScreen):
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         if event.data_table.id != "conversation-queue-list":
             return
+        if event.cursor_row < len(self._rows) and isinstance(self._rows[event.cursor_row], str):
+            self._toggle_group(self._rows[event.cursor_row])
+            return
+        self._conversation_chosen()
+
+    def _conversation_chosen(self) -> None:
+        """Enter / a click on a conversation in the list."""
         if not self._focus_cli():
             self.query_one("#message-input", MessageBox).focus()
 
@@ -690,7 +781,7 @@ class ConversationsScreen(SidebarScreen):
         if [label.plain for _id, label in self._list_rows()] != self._list_signature:
             # New/removed conversation, or a marker / pending count changed.
             self._rebuild_queue_list()
-            self._move_cursor_to_current()
+            self._restore_cursor()
         self._sync_cli_pane()
         self.sync_retry_button()
         if self._current_queue_id is None:
@@ -801,6 +892,7 @@ class ConversationsScreen(SidebarScreen):
         self._rebuild_queue_list()
         if queue_id not in self._queue_ids and self._filter.active:
             self._close_filter()  # the filter hides it
+        self._unfold_group_of(queue_id)
         self._current_queue_id = queue_id
         self._move_cursor_to_current()
         self.run_worker(self._open_and_focus(queue_id), exclusive=True, group="show-queue")
@@ -872,7 +964,7 @@ class ConversationsScreen(SidebarScreen):
     def _select_neighbour(self) -> None:
         """Pick the next (else previous) visible conversation after the
         current one disappears from the list."""
-        ids = self._queue_ids
+        ids = self._listed_ids
         current = self._current_queue_id
         if current in ids:
             i = ids.index(current)
@@ -903,6 +995,69 @@ class ConversationsScreen(SidebarScreen):
                 self.open_conversation(queue_id)  # in Archive when archived
 
         self.app.push_screen(SearchModal(self.storage), chosen)
+
+    # --- groups (m, Ctrl+Down / Ctrl+Up; ccc.groups) -----------------------
+
+    def _toggle_group(self, key: str) -> None:
+        """Fold / unfold a heading (Enter or a click on it). The filter
+        shows every group unfolded."""
+        if self._filter.active:
+            return
+        groups.set_collapsed(self.storage, key, key not in groups.collapsed(self.storage))
+        self._cursor_group = key
+        self._rebuild_queue_list()
+        self._restore_cursor()
+
+    def _unfold_group_of(self, queue_id: int) -> None:
+        """Unfold the group a conversation is hidden in (opening it)."""
+        key = self._group_of.get(queue_id)
+        if queue_id not in self._queue_ids and key in groups.collapsed(self.storage):
+            groups.set_collapsed(self.storage, key, False)
+            self._rebuild_queue_list()
+
+    def action_next_group(self) -> None:
+        self._jump_group(1)
+
+    def action_prev_group(self) -> None:
+        self._jump_group(-1)
+
+    def _jump_group(self, step: int) -> None:
+        """The cursor onto the next / previous heading (around the end)."""
+        headings = [i for i, row in enumerate(self._rows) if isinstance(row, str)]
+        if not headings:
+            return
+        table = self.query_one("#conversation-queue-list", DataTable)
+        here = table.cursor_row
+        if step > 0:
+            target = next((i for i in headings if i > here), headings[0])
+        else:
+            target = next((i for i in reversed(headings) if i < here), headings[-1])
+        table.move_cursor(row=target)
+        table.focus()
+
+    def action_group(self) -> None:
+        """m: on a heading, rename / delete that group (an own one); on a
+        conversation, put it into a group."""
+        from ccc.tui.groups import GroupModal
+
+        if self._cursor_group is not None and self._cursor_group in self._rows:
+            name = groups.Group(self._cursor_group, "").own
+            if name is None:
+                self.notify(_("A project's group follows the folder — press m on a conversation to put it into a "
+                              "group of your own."))
+                return
+            modal = GroupModal(self.storage, group=name)
+        elif self._current_queue_id is not None:
+            modal = GroupModal(self.storage, queue_id=self._current_queue_id)
+        else:
+            return
+
+        def closed(changed: bool) -> None:
+            if changed:
+                self._rebuild_queue_list()
+                self._restore_cursor()
+
+        self.app.push_screen(modal, closed)
 
     # --- list filter (f) -------------------------------------------------
 

@@ -26,6 +26,31 @@ Behind the name is how full the conversation's context window is, e.g.
 With no conversation at all, the right side says **NO CONVERSATION** —
 press `n` to start one.
 
+## Groups
+
+The list is split into **groups** under foldable headings —
+`▾ shop (3) · ?1 ●2`: the name, how many conversations it holds and what
+they're doing (the markers above, counted). A conversation goes under its
+**project** — the git repository it works in (a [worktree](new-conversation.md)
+under its repository), or its folder outside git; two projects with the
+same name show their parent folder too (`work/app`, `home/app`).
+
+| Key | |
+|---|---|
+| `Enter` or a click on a heading | fold / unfold the group — a folded one still counts what its conversations are doing |
+| `Ctrl+↓` / `Ctrl+↑` | jump to the next / previous heading (around the end) |
+| `m` on a conversation | put it into a **group of your own** — pick one or type a new name; *none of its own* takes it back to its project |
+| `m` on your own group's heading | rename it (to an existing group's name: they merge) or delete it — no conversation is deleted, they go back to their projects |
+
+Your own groups come first, then the projects, both by name. Folded
+headings stay folded (also after restarting ccc); opening a conversation
+that is in a folded group (`Alt+N`, search) unfolds it. The filter (`f`)
+shows every group unfolded. In Settings → Queues, *Groups in the list*
+can be set to *Only your own groups*: the other conversations are then
+under *No group*, and without any group of your own the list is flat.
+The [Archive](archive.md) is grouped the same way. The keys can be
+changed in Settings → Keyboard shortcuts.
+
 ## Filtering the list
 
 With dozens of conversations, `f` opens a filter above the list. Type
@@ -174,5 +199,6 @@ doesn't slow typing down.
 | `x` | [archive](archive.md) the conversation |
 | `/` | search all conversations (archived too); `Enter` on a hit opens it |
 | `f` | filter the list by name, folder and state (see *Filtering the list*) |
+| `m` | put the conversation into a group / rename or delete the group (see *Groups*) |
 | `e` | export the conversation as Markdown (to `conversations/` in the export folder, see [Settings](settings.md)) |
 | `n` | [start a new conversation](new-conversation.md) |
