@@ -4,9 +4,13 @@ stream of changes. Like the TUI it's just another reader / writer of the
 ccc database — the daemon does the work.
 
 It listens on 127.0.0.1 only; `tailscale serve` puts it on the tailnet
-with HTTPS (see help/api.md). Every request needs the token
+with HTTPS (see help/android-api.md). Every request needs the token
 (`Authorization: Bearer …`, `ccc api token`), so another program on the
-machine or a tailnet device of someone else can't use it.
+machine or a tailnet device of someone else can't use it. The database
+keeps only the token's SHA-256 (it's readable by other users of the
+machine), so the token is shown once, when it's made; it's checked
+against the database on every request, so a new one locks the old one
+out at once — open event streams too.
 
 Standard library only (http.server), like the ccc MCP server: no web
 framework to install for a handful of JSON endpoints.
@@ -28,6 +32,7 @@ GET  /api/v1/events                       Server-Sent Events: "changed" with wha
 """
 from __future__ import annotations
 
+import hashlib
 import hmac
 import json
 import logging
@@ -54,7 +59,7 @@ from ccc.transcript import TranscriptEvent, find_transcript_path, parse_transcri
 logger = logging.getLogger(__name__)
 
 PREFIX = "/api/v1"
-TOKEN_KEY = "api_token"
+TOKEN_KEY = "api_token_sha256"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8737
 MAX_BODY = 1024 * 1024
@@ -66,13 +71,25 @@ TRANSCRIPT_LOOKUP_SECONDS = 10.0
 DECISIONS = ("allow", "always", "deny")
 
 
-def token(storage: Storage, renew: bool = False) -> str:
-    """The API token, made on first use (renew: a new one, the old stops working)."""
-    value = storage.get_setting(TOKEN_KEY)
-    if renew or not value:
-        value = secrets.token_urlsafe(32)
-        storage.set_setting(TOKEN_KEY, value)
+def _digest(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def new_token(storage: Storage) -> str:
+    """A new API token; the old one stops working. Only its SHA-256 is
+    kept, so this is the one time it can be shown."""
+    value = secrets.token_urlsafe(32)
+    storage.set_setting(TOKEN_KEY, _digest(value))
     return value
+
+
+def has_token(storage: Storage) -> bool:
+    return bool(storage.get_setting(TOKEN_KEY))
+
+
+def token_valid(storage: Storage, given: str) -> bool:
+    stored = storage.get_setting(TOKEN_KEY)
+    return bool(given) and bool(stored) and hmac.compare_digest(_digest(given), stored)
 
 
 class ApiError(Exception):
@@ -444,7 +461,6 @@ def _str(body: dict, key: str) -> str:
 
 class _Handler(BaseHTTPRequestHandler):
     api: Api
-    token: str
     protocol_version = "HTTP/1.1"
 
     def do_GET(self) -> None:
@@ -474,8 +490,8 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _authorized(self) -> bool:
         header = self.headers.get("Authorization", "")
-        given = header.removeprefix("Bearer ").strip() if header.startswith("Bearer ") else ""
-        return bool(given) and hmac.compare_digest(given.encode(), self.token.encode())
+        self._token = header.removeprefix("Bearer ").strip() if header.startswith("Bearer ") else ""
+        return token_valid(self.api.storage, self._token)
 
     def _body(self) -> dict:
         try:
@@ -517,6 +533,8 @@ class _Handler(BaseHTTPRequestHandler):
             self.wfile.flush()
             while True:
                 time.sleep(EVENTS_POLL_SECONDS)
+                if not token_valid(self.api.storage, self._token):
+                    return  # a new token was made: this one is out
                 after = self.api.snapshot()
                 change = self.api.changes(before, after)
                 before = after
@@ -538,7 +556,7 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 def make_server(storage: Storage, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> ThreadingHTTPServer:
-    handler = type("Handler", (_Handler,), {"api": Api(storage), "token": token(storage)})
+    handler = type("Handler", (_Handler,), {"api": Api(storage)})
     server = ThreadingHTTPServer((host, port), handler)
     server.daemon_threads = True
     return server
@@ -548,6 +566,8 @@ def serve(db_path: str, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> N
     storage = Storage(db_path)
     i18n.load(storage)
     server = make_server(storage, host, port)
+    if not has_token(storage):
+        logger.warning("no API token yet — every request is refused until you make one: ccc api token")
     logger.info("ccc API on http://%s:%s%s", host, port, PREFIX)
     try:
         server.serve_forever()

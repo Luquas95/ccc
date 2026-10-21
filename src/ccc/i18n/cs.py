@@ -1335,10 +1335,14 @@ CS: dict[str, str] = {
     "Choose one of: {options}.": "Vyber jen jedno z: {options}.",
     "HTTP API for the Android app (serve, token)": "HTTP API pro aplikaci pro Android (serve, token)",
     "Run the API (what the ccc-api service runs)": "Spustit API (to, co spouští služba ccc-api)",
-    "Show the token the app signs in with": "Ukázat token, kterým se aplikace přihlašuje",
+    "Make the token the app signs in with (shown once)": "Vytvořit token, kterým se aplikace přihlásí (ukáže se jen jednou)",
+    "A token is set. ccc keeps only its fingerprint, so it can't show it again — "
+    "`ccc api token --new` makes a new one (the old one stops working).":
+        "Token je nastavený. ccc si drží jen jeho otisk, takže ho znovu ukázat nejde — "
+        "`ccc api token --new` vytvoří nový (starý přestane platit).",
+    "Enter it in the app now — it isn't shown again. A token made before no longer works.":
+        "Zadej ho teď do aplikace — znovu se neukáže. Dřív vytvořený token už neplatí.",
     "make a new one; the old one stops working": "vytvořit nový; starý přestane fungovat",
-    "A new token — sign the app in again; the old one no longer works.":
-        "Nový token — přihlas aplikaci znovu; starý už nefunguje.",
     "address to listen on (default {host}: reach it through tailscale serve)":
         "adresa, na které poslouchat (výchozí {host}: zvenku přes tailscale serve)",
 }

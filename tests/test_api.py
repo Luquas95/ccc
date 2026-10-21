@@ -39,11 +39,16 @@ def _transcript_line(role, text, minute=0):
     }) + "\n"
 
 
-def test_token_is_made_once_and_renewed_on_request(storage):
-    first = api.token(storage)
+def test_only_the_tokens_fingerprint_is_kept_and_a_new_one_replaces_it(storage):
+    assert not api.has_token(storage)
+    first = api.new_token(storage)
     assert len(first) > 30
-    assert api.token(storage) == first
-    assert api.token(storage, renew=True) != first
+    assert first not in storage.get_setting(api.TOKEN_KEY)
+    assert api.token_valid(storage, first)
+    second = api.new_token(storage)
+    assert api.token_valid(storage, second)
+    assert not api.token_valid(storage, first)
+    assert not api.token_valid(storage, "")
 
 
 def test_conversations_list_with_state(storage, tmp_path):
@@ -240,7 +245,7 @@ def server(storage):
     httpd = api.make_server(storage, "127.0.0.1", 0)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
-    yield f"http://127.0.0.1:{httpd.server_address[1]}", api.token(storage)
+    yield f"http://127.0.0.1:{httpd.server_address[1]}", api.new_token(storage)
     httpd.shutdown()
     httpd.server_close()
 
@@ -263,6 +268,13 @@ def test_http_needs_the_token(server):
     status, result = _call(f"{base}/api/v1/status", token)
     assert status == 200
     assert result["daemon_running"] is False
+
+
+def test_http_a_new_token_locks_the_old_one_out(server, storage):
+    base, token = server
+    newer = api.new_token(storage)
+    assert _call(f"{base}/api/v1/status", token)[0] == 401
+    assert _call(f"{base}/api/v1/status", newer)[0] == 200
 
 
 def test_http_send_and_read_back(server, storage, tmp_path):
@@ -306,3 +318,27 @@ def test_retry_and_seen(storage, tmp_path):
     assert storage.get_queue(q.id).status == QueueStatus.IDLE
     assert endpoint.route("POST", f"/api/v1/conversations/{q.id}/seen", {}, {})[0] == 200
     assert storage.get_queue(q.id).last_seen_at > datetime.now() - timedelta(minutes=1)
+
+
+def test_http_events_stream_ends_when_a_new_token_is_made(server, storage, monkeypatch):
+    monkeypatch.setattr(api, "EVENTS_POLL_SECONDS", 0.05)
+    base, token = server
+    request = urllib.request.Request(f"{base}/api/v1/events", headers={"Authorization": f"Bearer {token}"})
+    with urllib.request.urlopen(request, timeout=5) as stream:
+        assert stream.readline() == b": connected\n"
+        api.new_token(storage)
+        assert stream.read() == b"\n"  # the blank line after "connected", then closed
+
+
+def test_cli_shows_a_token_only_when_it_makes_one(storage, capsys):
+    from argparse import Namespace
+
+    from ccc import api_cli
+
+    api_cli.run(storage, "", Namespace(api_command="token", new=False))
+    made = capsys.readouterr().out.splitlines()[0]
+    assert api.token_valid(storage, made)
+    api_cli.run(storage, "", Namespace(api_command="token", new=False))
+    assert made not in capsys.readouterr().out
+    api_cli.run(storage, "", Namespace(api_command="token", new=True))
+    assert not api.token_valid(storage, made)

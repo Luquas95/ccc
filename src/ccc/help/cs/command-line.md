@@ -51,5 +51,5 @@ ccc-tui`); změněné v Nastavení platí hned.
 | `ccc ask OD KOMU "OTÁZKA"` | jedna konverzace [se zeptá druhé](asking.md) (id nebo názvy); `--no-deliver` = nepředávat odpověď do OD, `--wait` = počkat a vypsat odpověď |
 | `ccc asks [KONVERZACE]` | otázky mezi konverzacemi od nejnovější (`🤖` = ptal se Claude) |
 | `ccc api serve [--port N]` | spustí [API pro aplikaci pro Android](android-api.md) (normálně ho spouští `ccc-api.service`) |
-| `ccc api token [--new]` | token, kterým se aplikace přihlašuje; `--new` = nový, starý přestane platit |
+| `ccc api token [--new]` | vytvoří token, kterým se aplikace přihlásí (ukáže se jen tehdy); `--new` = nový, starý přestane platit |
 | `ccc-daemon` | samotný daemon (normálně ho spouští `ccc.service`) |

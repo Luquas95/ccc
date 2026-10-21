@@ -19,10 +19,11 @@ token.
 2. Put it on your tailnet with HTTPS: `tailscale serve --bg 8737`. It's
    then at `https://<computer>.<tailnet>.ts.net/api/v1/` — `tailscale
    serve status` prints the address.
-3. `ccc api token` prints the token the app signs in with.
+3. `ccc api token` makes the token the app signs in with and prints it
+   — **only this once**: ccc keeps just its fingerprint (SHA-256), so
+   nobody can read it from the database. Lost it, or lost the phone?
    `ccc api token --new` makes a new one; the old one stops working at
-   once (e.g. when a phone is lost) — restart the API
-   (`systemctl --user restart ccc-api`).
+   once, open connections too.
 
 Without the service, `ccc api serve` runs it in the terminal
 (`--port` for another port).

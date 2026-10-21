@@ -18,10 +18,11 @@ požadavek potřebuje token.
 2. Vystav ho do tailnetu s HTTPS: `tailscale serve --bg 8737`. Pak je na
    `https://<počítač>.<tailnet>.ts.net/api/v1/` — adresu vypíše
    `tailscale serve status`.
-3. `ccc api token` vypíše token, kterým se aplikace přihlásí.
-   `ccc api token --new` vytvoří nový; starý hned přestane platit
-   (třeba při ztrátě telefonu) — restartuj API
-   (`systemctl --user restart ccc-api`).
+3. `ccc api token` vytvoří token, kterým se aplikace přihlásí, a vypíše
+   ho — **jen tentokrát**: ccc si drží jen jeho otisk (SHA-256), takže ho
+   z databáze nikdo nepřečte. Ztratil jsi ho, nebo telefon?
+   `ccc api token --new` vytvoří nový; starý hned přestane platit, i pro
+   otevřená spojení.
 
 Bez služby ho spustí v terminálu `ccc api serve` (`--port` pro jiný
 port).
