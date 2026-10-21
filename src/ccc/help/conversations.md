@@ -19,6 +19,10 @@ when N tasks wait in its [queue](tasks.md):
 | `?` | Claude is waiting for you to [approve a tool call](approvals.md) |
 | `◆` | a new reply you haven't looked at yet |
 
+Behind the name is how full the conversation's context window is, e.g.
+`62%` — yellow from the warning threshold, red from the alarm (see
+*Context fill* below).
+
 With no conversation at all, the right side says **NO CONVERSATION** —
 press `n` to start one.
 
@@ -88,6 +92,31 @@ terminal. For these ccc shows the transcript itself:
 At the top: the conversation's name, project folder and Claude Code
 options, whether auto-continue is on, and for a
 [remote-control](remote-control.md) conversation the link for your phone.
+
+### Context fill
+
+Below that: how full the context window is, e.g.
+`context 62 % · 124k / 200k`. When it fills up, Claude Code compacts the
+conversation by itself and details of the earlier work get lost — the
+number tells you in time to run `/compact` or start a new conversation.
+From 80 % it turns yellow, from 90 % red, with *consider /compact or a new
+conversation*; both thresholds are in [Settings](settings.md) → Context.
+
+It's the prompt of Claude's last reply (input + cache tokens, as in
+Claude Code's `/context`) divided by the model's window:
+
+- **1M** when the conversation's `--model` has `[1m]`, or it already
+  went past 200k (only a 1M window holds that),
+- the window chosen in Settings → Context → Window,
+- otherwise **200k** for a Claude model.
+
+A model ccc doesn't know shows only the tokens, without %. If your
+model runs with the 1M window by default, choose *1M* in Settings —
+otherwise the % comes out too high until the conversation passes 200k.
+
+With Telegram or Discord set up, ccc tells you once when a conversation
+reaches the warning (again only after it dropped below, e.g. after
+`/compact`); turn it off in Settings → Context → Notify.
 
 ## Other keys
 

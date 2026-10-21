@@ -15,6 +15,7 @@ změny zahodí. Tlačítka jako *Poslat testovací zprávu*, *Vypnout* nebo
 | Notifikace přes Telegram | viz níže |
 | Notifikace přes Discord | viz níže |
 | Fronty | text *pokračuj* posílaný po limitu využití a rezerva využití — viz [Limity využití](limits.md); model [recenzenta](review.md) |
+| Kontext | velikost kontextového okna, prahy varování / poplachu zaplnění kontextu a zpráva do Telegramu / Discordu, když konverzace dosáhne varování — viz [Konverzace](conversations.md) |
 | Přednastavené prompty | tvé prompty na `Alt+1` … `Alt+9` — viz níže |
 | Předvolby nové konverzace | smaže předvolby uložené v okně [Nová konverzace](new-conversation.md) |
 | Klávesové zkratky | změna libovolné klávesy, export / import — viz níže |

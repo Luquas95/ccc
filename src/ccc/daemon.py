@@ -5,6 +5,7 @@ import logging
 import signal
 
 from ccc import i18n
+from ccc.i18n import _
 from ccc.backup import daily_backup, default_backup_dir
 from ccc.heartbeat import HEARTBEAT_SECONDS, beat
 from ccc.notify import Notifier
@@ -150,6 +151,40 @@ async def asks_loop(storage: Storage, notifier: Notifier, interval: float = ASK_
         await asyncio.sleep(interval)
 
 
+CONTEXT_CHECK_SECONDS = 60.0
+
+
+async def context_loop(storage: Storage, notifier: Notifier, interval: float = CONTEXT_CHECK_SECONDS) -> None:
+    """Tell Telegram / Discord once when a conversation's context window
+    reaches the warning threshold (ccc.context_fill)."""
+    from ccc import context_fill
+
+    tracker = context_fill.ContextTracker()
+    while True:
+        try:
+            await asyncio.to_thread(context_tick, storage, notifier, tracker)
+        except Exception:
+            logger.exception("checking context fill failed")
+        await asyncio.sleep(interval)
+
+
+def context_tick(storage: Storage, notifier: Notifier, tracker) -> list[str]:
+    """One check; returns the messages it sent (for tests)."""
+    from ccc import context_fill
+
+    if not context_fill.notify_enabled(storage) or not notifier.configured():
+        return []
+    queues = {q.id: q for q in storage.list_queues() if not q.archived}
+    fills = tracker.fills(storage, queues.values())
+    sent = []
+    for queue_id in context_fill.alerts(storage, fills):
+        text = _("⚠️ {name}: context {percent} % full — consider /compact or a new conversation").format(
+            name=queues[queue_id].name, percent=fills[queue_id].percent)
+        notifier.send_now(text)
+        sent.append(text)
+    return sent
+
+
 async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     storage = Storage(db_path)
     i18n.load(storage)
@@ -172,6 +207,7 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     goal_loops = asyncio.create_task(goals_loop(storage, notifier))
     flows = asyncio.create_task(workflows_loop(storage, notifier))
     answers = asyncio.create_task(asks_loop(storage, notifier))
+    contexts = asyncio.create_task(context_loop(storage, notifier))
     await stop_event.wait()
     logger.info("ccc daemon shutting down")
     heartbeat.cancel()
@@ -183,6 +219,7 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     goal_loops.cancel()
     flows.cancel()
     answers.cancel()
+    contexts.cancel()
     await orchestrator.stop_all()
 
 

@@ -305,3 +305,28 @@ async def test_another_language_restarts_the_tui(tmp_path, monkeypatch):
             assert exits == [True]
     finally:
         i18n.set_language("en")
+
+
+@pytest.mark.asyncio
+async def test_context_settings_saved_and_validated(tmp_path):
+    from ccc import context_fill
+
+    app = _app(tmp_path)
+    async with app.run_test(size=(140, 45)) as pilot:
+        modal = await _open_settings(pilot, app)
+        modal.query_one("#settings-context-warn", Select).value = "90"
+        modal.query_one("#settings-context-danger", Select).value = "80"
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert isinstance(app.screen, SettingsModal)  # warning above the alarm: refused
+        assert app.storage.get_setting(context_fill.WARN_KEY) is None
+        modal.query_one("#settings-context-warn", Select).value = "70"
+        modal.query_one("#settings-context-danger", Select).value = "85"
+        modal.query_one("#settings-context-window", Select).value = "1000000"
+        modal.query_one("#settings-context-notify", Select).value = "off"
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert not isinstance(app.screen, SettingsModal)
+        assert context_fill.thresholds(app.storage) == (70, 85)
+        assert context_fill.window_setting(app.storage) == 1_000_000
+        assert not context_fill.notify_enabled(app.storage)
