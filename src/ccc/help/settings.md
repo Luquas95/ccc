@@ -15,6 +15,7 @@ now* act right away.
 | Telegram notifications | see below |
 | Discord notifications | see below |
 | Queues | the *continue* text sent after a usage limit, and the usage reserve — see [Usage limits](limits.md); the [reviewer's](review.md) model |
+| Context | the context window size and the warning / alarm thresholds of the context fill, and the Telegram / Discord message when a conversation reaches the warning — see [Conversations](conversations.md) |
 | Preset prompts | your prompts on `Alt+1` … `Alt+9` — see below |
 | New-conversation presets | delete presets saved in the [New conversation](new-conversation.md) window |
 | Keyboard shortcuts | change any key, export / import them — see below |

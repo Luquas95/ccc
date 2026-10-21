@@ -11,7 +11,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.content import Content
 from textual.widgets import Collapsible, DataTable, Markdown, Static
 
-from ccc import keymap
+from ccc import context_fill, keymap
 from ccc.i18n import _
 from ccc.launch_options import describe_flags
 from ccc.models import DeliveryMode, Queue, QueueStatus
@@ -31,6 +31,7 @@ from ccc.tui.pixel_text import PixelBanner
 from ccc.tui.prompt_presets import ALT_DIGIT_CHARS, ALT_DIGIT_TEXT, bar_item
 
 GIT_STATUS_SECONDS = 15.0
+CONTEXT_SECONDS = 5.0
 
 
 # Newest transcript events mounted when a conversation is opened; older
@@ -211,6 +212,10 @@ class ConversationsScreen(SidebarScreen):
         # queue_id -> gitops.WorkStatus of its folder, refreshed in a thread
         # (GIT_STATUS_SECONDS) so the 2 s refresh never waits for git.
         self._git_status: dict[int, object] = {}
+        # queue_id -> context_fill.ContextFill, read from the transcripts in
+        # a thread (CONTEXT_SECONDS); the tracker reads only new lines.
+        self._context_fills: dict[int, context_fill.ContextFill] = {}
+        self._context_tracker = context_fill.ContextTracker()
         # Interactive conversations show their Claude Code CLI in a tmux
         # pane next to ccc (cli_pane): which conversation it was opened for,
         # and one whose pane you closed (Ctrl+]) — not reopened until Enter.
@@ -259,6 +264,8 @@ class ConversationsScreen(SidebarScreen):
         if not self.ARCHIVED:
             self._refresh_git_status()
             self.set_interval(GIT_STATUS_SECONDS, self._refresh_git_status)
+            self._refresh_context()
+            self.set_interval(CONTEXT_SECONDS, self._refresh_context)
         await self._refresh_prompt_presets_bar()
         if self._focus_input_on_mount:
             if not self._focus_cli():
@@ -280,6 +287,7 @@ class ConversationsScreen(SidebarScreen):
         unseen = self.storage.unseen_queue_ids()
         waiting = self.storage.queues_waiting_for_approval()
         rows = []
+        warn, danger = context_fill.thresholds(self.storage)
         for q in self.storage.list_queues():
             if q.archived != self.ARCHIVED:
                 continue
@@ -288,6 +296,10 @@ class ConversationsScreen(SidebarScreen):
             status = self._git_status.get(q.id)
             if status is not None and status.short():
                 label.append(f" {status.short()}", style="cyan")
+            fill = self._context_fills.get(q.id)
+            if fill is not None:
+                label.append(f" {context_fill.list_text(fill)}",
+                             style=context_fill.LEVEL_STYLES[context_fill.level(fill, warn, danger)])
             rows.append((q.id, label))
         return rows
 
@@ -313,6 +325,21 @@ class ConversationsScreen(SidebarScreen):
 
     def _git_status_ready(self, result: dict) -> None:
         self._git_status = result
+
+    def _refresh_context(self) -> None:
+        """How full each conversation's context window is, from the
+        transcripts (context_fill) — in a thread: a long transcript's first
+        read takes a moment."""
+        queues = [q for q in self.storage.list_queues() if not q.archived]
+        tracker, storage = self._context_tracker, self.storage
+
+        def work() -> None:
+            self.app.call_from_thread(self._context_ready, tracker.fills(storage, queues))
+
+        self.run_worker(work, thread=True, group="context-fill", exclusive=True)
+
+    def _context_ready(self, result: dict) -> None:
+        self._context_fills = result
 
     def _move_cursor_to_current(self) -> None:
         if self._current_queue_id in self._queue_ids:
@@ -559,6 +586,12 @@ class ConversationsScreen(SidebarScreen):
                        "cyan")]
         if queue.first_run_flags:
             parts += ["  ·  ", (_("first run: ") + " ".join(queue.first_run_flags), "yellow")]
+        fill = self._context_fills.get(queue.id) if not queue.archived else None
+        if fill is not None:
+            level = context_fill.level(fill, *context_fill.thresholds(self.storage))
+            parts += ["\n", (context_fill.header_text(fill), context_fill.LEVEL_STYLES[level] if level else "")]
+            if level:
+                parts += [("  " + _("consider /compact or a new conversation"), context_fill.LEVEL_STYLES[level])]
         self.query_one("#conversation-header", Static).update(Content.assemble(*parts))
 
     def _status_for(self, queue: Queue, pending) -> Content:
