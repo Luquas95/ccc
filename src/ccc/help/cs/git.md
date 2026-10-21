@@ -9,6 +9,16 @@ nebo vrátit:
 - detail fronty (`Enter` na [Přehledu](dashboard.md)) ukazuje commit
   každého běhu; `Enter` na běhu ukáže změněné soubory a barevný diff.
 
+## Komentáře k diffu
+
+Projdi práci Clauda jako pull request: v diffu běhu přejdi na řádek
+(`↑` `↓`, `PgUp` `PgDn`, kliknutí), stiskni `c` a napiš, co se má změnit
+— `Enter` komentář uloží, prázdný ho smaže. Okomentované řádky mají `●`
+a komentáře jsou vypsané pod diffem. `s` je všechny pošle konverzaci
+jako **jeden prompt** do fronty: každý komentář se souborem, číslem
+řádku a citovaným řádkem a s žádostí, ať každý vyřeší. Zavření diffu
+s neodeslanými komentáři se nejdřív zeptá.
+
 ## Vrácení běhu
 
 V detailu fronty vyber běh s commitem a stiskni `u`: ccc ho vrátí
@@ -49,6 +59,30 @@ pracovní kopii repozitáře na vlastní větvi (`worktree-<název>`, ve
 <název>`, mimo `git status` hlavní kopie). ccc tam commituje její úkoly;
 větev slouč, až budeš spokojený. Nepotřebný worktree odstraníš přes
 `git worktree remove .claude/worktrees/<název>`.
+
+Konverzace ukazují, jak je na tom každá v gitu — v seznamu za názvem
+a v záhlaví: `+12−3` změněné a ještě necommitnuté řádky, `↑2` commity
+navíc oproti základu a `↓1` chybějící (základ je upstream větve, u
+worktree větev hlavní kopie, ze které vznikl). Když je vše commitnuté
+a srovnané, nic se neukazuje. Jako všechno s gitem v ccc jen
+u konverzací, které smí spouštět příkazy; obnovuje se každých 15 sekund
+a nové soubory, které git ještě nesleduje, se nepočítají.
+
+Nová pracovní kopie má jen soubory, které git sleduje, takže by chyběl
+`.env`, lokální certifikáty nebo konfigurace, bez kterých projekt
+nepoběží. Vypiš je do souboru **`.worktreeinclude`** v kořeni
+repozitáře (syntaxe gitignore — stejný soubor čte Claude Code, Conductor
+i Codex), např.:
+
+```
+.env
+config/local.json
+```
+
+ccc do každého nového worktree zkopíruje soubory, které odpovídají vzoru
+**a zároveň** je git ignoruje — nikdy sledovaný soubor, nikdy přes
+symbolický odkaz, nikdy přes existující soubor, nejvýš 500 souborů po
+20 MB.
 
 ## Kdy ccc necommitne
 

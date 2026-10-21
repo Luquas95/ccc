@@ -270,7 +270,154 @@ def create_worktree(path: str, name: str) -> str:
     added = _git(top, "worktree", "add", "-q", "-b", f"worktree-{slug}", str(target), "HEAD")
     if added.returncode != 0:
         raise ValueError(_("No worktree: {error}").format(error=added.stderr.strip()[:300]))
+    try:
+        copied = copy_worktree_include(top, str(target))
+        if copied:
+            logger.info("Copied %d file(s) listed in %s into the new worktree", copied, WORKTREE_INCLUDE)
+    except OSError as exc:  # never fails the worktree itself
+        logger.warning("Copying %s files failed (%s)", WORKTREE_INCLUDE, type(exc).__name__)
     return str(target)
+
+
+WORKTREE_INCLUDE = ".worktreeinclude"
+INCLUDE_MAX_FILES = 500
+INCLUDE_MAX_BYTES = 20 * 1024 * 1024  # per file
+
+
+def worktree_include_files(top: str) -> list[str]:
+    """Files a new worktree should get although git doesn't carry them:
+    those matching a pattern in <top>/.worktreeinclude (gitignore syntax —
+    the convention Claude Code, Conductor and Codex share) that git
+    actually ignores. So tracked files are never copied, nor anything
+    under .claude/worktrees (the other worktrees)."""
+    include = Path(top) / WORKTREE_INCLUDE
+    if include.is_symlink() or not include.is_file():
+        return []
+    candidates = _git(top, "ls-files", "--others", "--ignored", "-z", f"--exclude-from={include}")
+    if candidates.returncode != 0 or not candidates.stdout:
+        return []
+    paths = [p for p in candidates.stdout.split("\x00")
+             if p and not p.startswith(WORKTREES_DIR.as_posix() + "/")]
+    if not paths:
+        return []
+    ignored = subprocess.run(
+        ["git", *_HARDENING, "-C", top, "check-ignore", "-z", "--stdin"],
+        input="\x00".join(paths) + "\x00", capture_output=True, text=True, timeout=30,
+        env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+    )
+    return sorted(p for p in ignored.stdout.split("\x00") if p)[:INCLUDE_MAX_FILES]
+
+
+def _inside(base: str, rel: str) -> Path | None:
+    """base/rel when no component of it is a symlink and it stays in base."""
+    parts = Path(rel).parts
+    if not parts or Path(rel).is_absolute() or ".." in parts:
+        return None
+    current = Path(base)
+    for part in parts:
+        current = current / part
+        if current.is_symlink():
+            return None
+    return current
+
+
+def copy_worktree_include(top: str, target: str) -> int:
+    """Copy worktree_include_files(top) into the worktree at `target`.
+    Only regular files, never through a symbolic link on either side (a
+    link in the repo must not pull in or overwrite anything outside it),
+    never over an existing file. Returns how many were copied."""
+    copied = 0
+    for rel in worktree_include_files(top):
+        source, dest = _inside(top, rel), _inside(target, rel)
+        if source is None or dest is None or not source.is_file() or source.stat().st_size > INCLUDE_MAX_BYTES:
+            continue
+        parent = Path(target)
+        for part in Path(rel).parts[:-1]:
+            parent = parent / part
+            if not parent.exists():
+                parent.mkdir()
+            if parent.is_symlink() or not parent.is_dir():
+                break
+        else:
+            mode = source.stat().st_mode & 0o777
+            try:
+                fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
+            except FileExistsError:
+                continue
+            with os.fdopen(fd, "wb") as out, source.open("rb") as src:
+                out.write(src.read())
+            copied += 1
+    return copied
+
+
+@dataclass(frozen=True)
+class WorkStatus:
+    """A work tree at a glance: uncommitted lines added / removed, and
+    commits ahead of / behind its base branch (None: no base to compare)."""
+    added: int
+    removed: int
+    ahead: int | None = None
+    behind: int | None = None
+    base: str | None = None
+
+    def short(self) -> str:
+        parts = []
+        lines = (f"+{self.added}" if self.added else "") + (f"−{self.removed}" if self.removed else "")
+        if lines:
+            parts.append(lines)
+        if self.ahead:
+            parts.append(f"↑{self.ahead}")
+        if self.behind:
+            parts.append(f"↓{self.behind}")
+        return " ".join(parts)
+
+
+_SHORTSTAT = re.compile(r"(\d+) insertion|(\d+) deletion")
+
+
+def _base_branch(cwd: str) -> str | None:
+    """What to count ahead/behind against: the branch's upstream, or for a
+    ccc / Claude Code worktree (branch worktree-<name>) the branch checked
+    out in the main work tree it was made from."""
+    upstream = _git(cwd, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+    if upstream.returncode == 0 and upstream.stdout.strip():
+        return upstream.stdout.strip()
+    branch = _git(cwd, "symbolic-ref", "-q", "--short", "HEAD").stdout.strip()
+    if not branch.startswith("worktree-"):
+        return None
+    listing = _git(cwd, "worktree", "list", "--porcelain").stdout
+    first = listing.split("\n\n", 1)[0]
+    for line in first.splitlines():
+        if line.startswith("branch refs/heads/"):
+            main = line[len("branch refs/heads/"):]
+            return main if main != branch else None
+    return None
+
+
+def work_status(cwd: str) -> WorkStatus | None:
+    """None outside git or where the repo's config isn't safe to run git in
+    (checked first: `git diff` against the work tree can run filters).
+    Only call it for conversations that may run commands (see the module
+    docstring)."""
+    try:
+        if _git(cwd, "rev-parse", "--is-inside-work-tree").stdout.strip() != "true":
+            return None
+        if _config_problem(_local_config(cwd)):
+            return None
+        stat = _git(cwd, "diff", "HEAD", "--shortstat", "--no-ext-diff", "--no-textconv")
+        added = removed = 0
+        for insertions, deletions in _SHORTSTAT.findall(stat.stdout):
+            added += int(insertions or 0)
+            removed += int(deletions or 0)
+        base = _base_branch(cwd)
+        ahead = behind = None
+        if base:
+            counts = _git(cwd, "rev-list", "--left-right", "--count", f"{base}...HEAD").stdout.split()
+            if len(counts) == 2:
+                behind, ahead = int(counts[0]), int(counts[1])
+        return WorkStatus(added, removed, ahead, behind, base)
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return None
 
 
 REVIEW_DIFF_MAX_CHARS = 60_000

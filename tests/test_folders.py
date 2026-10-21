@@ -176,3 +176,83 @@ def test_an_own_worktree_needs_skip_permissions(storage, repo):
     with pytest.raises(ValueError, match="Skip all permission checks"):
         start_conversation(storage, str(repo), restricted, name="x", worktree=True, interactive=False)
     assert not (repo / ".claude" / "worktrees").exists()
+
+
+def test_new_worktree_gets_the_gitignored_files_from_worktreeinclude(tmp_path, repo):
+    (repo / ".gitignore").write_text(".env\nconfig/local.json\nbuild/\n")
+    (repo / ".worktreeinclude").write_text(".env\nconfig/\na.txt\nbuild/\n")
+    _git(repo, "add", ".gitignore")
+    _git(repo, "commit", "-qm", "ignore")
+    (repo / ".env").write_text("KEY=1\n")
+    (repo / "config").mkdir()
+    (repo / "config/local.json").write_text("{}")
+    (repo / "config/notes.txt").write_text("untracked, not ignored")  # matches, but git doesn't ignore it
+    outside = tmp_path / "outside.txt"
+    outside.write_text("secret")
+    (repo / "build").mkdir()
+    (repo / "build/link").symlink_to(outside)  # ignored, but a symlink
+    gitops.create_worktree(str(repo), "w")  # existing worktree: its .env must not leak into the next
+    (repo / ".claude/worktrees/w/.env").write_text("OTHER=1\n")
+    path = gitops.create_worktree(str(repo), "x")
+    dest = repo / ".claude/worktrees/x"
+    assert path == str(dest)
+    assert (dest / ".env").read_text() == "KEY=1\n"
+    assert (dest / "config/local.json").read_text() == "{}"
+    assert not (dest / "config/notes.txt").exists()
+    assert (dest / "a.txt").read_text() == "one\n"  # tracked: from the checkout, not copied
+    assert not (dest / "build/link").exists()
+    assert not (dest / ".claude").exists()
+
+
+def test_worktreeinclude_never_follows_symlinks(tmp_path, repo):
+    (repo / ".gitignore").write_text(".env\n")
+    _git(repo, "add", ".gitignore")
+    _git(repo, "commit", "-qm", "ignore")
+    (repo / ".env").write_text("KEY=1\n")
+    real = tmp_path / "include"
+    real.write_text(".env\n")
+    (repo / ".worktreeinclude").symlink_to(real)  # the list itself is a symlink: ignored
+    path = gitops.create_worktree(str(repo), "x")
+    assert not (repo / ".claude/worktrees/x/.env").exists()
+    # A tracked symlink in the checkout must not redirect a copy outside.
+    (repo / ".worktreeinclude").unlink()
+    (repo / ".worktreeinclude").write_text("conf/\n")
+    (repo / "conf").mkdir()
+    (repo / "conf/s.txt").write_text("s")
+    (repo / ".gitignore").write_text(".env\nconf/\n")
+    target = tmp_path / "target"
+    target.mkdir()
+    (tmp_path / "evil").mkdir()
+    (target / "conf").symlink_to(tmp_path / "evil")
+    assert gitops.copy_worktree_include(str(repo), str(target)) == 0
+    assert not (tmp_path / "evil/s.txt").exists()
+    assert path
+
+
+def test_work_status_counts_uncommitted_lines_and_commits_against_the_base(repo):
+    path = gitops.create_worktree(str(repo), "feature")
+    assert gitops.work_status(path) == gitops.WorkStatus(0, 0, 0, 0, _git(repo, "branch", "--show-current"))
+    (repo / ".claude/worktrees/feature/a.txt").write_text("one\ntwo\nthree\n")
+    _git(path, "commit", "-qam", "more")
+    (repo / ".claude/worktrees/feature/a.txt").write_text("ONE\ntwo\nthree\n")
+    (repo / "b.txt").write_text("main moved on\n")
+    _git(repo, "add", "b.txt")
+    _git(repo, "commit", "-qm", "main")
+    status = gitops.work_status(path)
+    assert (status.added, status.removed, status.ahead, status.behind) == (1, 1, 1, 1)
+    assert status.short() == "+1−1 ↑1 ↓1"
+    # A plain checkout without an upstream: only the uncommitted lines.
+    main = gitops.work_status(str(repo))
+    assert (main.ahead, main.base, main.short()) == (None, None, "")
+
+
+def test_work_status_refuses_outside_git_and_with_unsafe_config(tmp_path, repo):
+    assert gitops.work_status(str(tmp_path)) is None
+    _git(repo, "config", "filter.x.clean", "touch /tmp/pwned")
+    assert gitops.work_status(str(repo)) is None
+
+
+def test_work_status_short_shows_only_what_is_there():
+    assert gitops.WorkStatus(4, 0).short() == "+4"
+    assert gitops.WorkStatus(0, 2, 0, 3).short() == "−2 ↓3"
+    assert gitops.WorkStatus(0, 0, 0, 0).short() == ""

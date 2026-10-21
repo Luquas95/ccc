@@ -134,7 +134,6 @@ CS: dict[str, str] = {
     "Project path": "Cesta k projektu",
     "New prompt": "Nový prompt",
     "Both path and prompt are required.": "Vyplň cestu i prompt.",
-    "Commit {commit}  ·  Esc close": "Commit {commit}  ·  Esc zavřít",
 
     # --- Conversations / Archive ------------------------------------------------
     "NO CONVERSATION": "BEZ KONVERZACE",
@@ -1202,4 +1201,30 @@ CS: dict[str, str] = {
     "“{name}” may do more than this conversation (its permissions) — ask it yourself in ccc (k) if you want to.":
         "„{name}“ smí víc než tato konverzace (její oprávnění) — zeptej se jí sám v ccc (k), pokud chceš.",
     "A question to “{name}” is still open — wait for its answer.": "Otázka pro „{name}“ je ještě otevřená — počkej na odpověď.",
+    # Comments on a run's diff (ccc.diff_comments)
+    "I reviewed the changes of your commit {commit} (task “{task}”) and left comments on lines of the diff. Address "
+    "each one — change the code, or say why you'd keep it — then sum up what you did.":
+        "Prošel jsem změny tvého commitu {commit} (úkol „{task}“) a nechal komentáře k řádkům diffu. Vyřeš každý "
+        "z nich — uprav kód, nebo napiš, proč bys ho nechal — a pak shrň, co jsi udělal.",
+    "{path}, removed line {n}": "{path}, odebraný řádek {n}",
+    "Comment on the line (diff of a run)": "Komentář k řádku (diff běhu)",
+    "Send the comments to Claude (diff of a run)": "Poslat komentáře Claudovi (diff běhu)",
+    "Comment": "Komentář",
+    "Send to Claude": "Poslat Claudovi",
+    "Enter keeps the comment (empty removes it) · Esc cancels": "Enter komentář uloží (prázdný ho smaže) · Esc zruší",
+    "Commit {commit}  ·  c comment  ·  s send to Claude  ·  Esc close":
+        "Commit {commit}  ·  c komentář  ·  s poslat Claudovi  ·  Esc zavřít",
+    "Move to a changed line of a file first.": "Nejdřív přejdi na změněný řádek souboru.",
+    "No comments yet — c comments on the line under the cursor.": "Zatím žádné komentáře — c okomentuje řádek pod kurzorem.",
+    "Review sent": "Recenze odeslána",
+    "Discard comments?": "Zahodit komentáře?",
+    "What should Claude change here?": "Co tu má Claude změnit?",
+    "{n} comment(s) queued for Claude.": "Komentáře pro Clauda zařazeny do fronty: {n}.",
+    "{n} comment(s)": "komentáře: {n}",
+    "{n} comment(s) haven't been sent to Claude (s). Close and lose them?":
+        "Neodeslané komentáře pro Clauda (s): {n}. Zavřít a přijít o ně?",
+    "In the diff: comment on the line under the cursor": "V diffu: komentář k řádku pod kurzorem",
+    "In the diff: send the comments to Claude as one prompt": "V diffu: poslat komentáře Claudovi jako jeden prompt",
+    "git: ": "git: ",
+    "(↑↓ against {base})": "(↑↓ vůči {base})",
 }

@@ -30,6 +30,8 @@ from ccc.tui.message_box import MessageBox
 from ccc.tui.pixel_text import PixelBanner
 from ccc.tui.prompt_presets import ALT_DIGIT_CHARS, ALT_DIGIT_TEXT, bar_item
 
+GIT_STATUS_SECONDS = 15.0
+
 
 # Newest transcript events mounted when a conversation is opened; older
 # ones are summarised in one line (Markdown + tool widgets cost ~15ms each).
@@ -206,6 +208,9 @@ class ConversationsScreen(SidebarScreen):
         # What the transcript pane currently shows (queue, event count,
         # pending item ids) — re-render only when this changes.
         self._rendered_key: tuple | None = None
+        # queue_id -> gitops.WorkStatus of its folder, refreshed in a thread
+        # (GIT_STATUS_SECONDS) so the 2 s refresh never waits for git.
+        self._git_status: dict[int, object] = {}
         # Interactive conversations show their Claude Code CLI in a tmux
         # pane next to ccc (cli_pane): which conversation it was opened for,
         # and one whose pane you closed (Ctrl+]) — not reopened until Enter.
@@ -251,6 +256,9 @@ class ConversationsScreen(SidebarScreen):
         # set_interval accepts an async callback directly (confirmed live
         # with a standalone sandbox script — no run_worker wrapper needed).
         self.set_interval(2.0, self._refresh_current)
+        if not self.ARCHIVED:
+            self._refresh_git_status()
+            self.set_interval(GIT_STATUS_SECONDS, self._refresh_git_status)
         await self._refresh_prompt_presets_bar()
         if self._focus_input_on_mount:
             if not self._focus_cli():
@@ -271,12 +279,40 @@ class ConversationsScreen(SidebarScreen):
     def _list_rows(self) -> list[tuple[int, Text]]:
         unseen = self.storage.unseen_queue_ids()
         waiting = self.storage.queues_waiting_for_approval()
-        return [
-            (q.id, queue_label(q, q.id in unseen and q.id != self._current_queue_id,
-                               self.storage.count_pending_items(q.id), needs_approval=q.id in waiting))
-            for q in self.storage.list_queues()
-            if q.archived == self.ARCHIVED
-        ]
+        rows = []
+        for q in self.storage.list_queues():
+            if q.archived != self.ARCHIVED:
+                continue
+            label = queue_label(q, q.id in unseen and q.id != self._current_queue_id,
+                                self.storage.count_pending_items(q.id), needs_approval=q.id in waiting)
+            status = self._git_status.get(q.id)
+            if status is not None and status.short():
+                label.append(f" {status.short()}", style="cyan")
+            rows.append((q.id, label))
+        return rows
+
+    def _refresh_git_status(self) -> None:
+        """Lines changed and commits ahead/behind for each conversation's
+        folder — only where Claude may run commands (ccc runs git only
+        there, see gitops)."""
+        from ccc import gitops
+
+        queues = [q for q in self.storage.list_queues()
+                  if not q.archived and gitops.claude_can_run_commands(q)]
+
+        def work() -> None:
+            by_path: dict[str, object] = {}
+            result = {}
+            for q in queues:
+                if q.project_path not in by_path:
+                    by_path[q.project_path] = gitops.work_status(q.project_path)
+                result[q.id] = by_path[q.project_path]
+            self.app.call_from_thread(self._git_status_ready, result)
+
+        self.run_worker(work, thread=True, group="git-status", exclusive=True)
+
+    def _git_status_ready(self, result: dict) -> None:
+        self._git_status = result
 
     def _move_cursor_to_current(self) -> None:
         if self._current_queue_id in self._queue_ids:
@@ -507,6 +543,11 @@ class ConversationsScreen(SidebarScreen):
             (queue.name, "bold"), "  ", (queue.project_path, "dim"), "  ·  ", describe_flags(queue.launch_flags),
             "  ·  ", (_("auto-continue on"), "green") if queue.auto_continue else (_("auto-continue off"), "yellow"),
         ]
+        status = self._git_status.get(queue.id)
+        if status is not None and status.short():
+            parts += ["\n", (_("git: "), "bold"), (status.short(), "cyan")]
+            if status.base:
+                parts += [("  " + _("(↑↓ against {base})").format(base=status.base), "dim")]
         if queue.archived:
             # Nothing runs for it: no remote control, no CLI to open.
             parts += ["\n", (_("archived: "), "bold"), (_("x restores it, Enter restores and opens it, Delete deletes it"), "cyan")]

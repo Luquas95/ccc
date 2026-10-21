@@ -57,3 +57,12 @@ def test_export_markdown(setup):
     assert "**You**" in text and "Fix the LOGIN bug please" in text
     assert "**Claude**" in text and "Fixed the login redirect." in text
     assert "- ⚙ Bash:" in text
+
+
+def test_export_markdown_masks_secrets(setup, tmp_path):
+    storage, a, _, _ = setup
+    root = tmp_path / "projects"
+    with (root / "-p" / "sa.jsonl").open("a") as f:
+        f.write(_line("assistant", "Set GITHUB_TOKEN=ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789", "2026-10-13T10:00:03.000Z"))
+    text = export_markdown(storage, a.id, tmp_path / "exports").read_text()
+    assert "AbCdEfGhIjKlMnOp" not in text and "GITHUB_TOKEN=ghp_[redacted]" in text

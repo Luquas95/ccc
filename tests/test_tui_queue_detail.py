@@ -115,3 +115,58 @@ async def test_run_with_commit_shows_column_and_opens_diff(tmp_path, monkeypatch
         await pilot.press("escape")
         await pilot.pause()
         assert isinstance(app.screen, QueueDetailScreen)
+
+
+@pytest.mark.asyncio
+async def test_diff_comments_are_queued_for_claude(tmp_path, monkeypatch):
+    from datetime import datetime
+
+    from textual.app import App as _App
+
+    from ccc.models import PromptRun, RunStatus
+    from ccc.tui.layout import ConfirmModal
+    from ccc.tui.queue_detail import CommentModal, DiffModal, DiffView
+
+    diff = "commit abc\n\ndiff --git a/x.py b/x.py\n--- a/x.py\n+++ b/x.py\n@@ -1,1 +1,2 @@\n keep\n+added\n"
+    monkeypatch.setattr("ccc.gitops.show", lambda cwd, commit: diff)
+    storage = Storage(tmp_path / "history.db")
+    queue = storage.create_queue("proj", "/tmp/proj", "s1")
+    now = datetime.now()
+    storage.insert_prompt_run(PromptRun(id=0, queue_id=queue.id, queue_item_id=None, prompt_text="Add a line\nmore",
+                                        started_at=now, finished_at=now, status=RunStatus.SUCCESS,
+                                        git_commit="abcdef1234567", git_note="committed"))
+
+    class Host(_App):
+        async def on_mount(self):
+            await self.push_screen(QueueDetailScreen(storage, queue.id))
+
+    app = Host()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        app.screen.query_one("#queue-history-table").focus()
+        await pilot.press("enter")
+        await pilot.pause()
+        assert isinstance(app.screen, DiffModal)
+        view = app.screen.query_one(DiffView)
+        assert view.current.text == "@@ -1,1 +1,2 @@"  # starts on the first changed part
+        await pilot.press("s")  # nothing to send yet
+        await pilot.pause()
+        assert isinstance(app.screen, DiffModal)
+        await pilot.press("down", "down", "c")
+        await pilot.pause()
+        assert isinstance(app.screen, CommentModal)
+        await pilot.press(*"use a constant", "enter")
+        await pilot.pause()
+        modal = app.screen
+        assert isinstance(modal, DiffModal) and list(modal.comments) == [view.cursor]
+        await pilot.press("escape")  # unsent comments: asks first
+        await pilot.pause()
+        assert isinstance(app.screen, ConfirmModal)
+        await pilot.press("n")
+        await pilot.pause()
+        await pilot.press("s")
+        await pilot.pause()
+        assert isinstance(app.screen, QueueDetailScreen)
+        item = storage.next_pending_item(queue.id)
+        assert "abcdef1" in item.prompt_text and "“Add a line”" in item.prompt_text
+        assert "1. x.py:2\n   > +added\n   use a constant" in item.prompt_text

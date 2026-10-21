@@ -518,3 +518,39 @@ def test_export_is_labelled_export_conversation():
     # The footer shows the binding description; plain "Export" didn't say what.
     descriptions = {b.id: b.description for b in ConversationsScreen.BINDINGS}
     assert descriptions["conversations.export"] == "Export conversation"
+
+
+@pytest.mark.asyncio
+async def test_list_and_header_show_the_git_status(tmp_path, monkeypatch):
+    from ccc import gitops
+
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    (tmp_path / "projects").mkdir()
+    asked = []
+
+    def fake(path):
+        asked.append(path)
+        return gitops.WorkStatus(12, 3, 2, 0, "main")
+
+    monkeypatch.setattr(gitops, "work_status", fake)
+    storage = Storage(tmp_path / "history.db")
+    wt = storage.create_queue("wt", "/tmp/wt", "s1")  # legacy = skip permissions: git allowed
+    storage.create_queue("limited", "/tmp/limited", "s2", launch_flags=["--permission-mode", "acceptEdits"])
+
+    class _HostApp(App):
+        async def on_mount(self):
+            await self.push_screen(ConversationsScreen(storage, select_queue_id=wt.id))
+
+    app = _HostApp()
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await app.screen._refresh_current()
+        await pilot.pause()
+        table = app.screen.query_one("#conversation-queue-list", DataTable)
+        cells = [str(cell) for row_key in table.rows for cell in table.get_row(row_key)]
+        assert any("wt" in c and "+12−3 ↑2" in c for c in cells)
+        assert not any("limited" in c and "+12" in c for c in cells)
+        assert asked == ["/tmp/wt"]  # never runs git where Claude can't run commands
+        header = str(app.screen.query_one("#conversation-header", Static).render())
+        assert "+12−3 ↑2" in header and "main" in header
