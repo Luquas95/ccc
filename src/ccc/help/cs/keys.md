@@ -24,6 +24,7 @@ uvádějí výchozí klávesy.
 | `Alt+S` | Snímek obrazovky ccc (SVG do složky exportů, viz Nastavení) |
 | `Ctrl+Q` | Zavřít ccc (běží dál; `ccc` ho zase otevře) |
 | `Alt+N` | Otevřít další konverzaci, která tě potřebuje (i z Claude Code) |
+| `Ctrl+E` | V textovém poli: napsat jeho text v externím editoru (vybraném v Nastavení), vrátí se do pole |
 | `Esc` | Zpět |
 | `Esc` | Zavřít okno / zrušit |
 

@@ -12,6 +12,7 @@ now* act right away.
 | Section | |
 |---|---|
 | Appearance | language — *Auto* follows the system (`LANG`), saving another one restarts ccc's window; colour theme — changes as you pick, kept after Save |
+| External editor | the editor `Ctrl+E` opens a text box's text in — see below |
 | Telegram notifications | see below |
 | Discord notifications | see below |
 | Queues | the *continue* text sent after a usage limit, and the usage reserve — see [Usage limits](limits.md); the [reviewer's](review.md) model |
@@ -41,6 +42,22 @@ fails", "review this file: " — saved once, used in any conversation with
     you to finish, e.g. add a file name.
 
 ![Preset prompt editor](../../../docs/screenshots/prompt_preset.png)
+
+## External editor
+
+Long prompts are easier to write in a real editor. `Ctrl+E` in any text
+box — the message box in Conversations, the task, routine, goal, review,
+workflow and ask windows — opens its text in the editor chosen here.
+ccc steps aside until you close the editor (also in tmux and over SSH);
+what you saved comes back into the box — it isn't sent, you can still
+change it. Closing without saving changes nothing.
+
+*Editor* offers only editors installed on this machine (`nano`, `micro`,
+`vim`, `nvim`, `emacs -nw`, `hx`, `kak`…), graphical ones (`code --wait`,
+`gedit --wait`…) only when there's a display. *Auto* uses `$VISUAL` /
+`$EDITOR`, else the first one found. The text goes through a file only
+you can read in ccc's folder, deleted right after. `Ctrl+E` can be
+changed like any key.
 
 ## Keyboard shortcuts
 

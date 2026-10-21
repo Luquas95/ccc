@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from textual.app import App
+from textual.widgets import TextArea
 
 from ccc import keymap
 from ccc.export_paths import SCREENSHOTS, export_dir
@@ -39,6 +40,9 @@ class CCContinueApp(App):
         keymap.binding("app.screenshot", "take_screenshot", _("Screenshot"), show=False, priority=True),
         keymap.binding("app.quit", "quit", _("Close"), priority=True),
         keymap.binding("app.jump_waiting", "jump_waiting", _("Next waiting"), show=False, priority=True),
+        # Priority: a text box takes Ctrl+E (end of line) itself. Only
+        # while one has focus (check_action) — elsewhere the key is free.
+        keymap.binding("app.external_editor", "external_editor", _("Editor"), show=False, priority=True),
     ]
 
     def __init__(self, db_path: str):
@@ -80,7 +84,40 @@ class CCContinueApp(App):
     capturing_key = False
 
     def check_action(self, action: str, parameters: tuple) -> bool | None:
-        return False if self.capturing_key else True
+        if self.capturing_key:
+            return False
+        if action == "external_editor":
+            return self._editable_box() is not None
+        return True
+
+    def _editable_box(self) -> TextArea | None:
+        box = self.focused
+        return box if isinstance(box, TextArea) and not box.read_only else None
+
+    def action_external_editor(self) -> None:
+        """The focused text box's text in an external editor (Ctrl+E):
+        ccc steps aside until it's closed, the saved text comes back into
+        the box, not sent."""
+        from ccc import external_editor
+
+        box = self._editable_box()
+        if box is None:
+            return
+        argv = external_editor.command(self.storage)
+        if argv is None:
+            self.notify(_("No editor found — install one (e.g. nano) or set $EDITOR."), severity="warning")
+            return
+        folder = Path(self.storage.db_path).parent
+        try:
+            with self.suspend():
+                text = external_editor.edit(argv, box.text, folder)
+        except Exception as exc:  # SuspendNotSupported (textual serve), the editor failing to start
+            self.notify(_("Can't open the editor here ({error}).").format(error=type(exc).__name__), severity="error")
+            return
+        if text is not None:
+            box.text = text
+            box.move_cursor(box.document.end)
+        box.focus()
 
     def get_key_display(self, binding) -> str:
         # Ctrl keys as Textual shows them (^p); others the way ccc names

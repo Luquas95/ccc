@@ -258,7 +258,7 @@ class ConversationsScreen(SidebarScreen):
         yield Static(id="conversation-header")
         yield VerticalScroll(id="conversation-transcript")
         yield Static(id="conversation-status")
-        yield MessageBox(placeholder=_("Message Claude… (Enter send · Ctrl+J new line · Esc back)"), id="message-input")
+        yield MessageBox(placeholder=_("Message Claude… (Enter send · Ctrl+J new line · Ctrl+E editor · Esc back)"), id="message-input")
         yield Horizontal(id="prompt-presets-bar")
         yield PixelBanner(self.BANNER_TEXT, id="no-conversation")
 

@@ -21,7 +21,7 @@ from ccc.notify import (
     send_telegram,
 )
 from ccc.analytics_archive import FOLDER_KEY as ARCHIVE_FOLDER_KEY, archive
-from ccc import context_fill, i18n, keymap
+from ccc import context_fill, external_editor, i18n, keymap
 from ccc.reviews import MODEL_CHOICES as REVIEW_MODELS, MODEL_KEY as REVIEW_MODEL_KEY
 from ccc.i18n import N_, _
 from ccc.export_paths import (
@@ -155,6 +155,20 @@ class SettingsModal(ModalScreen):
                    classes="settings-hint"),
             _row(_("Theme"), Select([(t, t) for t in themes], value=self.app.theme, allow_blank=False, id="settings-theme")),
             Static(_("Applied right away so you can see it; kept after Save."), classes="settings-hint"),
+        )
+        editors = external_editor.installed()
+        chosen = s.get_setting(external_editor.SETTING_KEY) or external_editor.AUTO
+        editor_box = _section(
+            _("External editor"),
+            _row(_("Editor"), Select(
+                [(_("Auto ($VISUAL / $EDITOR, else the first one)"), "auto")] + [(e.label, e.id) for e in editors],
+                value=chosen if chosen in {e.id for e in editors} else "auto", allow_blank=False,
+                id="settings-editor",
+            )),
+            Static(_("Ctrl+E in a text box (message, tasks, routines…) opens its text there; what you save "
+                     "comes back into the box, not sent. Only editors installed here are offered.")
+                   if editors else _("No editor installed here — install one (e.g. nano) to use Ctrl+E."),
+                   classes="settings-hint"),
         )
         telegram = _section(
             _("Telegram notifications"),
@@ -323,7 +337,7 @@ class SettingsModal(ModalScreen):
             Horizontal(Button(_("Back up now"), id="settings-backup"), classes="settings-actions"),
         )
         box = Container(
-            VerticalScroll(appearance, telegram, discord, queues, context, prompt_box, preset_box, shortcuts, exports, archive_box, data,
+            VerticalScroll(appearance, editor_box, telegram, discord, queues, context, prompt_box, preset_box, shortcuts, exports, archive_box, data,
                            id="settings-scroll"),
             Horizontal(
                 Static(_("Ctrl+S save  ·  Esc cancel"), classes="modal-hint"),
@@ -607,6 +621,8 @@ class SettingsModal(ModalScreen):
             self.notify(_("The context warning must be lower than the alarm."), title=_("Not saved"), severity="error")
             return
         s.set_setting(THEME_KEY, self.app.theme)
+        editor = self.query_one("#settings-editor", Select).value
+        s.set_setting(external_editor.SETTING_KEY, "" if editor == "auto" else str(editor))
         token = self.query_one("#settings-telegram-token", Input).value.strip()
         if token:
             s.set_setting(TELEGRAM_TOKEN_KEY, token)

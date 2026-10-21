@@ -144,8 +144,8 @@ CS: dict[str, str] = {
     "Close Claude": "Zavřít Claude",
     "Restore": "Obnovit",
     "Preset {n}": "Předvolba {n}",
-    "Message Claude… (Enter send · Ctrl+J new line · Esc back)":
-        "Zpráva pro Clauda… (Enter odeslat · Ctrl+J nový řádek · Esc zpět)",
+    "Message Claude… (Enter send · Ctrl+J new line · Ctrl+E editor · Esc back)":
+        "Zpráva pro Clauda… (Enter odeslat · Ctrl+J nový řádek · Ctrl+E editor · Esc zpět)",
     "Can't open Claude Code here ({error}).": "Claude Code tady nejde otevřít ({error}).",
     "No conversation yet.": "Zatím žádná konverzace.",
     "… {n} earlier messages not shown": "… starší zprávy nezobrazeny: {n}",
@@ -1264,6 +1264,22 @@ CS: dict[str, str] = {
     "name, folder · ! ? x *": "název, složka · ! ? x *",
     "Nothing matches": "Nic neodpovídá",
     "Queues · filter: {text}": "Fronty · filtr: {text}",
+    # --- external editor (external_editor) ------------------------------------
+    "Write the text in an external editor (in a text box)": "Napsat text v externím editoru (v textovém poli)",
+    "Editor": "Editor",
+    "No editor found — install one (e.g. nano) or set $EDITOR.":
+        "Žádný editor nenalezen — nainstaluj nějaký (např. nano) nebo nastav $EDITOR.",
+    "Can't open the editor here ({error}).": "Editor tady otevřít nejde ({error}).",
+    "External editor": "Externí editor",
+    "Auto ($VISUAL / $EDITOR, else the first one)": "Automaticky ($VISUAL / $EDITOR, jinak první nalezený)",
+    "Ctrl+E in a text box (message, tasks, routines…) opens its text there; what you save "
+    "comes back into the box, not sent. Only editors installed here are offered.":
+        "Ctrl+E v textovém poli (zpráva, úkoly, routiny…) otevře jeho text v editoru; co uložíš, "
+        "se vrátí do pole a neodešle se. Nabízí se jen editory nainstalované na tomto stroji.",
+    "No editor installed here — install one (e.g. nano) to use Ctrl+E.":
+        "Žádný editor tu není nainstalovaný — pro Ctrl+E nainstaluj nějaký (např. nano).",
+    "In a text box: write its text in an external editor (chosen in Settings), it comes back into the box":
+        "V textovém poli: napsat jeho text v externím editoru (vybraném v Nastavení), vrátí se do pole",
     "Filter the list: name or folder; ! working, ? approval, x error, * new (Esc cancels)":
         "Filtrovat seznam: název nebo složka; ! pracuje, ? schválení, x chyba, * nové (Esc zruší)",
 }

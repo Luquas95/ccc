@@ -24,6 +24,7 @@ name the default keys.
 | `Alt+S` | Screenshot of ccc (an SVG in the export folder, see Settings) |
 | `Ctrl+Q` | Close ccc (it keeps running; `ccc` opens it again) |
 | `Alt+N` | Open the next conversation that needs you (also from Claude Code) |
+| `Ctrl+E` | In a text box: write its text in an external editor (chosen in Settings), it comes back into the box |
 | `Esc` | Back |
 | `Esc` | Close the window / cancel |
 

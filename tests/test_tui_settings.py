@@ -330,3 +330,30 @@ async def test_context_settings_saved_and_validated(tmp_path):
         assert context_fill.thresholds(app.storage) == (70, 85)
         assert context_fill.window_setting(app.storage) == 1_000_000
         assert not context_fill.notify_enabled(app.storage)
+
+
+@pytest.mark.asyncio
+async def test_editor_choice_offers_only_installed_editors_and_is_saved(tmp_path, monkeypatch):
+    from ccc import external_editor
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for name in ("nano", "hx", "code"):
+        (bin_dir / name).write_text("#!/bin/sh\n")
+        (bin_dir / name).chmod(0o755)
+    monkeypatch.setenv("PATH", str(bin_dir))
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    app = _app(tmp_path)
+    async with app.run_test(size=(140, 45)) as pilot:
+        modal = await _open_settings(pilot, app)
+        select = modal.query_one("#settings-editor", Select)
+        assert [value for _label, value in select._options] == ["auto", "nano", "hx"]  # no display: no code
+        assert select.value == "auto"
+        select.value = "hx"
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert app.storage.get_setting(external_editor.SETTING_KEY) == "hx"
+        assert external_editor.command(app.storage) == ("hx",)
+        modal = await _open_settings(pilot, app)
+        assert modal.query_one("#settings-editor", Select).value == "hx"
