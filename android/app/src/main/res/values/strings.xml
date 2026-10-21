@@ -267,4 +267,5 @@
     <string name="channel_approvals">Approvals</string>
     <string name="channel_needs_you">Conversations that need you</string>
     <string name="channel_watch">Watching (always on)</string>
+    <string name="approval_waiting">An approval waits for you</string>
 </resources>

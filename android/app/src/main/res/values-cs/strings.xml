@@ -265,4 +265,5 @@
     <string name="channel_approvals">Schválení</string>
     <string name="channel_needs_you">Konverzace, které tě potřebují</string>
     <string name="channel_watch">Hlídání (stále zapnuté)</string>
+    <string name="approval_waiting">Čeká na tebe schválení</string>
 </resources>

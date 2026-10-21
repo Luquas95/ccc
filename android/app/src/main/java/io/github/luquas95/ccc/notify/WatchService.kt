@@ -147,14 +147,31 @@ class WatchService : Service() {
             val builder = when (alert) {
                 is Alert.Approval -> {
                     val p = alert.permission
-                    NotificationCompat.Builder(context, CHANNEL_APPROVALS)
+                    // On the lock screen only that an approval waits — not the command.
+                    val hidden = NotificationCompat.Builder(context, CHANNEL_APPROVALS)
+                        .setSmallIcon(R.drawable.ic_notification)
+                        .setContentTitle(context.getString(R.string.approval_waiting))
+                        .build()
+                    val builder = NotificationCompat.Builder(context, CHANNEL_APPROVALS)
                         .setContentTitle(context.getString(R.string.approval_title, p.conversation ?: "Claude", p.tool))
                         .setContentText(p.input.values.firstOrNull()?.toString()?.trim('"')?.take(200).orEmpty())
                         .setContentIntent(openApp(context, p.conversationId))
-                        .addAction(0, context.getString(R.string.allow), ApprovalReceiver.intent(context, p.id, "allow", alert.key))
-                        .addAction(0, context.getString(R.string.deny), ApprovalReceiver.intent(context, p.id, "deny", alert.key))
+                        .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                        .setPublicVersion(hidden)
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
                         .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                    // Allow / Deny only from an unlocked phone (Android 12+); before that, the app answers.
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        listOf(R.string.allow to "allow", R.string.deny to "deny").forEach { (label, decision) ->
+                            builder.addAction(
+                                NotificationCompat.Action.Builder(0, context.getString(label),
+                                    ApprovalReceiver.intent(context, p.id, decision, alert.key))
+                                    .setAuthenticationRequired(true)
+                                    .build(),
+                            )
+                        }
+                    }
+                    builder
                 }
                 is Alert.NeedsYou -> NotificationCompat.Builder(context, CHANNEL_NEEDS_YOU)
                     .setContentTitle(alert.waiting.name)
