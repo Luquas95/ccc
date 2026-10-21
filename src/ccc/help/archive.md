@@ -25,6 +25,7 @@ In the Archive:
 | `Enter` | restore it and open it in Conversations |
 | `Delete` | delete it from ccc (asks first) |
 | `/` | search all conversations |
+| `f` | [filter the list](conversations.md#filtering-the-list); `Enter` shows the first result (doesn't restore it) |
 | `e` | export it as Markdown |
 
 A restored conversation continues where it was: Claude Code starts again

@@ -51,6 +51,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("conversations.close_claude",
          N_("Close Claude Code beside ccc (it keeps running; Enter in the list opens it)")),
         ("conversations.search", N_("Search all conversations")),
+        ("conversations.filter", N_("Filter the list: name or folder; ! working, ? approval, x error, * new (Esc cancels)")),
         ("conversations.export", N_("Export the conversation as Markdown")),
         ("screen.review", N_("Review its changes with a fresh reviewer (once or until it passes)")),
         ("screen.goal", N_("Goal loop: rounds of work, check and review until the goal is met")),
@@ -65,6 +66,7 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("enter", N_("Restore it and open it in Conversations")),
         ("archive.delete", N_("Delete the conversation from ccc (asks first; Claude Code's transcript stays)")),
         ("conversations.search", N_("Search all conversations")),
+        ("conversations.filter", N_("Filter the list: name or folder; ! working, ? approval, x error, * new (Esc cancels)")),
         ("conversations.export", N_("Export the conversation as Markdown")),
     ]),
     (N_("Tasks editor (t)"), [

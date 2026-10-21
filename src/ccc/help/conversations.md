@@ -26,6 +26,32 @@ Behind the name is how full the conversation's context window is, e.g.
 With no conversation at all, the right side says **NO CONVERSATION** —
 press `n` to start one.
 
+## Filtering the list
+
+With dozens of conversations, `f` opens a filter above the list. Type
+and the list narrows to conversations whose **name or folder** contains
+what you typed — case and diacritics don't matter (`prilis` finds
+*Příliš*); several words must all match.
+
+Markers at the start filter by **state** — each a word of its own,
+combined with text as you like (`? api`, `!? api`, `x`):
+
+| Marker | Shows |
+|---|---|
+| `!` | Claude is working |
+| `?` | waiting for your approval |
+| `x` | stopped on an error |
+| `*` | a new reply you haven't seen |
+
+Several markers show any of those states. `Enter` opens the first result,
+`Esc` cancels the filter. While it's on, the list's title says so
+(`Queues · filter: api`); when nothing fits, the list says *Nothing
+matches*. The filter stays while the list refreshes, until you cancel it
+or leave the view; the conversation you opened from it stays listed even
+when it stops matching (a `*` one is no longer new once you look at it).
+The key can be changed in Settings → Keyboard shortcuts. It works the
+same in the [Archive](archive.md).
+
 ## Claude Code beside ccc
 
 A conversation started with `n` runs the **real Claude Code** — the same
@@ -127,5 +153,6 @@ reaches the warning (again only after it dropped below, e.g. after
 | `p` | [approve a tool call](approvals.md) Claude is waiting on |
 | `x` | [archive](archive.md) the conversation |
 | `/` | search all conversations (archived too); `Enter` on a hit opens it |
+| `f` | filter the list by name, folder and state (see *Filtering the list*) |
 | `e` | export the conversation as Markdown (to `conversations/` in the export folder, see [Settings](settings.md)) |
 | `n` | [start a new conversation](new-conversation.md) |

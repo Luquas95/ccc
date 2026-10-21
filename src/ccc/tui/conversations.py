@@ -9,9 +9,9 @@ from rich.text import Text
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.content import Content
-from textual.widgets import Collapsible, DataTable, Markdown, Static
+from textual.widgets import Collapsible, DataTable, Input, Markdown, Static
 
-from ccc import context_fill, keymap
+from ccc import context_fill, keymap, list_filter
 from ccc.i18n import _
 from ccc.launch_options import describe_flags
 from ccc.models import DeliveryMode, Queue, QueueStatus
@@ -56,6 +56,7 @@ class ConversationsScreen(SidebarScreen):
         keymap.binding("conversations.archive", "toggle_archive", _("Archive")),
         # No Ctrl+D (delete): it exits Claude Code (#31).
         keymap.binding("conversations.search", "search", _("Search")),
+        keymap.binding("conversations.filter", "filter", _("Filter")),
         keymap.binding("conversations.export", "export", _("Export conversation")),
         keymap.binding("screen.review", "review", _("Review")),
         keymap.binding("screen.goal", "goal", _("Goal")),
@@ -81,6 +82,17 @@ class ConversationsScreen(SidebarScreen):
     # Sidebar frame/buttons come from SidebarScreen (layout.SHARED_CSS);
     # only the transcript message boxes are specific to this screen.
     DEFAULT_CSS = """
+    ConversationsScreen #conversation-filter {
+        display: none;
+        margin: 0 1 1 1;
+    }
+    ConversationsScreen.-filter-open #conversation-filter {
+        display: block;
+    }
+    ConversationsScreen #conversation-filter-empty {
+        padding: 0 1;
+        color: $text-muted;
+    }
     ConversationsScreen #conversation-header {
         height: auto;
         padding: 0 1;
@@ -221,6 +233,11 @@ class ConversationsScreen(SidebarScreen):
         # and one whose pane you closed (Ctrl+]) — not reopened until Enter.
         self._cli_open_for: int | None = None
         self._cli_closed_for: int | None = None
+        # The list filter (f, list_filter), and the conversation opened from
+        # its results: that one stays listed until the filter changes — a
+        # "*" match stops being new the moment you look at it.
+        self._filter = list_filter.ListFilter()
+        self._filter_kept: int | None = None
 
     def sidebar_buttons(self):
         return [NEW_CONVERSATION_BUTTON, RETRY_BUTTON]
@@ -229,8 +246,11 @@ class ConversationsScreen(SidebarScreen):
         return self.storage.find_queue(self._current_queue_id) if self._current_queue_id is not None else None
 
     def compose_sidebar_section(self):
-        yield Static(_("Queues"), classes="sidebar-label")
+        yield Static(_("Queues"), id="conversation-list-label", classes="sidebar-label")
+        # Disabled while hidden: the screen's first focus would land in it.
+        yield Input(placeholder=_("name, folder · ! ? x *"), id="conversation-filter", disabled=True)
         yield DataTable(id="conversation-queue-list", classes="sidebar-list")
+        yield Static(_("Nothing matches"), id="conversation-filter-empty")
         # No Claude Code key hints here: the menu keeps its size in every
         # view — they are in the bar under Claude Code (cli_bar).
 
@@ -282,6 +302,10 @@ class ConversationsScreen(SidebarScreen):
         self._list_signature = [label.plain for _id, label in rows]
         for _id, label in rows:
             table.add_row(label)
+        self.query_one("#conversation-filter-empty", Static).display = self._filter.active and not rows
+        text = self.query_one("#conversation-filter", Input).value.strip()
+        self.query_one("#conversation-list-label", Static).update(
+            _("Queues · filter: {text}").format(text=text) if self._filter.active else _("Queues"))
 
     def _list_rows(self) -> list[tuple[int, Text]]:
         unseen = self.storage.unseen_queue_ids()
@@ -291,8 +315,10 @@ class ConversationsScreen(SidebarScreen):
         for q in self.storage.list_queues():
             if q.archived != self.ARCHIVED:
                 continue
-            label = queue_label(q, q.id in unseen and q.id != self._current_queue_id,
-                                self.storage.count_pending_items(q.id), needs_approval=q.id in waiting)
+            is_unseen = q.id in unseen and q.id != self._current_queue_id
+            if not self._filter.matches(q, is_unseen, q.id in waiting) and q.id != self._filter_kept:
+                continue
+            label = queue_label(q, is_unseen, self.storage.count_pending_items(q.id), needs_approval=q.id in waiting)
             status = self._git_status.get(q.id)
             if status is not None and status.short():
                 label.append(f" {status.short()}", style="cyan")
@@ -359,6 +385,8 @@ class ConversationsScreen(SidebarScreen):
 
     async def _show_queue(self, queue_id: int) -> None:
         self._current_queue_id = queue_id
+        if self._filter.active and queue_id in self._queue_ids:
+            self._filter_kept = queue_id
         self.storage.mark_seen(queue_id)
         self._sync_cli_pane()
         self.sync_retry_button()
@@ -764,6 +792,8 @@ class ConversationsScreen(SidebarScreen):
             return
         # Already on this screen: just select it in place.
         self._rebuild_queue_list()
+        if queue_id not in self._queue_ids and self._filter.active:
+            self._close_filter()  # the filter hides it
         self._current_queue_id = queue_id
         self._move_cursor_to_current()
         self.run_worker(self._open_and_focus(queue_id), exclusive=True, group="show-queue")
@@ -866,6 +896,51 @@ class ConversationsScreen(SidebarScreen):
                 self.open_conversation(queue_id)  # in Archive when archived
 
         self.app.push_screen(SearchModal(self.storage), chosen)
+
+    # --- list filter (f) -------------------------------------------------
+
+    def action_filter(self) -> None:
+        self.add_class("-filter-open")
+        box = self.query_one("#conversation-filter", Input)
+        box.disabled = False
+        box.focus()
+
+    def action_back(self) -> None:
+        # Esc first cancels the filter, then goes back.
+        if self.has_class("-filter-open"):
+            self._close_filter()
+            self.query_one("#conversation-queue-list", DataTable).focus()
+            return
+        super().action_back()
+
+    def _close_filter(self) -> None:
+        self.remove_class("-filter-open")
+        box = self.query_one("#conversation-filter", Input)
+        box.value = ""
+        box.disabled = True
+        self._filter = list_filter.ListFilter()
+        self._filter_kept = None
+        self._rebuild_queue_list()
+        self._move_cursor_to_current()
+
+    async def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id != "conversation-filter":
+            return
+        self._filter = list_filter.parse(event.value)
+        self._filter_kept = None
+        self._rebuild_queue_list()
+        if self._queue_ids and self._current_queue_id not in self._queue_ids:
+            await self._show_queue(self._queue_ids[0])
+        self._move_cursor_to_current()
+
+    async def on_input_submitted(self, event: Input.Submitted) -> None:
+        # Enter opens the first result, as Enter on it in the list would
+        # (Archive: shows it, doesn't restore it).
+        if event.input.id != "conversation-filter" or not self._queue_ids:
+            return
+        self._current_queue_id = self._queue_ids[0]
+        self._move_cursor_to_current()
+        await self._open_and_focus(self._queue_ids[0])
 
     def action_export(self) -> None:
         from ccc.export_paths import CONVERSATIONS, export_dir

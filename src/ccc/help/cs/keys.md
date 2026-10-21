@@ -54,6 +54,7 @@ uvádějí výchozí klávesy.
 | `Alt+0` | Přepnout mezi ccc a Claude Code (když je otevřený vedle ccc) |
 | `Ctrl+]` | Zavřít Claude Code vedle ccc (běží dál; Enter v seznamu ho otevře) |
 | `/` | Hledat ve všech konverzacích |
+| `f` | Filtrovat seznam: název nebo složka; ! pracuje, ? schválení, x chyba, * nové (Esc zruší) |
 | `e` | Exportovat konverzaci jako Markdown |
 | `v` | Nechat její změny zkontrolovat nezávislým recenzentem (jednou, nebo dokud neprojde) |
 | `g` | Smyčka k cíli: kola práce, kontroly a recenze, dokud není cíl splněný |
@@ -78,6 +79,7 @@ uvádějí výchozí klávesy.
 | `Enter` | Obnovit ji a otevřít v Konverzacích |
 | `Del` | Smazat konverzaci z ccc (nejdřív se zeptá; přepis Claude Code zůstane) |
 | `/` | Hledat ve všech konverzacích |
+| `f` | Filtrovat seznam: název nebo složka; ! pracuje, ? schválení, x chyba, * nové (Esc zruší) |
 | `e` | Exportovat konverzaci jako Markdown |
 
 ## Editor úkolů (t)
