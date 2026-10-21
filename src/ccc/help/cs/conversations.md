@@ -105,8 +105,9 @@ bez terminálu. U nich ukazuje přepis sám ccc:
   sbalený řádek `▸ ⚙ Tool: …` — `Enter` nebo kliknutí ukáže jeho vstup
   a výsledek.
 - **Pole pro zprávu** pod přepisem přidá zprávu na konec fronty: `Enter`
-  odešle, `Ctrl+J` začne nový řádek. `Alt+1` … `Alt+9` odešlou nebo
-  vloží [přednastavený prompt](settings.md).
+  odešle, `Ctrl+J` začne nový řádek, `Ctrl+E` otevře text v
+  [externím editoru](settings.md#externí-editor). `Alt+1` … `Alt+9`
+  odešlou nebo vloží [přednastavený prompt](settings.md).
 - Řádek nad polem říká, co se děje: *Připraveno*, *Další úkol v 23:00*,
   *Čeká na obnovení limitu do 14:30*,
   *✖ Zablokováno: … — stiskni r pro nový pokus*, …

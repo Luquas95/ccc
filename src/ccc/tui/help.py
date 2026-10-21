@@ -29,6 +29,8 @@ KEY_HELP: list[tuple[str, list[tuple[str, str]]]] = [
         ("app.screenshot", N_("Screenshot of ccc (an SVG in the export folder, see Settings)")),
         ("app.quit", N_("Close ccc (it keeps running; `ccc` opens it again)")),
         ("app.jump_waiting", N_("Open the next conversation that needs you (also from Claude Code)")),
+        ("app.external_editor", N_("In a text box: write its text in an external editor (chosen in Settings), "
+                                   "it comes back into the box")),
         ("screen.back", N_("Back")),
         ("window.cancel", N_("Close the window / cancel")),
     ]),

@@ -12,6 +12,7 @@ změny zahodí. Tlačítka jako *Poslat testovací zprávu*, *Vypnout* nebo
 | Sekce | |
 |---|---|
 | Vzhled | jazyk — *Automaticky* se řídí systémem (`LANG`), uložení jiného jazyka restartuje okno ccc; barevný motiv — mění se už při výběru, zůstane po Uložit |
+| Externí editor | editor, ve kterém `Ctrl+E` otevře text pole — viz níže |
 | Notifikace přes Telegram | viz níže |
 | Notifikace přes Discord | viz níže |
 | Fronty | text *pokračuj* posílaný po limitu využití a rezerva využití — viz [Limity využití](limits.md); model [recenzenta](review.md) |
@@ -42,6 +43,22 @@ v každé konverzaci přes `Alt+1` … `Alt+9`.
     abys je dopsal(a), třeba přidal(a) název souboru.
 
 ![Editor přednastaveného promptu](../../../../docs/screenshots/prompt_preset.png)
+
+## Externí editor
+
+Dlouhé zadání se líp píše ve skutečném editoru. `Ctrl+E` v libovolném
+textovém poli — v poli pro zprávu v Konverzacích, v oknech úkolu,
+routiny, cíle, recenze, workflow a dotazu — otevře jeho text v editoru
+vybraném tady. ccc ustoupí, dokud editor nezavřeš (i v tmuxu a přes
+SSH); co uložíš, se vrátí do pole — neodešle se, můžeš ho ještě upravit.
+Zavření bez uložení nic nezmění.
+
+*Editor* nabízí jen editory nainstalované na tomto stroji (`nano`,
+`micro`, `vim`, `nvim`, `emacs -nw`, `hx`, `kak`…), grafické
+(`code --wait`, `gedit --wait`…) jen když je k dispozici displej.
+*Automaticky* použije `$VISUAL` / `$EDITOR`, jinak první nalezený. Text
+jde přes soubor ve složce ccc, který můžeš číst jen ty, a hned potom se
+smaže. `Ctrl+E` jde přemapovat jako každá klávesa.
 
 ## Klávesové zkratky
 

@@ -104,8 +104,9 @@ terminal. For these ccc shows the transcript itself:
 - Claude's replies are rendered as Markdown; a tool call is a collapsed
   `▸ ⚙ Tool: …` line — `Enter` or a click shows its input and result.
 - The **message box** under the transcript adds a message to the end of
-  the queue: `Enter` sends, `Ctrl+J` starts a new line. `Alt+1` … `Alt+9`
-  send or insert a [preset prompt](settings.md).
+  the queue: `Enter` sends, `Ctrl+J` starts a new line, `Ctrl+E` opens
+  the text in your [external editor](settings.md#external-editor).
+  `Alt+1` … `Alt+9` send or insert a [preset prompt](settings.md).
 - The line above the box says what's going on: *Ready*, *Next task at
   23:00*, *Waiting for usage limit reset until 14:30*,
   *✖ Blocked: … — press r to retry*, …
