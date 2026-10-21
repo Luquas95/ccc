@@ -73,19 +73,8 @@ class GoalModal(ModalScreen):
         margin-top: 1;
     }
     GoalModal .goal-actions Button {
-        border: none;
         height: 3;
         margin-right: 1;
-        background: blue;
-        color: white;
-        text-style: bold;
-    }
-    GoalModal .goal-actions Button.goal-danger {
-        background: red;
-    }
-    GoalModal .goal-actions Button:disabled {
-        background: $panel;
-        color: $text-muted;
     }
     GoalModal .modal-hint {
         color: $text-muted;

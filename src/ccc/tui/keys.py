@@ -56,12 +56,8 @@ class KeysModal(ModalScreen):
         margin-bottom: 0;
     }
     KeysModal .keys-row Button {
-        border: none;
         height: 3;
         margin-left: 1;
-        background: blue;
-        color: white;
-        text-style: bold;
     }
     KeysModal .keys-hint {
         color: $text-muted;

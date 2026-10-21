@@ -101,23 +101,8 @@ class WorkflowModal(ModalScreen):
         margin-top: 1;
     }
     WorkflowModal .workflow-actions Button {
-        border: none;
         height: 3;
         margin-right: 1;
-        background: blue;
-        color: white;
-        text-style: bold;
-    }
-    WorkflowModal .workflow-actions Button.workflow-ok {
-        background: green;
-        color: black;
-    }
-    WorkflowModal .workflow-actions Button.workflow-danger {
-        background: red;
-    }
-    WorkflowModal .workflow-actions Button:disabled {
-        background: $panel;
-        color: $text-muted;
     }
     WorkflowModal #workflow-note {
         width: 1fr;

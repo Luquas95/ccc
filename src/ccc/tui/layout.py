@@ -28,7 +28,7 @@ class SidebarButton:
     # key — Button labels are parsed as Rich markup, so use "({key})"
     # rather than "[{key}]" (brackets get silently eaten).
     label: str
-    color: str  # "green" | "blue" | "red" — see .sidebar-button-* CSS
+    color: str  # "green" | "teal" | "red" — see BUTTON_CSS
     action: str  # action name on the screen, without the "action_" prefix
     key_id: str  # keymap action id whose key the label shows
 
@@ -156,6 +156,47 @@ class ConfirmModal(ModalScreen):
         self.dismiss(yes and self.can_confirm)
 
 
+# Every ccc button (CCContinueApp.CSS — app CSS beats Textual's defaults
+# whatever their specificity): flat, one colour per role, and the same
+# size and colour on hover, Tab focus and click. Textual's default turned
+# a clicked button black and two rows shorter (#55). Not blue: blue marks
+# the focused field and the selected row, so a blue button looked focused.
+BUTTON_CSS = """
+$ccc-button: #00796b;
+$ccc-button-ok: #2e7d32;
+$ccc-button-danger: #c62828;
+Button {
+    border: none;
+    height: 3;
+    text-style: bold;
+    color: white;
+    background: $ccc-button;
+    tint: transparent;
+}
+Button:hover {
+    background-tint: white 15%;
+}
+Button:focus {
+    text-style: bold underline;
+    background-tint: white 15%;
+}
+Button.-active {
+    background-tint: black 25%;
+}
+Button.modal-submit, Button.workflow-ok, Button.sidebar-button-green {
+    background: $ccc-button-ok;
+}
+Button.modal-cancel, Button.settings-danger, Button.review-danger, Button.goal-danger, Button.ask-danger,
+Button.routines-danger, Button.workflow-danger, Button.sidebar-button-red {
+    background: $ccc-button-danger;
+}
+Button:disabled {
+    background: $panel;
+    color: $text-muted;
+    background-tint: transparent;
+}
+"""
+
 SHARED_CSS = """
 SidebarScreen #sidebar {
     width: 32;
@@ -209,18 +250,6 @@ SidebarScreen #sidebar Button.sidebar-button {
     height: 3;
     border: none;
     text-style: bold;
-}
-SidebarScreen #sidebar Button.sidebar-button-green {
-    background: green;
-    color: black;
-}
-SidebarScreen #sidebar Button.sidebar-button-blue {
-    background: blue;
-    color: white;
-}
-SidebarScreen #sidebar Button.sidebar-button-red {
-    background: red;
-    color: white;
 }
 SidebarScreen #main {
     width: 1fr;
@@ -287,18 +316,7 @@ MODAL_CSS = """
     align-horizontal: right;
 }}
 {cls} .modal-buttons Button {{
-    border: none;
-    height: 3;
     margin-left: 1;
-    text-style: bold;
-}}
-{cls} .modal-submit {{
-    background: green;
-    color: black;
-}}
-{cls} .modal-cancel {{
-    background: red;
-    color: white;
 }}
 """
 

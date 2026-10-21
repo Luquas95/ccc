@@ -12,6 +12,7 @@ from ccc.i18n import _
 from ccc.storage import Storage
 from ccc.tui.dashboard import DashboardScreen
 from ccc.tui.exports import send_export
+from ccc.tui.layout import BUTTON_CSS
 
 
 class CCContinueApp(App):
@@ -26,6 +27,8 @@ class CCContinueApp(App):
     # offered — quit, screenshot, theme — lives in the footer and Settings.
     ENABLE_COMMAND_PALETTE = False
     ESCAPE_TO_MINIMIZE = False
+
+    CSS = BUTTON_CSS
 
     BINDINGS = [
         keymap.binding("app.settings", "settings", _("Settings"), priority=True),
