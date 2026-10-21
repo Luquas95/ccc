@@ -56,6 +56,17 @@ Každá cesta začíná `/api/v1`; každý požadavek má hlavičku
 | `GET /runs/{id}/diff` | commit běhu po řádcích (druh, soubor, čísla řádků, jde komentovat) |
 | `POST /runs/{id}/comments` | `{"comments": [{"index", "text"}]}` k řádkům diffu, poslané Claudovi jako jeden úkol |
 | `POST /runs/{id}/revert` | vrátí commit běhu novým commitem; `{"tell": true}` k tomu zařadí poznámku pro Clauda |
+| `GET /conversations/{id}/reviews` | její [recenze](review.md), nejnovější první; `POST` o jednu požádá `{"instructions", "until_pass", "rounds"}`; `POST …/reviews/stop`; `POST /reviews/{id}/apply` pošle nálezy recenze FAIL / PARTIAL zpět jako úkol |
+| `GET /conversations/{id}/goals` | její [smyčky k cíli](goal.md); `POST` jednu spustí `{"goal", "check", "rounds"}`; `POST …/goals/stop` |
+| `GET /workflow-templates` | šablony [workflow](workflows.md) s jejich kroky |
+| `GET /conversations/{id}/workflows` | její běhy workflow, každý s kroky a tím, co řekl každý agent; `POST` jeden spustí `{"template", "task", "check", "rounds"}`; `POST …/workflows/answer` `{"approve", "note"}` u schvalovacího kroku; `POST …/workflows/stop` |
+| `GET /conversations/{id}/asks` | [otázky](asking.md) od ní a pro ni; `POST` se zeptá jiné `{"to", "question", "deliver"}`; `POST /asks/{id}/cancel` |
+| `GET /routines` | všechny [rutiny](routines.md) a druhy plánu; `POST` přidá `{"conversation_id", "name", "prompt", "kind", "value", "fresh"}`; `POST /routines/{id}` ji změní, `DELETE` smaže; `POST …/enabled` `{"enabled"}`, `POST …/run` |
+| `GET /live-sessions` | [relace Claude Code](live-sessions.md) běžící na počítači; `POST /live-sessions/{id}/prompt` `{"prompt"}` |
+| `GET /analytics?year=&month=` | tokeny měsíce po dnech, modelech a konverzacích, měsíce s daty ([Analytika](analytics.md)); `POST /analytics/archive` archivuje skončené měsíce hned |
+| `GET /settings` | [nastavení](settings.md) ccc s možnostmi u každého (tajné údaje jen jako nastaveno / nenastaveno); `POST` některá změní; `POST /settings/telegram-test`, `telegram-off`, `discord-test`, `discord-off` |
+| `POST /prompt-presets` | `{"presets": [{"name", "text", "send_now"}]}` — všechny, v pořadí; `POST /launch-presets` uloží předvolbu nové konverzace, `POST /launch-presets/delete` `{"name"}` |
+| `POST /backup` | zálohovat databázi hned |
 | `GET /launch-options` | volby, se kterými jde konverzace založit (klíče a popisky) |
 | `GET /projects` | naposledy použité složky |
 | `GET /sessions?path=` | relace Claude Code ve složce, nejnovější první (k pokračování: `session_id` v `POST /conversations` se `session_resume`) |

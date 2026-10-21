@@ -59,6 +59,17 @@ Every path starts with `/api/v1`; every request has the header
 | `GET /runs/{id}/diff` | the run's commit line by line (kind, file, line numbers, commentable) |
 | `POST /runs/{id}/comments` | `{"comments": [{"index", "text"}]}` on lines of the diff, sent to Claude as one task |
 | `POST /runs/{id}/revert` | undo the run's commit with a new one; `{"tell": true}` also queues a note for Claude |
+| `GET /conversations/{id}/reviews` | its [reviews](review.md), newest first; `POST` asks for one `{"instructions", "until_pass", "rounds"}`; `POST …/reviews/stop`; `POST /reviews/{id}/apply` sends a FAIL / PARTIAL review's findings back as a task |
+| `GET /conversations/{id}/goals` | its [goal loops](goal.md); `POST` starts one `{"goal", "check", "rounds"}`; `POST …/goals/stop` |
+| `GET /workflow-templates` | the [workflow](workflows.md) templates with their steps |
+| `GET /conversations/{id}/workflows` | its workflow runs, each with its steps and what every agent said; `POST` starts one `{"template", "task", "check", "rounds"}`; `POST …/workflows/answer` `{"approve", "note"}` at a gate; `POST …/workflows/stop` |
+| `GET /conversations/{id}/asks` | [questions](asking.md) to and from it; `POST` asks another `{"to", "question", "deliver"}`; `POST /asks/{id}/cancel` |
+| `GET /routines` | every [routine](routines.md) and the schedule kinds; `POST` adds one `{"conversation_id", "name", "prompt", "kind", "value", "fresh"}`; `POST /routines/{id}` changes it, `DELETE` removes it; `POST …/enabled` `{"enabled"}`, `POST …/run` |
+| `GET /live-sessions` | [Claude Code sessions](live-sessions.md) running on the computer; `POST /live-sessions/{id}/prompt` `{"prompt"}` |
+| `GET /analytics?year=&month=` | a month's tokens per day, model and conversation, the months there are ([Analytics](analytics.md)); `POST /analytics/archive` archives finished months now |
+| `GET /settings` | ccc's [settings](settings.md) with the choices for each (secrets only as set / not set); `POST` changes some of them; `POST /settings/telegram-test`, `telegram-off`, `discord-test`, `discord-off` |
+| `POST /prompt-presets` | `{"presets": [{"name", "text", "send_now"}]}` — all of them, in order; `POST /launch-presets` saves a New conversation preset, `POST /launch-presets/delete` `{"name"}` |
+| `POST /backup` | back the database up now |
 | `GET /launch-options` | the options a conversation can be started with (keys and labels) |
 | `GET /projects` | recently used folders |
 | `GET /sessions?path=` | Claude Code sessions recorded in a folder, newest first (to resume one: `session_id` in `POST /conversations` with `session_resume`) |

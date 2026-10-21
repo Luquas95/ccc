@@ -258,6 +258,14 @@ def _notify(notifier, text: str, review: Review | None = None) -> None:
         notifier.notify(text)
 
 
+STATUS_LABELS = {
+    ReviewStatus.PENDING: N_("waiting"),
+    ReviewStatus.RUNNING: N_("reviewing…"),
+    ReviewStatus.DONE: N_("done"),
+    ReviewStatus.NOTHING: N_("nothing new"),
+    ReviewStatus.ERROR: N_("failed"),
+    ReviewStatus.STOPPED: N_("stopped"),
+}
 VERDICT_ICONS = {Verdict.PASS: "✅", Verdict.FAIL: "❌", Verdict.PARTIAL: "⚠️"}
 
 

@@ -146,6 +146,115 @@ class CccApi(
         post<Unit>("runs/$runId/revert", body("tell" to JsonPrimitive(tell)))
     }
 
+    // --- reviews, goals, workflows, questions ----------------------------------------------
+
+    suspend fun reviews(id: Int): Reviews = get("conversations/$id/reviews")
+
+    suspend fun requestReview(id: Int, instructions: String, untilPass: Boolean, rounds: Int?): Reviews =
+        post("conversations/$id/reviews", body("instructions" to JsonPrimitive(instructions),
+            "until_pass" to JsonPrimitive(untilPass), "rounds" to JsonPrimitive(rounds)))
+
+    suspend fun stopReview(id: Int): Reviews = post("conversations/$id/reviews/stop", "{}")
+
+    suspend fun applyReview(reviewId: Int): Reviews = post("reviews/$reviewId/apply", "{}")
+
+    suspend fun goals(id: Int): Goals = get("conversations/$id/goals")
+
+    suspend fun startGoal(id: Int, goal: String, check: String, rounds: Int?): Goals =
+        post("conversations/$id/goals", body("goal" to JsonPrimitive(goal), "check" to JsonPrimitive(check),
+            "rounds" to JsonPrimitive(rounds)))
+
+    suspend fun stopGoal(id: Int): Goals = post("conversations/$id/goals/stop", "{}")
+
+    suspend fun workflowTemplates(): List<WorkflowTemplate> = get("workflow-templates")
+
+    suspend fun workflows(id: Int): Workflows = get("conversations/$id/workflows")
+
+    suspend fun startWorkflow(id: Int, template: String, task: String, check: String, rounds: Int?): Workflows =
+        post("conversations/$id/workflows", body("template" to JsonPrimitive(template), "task" to JsonPrimitive(task),
+            "check" to JsonPrimitive(check), "rounds" to JsonPrimitive(rounds)))
+
+    suspend fun answerWorkflow(id: Int, approve: Boolean, note: String): Workflows =
+        post("conversations/$id/workflows/answer", body("approve" to JsonPrimitive(approve), "note" to JsonPrimitive(note)))
+
+    suspend fun stopWorkflow(id: Int): Workflows = post("conversations/$id/workflows/stop", "{}")
+
+    suspend fun asks(id: Int): List<AskItem> = get("conversations/$id/asks")
+
+    suspend fun ask(id: Int, to: Int, question: String, deliver: Boolean): List<AskItem> =
+        post("conversations/$id/asks", body("to" to JsonPrimitive(to), "question" to JsonPrimitive(question),
+            "deliver" to JsonPrimitive(deliver)))
+
+    suspend fun cancelAsk(askId: Int) {
+        post<Unit>("asks/$askId/cancel", "{}")
+    }
+
+    // --- routines, live sessions, analytics, settings ---------------------------------------
+
+    suspend fun routines(): Routines = get("routines")
+
+    private fun routineBody(r: Routine): String = body(
+        "conversation_id" to JsonPrimitive(r.conversationId), "name" to JsonPrimitive(r.name),
+        "prompt" to JsonPrimitive(r.prompt), "kind" to JsonPrimitive(r.kind), "value" to JsonPrimitive(r.value),
+        "fresh" to JsonPrimitive(r.fresh),
+    )
+
+    /** [routine]'s id is ignored: a new one. */
+    suspend fun addRoutine(routine: Routine): Routines = post("routines", routineBody(routine))
+
+    suspend fun editRoutine(routine: Routine): Routines = post("routines/${routine.id}", routineBody(routine))
+
+    suspend fun deleteRoutine(id: Int): Routines = call(request("routines/$id").delete().build())
+
+    suspend fun enableRoutine(id: Int, enabled: Boolean): Routines =
+        post("routines/$id/enabled", body("enabled" to JsonPrimitive(enabled)))
+
+    suspend fun runRoutine(id: Int): RoutineRun = post("routines/$id/run", "{}")
+
+    suspend fun liveSessions(): List<LiveSession> = get("live-sessions")
+
+    suspend fun promptLiveSession(sessionId: String, prompt: String) {
+        post<Unit>("live-sessions/$sessionId/prompt", body("prompt" to JsonPrimitive(prompt)))
+    }
+
+    suspend fun analytics(year: Int?, month: Int?): Analytics =
+        get("analytics", buildMap {
+            year?.let { put("year", it.toString()) }
+            month?.let { put("month", it.toString()) }
+        })
+
+    suspend fun archiveAnalytics() {
+        post<Unit>("analytics/archive", "{}")
+    }
+
+    suspend fun settings(): CccSettings = get("settings")
+
+    /** Only the keys given change (see /settings in ccc's API). */
+    suspend fun changeSettings(changes: Map<String, JsonElement>): CccSettings =
+        post("settings", json.encodeToString(JsonObject.serializer(), JsonObject(changes)))
+
+    suspend fun settingsAction(action: String) {
+        post<Unit>("settings/$action", "{}")
+    }
+
+    suspend fun savePromptPresets(presets: List<PromptPreset>): List<PromptPreset> =
+        post("prompt-presets", body("presets" to JsonArray(presets.map {
+            JsonObject(mapOf("name" to JsonPrimitive(it.name), "text" to JsonPrimitive(it.text),
+                "send_now" to JsonPrimitive(it.sendNow)))
+        })))
+
+    suspend fun deleteLaunchPreset(name: String) {
+        post<Unit>("launch-presets/delete", body("name" to JsonPrimitive(name)))
+    }
+
+    suspend fun saveLaunchPreset(choice: LaunchChoice) {
+        post<Unit>("launch-presets", json.encodeToString(LaunchChoice.serializer(), choice))
+    }
+
+    suspend fun backup() {
+        post<Unit>("backup", "{}")
+    }
+
     suspend fun permissions(): List<Permission> = get("permissions")
 
     /** [decision]: "allow", "always" (this tool in this conversation from now on) or "deny". */

@@ -22,10 +22,12 @@ import asyncio
 from datetime import datetime
 
 from ccc import reviews
-from ccc.i18n import _
+from ccc.i18n import N_, _
 from ccc.models import Ask, AskStatus, ItemStatus, Queue
 from ccc.transcript import reply_after
 
+STATUS_LABELS = {AskStatus.ASKED: N_("waiting for the answer"), AskStatus.ANSWERED: N_("answered"),
+                 AskStatus.ERROR: N_("failed"), AskStatus.CANCELLED: N_("cancelled")}
 MAX_OPEN = 3
 QUESTION_CHARS = 4000
 ANSWER_CHARS = 8000

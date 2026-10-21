@@ -106,6 +106,12 @@ def _finish(storage, goal: Goal, status: GoalStatus, reason: str, notifier=None)
     return goal
 
 
+PHASE_LABELS = {
+    GoalPhase.CODING: N_("Claude works on round {n}"),
+    GoalPhase.CHECKING: N_("running the check"),
+    GoalPhase.REVIEWING: N_("the reviewer judges round {n}"),
+}
+
 STATUS_LABELS = {
     GoalStatus.RUNNING: N_("running"),
     GoalStatus.PASSED: N_("met"),

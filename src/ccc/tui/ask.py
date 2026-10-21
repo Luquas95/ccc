@@ -11,14 +11,12 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, DataTable, Select, Static, TextArea
 
 from ccc import asks, keymap
-from ccc.i18n import N_, _
+from ccc.i18n import _
 from ccc.models import Ask, AskStatus
 from ccc.schedule import format_when
 from ccc.tui.layout import MODAL_CSS
 
 REFRESH_SECONDS = 2.0
-STATUS_LABELS = {AskStatus.ASKED: N_("waiting for the answer"), AskStatus.ANSWERED: N_("answered"),
-                 AskStatus.ERROR: N_("failed"), AskStatus.CANCELLED: N_("cancelled")}
 STATUS_STYLES = {AskStatus.ASKED: "yellow", AskStatus.ANSWERED: "green", AskStatus.ERROR: "red",
                  AskStatus.CANCELLED: "dim"}
 
@@ -121,7 +119,7 @@ class AskModal(ModalScreen):
             other = names.get(a.to_queue_id if outgoing else a.from_queue_id, "?")
             arrow = ("→" if outgoing else "←") + (" 🤖" if a.by_agent else "")
             table.add_row(format_when(a.created_at, now), arrow, other,
-                          Text(_(STATUS_LABELS[a.status]), style=STATUS_STYLES[a.status]),
+                          Text(_(asks.STATUS_LABELS[a.status]), style=STATUS_STYLES[a.status]),
                           Text(a.question.splitlines()[0][:70]))
         if not items:
             table.add_row("", "", "", "", Text(_("no questions yet"), style="dim"))

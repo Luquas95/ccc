@@ -27,13 +27,12 @@ from ccc.i18n import N_, _
 from ccc.export_paths import (
     FOLDER_KEY as EXPORT_FOLDER_KEY, SEND_CHOICES, SEND_KEY as EXPORT_SEND_KEY, default_export_folder, home_short,
 )
-from ccc.orchestrator import DEFAULT_CONTINUE_TEXT, RESERVE_KEY, usage_reserve
+from ccc.orchestrator import DEFAULT_CONTINUE_TEXT, RESERVE_CHOICES, RESERVE_KEY, usage_reserve
 from ccc.presets import delete_preset, list_presets
 from ccc.prompt_presets import MAX_PRESETS, load_prompt_presets, save_prompt_presets
 from ccc.tui.layout import MODAL_CSS
 from ccc.tui.prompt_presets import PromptPresetModal, mode_label, preset_key
 
-RESERVE_CHOICES = [50, 60, 70, 75, 80, 85, 90, 95]
 TEST_MESSAGE = N_("✅ ccc: Telegram notifications work.")
 DISCORD_TEST_MESSAGE = N_("✅ ccc: Discord notifications work.")
 DISCORD_PLACEHOLDER = "https://discord.com/api/webhooks/…"

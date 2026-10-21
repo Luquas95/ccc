@@ -196,6 +196,8 @@ def with_model(flags: list[str] | None, model: str) -> list[str]:
 
 
 RESERVE_KEY = "usage_reserve"
+# The reserves offered in Settings (TUI, app).
+RESERVE_CHOICES = [50, 60, 70, 75, 80, 85, 90, 95]
 
 
 def usage_reserve(storage) -> int | None:

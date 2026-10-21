@@ -12,18 +12,13 @@ from textual.widgets import Button, DataTable, Input, Static, TextArea
 
 from ccc import goals, keymap
 from ccc.i18n import _
-from ccc.models import Goal, GoalPhase, GoalStatus
+from ccc.models import Goal, GoalStatus
 from ccc.schedule import format_when
 from ccc.tui.layout import MODAL_CSS
 
 REFRESH_SECONDS = 2.0
 STATUS_STYLES = {GoalStatus.RUNNING: "bold yellow", GoalStatus.PASSED: "bold green", GoalStatus.STUCK: "bold red",
                  GoalStatus.LIMIT: "bold red", GoalStatus.STOPPED: "dim", GoalStatus.ERROR: "bold red"}
-PHASE_LABELS = {
-    GoalPhase.CODING: _("Claude works on round {n}"),
-    GoalPhase.CHECKING: _("running the check"),
-    GoalPhase.REVIEWING: _("the reviewer judges round {n}"),
-}
 
 
 def status_text(goal: Goal) -> Text:
@@ -164,7 +159,7 @@ class GoalModal(ModalScreen):
         if g.check_command:
             parts.append(Text(_("Check: {command}").format(command=g.check_command), style="dim"))
         if g.status == GoalStatus.RUNNING:
-            parts.append(Text(PHASE_LABELS[g.phase].format(n=g.round), style="yellow"))
+            parts.append(Text(_(goals.PHASE_LABELS[g.phase]).format(n=g.round), style="yellow"))
         else:
             parts.append(status_text(g))
         if g.last_reason:

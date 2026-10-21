@@ -16,6 +16,10 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
 | <img src="screenshots/en/search.png" width="260" alt="Search"> | <img src="screenshots/en/archive.png" width="260" alt="Archive"> | <img src="screenshots/en/approvals.png" width="260" alt="Approvals"> |
 | **Task queue** | **Runs and commits** | **A diff with a comment** |
 | <img src="screenshots/en/tasks.png" width="260" alt="Task queue"> | <img src="screenshots/en/runs.png" width="260" alt="Runs"> | <img src="screenshots/en/diff.png" width="260" alt="Diff"> |
+| **Reviews** | **A workflow at its gate** | **Analytics** |
+| <img src="screenshots/en/reviews.png" width="260" alt="Reviews"> | <img src="screenshots/en/workflow.png" width="260" alt="Workflow"> | <img src="screenshots/en/analytics.png" width="260" alt="Analytics"> |
+| **Routines** | **Live sessions** | **ccc settings** |
+| <img src="screenshots/en/routines.png" width="260" alt="Routines"> | <img src="screenshots/en/live_sessions.png" width="260" alt="Live sessions"> | <img src="screenshots/en/ccc_settings.png" width="260" alt="ccc settings"> |
 
 ## What it does
 
@@ -45,6 +49,17 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
   state, tokens and commit; open a commit's **diff**, tap lines to
   comment and send the comments to Claude as one task; **revert** a
   run's commit (a new commit), telling Claude if you like.
+- **Reviews, goal, workflow, questions** (a conversation's menu) — ask
+  for a review (once, or until it passes) and send its findings back;
+  start / stop a goal loop; start a workflow, approve or reject it at
+  its gate, see what every agent said; ask another conversation — `v`,
+  `g`, `w`, `k` in ccc.
+- **Routines, live sessions, analytics, ccc settings** (⋮ on the list)
+  — add, change, turn on / off, run and delete routines; send a prompt
+  to a Claude Code session running on the computer; a month's tokens
+  per day, model and conversation; and ccc's own settings (language,
+  queues, context, Telegram / Discord with a test message, folders,
+  preset prompts, presets, backup).
 - **Approvals** — Allow, Always (this tool in this conversation) or
   Deny, right in the conversation or all of them behind the bell.
 - **New conversation** — a folder (recently used ones offered), the same
@@ -97,5 +112,5 @@ from there.
       presets, who needs you, resuming a session, @-mentions) — done;
    2. the task queue and a queue's runs, diffs and commits — done;
    3. reviews, goals, workflows, questions, routines, live sessions,
-      analytics, settings;
+      analytics, settings — done;
    4. notifications with Allow / Deny, and Claude Code's live terminal.

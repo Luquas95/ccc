@@ -383,7 +383,7 @@ fun SetupScreen(
     var token by rememberSaveable { mutableStateOf("") }
     var busy by rememberSaveable { mutableStateOf(false) }
     Scaffold(
-        topBar = { TopBar(stringResource(if (signedIn) R.string.settings else R.string.setup_title), onBack) },
+        topBar = { TopBar(stringResource(if (signedIn) R.string.connection else R.string.setup_title), onBack) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(
