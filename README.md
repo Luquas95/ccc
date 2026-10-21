@@ -31,7 +31,7 @@ phone via Remote Control.
 <td><img src="docs/screenshots/analytics.png" alt="Analytics"></td>
 </tr>
 <tr>
-<td align="center">Settings: theme, Telegram, Discord, queues, presets, backup</td>
+<td align="center">Settings: language, Telegram, Discord, queues, presets, backup</td>
 <td align="center">Analytics: account usage and token history</td>
 </tr>
 <tr>
@@ -83,7 +83,7 @@ phone via Remote Control.
 - **Preset prompts** — prompts you use often, on `Alt+1` … `Alt+9` in any
   conversation: each one is either sent right away or put into the message
   box for you to finish.
-- **Settings** (`Ctrl+P`) — colour theme, Telegram, Discord, continue text, usage
+- **Settings** (`Ctrl+P`) — language, Telegram, Discord, continue text, usage
   reserve, preset prompts, launch presets and database backup in one
   window.
 - **Routines** (`o`) — prompts queued on a schedule (every N minutes, daily,

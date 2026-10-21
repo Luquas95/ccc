@@ -60,7 +60,7 @@ first.
 
 - [Usage limits & blocked queues](limits.md) — what happens when you hit
   your Claude limit, and how to keep part of it for yourself.
-- [Settings & notifications](settings.md) — colour theme, Telegram /
+- [Settings & notifications](settings.md) — language, Telegram /
   Discord messages, preset prompts.
 - [Remote control (phone)](remote-control.md) — continue a conversation
   from the Claude app.

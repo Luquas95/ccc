@@ -33,7 +33,6 @@ from ccc.prompt_presets import MAX_PRESETS, load_prompt_presets, save_prompt_pre
 from ccc.tui.layout import MODAL_CSS
 from ccc.tui.prompt_presets import PromptPresetModal, mode_label, preset_key
 
-THEME_KEY = "tui_theme"
 RESERVE_CHOICES = [50, 60, 70, 75, 80, 85, 90, 95]
 TEST_MESSAGE = N_("✅ ccc: Telegram notifications work.")
 DISCORD_TEST_MESSAGE = N_("✅ ccc: Discord notifications work.")
@@ -42,11 +41,6 @@ DISCORD_PLACEHOLDER = "https://discord.com/api/webhooks/…"
 # and ends in "…" when it doesn't fit — the full text is in Edit.
 PRESET_COLUMNS = ((N_("Key"), 9), (N_("Mode"), 8), (N_("Name"), 16))
 MIN_PROMPT_WIDTH = 10
-
-
-def saved_theme(storage, available) -> str | None:
-    theme = storage.get_setting(THEME_KEY)
-    return theme if theme in available else None
 
 
 def _section(title: str, *children) -> Vertical:
@@ -73,8 +67,8 @@ class SettingsModal(ModalScreen):
         height: 1fr;
     }
     SettingsModal .settings-section {
-        border: round cyan;
-        border-title-color: green;
+        border: round $ccc-line;
+        border-title-color: $ccc-title;
         border-title-style: bold;
         padding: 0 1;
         margin-bottom: 1;
@@ -115,7 +109,7 @@ class SettingsModal(ModalScreen):
         margin-bottom: 1;
     }
     SettingsModal #settings-prompt-presets > .datatable--cursor {
-        background: blue;
+        background: $ccc-selection;
         color: white;
         text-style: bold;
     }
@@ -139,8 +133,6 @@ class SettingsModal(ModalScreen):
 
     def compose(self):
         s = self.storage
-        themes = sorted(self.app.available_themes)
-        self._original_theme = self.app.theme
         token_set = bool(s.get_setting(TELEGRAM_TOKEN_KEY))
         reserve = usage_reserve(s)
         reserve_values = sorted(set(RESERVE_CHOICES) | ({reserve} if reserve else set()))
@@ -153,8 +145,6 @@ class SettingsModal(ModalScreen):
             )),
             Static(_("Auto follows the system language (LANG). Saving another one restarts ccc's window."),
                    classes="settings-hint"),
-            _row(_("Theme"), Select([(t, t) for t in themes], value=self.app.theme, allow_blank=False, id="settings-theme")),
-            Static(_("Applied right away so you can see it; kept after Save."), classes="settings-hint"),
         )
         editors = external_editor.installed()
         chosen = s.get_setting(external_editor.SETTING_KEY) or external_editor.AUTO
@@ -360,7 +350,7 @@ class SettingsModal(ModalScreen):
         self._refresh_telegram_state()
         self._refresh_discord_state()
         self._refresh_data_info()
-        self.query_one("#settings-theme", Select).focus()
+        self.query_one("#settings-language", Select).focus()
 
     def _refresh_telegram_state(self) -> None:
         on = bool(self.storage.get_setting(TELEGRAM_TOKEN_KEY)) and bool(self.storage.get_setting(TELEGRAM_CHAT_KEY))
@@ -376,10 +366,6 @@ class SettingsModal(ModalScreen):
         ))
 
     # --- events ------------------------------------------------------------
-
-    def on_select_changed(self, event: Select.Changed) -> None:
-        if event.select.id == "settings-theme" and isinstance(event.value, str):
-            self.app.theme = event.value
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         event.stop()
@@ -626,7 +612,6 @@ class SettingsModal(ModalScreen):
                 self.query_one("#settings-context-danger", Select).value):
             self.notify(_("The context warning must be lower than the alarm."), title=_("Not saved"), severity="error")
             return
-        s.set_setting(THEME_KEY, self.app.theme)
         editor = self.query_one("#settings-editor", Select).value
         s.set_setting(external_editor.SETTING_KEY, "" if editor == "auto" else str(editor))
         s.set_setting(groups.MODE_KEY, str(self.query_one("#settings-groups", Select).value))
@@ -672,7 +657,6 @@ class SettingsModal(ModalScreen):
             self.app.notify(_("The language changes when you start ccc again."), timeout=8)
 
     def action_cancel(self) -> None:
-        self.app.theme = self._original_theme
         self.dismiss(False)
 
 

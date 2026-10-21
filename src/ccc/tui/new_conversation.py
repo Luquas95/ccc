@@ -98,7 +98,7 @@ class NewConversationModal(ModalScreen):
     }
     NewConversationModal .group-title {
         text-style: bold;
-        color: green;
+        color: $ccc-title;
         margin-top: 1;
     }
     NewConversationModal Checkbox {

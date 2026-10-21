@@ -124,7 +124,7 @@ class TasksModal(ModalScreen):
         height: 1fr;
     }
     TasksModal #tasks-table > .datatable--cursor {
-        background: blue;
+        background: $ccc-selection;
         color: white;
         text-style: bold;
     }

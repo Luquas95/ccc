@@ -337,8 +337,6 @@ CS: dict[str, str] = {
     "Auto (system)": "Automaticky (systém)",
     "Auto follows the system language (LANG). Saving another one restarts ccc's window.":
         "Automaticky se řídí jazykem systému (LANG). Uložení jiného jazyka restartuje okno ccc.",
-    "Theme": "Motiv",
-    "Applied right away so you can see it; kept after Save.": "Projeví se hned, ať ho vidíš; zůstane po Uložit.",
     "Telegram notifications": "Notifikace přes Telegram",
     "Bot token": "Token bota",
     "saved — type a new one to replace it": "uložen — napiš nový, pokud ho chceš nahradit",
@@ -455,8 +453,8 @@ CS: dict[str, str] = {
     "Everywhere": "Všude",
     "Archive (archived conversations)": "Archiv (archivované konverzace)",
     "This help": "Tato nápověda",
-    "Settings (language, theme, Telegram, queues, presets, shortcuts, backup)":
-        "Nastavení (jazyk, motiv, Telegram, fronty, předvolby, zkratky, záloha)",
+    "Settings (language, Telegram, queues, presets, shortcuts, backup)":
+        "Nastavení (jazyk, Telegram, fronty, předvolby, zkratky, záloha)",
     "Screenshot of ccc (an SVG in the export folder, see Settings)":
         "Snímek obrazovky ccc (SVG do složky exportů, viz Nastavení)",
     "Close ccc (it keeps running; `ccc` opens it again)": "Zavřít ccc (běží dál; `ccc` ho zase otevře)",
@@ -503,7 +501,7 @@ CS: dict[str, str] = {
     "Add a prompt (this queue's path prefilled)": "Přidat prompt (s předvyplněnou cestou této fronty)",
     "Preset prompt editor (Settings → Add / Edit)": "Editor přednastaveného promptu (Nastavení → Přidat / Upravit)",
     "Settings (Ctrl+P)": "Nastavení (Ctrl+P)",
-    "Cancel (the theme goes back too)": "Zrušit (vrátí se i motiv)",
+    "Cancel (nothing is saved)": "Zrušit (nic se neuloží)",
 
     # --- Guide (help/__init__.py) ------------------------------------------------
     "ccc help": "Nápověda ccc",

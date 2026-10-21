@@ -11,7 +11,7 @@ změny zahodí. Tlačítka jako *Poslat testovací zprávu*, *Vypnout* nebo
 
 | Sekce | |
 |---|---|
-| Vzhled | jazyk — *Automaticky* se řídí systémem (`LANG`), uložení jiného jazyka restartuje okno ccc; barevný motiv — mění se už při výběru, zůstane po Uložit |
+| Vzhled | jazyk — *Automaticky* se řídí systémem (`LANG`), uložení jiného jazyka restartuje okno ccc |
 | Externí editor | editor, ve kterém `Ctrl+E` otevře text pole — viz níže |
 | Notifikace přes Telegram | viz níže |
 | Notifikace přes Discord | viz níže |

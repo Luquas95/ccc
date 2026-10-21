@@ -9,7 +9,7 @@ from ccc.presets import LaunchChoice, list_presets, save_preset
 from ccc.storage import Storage
 from ccc.tui.app import CCContinueApp
 from ccc.tui.dashboard import DashboardScreen
-from ccc.tui.settings import THEME_KEY, SettingsModal
+from ccc.tui.settings import SettingsModal
 
 
 @pytest.fixture(autouse=True)
@@ -66,9 +66,6 @@ async def test_settings_saves_everything(tmp_path):
     app = _app(tmp_path)
     async with app.run_test(size=(140, 45)) as pilot:
         modal = await _open_settings(pilot, app)
-        modal.query_one("#settings-theme", Select).value = "nord"
-        await pilot.pause()
-        assert app.theme == "nord"  # live preview
         modal.query_one("#settings-telegram-token", Input).value = "123:abc"
         modal.query_one("#settings-telegram-chat", Input).value = "42"
         modal.query_one("#settings-continue-text", Input).value = "Go on."
@@ -77,7 +74,6 @@ async def test_settings_saves_everything(tmp_path):
         await pilot.pause()
         assert isinstance(app.screen, DashboardScreen)
         s = app.storage
-        assert s.get_setting(THEME_KEY) == "nord"
         assert s.get_setting(TELEGRAM_TOKEN_KEY) == "123:abc"
         assert s.get_setting(TELEGRAM_CHAT_KEY) == "42"
         assert s.get_setting("continue_text") == "Go on."
@@ -97,28 +93,33 @@ async def test_empty_token_field_keeps_the_saved_token(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_cancel_puts_the_theme_back_and_saves_nothing(tmp_path):
+async def test_cancel_saves_nothing(tmp_path):
     app = _app(tmp_path)
     async with app.run_test(size=(140, 45)) as pilot:
-        before = app.theme
         modal = await _open_settings(pilot, app)
-        modal.query_one("#settings-theme", Select).value = "nord"
         modal.query_one("#settings-reserve", Select).value = "90"
         await pilot.pause()
         await pilot.press("escape")
         await pilot.pause()
-        assert app.theme == before
-        assert app.storage.get_setting(THEME_KEY) is None
         assert app.storage.get_setting(RESERVE_KEY) is None
 
 
 @pytest.mark.asyncio
-async def test_saved_theme_is_applied_on_start(tmp_path):
-    Storage(tmp_path / "history.db").set_setting(THEME_KEY, "nord")
+async def test_one_theme_with_ccc_colours_whatever_was_saved(tmp_path):
+    from textual.app import App
+
+    from ccc.tui import theme
+
+    Storage(tmp_path / "history.db").set_setting("tui_theme", "nord")  # from the old theme picker
     app = _app(tmp_path)
     async with app.run_test(size=(140, 45)) as pilot:
         await pilot.pause()
-        assert app.theme == "nord"
+        assert app.theme == theme.NAME
+        # Its own, not the test default from conftest.
+        assert type(app).get_theme_variable_defaults is not App.get_theme_variable_defaults
+        assert app.get_css_variables()["ccc-sidebar"] == theme.VARIABLES["ccc-sidebar"]
+        modal = await _open_settings(pilot, app)
+        assert not modal.query("#settings-theme")  # no picker
 
 
 @pytest.mark.asyncio

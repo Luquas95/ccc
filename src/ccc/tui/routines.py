@@ -180,7 +180,7 @@ class RoutinesModal(ModalScreen):
         margin-bottom: 1;
     }
     RoutinesModal #routines-table > .datatable--cursor {
-        background: blue;
+        background: $ccc-selection;
         color: white;
         text-style: bold;
     }

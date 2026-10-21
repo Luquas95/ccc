@@ -120,6 +120,7 @@ class ConversationsScreen(SidebarScreen):
         height: auto;
         padding: 0 1;
         margin-bottom: 1;
+        border-bottom: solid $ccc-line;
     }
     ConversationsScreen.-cli-open #main {
         display: none;
@@ -175,18 +176,18 @@ class ConversationsScreen(SidebarScreen):
         height: auto;
     }
     ConversationsScreen .message-box {
-        border: round cyan;
+        border: round $ccc-human;
         padding: 0 1;
         margin-bottom: 1;
     }
     ConversationsScreen .message-box-human {
-        border: round cyan;
+        border: round $ccc-human;
     }
     ConversationsScreen .message-box-assistant {
-        border: round green;
+        border: round $ccc-claude;
     }
     ConversationsScreen .message-box-queued {
-        border: round $panel-lighten-2;
+        border: round $ccc-line;
         color: $text-muted;
     }
     ConversationsScreen .message-header {

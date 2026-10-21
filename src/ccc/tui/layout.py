@@ -203,7 +203,8 @@ Button:disabled {
 SHARED_CSS = """
 SidebarScreen #sidebar {
     width: 32;
-    background: $surface;
+    background: $ccc-sidebar;
+    border-right: solid $ccc-line;
 }
 SidebarScreen #daemon-state {
     padding: 0 1;
@@ -211,25 +212,29 @@ SidebarScreen #daemon-state {
 SidebarScreen .sidebar-title {
     padding: 1 1 0 1;
     text-style: bold;
-    color: green;
+    color: $accent;
 }
 SidebarScreen .sidebar-rule {
-    color: yellow;
-    margin-bottom: 1;
+    color: $ccc-line;
+    margin: 0 0 1 0;
 }
 SidebarScreen .sidebar-label {
     padding: 0 1 1 1;
     text-style: bold;
+    color: $text-muted;
 }
+/* A bar on the left marks the open view; the others keep the same room. */
 SidebarScreen .nav-item {
     padding: 0 1;
     height: 1;
+    border-left: outer $ccc-sidebar;
 }
 SidebarScreen .nav-item:hover {
     background: $boost;
 }
 SidebarScreen .nav-item.-active {
-    background: blue;
+    background: $ccc-selection;
+    border-left: outer $accent;
     color: white;
     text-style: bold;
 }
@@ -242,9 +247,12 @@ SidebarScreen #sidebar-section {
 }
 SidebarScreen .sidebar-list {
     height: 1fr;
+    background: $ccc-sidebar;
+    scrollbar-background: $ccc-sidebar;
+    scrollbar-color: $ccc-line;
 }
 SidebarScreen #sidebar DataTable.sidebar-list > .datatable--cursor {
-    background: blue;
+    background: $ccc-selection;
     color: white;
     text-style: bold;
 }
@@ -259,8 +267,8 @@ SidebarScreen #main {
     padding: 0 1;
 }
 SidebarScreen .panel {
-    border: round cyan;
-    border-title-color: green;
+    border: round $ccc-line;
+    border-title-color: $ccc-title;
     border-title-style: bold;
     padding: 0 1;
     margin-bottom: 1;
@@ -272,12 +280,13 @@ SidebarScreen .panel-fill {
 SidebarScreen .panel DataTable {
     height: auto;
     max-height: 100%;
+    background: transparent;
 }
 SidebarScreen .panel-fill DataTable {
     height: 1fr;
 }
 SidebarScreen .panel DataTable > .datatable--cursor {
-    background: blue;
+    background: $ccc-selection;
     color: white;
     text-style: bold;
 }
@@ -295,8 +304,8 @@ MODAL_CSS = """
 {cls} > Container {{
     width: 84;
     height: auto;
-    border: round green;
-    border-title-color: green;
+    border: round $ccc-title;
+    border-title-color: $ccc-title;
     border-title-style: bold;
     background: $surface;
     padding: 1 2;
