@@ -15,6 +15,7 @@ from ccc import context_fill, groups, keymap, list_filter
 from ccc.i18n import _
 from ccc.launch_options import describe_flags
 from ccc.models import DeliveryMode, Queue, QueueStatus
+from ccc.orchestrator import send_message
 from ccc.prompt_presets import load_prompt_presets
 from ccc.storage import Storage
 from ccc.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
@@ -818,11 +819,7 @@ class ConversationsScreen(SidebarScreen):
         text = text.strip()
         if not text or self._current_queue_id is None:
             return False
-        # Pure storage write — the daemon picks it up on its next poll.
-        self.storage.add_queue_item(self._current_queue_id, text)
-        if self.storage.get_queue(self._current_queue_id).status == QueueStatus.PAUSED_LIMIT:
-            # Writing to a conversation paused at a limit means "go on".
-            self.storage.update_queue_status(self._current_queue_id, QueueStatus.IDLE)
+        send_message(self.storage, self._current_queue_id, text)
         await self._refresh_current()
         return True
 

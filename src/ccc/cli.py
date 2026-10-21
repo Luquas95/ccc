@@ -179,7 +179,7 @@ def main(argv: list[str] | None = None) -> None:
         "archive-analytics", help=_("Archive finished months into the analytics folder now (the daemon does it hourly)")
     )
 
-    from ccc import asks_cli, goals_cli, keys_cli, revert_cli, reviews_cli, routines_cli, workflows_cli
+    from ccc import api_cli, asks_cli, goals_cli, keys_cli, revert_cli, reviews_cli, routines_cli, workflows_cli
 
     keys_cli.add_parser(subparsers)
     routines_cli.add_parser(subparsers)
@@ -188,6 +188,7 @@ def main(argv: list[str] | None = None) -> None:
     revert_cli.add_parser(subparsers)
     workflows_cli.add_parser(subparsers)
     asks_cli.add_parser(subparsers)
+    api_cli.add_parser(subparsers)
 
     config_parser = subparsers.add_parser("config", help=_("Show or change ccc settings"))
     config_sub = config_parser.add_subparsers(dest="setting", required=True)
@@ -285,6 +286,10 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.command == "revert":
         sys.exit(revert_cli.run_revert(Storage(str(default_db_path())), args))
+
+    if args.command == "api":
+        db_path = str(default_db_path())
+        sys.exit(api_cli.run(Storage(db_path), db_path, args))
 
     if args.command == "add":
         try:

@@ -2,11 +2,13 @@
 # Installs ccc for the current user:
 #   - a virtualenv in this checkout with ccc installed into it,
 #   - systemd --user units for the daemon (ccc.service) and the always-on
-#     TUI in tmux (ccc-tui.service), generated for this checkout's path,
+#     TUI in tmux (ccc-tui.service), with --api also the HTTP API for the
+#     Android app (ccc-api.service), generated for this checkout's path,
 #   - enables and starts them.
 #
-# Usage: bin/install.sh [--no-tui] [--no-start] [--no-systemd] [--units-dir DIR]
+# Usage: bin/install.sh [--no-tui] [--api] [--no-start] [--no-systemd] [--units-dir DIR]
 #   --no-tui      only the daemon unit (`ccc` then starts the TUI session itself)
+#   --api         also the API unit (put it on the tailnet: tailscale serve --bg 8737)
 #   --no-start    enable the units but don't start them now
 #   --no-systemd  only create the venv; don't touch systemd at all
 #   --units-dir   write the units somewhere else to inspect them (systemd is
@@ -18,16 +20,18 @@ CCC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 DEFAULT_UNITS_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 UNITS_DIR="$DEFAULT_UNITS_DIR"
 WITH_TUI=1
+WITH_API=0
 START=1
 SYSTEMD=1
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --no-tui) WITH_TUI=0 ;;
+        --api) WITH_API=1 ;;
         --no-start) START=0 ;;
         --no-systemd) SYSTEMD=0 ;;
         --units-dir) UNITS_DIR="$2"; shift ;;
-        -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
     shift
@@ -63,6 +67,7 @@ fi
 mkdir -p "$UNITS_DIR"
 units=(ccc.service)
 [ "$WITH_TUI" = 1 ] && units+=(ccc-tui.service)
+[ "$WITH_API" = 1 ] && units+=(ccc-api.service)
 for unit in "${units[@]}"; do
     sed "s#@CCC_DIR@#$CCC_DIR#g" "$CCC_DIR/deploy/systemd/$unit" > "$UNITS_DIR/$unit"
     say "Wrote $UNITS_DIR/$unit"

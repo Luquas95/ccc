@@ -130,7 +130,8 @@ bin/install.sh
 it, writes two `systemd --user` units for this location — `ccc.service`
 (the daemon that runs your tasks) and `ccc-tui.service` (the TUI, kept
 alive in its own tmux session) — and enables and starts them. Options:
-`--no-tui` (daemon only), `--no-start`, `--no-systemd` (just the
+`--no-tui` (daemon only), `--api` (also the [API for the Android
+app](src/ccc/help/android-api.md)), `--no-start`, `--no-systemd` (just the
 virtualenv).
 
 So the services keep running after you log out or close SSH, enable
@@ -179,6 +180,7 @@ Language):
 - [Usage limits & blocked queues](src/ccc/help/limits.md)
 - [Approving tool calls](src/ccc/help/approvals.md)
 - [Remote control (phone)](src/ccc/help/remote-control.md)
+- [Android app & API](src/ccc/help/android-api.md)
 - [Live sessions](src/ccc/help/live-sessions.md)
 - [Analytics](src/ccc/help/analytics.md)
 - [Settings & notifications](src/ccc/help/settings.md)

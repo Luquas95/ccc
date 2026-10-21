@@ -50,4 +50,6 @@ ccc-tui`); changed in Settings they work right away.
 | `ccc workflow import FILE` / `export TEMPLATE FOLDER` / `delete TEMPLATE` | your own templates as JSON |
 | `ccc ask FROM TO "QUESTION"` | one conversation [asks another](asking.md) (ids or names); `--no-deliver` = don't pass the answer into FROM, `--wait` = wait and print the answer |
 | `ccc asks [CONVERSATION]` | questions between conversations, newest first (`🤖` = Claude asked) |
+| `ccc api serve [--port N]` | run the [API for the Android app](android-api.md) (normally run by `ccc-api.service`) |
+| `ccc api token [--new]` | the token the app signs in with; `--new` = a new one, the old one stops working |
 | `ccc-daemon` | the daemon itself (normally run by `ccc.service`) |

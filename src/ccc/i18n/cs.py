@@ -1316,4 +1316,29 @@ CS: dict[str, str] = {
     "Jump to the next group's heading (Enter or a click folds / unfolds it)":
         "Skočit na nadpis další skupiny (Enter nebo klik ji sbalí / rozbalí)",
     "Jump to the previous group's heading": "Skočit na nadpis předchozí skupiny",
+    # --- HTTP API for the Android app (api.py, api_cli.py) -------------------
+    "Android app & API": "Aplikace pro Android a API",
+    "Not found.": "Nenalezeno.",
+    "The message is empty.": "Zpráva je prázdná.",
+    "decision must be allow, always or deny.": "decision musí být allow, always nebo deny.",
+    "No such approval.": "Takové schválení neexistuje.",
+    "This approval has already been decided.": "O tomto schválení už bylo rozhodnuto.",
+    "options must be a list of option keys.": "options musí být seznam klíčů voleb.",
+    "No such conversation.": "Taková konverzace neexistuje.",
+    "Bad request body.": "Chybné tělo požadavku.",
+    "The body must be a JSON object.": "Tělo musí být objekt JSON.",
+    "{name} must be a number.": "{name} musí být číslo.",
+    "Missing or wrong API token.": "Chybí token API nebo je špatný.",
+    "The body isn't valid JSON.": "Tělo není platný JSON.",
+    "Unknown options: {options}.": "Neznámé volby: {options}.",
+    "Something went wrong in ccc.": "V ccc se něco pokazilo.",
+    "Choose one of: {options}.": "Vyber jen jedno z: {options}.",
+    "HTTP API for the Android app (serve, token)": "HTTP API pro aplikaci pro Android (serve, token)",
+    "Run the API (what the ccc-api service runs)": "Spustit API (to, co spouští služba ccc-api)",
+    "Show the token the app signs in with": "Ukázat token, kterým se aplikace přihlašuje",
+    "make a new one; the old one stops working": "vytvořit nový; starý přestane fungovat",
+    "A new token — sign the app in again; the old one no longer works.":
+        "Nový token — přihlas aplikaci znovu; starý už nefunguje.",
+    "address to listen on (default {host}: reach it through tailscale serve)":
+        "adresa, na které poslouchat (výchozí {host}: zvenku přes tailscale serve)",
 }
