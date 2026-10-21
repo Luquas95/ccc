@@ -1227,4 +1227,14 @@ CS: dict[str, str] = {
     "In the diff: send the comments to Claude as one prompt": "V diffu: poslat komentáře Claudovi jako jeden prompt",
     "git: ": "git: ",
     "(↑↓ against {base})": "(↑↓ vůči {base})",
+    # Conversations that need you, in the Claude Code pane's title (ccc.attention)
+    "waits for approval": "čeká na schválení",
+    "paused at a limit": "pauza na limitu",
+    "+{n} more": "+{n} další",
+    "Open the next conversation that needs you": "Otevřít další konverzaci, která tě potřebuje",
+    "Next waiting": "Další čekající",
+    "No conversation needs you right now.": "Teď tě žádná konverzace nepotřebuje.",
+    "Close this window first (Esc).": "Nejdřív zavři toto okno (Esc).",
+    "Open the next conversation that needs you (also from Claude Code)":
+        "Otevřít další konverzaci, která tě potřebuje (i z Claude Code)",
 }

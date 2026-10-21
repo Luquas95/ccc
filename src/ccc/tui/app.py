@@ -14,6 +14,9 @@ from ccc.tui.dashboard import DashboardScreen
 from ccc.tui.exports import send_export
 from ccc.tui.layout import BUTTON_CSS
 
+# How often the Claude Code pane's title bar learns what needs you.
+WAITING_SECONDS = 2.0
+
 
 class CCContinueApp(App):
     TITLE = "ccc"
@@ -35,6 +38,7 @@ class CCContinueApp(App):
         # Not Ctrl+T, Claude Code's to-do list key (#31); Alt+S is free there.
         keymap.binding("app.screenshot", "take_screenshot", _("Screenshot"), show=False, priority=True),
         keymap.binding("app.quit", "quit", _("Close"), priority=True),
+        keymap.binding("app.jump_waiting", "jump_waiting", _("Next waiting"), show=False, priority=True),
     ]
 
     def __init__(self, db_path: str):
@@ -63,11 +67,14 @@ class CCContinueApp(App):
         self.footer_strip = cli_pane.available() and cli_pane.find_strip() is not None
         if self.footer_strip:
             self.set_interval(0.3, self.publish_footer)
+        if cli_pane.available() and cli_pane.on_ccc_server():
+            self.set_interval(WAITING_SECONDS, self.publish_waiting)
         for screen in self.initial_screens():
             await self.push_screen(screen)
 
     footer_strip = False
     _published_footer: str | None = None
+    _published_waiting: str | None = None
     # True while the shortcuts window waits for a key: no binding fires,
     # every key goes to that window (tui.keys).
     capturing_key = False
@@ -107,6 +114,51 @@ class CCContinueApp(App):
             self._published_footer = value
             subprocess.run(["tmux", "set-option", "-w", "-t", os.environ["TMUX_PANE"], FOOTER_OPTION, value],
                            capture_output=True)
+
+    def publish_waiting(self) -> None:
+        """The conversations that need you → the Claude Code pane's title
+        bar (ccc.attention), in a thread: tmux and the database, never
+        the UI's time."""
+        def work() -> None:
+            from ccc import attention
+            from ccc.tui import cli_pane
+
+            room = cli_pane.waiting_room()
+            text = "" if room is None else attention.summary(
+                attention.waiting(self.storage, exclude=self._looking_at()), room)
+            if text != self._published_waiting:
+                self._published_waiting = text
+                cli_pane.publish_waiting(text)
+
+        self.run_worker(work, thread=True, group="publish-waiting", exclusive=True)
+
+    def _looking_at(self) -> int | None:
+        """The conversation in the Claude Code pane, else the one selected."""
+        from ccc.tui import cli_pane
+
+        shown = cli_pane.find() if cli_pane.available() else None
+        if shown is not None:
+            return shown[1]
+        return getattr(self.screen, "_current_queue_id", None)
+
+    def action_jump_waiting(self) -> None:
+        """Open the most urgent conversation that needs you (Alt+N; from
+        the Claude Code pane too, see cli_pane.key_bindings)."""
+        from ccc import attention
+        from ccc.tui.layout import SidebarScreen
+
+        items = attention.waiting(self.storage, exclude=self._looking_at())
+        if not items:
+            self.notify(_("No conversation needs you right now."))
+            return
+        target = items[0].queue_id
+        screen = self.screen
+        if hasattr(screen, "open_conversation"):
+            screen.open_conversation(target)
+        elif isinstance(screen, SidebarScreen):
+            screen._navigate("conversations", screen._make_view("conversations", select_queue_id=target))
+        else:
+            self.notify(_("Close this window first (Esc)."), severity="warning")
 
     def initial_screens(self) -> list:
         return [DashboardScreen(self.storage)]

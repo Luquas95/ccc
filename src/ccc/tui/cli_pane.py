@@ -27,6 +27,9 @@ BAR_OPTION = "@ccc-bar"
 # ccc's key list as a 1-row pane under everything (footer_strip).
 STRIP_OPTION = "@ccc-strip"
 TITLE_OPTION = "@ccc-title"
+# Window option: the conversations that need you (ccc.attention), shown in
+# the Claude Code pane's title bar.
+WAITING_OPTION = "@ccc-waiting"
 # Rows of the bar under Claude Code: the preset prompts.
 BAR_ROWS = 1
 # Keys bound on ccc's server while the pane is open (root table: they
@@ -46,7 +49,8 @@ BORDER_OPTIONS: tuple[tuple[str, str], ...] = (
     ("pane-border-status", "top"),
     ("pane-border-format",
      f"#{{?#{{&&:#{{pane_active}},{CLI_OPEN_FORMAT}}},"
-     f"#[fg=black#,bg=green#,bold] {_("⌨ typing here")} #[default],}} #{{{TITLE_OPTION}}} "),
+     f"#[fg=black#,bg=green#,bold] {_("⌨ typing here")} #[default],}} #{{{TITLE_OPTION}}} "
+     f"#{{?#{{&&:#{{{PANE_OPTION}}},#{{{WAITING_OPTION}}}}},#[fg=black#,bg=yellow#,bold] #{{{WAITING_OPTION}}} #[default] ,}}"),
     ("pane-active-border-style", "fg=green,bold"),
     ("pane-border-style", "fg=brightblack"),
 )
@@ -102,7 +106,8 @@ def key_bindings(main: str, cli: str, queue_id: int, db_path: str,
     - presets (Alt+1 … Alt+9) type a preset into Claude (`ccc preset`);
       in ccc's own pane they go to ccc as before,
     - Settings (Ctrl+P) opens ccc's Settings from anywhere,
-    - screenshot (Alt+S) takes ccc's from anywhere (the keyboard stays)."""
+    - screenshot (Alt+S) takes ccc's from anywhere (the keyboard stays),
+    - next waiting conversation (Alt+N) opens it here (ccc.attention)."""
     keys = keys or keymap.defaults()
 
     def key(action_id: str) -> str:
@@ -128,6 +133,10 @@ def key_bindings(main: str, cli: str, queue_id: int, db_path: str,
     screenshot = key("app.screenshot")
     bindings.append(("bind-key", "-n", screenshot, "if-shell", "-F", in_ccc, f"send-keys {screenshot}",
                      f"send-keys -t {main} {screenshot}"))
+    # ccc opens the conversation in this pane and puts the keyboard there.
+    jump = key("app.jump_waiting")
+    bindings.append(("bind-key", "-n", jump, "if-shell", "-F", in_ccc, f"send-keys {jump}",
+                     f"send-keys -t {main} {jump}"))
     return bindings
 
 
@@ -253,6 +262,10 @@ def _window_width() -> int:
         return 0
 
 
+def on_ccc_server() -> bool:
+    return _on_ccc_server()
+
+
 def _on_ccc_server() -> bool:
     return os.path.basename(os.environ.get("TMUX", "").split(",")[0]) == CCC_SOCKET
 
@@ -368,6 +381,27 @@ def open(queue_id: int, title: str = "", db_path: str | None = None) -> str | No
     if bar is not None:
         _tmux("resize-pane", "-t", bar, "-y", str(BAR_ROWS))
     return pane
+
+
+def waiting_room() -> int | None:
+    """Columns left for the waiting conversations in the Claude Code pane's
+    title bar; None when there's no pane."""
+    current = find()
+    if current is None:
+        return None
+    result = _tmux("display-message", "-p", "-t", current[0], f"#{{pane_width}} #{{{TITLE_OPTION}}}")
+    width, _sep, title = result.stdout.rstrip("\n").partition(" ")
+    try:
+        # The "typing here" marker, the title and the spaces around.
+        return max(0, int(width) - len(title) - len(_("⌨ typing here")) - 8)
+    except ValueError:
+        return None
+
+
+def publish_waiting(text: str) -> None:
+    """Show `text` in the Claude Code pane's title bar ("" hides it). Names
+    are the user's: '#' is doubled so tmux never reads them as a style."""
+    _tmux("set-option", "-w", "-t", _own_pane(), WAITING_OPTION, text.replace("#", "##"))
 
 
 def focus() -> None:

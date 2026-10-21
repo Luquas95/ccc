@@ -34,11 +34,21 @@ ukazuje vpravo od svého menu:
 | `Enter` na konverzaci | otevře její Claude Code a přepne tam klávesnici |
 | `Alt+0` | přepíná klávesnici mezi ccc a Claudem (nebo klikni, kam chceš psát) |
 | `Ctrl+]` | zavře panel s Claudem — Claude běží dál, `Enter` ho zase otevře |
+| `Alt+N` | otevře tady v panelu další konverzaci, která tě potřebuje (i z Claude Code) |
 | výběr myší | zkopíruje do schránky (i přes SSH a v Termuxu) |
 | `Ctrl+Shift+C` / `Ctrl+Shift+V` | zkopíruje výběr / vloží poslední kopii |
 
 Pod Claudem je lišta s tvými [přednastavenými prompty](settings.md) —
 kliknutím prompt použiješ. `Alt+0` a `Ctrl+]` jsou i v liště ccc dole.
+
+**Co tě potřebuje**, je vidět v titulku panelu s Claudem, takže to vidíš,
+i když píšeš tam — nebo když na telefonu zabere Claude celé okno a seznam
+není vidět: `? shop-api čeká na schválení · ✖ infra chyba · ◆ docs-site
+hotovo`. Stejné stavy jako značky v seznamu — čekající schválení
+nástroje, chyba, pauza na limitu, dokončený běh, který jsi ještě neviděl —
+nejnaléhavější první, bez konverzace, ve které právě jsi; co se nevejde,
+skončí jako `+N další`. Když nic nečeká, zmizí. `Alt+N` otevře první
+z nich.
 
 Dobré vědět:
 
