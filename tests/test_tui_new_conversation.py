@@ -209,3 +209,35 @@ async def test_clicked_option_stays_readable(tmp_path):
         assert box.has_focus and box.value
         assert box.styles.border_top[0] in ("", "none")
         assert box.content_region.height == 1
+
+
+@pytest.mark.asyncio
+async def test_clearing_the_preset_select_keeps_the_options(tmp_path, monkeypatch):
+    # The empty choice is Select.NULL (Select.BLANK is just False in Textual 8):
+    # clearing the select must return early, not look the value up as a preset.
+    from textual.widgets import Select
+    from ccc import presets
+    from ccc.presets import LaunchChoice, save_preset
+    from ccc.launch_options import DEFAULT_SELECTION, toggle
+
+    storage = Storage(tmp_path / "h.db")
+    save_preset(storage, "haiku-fast", LaunchChoice(toggle(DEFAULT_SELECTION, "model_haiku", True), True, False))
+    looked_up = []
+
+    class Recording(dict):
+        def get(self, key, default=None):
+            looked_up.append(key)
+            return super().get(key, default)
+
+    monkeypatch.setattr("ccc.tui.new_conversation.list_presets", lambda s: Recording(presets.list_presets(s)))
+    app = _host(NewConversationModal(storage, browse_root=tmp_path), [])
+    async with app.run_test(size=(160, 50)) as pilot:
+        await pilot.pause()
+        select = app.screen.query_one("#preset-select", Select)
+        select.value = "haiku-fast"
+        await pilot.pause()
+        select.clear()
+        await pilot.pause()
+        assert select.value is Select.NULL
+        assert looked_up == ["haiku-fast"]
+        assert app.screen.query_one("#opt-model_haiku", Checkbox).value is True  # kept
