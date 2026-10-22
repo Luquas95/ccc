@@ -28,6 +28,13 @@ POST /api/v1/conversations/{id}/group     {"name": "…" | null}: its own group
 GET  /api/v1/conversations/{id}/export    as Markdown, secrets masked
 GET  /api/v1/conversations/{id}/files?q=  files of its folder for an @-mention
 POST /api/v1/conversations                start one (as the New conversation window)
+GET  /api/v1/conversations/{id}/tasks     its task queue; POST adds {"text", "when"}
+POST /api/v1/tasks/{id}                   {"text"} / {"when"}; DELETE removes it; POST tasks/{id}/move {"delta"}
+POST /api/v1/conversations/{id}/switches  {"paused"} / {"auto_continue"}
+GET  /api/v1/conversations/{id}/runs      its runs with their commits
+GET  /api/v1/runs/{id}/diff               the run's commit, line by line
+POST /api/v1/runs/{id}/comments           {"comments": [{"index", "text"}]} sent to Claude
+POST /api/v1/runs/{id}/revert             {"tell": bool}: undo the commit
 GET  /api/v1/groups                       grouping mode and own groups; POST groups/rename, groups/delete
 GET  /api/v1/search?q=                    search every conversation
 GET  /api/v1/waiting                      conversations that need you (Alt+N)
@@ -62,7 +69,7 @@ from urllib.parse import parse_qs, urlsplit
 from ccc import __version__, groups, i18n, launch_options
 from ccc.heartbeat import daemon_alive
 from ccc.i18n import _
-from ccc.models import QueueStatus
+from ccc.models import ItemStatus, QueueStatus
 from ccc.orchestrator import send_message, start_conversation
 from ccc.storage import Storage
 from ccc.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
@@ -155,6 +162,16 @@ class Api:
             ok(r"/conversations/(\d+)/group", lambda ids, q, b: self.set_group(*ids, b), "POST"),
             ok(r"/conversations/(\d+)/export", lambda ids, q, b: self.export(*ids)),
             ok(r"/conversations/(\d+)/files", lambda ids, q, b: self.files(*ids, q.get("q", ""))),
+            ok(r"/conversations/(\d+)/tasks", lambda ids, q, b: self.tasks(*ids)),
+            ok(r"/conversations/(\d+)/tasks", lambda ids, q, b: self.add_task(*ids, b), "POST", HTTPStatus.CREATED),
+            ok(r"/conversations/(\d+)/switches", lambda ids, q, b: self.switches(*ids, b), "POST"),
+            ok(r"/conversations/(\d+)/runs", lambda ids, q, b: self.runs(*ids)),
+            ok(r"/tasks/(\d+)", lambda ids, q, b: self.edit_task(*ids, b), "POST"),
+            ok(r"/tasks/(\d+)", lambda ids, q, b: self.remove_task(*ids), "DELETE"),
+            ok(r"/tasks/(\d+)/move", lambda ids, q, b: self.move_task(*ids, b), "POST"),
+            ok(r"/runs/(\d+)/diff", lambda ids, q, b: self.diff(*ids)),
+            ok(r"/runs/(\d+)/comments", lambda ids, q, b: self.comment(*ids, b), "POST", HTTPStatus.CREATED),
+            ok(r"/runs/(\d+)/revert", lambda ids, q, b: self.revert(*ids, b), "POST"),
             ok(r"/groups", lambda ids, q, b: self.groups()),
             ok(r"/groups/rename", lambda ids, q, b: self.rename_group(b), "POST"),
             ok(r"/groups/delete", lambda ids, q, b: self.delete_group(b), "POST"),
@@ -301,6 +318,185 @@ class Api:
                            _("Claude is working on '{name}' right now — wait or pause it first.").format(name=queue.name))
         self.storage.delete_queue(queue_id)
         return {"deleted": queue_id}
+
+    # --- the task queue (t in the TUI) -------------------------------------------
+
+    def tasks(self, queue_id: int) -> dict:
+        """The tasks waiting in the conversation, in order, and its two switches."""
+        queue = self._queue(queue_id)
+        return {
+            "paused": queue.paused,
+            "auto_continue": queue.auto_continue,
+            "tasks": [
+                {"id": item.id, "text": item.prompt_text, "not_before": _time(item.not_before),
+                 "by_routine": item.routine_id is not None}
+                for item in self.storage.list_pending_items(queue_id)
+            ],
+        }
+
+    def add_task(self, queue_id: int, body: dict) -> dict:
+        """{"text", "when"}: when is empty (as soon as possible), HH:MM, YYYY-MM-DD HH:MM or "reset"."""
+        self._queue(queue_id)
+        text = _str(body, "text").strip()
+        if not text:
+            raise ApiError(HTTPStatus.BAD_REQUEST, _("The task is empty."))
+        item = self.storage.add_queue_item(queue_id, text, not_before=self._when(body))
+        return {"id": item.id, "text": item.prompt_text, "not_before": _time(item.not_before)}
+
+    def edit_task(self, item_id: int, body: dict) -> dict:
+        """{"text"} and / or {"when"} of a task that hasn't started."""
+        item = self._pending_item(item_id)
+        if "text" in body:
+            text = _str(body, "text").strip()
+            if not text:
+                raise ApiError(HTTPStatus.BAD_REQUEST, _("The task is empty."))
+            self.storage.update_item_text(item.id, text)
+        if "when" in body:
+            self.storage.update_item_schedule(item.id, self._when(body))
+        return self.tasks(item.queue_id)
+
+    def remove_task(self, item_id: int) -> dict:
+        item = self._pending_item(item_id)
+        self.storage.skip_item(item.id)
+        return self.tasks(item.queue_id)
+
+    def move_task(self, item_id: int, body: dict) -> dict:
+        """{"delta": -1} up, 1 down."""
+        item = self._pending_item(item_id)
+        delta = body.get("delta")
+        if delta not in (-1, 1):
+            raise ApiError(HTTPStatus.BAD_REQUEST, _("delta must be -1 or 1."))
+        self.storage.move_item(item.id, delta)
+        return self.tasks(item.queue_id)
+
+    def switches(self, queue_id: int, body: dict) -> dict:
+        """{"paused": bool} start no further tasks; {"auto_continue": bool} after a usage limit."""
+        self._queue(queue_id)
+        for key, setter in (("paused", self.storage.set_queue_paused),
+                            ("auto_continue", self.storage.set_queue_auto_continue)):
+            if key in body:
+                if not isinstance(body[key], bool):
+                    raise ApiError(HTTPStatus.BAD_REQUEST, _("{name} must be true or false.").format(name=key))
+                setter(queue_id, body[key])
+        return self.tasks(queue_id)
+
+    def _pending_item(self, item_id: int):
+        item = self.storage.get_item(item_id)
+        if item is None:
+            raise ApiError(HTTPStatus.NOT_FOUND, _("No such task."))
+        if item.status != ItemStatus.PENDING:
+            raise ApiError(HTTPStatus.CONFLICT, _("This task has already started."))
+        return item
+
+    @staticmethod
+    def _when(body: dict) -> datetime | None:
+        from ccc.limits import RESET_BUFFER
+        from ccc.schedule import parse_when
+
+        text = _str(body, "when")
+        reset_at = None
+        if text.strip().lower() == "reset":
+            from ccc.usage_api import get_pro_usage
+
+            usage = get_pro_usage()
+            if usage is not None and usage.five_hour is not None:
+                reset_at = usage.five_hour.resets_at.astimezone().replace(tzinfo=None) + RESET_BUFFER
+        try:
+            return parse_when(text, datetime.now(), reset_at=reset_at)
+        except ValueError as exc:
+            raise ApiError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
+
+    # --- runs, their commits and diffs (the queue detail in the TUI) -----------------
+
+    def runs(self, queue_id: int) -> list[dict]:
+        """The conversation's runs, newest first: status, tokens, its commit."""
+        self._queue(queue_id)
+        return [
+            {
+                "id": run.id,
+                "started_at": _time(run.started_at),
+                "finished_at": _time(run.finished_at),
+                "status": run.status.value,
+                "tokens": run.input_tokens + run.output_tokens + run.cache_read_tokens + run.cache_creation_tokens,
+                "cost_usd": run.cost_usd,
+                "duration_ms": run.duration_ms,
+                "task": run.prompt_text,
+                "result": run.result_text,
+                "error": run.error_text,
+                "commit": run.git_commit,
+                "git_note": run.git_note,
+                "reverted_by": run.reverted_by,
+            }
+            for run in self.storage.runs_for_queue(queue_id)
+        ]
+
+    def _run(self, run_id: int):
+        run = self.storage.find_run(run_id)
+        if run is None:
+            raise ApiError(HTTPStatus.NOT_FOUND, _("No such run."))
+        return run
+
+    def _diff_lines(self, run) -> list:
+        from ccc import gitops
+        from ccc.diff_comments import parse
+
+        if not run.git_commit:
+            raise ApiError(HTTPStatus.CONFLICT, run.git_note or _("This run made no commit."))
+        queue = self._queue(run.queue_id)
+        # As everywhere in ccc: git only where Claude may run commands anyway (see gitops).
+        if not gitops.claude_can_run_commands(queue) or not gitops._COMMIT.match(run.git_commit):
+            raise ApiError(HTTPStatus.CONFLICT,
+                           _("ccc runs git only in conversations started with “Skip all permission checks”."))
+        return parse(gitops.show(queue.project_path, run.git_commit))
+
+    def diff(self, run_id: int) -> dict:
+        """The run's commit (git show), line by line: what each line is, its
+        file and numbers; the commentable ones can carry a comment."""
+        run = self._run(run_id)
+        return {
+            "commit": run.git_commit,
+            "task": _task_line(run.prompt_text),
+            "lines": [
+                {"index": i, "text": line.text, "kind": line.kind, "path": line.path,
+                 "old_line": line.old_line, "new_line": line.new_line, "commentable": line.commentable}
+                for i, line in enumerate(self._diff_lines(run))
+            ],
+        }
+
+    def comment(self, run_id: int, body: dict) -> dict:
+        """{"comments": [{"index", "text"}]} on lines of the diff, sent to
+        Claude as one task (like inline comments on a pull request)."""
+        from ccc.diff_comments import Comment, prompt
+
+        run = self._run(run_id)
+        given = body.get("comments")
+        if not isinstance(given, list) or not given:
+            raise ApiError(HTTPStatus.BAD_REQUEST, _("No comments."))
+        lines = self._diff_lines(run)
+        comments = []
+        for entry in given:
+            index = entry.get("index") if isinstance(entry, dict) else None
+            text = entry.get("text") if isinstance(entry, dict) else None
+            if not isinstance(index, int) or not 0 <= index < len(lines) or not lines[index].commentable \
+                    or not isinstance(text, str) or not text.strip():
+                raise ApiError(HTTPStatus.BAD_REQUEST, _("Every comment needs a changed line and a text."))
+            comments.append((index, Comment(lines[index], text.strip())))
+        item = self.storage.add_queue_item(
+            run.queue_id, prompt(run.git_commit, _task_line(run.prompt_text, 200), [c for _i, c in sorted(comments)]))
+        return {"id": item.id, "comments": len(comments)}
+
+    def revert(self, run_id: int, body: dict) -> dict:
+        """Undo the run's commit with a new commit; {"tell": true} also queues a note for Claude."""
+        from ccc import revert
+
+        run = self._run(run_id)
+        try:
+            commit = revert.revert(self.storage, run)
+        except revert.RevertError as exc:
+            raise ApiError(HTTPStatus.CONFLICT, str(exc)) from exc
+        if body.get("tell") is True:
+            revert.tell_claude(self.storage, run, commit)
+        return {"commit": commit}
 
     # --- groups -----------------------------------------------------------------
 
@@ -581,6 +777,11 @@ class Api:
                 return list(cached.events)
             cached.events.extend(events)
             return list(cached.events)
+
+
+def _task_line(text: str, limit: int = 80) -> str:
+    """A task's first line, for titles."""
+    return (text.strip().splitlines() or [""])[0][:limit]
 
 
 def _int(query: dict[str, str], key: str) -> int | None:

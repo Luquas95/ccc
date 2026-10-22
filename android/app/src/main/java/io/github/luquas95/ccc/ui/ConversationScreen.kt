@@ -87,6 +87,8 @@ class ConversationActions(
     val export: () -> Unit,
     val usePreset: (PromptPreset, (String) -> Unit) -> Unit,
     val mention: (String?) -> Unit,
+    val tasks: () -> Unit,
+    val runs: () -> Unit,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -140,6 +142,10 @@ fun ConversationScreen(
                     if (detail != null) {
                         IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.more)) }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(text = { Text(stringResource(R.string.tasks) + " (${detail.pending})") },
+                                onClick = { menu = false; actions.tasks() })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.runs)) },
+                                onClick = { menu = false; actions.runs() })
                             DropdownMenuItem(text = { Text(stringResource(R.string.group_put)) },
                                 onClick = { menu = false; dialog = "group" })
                             DropdownMenuItem(text = { Text(stringResource(R.string.export)) },

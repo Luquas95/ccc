@@ -14,6 +14,8 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
 | <img src="screenshots/en/conversations.png" width="260" alt="Conversations"> | <img src="screenshots/en/mention.png" width="260" alt="A conversation"> | <img src="screenshots/en/new_conversation.png" width="260" alt="New conversation"> |
 | **Search** | **Archive** | **Approvals** |
 | <img src="screenshots/en/search.png" width="260" alt="Search"> | <img src="screenshots/en/archive.png" width="260" alt="Archive"> | <img src="screenshots/en/approvals.png" width="260" alt="Approvals"> |
+| **Task queue** | **Runs and commits** | **A diff with a comment** |
+| <img src="screenshots/en/tasks.png" width="260" alt="Task queue"> | <img src="screenshots/en/runs.png" width="260" alt="Runs"> | <img src="screenshots/en/diff.png" width="260" alt="Diff"> |
 
 ## What it does
 
@@ -35,6 +37,14 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
   files and the **preset prompts** (⏎ sent at once, ✎ put into the
   message); retry / resume a blocked or paused one; **export** it as
   Markdown to the share sheet (secrets masked).
+- **Task queue** (a conversation's menu) — add, edit, reorder and
+  remove tasks, each when it may start (HH:MM, a date, or the next
+  usage reset); pause the queue, auto-continue after a limit — `t` in
+  ccc.
+- **Runs and commits** (a conversation's menu) — every run with its
+  state, tokens and commit; open a commit's **diff**, tap lines to
+  comment and send the comments to Claude as one task; **revert** a
+  run's commit (a new commit), telling Claude if you like.
 - **Approvals** — Allow, Always (this tool in this conversation) or
   Deny, right in the conversation or all of them behind the bell.
 - **New conversation** — a folder (recently used ones offered), the same
@@ -85,7 +95,7 @@ from there.
 3. To match the TUI, in rounds:
    1. managing conversations (archive, groups, filter, search, export,
       presets, who needs you, resuming a session, @-mentions) — done;
-   2. the task queue and a queue's runs, diffs and commits;
+   2. the task queue and a queue's runs, diffs and commits — done;
    3. reviews, goals, workflows, questions, routines, live sessions,
       analytics, settings;
    4. notifications with Allow / Deny, and Claude Code's live terminal.

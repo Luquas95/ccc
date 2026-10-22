@@ -10,6 +10,11 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.luquas95.ccc.data.Conversation
+import io.github.luquas95.ccc.data.Diff
+import io.github.luquas95.ccc.data.DiffLine
+import io.github.luquas95.ccc.data.Run
+import io.github.luquas95.ccc.data.Task
+import io.github.luquas95.ccc.data.Tasks
 import io.github.luquas95.ccc.data.ConversationDetail
 import io.github.luquas95.ccc.data.Group
 import io.github.luquas95.ccc.data.LaunchChoice
@@ -76,6 +81,21 @@ open class ScreenshotsTest {
     }
 
     @Test
+    fun tasks() = shot("tasks", "admin endpoints") {
+        TasksScreen(tasksState, "shop-api", SnackbarHostState(), tasksActions)
+    }
+
+    @Test
+    fun runs() = shot("runs", "4f2a9c1") {
+        RunsScreen(runsState, "shop-api", SnackbarHostState(), {}, {}, { _, _ -> })
+    }
+
+    @Test
+    fun diff() = shot("diff", "RATE_PER_MIN") {
+        DiffScreen(diffState, SnackbarHostState(), {}, { _, _ -> }, {})
+    }
+
+    @Test
     fun search() = shot("search", "rate limiting") {
         SearchScreen(searchState, SnackbarHostState(), {}, {}, {})
     }
@@ -112,7 +132,41 @@ open class ScreenshotsTest {
     private companion object {
         val listActions = ConversationsActions({}, {}, {}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {})
         val conversationActions = ConversationActions(
-            {}, { _, _ -> }, {}, {}, { _, _ -> }, {}, {}, {}, {}, { _, _ -> }, {},
+            {}, { _, _ -> }, {}, {}, { _, _ -> }, {}, {}, {}, {}, { _, _ -> }, {}, {}, {},
+        )
+        val tasksActions = TasksActions({}, { _, _ -> }, { _, _, _ -> }, {}, { _, _ -> }, {}, {})
+
+        val tasksState = TasksState(1, Tasks(paused = false, autoContinue = true, tasks = listOf(
+            Task(9, "Add rate limiting to the admin endpoints too"),
+            Task(10, "Run the full test suite and fix anything that fails", notBefore = "2026-10-22T23:30:00"),
+            Task(11, "Nightly: update dependencies and open a PR", byRoutine = true),
+        )))
+
+        val runsState = RunsState(1, listOf(
+            Run(31, "2026-10-21T20:13:00", status = "success", tokens = 48_210, task = "Add rate limiting to GET /orders",
+                result = "Rate limiting added: GET /orders and GET /orders/{id} allow 60 requests/min…", commit = "4f2a9c1e0b"),
+            Run(30, "2026-10-21T19:40:00", status = "rate_limited", tokens = 12_004, task = "Refactor the order service",
+                error = "Usage limit reached — resets at 20:00"),
+            Run(29, "2026-10-21T18:02:00", status = "success", tokens = 30_550, task = "Rename OrderDTO to Order",
+                result = "Renamed in 14 files.", commit = "9b1d77aa21", revertedBy = "c0ffee1234"),
+        ))
+
+        val diffState = DiffState(
+            31,
+            Diff("4f2a9c1e0b", "Add rate limiting to GET /orders", listOf(
+                DiffLine(0, "commit 4f2a9c1e0b", "header"),
+                DiffLine(1, " src/api/limits.py | 12 ++++++++++++", "header"),
+                DiffLine(2, "diff --git a/src/api/limits.py b/src/api/limits.py", "meta"),
+                DiffLine(3, "@@ -1,3 +1,8 @@", "hunk", "src/api/limits.py", newLine = 1, commentable = true),
+                DiffLine(4, " from fastapi import Request", "context", "src/api/limits.py", 1, 1, true),
+                DiffLine(5, "-RATE = None", "removed", "src/api/limits.py", oldLine = 2, commentable = true),
+                DiffLine(6, "+RATE_PER_MIN = 60", "added", "src/api/limits.py", newLine = 2, commentable = true),
+                DiffLine(7, "+WINDOW_SECONDS = 60", "added", "src/api/limits.py", newLine = 3, commentable = true),
+                DiffLine(8, "+def limited(key: str) -> bool:", "added", "src/api/limits.py", newLine = 4, commentable = true),
+                DiffLine(9, "+    return hits(key, WINDOW_SECONDS) > RATE_PER_MIN", "added", "src/api/limits.py",
+                    newLine = 5, commentable = true),
+            )),
+            comments = mapOf(6 to "Read this from the settings, not a constant."),
         )
 
         val searchState = SearchState(

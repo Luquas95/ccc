@@ -11,6 +11,10 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
@@ -104,6 +108,44 @@ class CccApi(
 
     suspend fun sessions(path: String): List<Session> = get("sessions", mapOf("path" to path))
 
+    suspend fun tasks(id: Int): Tasks = get("conversations/$id/tasks")
+
+    /** [whenText]: empty (as soon as possible), HH:MM, YYYY-MM-DD HH:MM or "reset". */
+    suspend fun addTask(id: Int, text: String, whenText: String) {
+        post<Unit>("conversations/$id/tasks", body("text" to JsonPrimitive(text), "when" to JsonPrimitive(whenText)))
+    }
+
+    suspend fun editTask(taskId: Int, text: String, whenText: String): Tasks =
+        post("tasks/$taskId", body("text" to JsonPrimitive(text), "when" to JsonPrimitive(whenText)))
+
+    suspend fun removeTask(taskId: Int): Tasks = call(request("tasks/$taskId").delete().build())
+
+    suspend fun moveTask(taskId: Int, delta: Int): Tasks = post("tasks/$taskId/move", body("delta" to JsonPrimitive(delta)))
+
+    suspend fun switches(id: Int, paused: Boolean? = null, autoContinue: Boolean? = null): Tasks =
+        post(
+            "conversations/$id/switches",
+            body(*listOfNotNull(paused?.let { "paused" to JsonPrimitive(it) },
+                autoContinue?.let { "auto_continue" to JsonPrimitive(it) }).toTypedArray()),
+        )
+
+    suspend fun runs(id: Int): List<Run> = get("conversations/$id/runs")
+
+    suspend fun diff(runId: Int): Diff = get("runs/$runId/diff")
+
+    /** Comments on diff lines (index to text), sent to Claude as one task. */
+    suspend fun comment(runId: Int, comments: Map<Int, String>) {
+        val list = JsonArray(comments.entries.sortedBy { it.key }.map { (index, text) ->
+            JsonObject(mapOf("index" to JsonPrimitive(index), "text" to JsonPrimitive(text)))
+        })
+        post<Unit>("runs/$runId/comments", body("comments" to list))
+    }
+
+    /** Undo the run's commit (a new commit); [tell] queues a note for Claude. */
+    suspend fun revert(runId: Int, tell: Boolean) {
+        post<Unit>("runs/$runId/revert", body("tell" to JsonPrimitive(tell)))
+    }
+
     suspend fun permissions(): List<Permission> = get("permissions")
 
     /** [decision]: "allow", "always" (this tool in this conversation from now on) or "deny". */
@@ -156,6 +198,9 @@ class CccApi(
         }.build()
         return Request.Builder().url(url).header("Authorization", "Bearer $token")
     }
+
+    private fun body(vararg fields: Pair<String, JsonElement>): String =
+        json.encodeToString(JsonObject.serializer(), JsonObject(mapOf(*fields)))
 
     private fun error(code: Int, body: String): ApiException {
         val message = runCatching { json.decodeFromString(ErrorBody.serializer(), body).error }.getOrNull()
