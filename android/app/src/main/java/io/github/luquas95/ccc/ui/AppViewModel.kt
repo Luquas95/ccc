@@ -43,6 +43,12 @@ sealed interface Screen {
     data class Tasks(val id: Int) : Screen
     data class Runs(val id: Int) : Screen
     data class Diff(val runId: Int) : Screen
+    /** A conversation's reviews, goals, workflows and questions; [tab] 0 … 3. */
+    data class Agents(val id: Int, val tab: Int = 0) : Screen
+    data object Routines : Screen
+    data object LiveSessions : Screen
+    data object Analytics : Screen
+    data object CccSettings : Screen
 }
 
 data class HomeState(
@@ -144,6 +150,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private var events: Job? = null
     private var foreground = false
+    /** Agents, routines, live sessions, analytics, ccc's settings. */
+    val more = MoreModel(viewModelScope, { block -> guard { api?.let { block(it) } } }, { _message.value = it })
+
     private var searching: Job? = null
     private var mentioning: Job? = null
 
@@ -162,6 +171,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 _runs.value = RunsState(screen.id)
                 action { reloadRuns(screen.id) }
             }
+            is Screen.Agents -> more.openAgents(screen.id)
+            Screen.Routines -> more.loadRoutines()
+            Screen.LiveSessions -> more.loadSessions()
+            Screen.Analytics -> more.loadAnalytics()
+            Screen.CccSettings -> more.loadSettings()
             is Screen.Diff -> {
                 _diff.value = DiffState(screen.runId)
                 action { client -> _diff.update { it?.copy(diff = client.diff(screen.runId)) } }
@@ -266,6 +280,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         refresh()
         _tasks.value?.id?.takeIf { it in changed }?.let { reloadTasks(it) }
         _runs.value?.id?.takeIf { it in changed }?.let { reloadRuns(it) }
+        more.agents.value?.id?.takeIf { it in changed }?.let { more.reloadAgents(it) }
         val open = _conversation.value?.id ?: return
         if (open in removed) {
             _screens.update { stack -> stack.filterNot { it is Screen.Conversation && it.id == open } }
@@ -468,6 +483,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun export(id: Int) = action {
         _share.value = it.export(id)
     }
+
+    /** Save the preset prompts, then show them in the conversations. */
+    fun savePromptPresets(presets: List<PromptPreset>) = more.savePromptPresets(presets) { viewModelScope.launch { refresh() } }
 
     fun shared() {
         _share.value = null

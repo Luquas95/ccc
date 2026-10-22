@@ -9,7 +9,26 @@ import androidx.core.view.drawToBitmap
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import io.github.luquas95.ccc.data.Analytics
+import io.github.luquas95.ccc.data.CccSettings
+import io.github.luquas95.ccc.data.Choice
 import io.github.luquas95.ccc.data.Conversation
+import io.github.luquas95.ccc.data.ConversationTokens
+import io.github.luquas95.ccc.data.DayTokens
+import io.github.luquas95.ccc.data.Goals
+import io.github.luquas95.ccc.data.LiveSession
+import io.github.luquas95.ccc.data.ModelTokens
+import io.github.luquas95.ccc.data.Review
+import io.github.luquas95.ccc.data.Reviews
+import io.github.luquas95.ccc.data.Routine
+import io.github.luquas95.ccc.data.RoutineKind
+import io.github.luquas95.ccc.data.Routines
+import io.github.luquas95.ccc.data.TelegramState
+import io.github.luquas95.ccc.data.WorkflowEvent
+import io.github.luquas95.ccc.data.WorkflowRun
+import io.github.luquas95.ccc.data.WorkflowStep
+import io.github.luquas95.ccc.data.WorkflowTemplate
+import io.github.luquas95.ccc.data.Workflows
 import io.github.luquas95.ccc.data.Diff
 import io.github.luquas95.ccc.data.DiffLine
 import io.github.luquas95.ccc.data.Run
@@ -96,6 +115,37 @@ open class ScreenshotsTest {
     }
 
     @Test
+    fun reviews() = shot("reviews", "hits()") {
+        AgentsScreen(agentsState, "shop-api", emptyList(), 0, SnackbarHostState(), agentsActions)
+    }
+
+    @Test
+    fun workflow() = shot("workflow", "Add caching") {
+        AgentsScreen(agentsState, "shop-api", emptyList(), 2, SnackbarHostState(), agentsActions)
+    }
+
+    @Test
+    fun routines() = shot("routines", "Nightly") {
+        RoutinesScreen(routinesState, home.conversations, SnackbarHostState(), RoutinesActions({}, {}, {}, { _, _ -> }, {}))
+    }
+
+    @Test
+    fun analytics() = shot("analytics", "mobile-app") {
+        AnalyticsScreen(analyticsState, home.usage, SnackbarHostState(), {}, { _, _ -> }, {})
+    }
+
+    @Test
+    fun cccSettings() = shot("ccc_settings", "80 %") {
+        CccSettingsScreen(settingsState, home.promptPresets, SnackbarHostState(), SettingsActions({}, {}, {}, {}, {}, {}, {}))
+    }
+
+    @Test
+    fun liveSessions() = shot("live_sessions", "refactor-auth") {
+        LiveSessionsScreen(listOf(LiveSession("a1", "refactor-auth", "/home/you/projects/shop-api", "interactive", "busy"),
+            LiveSession("b2", "nightly-etl", "/home/you/projects/data-pipeline", "background", "idle")), SnackbarHostState(), {}, {}, { _, _ -> })
+    }
+
+    @Test
     fun search() = shot("search", "rate limiting") {
         SearchScreen(searchState, SnackbarHostState(), {}, {}, {})
     }
@@ -130,9 +180,64 @@ open class ScreenshotsTest {
     }
 
     private companion object {
-        val listActions = ConversationsActions({}, {}, {}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {})
+        val listActions = ConversationsActions({}, {}, {}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {})
         val conversationActions = ConversationActions(
-            {}, { _, _ -> }, {}, {}, { _, _ -> }, {}, {}, {}, {}, { _, _ -> }, {}, {}, {},
+            {}, { _, _ -> }, {}, {}, { _, _ -> }, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {},
+        )
+        val agentsActions = AgentsActions({}, { _, _, _ -> }, {}, {}, { _, _, _ -> }, {}, { _, _, _, _ -> }, { _, _ -> }, {},
+            { _, _, _ -> }, {})
+
+        val agentsState = AgentsState(
+            1,
+            reviews = Reviews(active = false, reviews = listOf(
+                Review(4, "done", "done", verdict = "FAIL", round = 1, maxRounds = 3, untilPass = true,
+                    scope = "2 runs since the last review (4f2a9c1, 9b1d77a)",
+                    report = "1. src/api/limits.py:5 — hits() counts per process, not per API key across workers.\n" +
+                        "2. No test for the 429 Retry-After header.\n\nVERDICT: FAIL — the limit isn't shared between workers.",
+                    canApply = true, createdAt = "2026-10-21T20:20:00"),
+                Review(3, "done", "done", verdict = "PASS", scope = "run 8c0d1e2", report = "VERDICT: PASS — clean rename.",
+                    createdAt = "2026-10-21T18:10:00"),
+            )),
+            goals = Goals(), workflows = Workflows(runs = listOf(
+                WorkflowRun(2, "plan-build-review", "Add caching to GET /products", round = 1, maxRounds = 3, status = "waiting",
+                    statusLabel = "waits for you", steps = listOf(WorkflowStep("plan", "done"), WorkflowStep("your approval", "waits"),
+                        WorkflowStep("build", "to_come"), WorkflowStep("review ×2", "to_come")),
+                    events = listOf(WorkflowEvent("plan", "plan", "planner", 1, "done",
+                        output = "1. Cache in Redis for 60 s keyed by query\n2. Invalidate on product update\n3. Tests for hit / miss / invalidation")),
+                    createdAt = "2026-10-21T20:30:00"),
+            ), active = true, waiting = true),
+            templates = listOf(WorkflowTemplate("plan-build-review", "Plan → approval → build → review",
+                "plan → your approval → build → review ×2  (back to build at most 3×)")),
+            asks = emptyList(),
+        )
+
+        val routinesState = Routines(
+            kinds = listOf(RoutineKind("daily", "Every day at", "e.g. 18:00"), RoutineKind("cron", "Cron pattern", "e.g. 0 22 * * *")),
+            routines = listOf(
+                Routine(1, 1, "shop-api", "Nightly dependencies", "Update dependencies, run the tests and open a PR", "daily", "22:00",
+                    "every day at 22:00", nextRunAt = "2026-10-22T22:00:00", lastStatus = "queued in its conversation"),
+                Routine(2, 3, "data-pipeline", "Weekly report", "Summarise last week's failed jobs", "weekly", "monday 08:00",
+                    "Mondays at 08:00", fresh = true, enabled = false),
+            ),
+        )
+
+        val analyticsState = Analytics(
+            2026, 10, "October 2026", 3_643_987,
+            byDay = (1..21).map { DayTokens("2026-10-%02d".format(it), (it * 37_000L) % 260_000 + 20_000) },
+            byModel = listOf(ModelTokens("claude-sonnet-5-5", 3_157_987), ModelTokens("claude-opus-5-5", 486_000)),
+            byConversation = listOf(ConversationTokens(4, "mobile-app", tokens = 3_017_988, success = 18),
+                ConversationTokens(1, "shop-api", tokens = 486_000, success = 4, rateLimited = 1)),
+            blockedMinutes = 12.5, reserve = 80,
+        )
+
+        val settingsState = CccSettings(
+            language = "auto", languages = listOf(Choice("auto", "Auto (system)"), Choice("en", "English"), Choice("cs", "Čeština")),
+            groups = "project", groupsChoices = listOf(Choice("project", "By project, and your own groups"), Choice("own", "Only your own groups")),
+            continueText = "Continue where you stopped.", usageReserve = 80, reserveChoices = listOf(50, 80, 90),
+            reviewModel = "", reviewModels = listOf(Choice("", "Same as the conversation"), Choice("opus", "Opus")),
+            windowChoices = listOf(200_000, 1_000_000), thresholdChoices = listOf(60, 75, 90),
+            sendChoices = listOf(Choice("", "Only save to the folder")), telegram = TelegramState(true, "123456789", true),
+            launchPresets = listOf("Quick fix", "Review"),
         )
         val tasksActions = TasksActions({}, { _, _ -> }, { _, _, _ -> }, {}, { _, _ -> }, {}, {})
 

@@ -67,6 +67,9 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from ccc import __version__, groups, i18n, launch_options
+from ccc.api_agents import AgentEndpoints
+from ccc.api_common import ApiError, int_of, iso, route, task_line, text_of
+from ccc.api_views import ViewEndpoints
 from ccc.heartbeat import daemon_alive
 from ccc.i18n import _
 from ccc.models import ItemStatus, QueueStatus
@@ -110,17 +113,6 @@ def token_valid(storage: Storage, given: str) -> bool:
     return bool(given) and bool(stored) and hmac.compare_digest(_digest(given), stored)
 
 
-class ApiError(Exception):
-    def __init__(self, status: HTTPStatus, message: str):
-        super().__init__(message)
-        self.status = status
-        self.message = message
-
-
-def _time(value: datetime | None) -> str | None:
-    return value.isoformat() if value else None
-
-
 @dataclass
 class _Transcript:
     path: Path | None = None
@@ -129,7 +121,7 @@ class _Transcript:
     events: list[TranscriptEvent] = field(default_factory=list)
 
 
-class Api:
+class Api(AgentEndpoints, ViewEndpoints):
     """The endpoints without HTTP: route() takes a request and returns
     (status, JSON-able body), raising ApiError for an error."""
 
@@ -142,11 +134,9 @@ class Api:
     # --- routing -------------------------------------------------------------
 
     def _route_table(self) -> list[tuple[str, re.Pattern, HTTPStatus, object]]:
-        """(method, path after /api/v1, status, handler(ids, query, body)); a
-        number in the path is an id, passed in `ids`."""
-        def ok(pattern: str, handler, method: str = "GET", status: HTTPStatus = HTTPStatus.OK):
-            return method, re.compile(pattern), status, handler
-
+        """Every route (api_common.route); the agents' and the views' come
+        from their own modules."""
+        ok = route
         return [
             ok(r"/status", lambda ids, q, b: self.status()),
             ok(r"/conversations", lambda ids, q, b: self.conversations(archived=q.get("archived") in ("1", "true"))),
@@ -154,7 +144,7 @@ class Api:
             ok(r"/conversations/(\d+)", lambda ids, q, b: self.conversation(*ids)),
             ok(r"/conversations/(\d+)", lambda ids, q, b: self.delete(*ids), "DELETE"),
             ok(r"/conversations/(\d+)/messages", lambda ids, q, b: self.messages(
-                *ids, after=_int(q, "after"), before=_int(q, "before"), limit=_int(q, "limit") or MESSAGES_LIMIT)),
+                *ids, after=int_of(q, "after"), before=int_of(q, "before"), limit=int_of(q, "limit") or MESSAGES_LIMIT)),
             ok(r"/conversations/(\d+)/messages", lambda ids, q, b: self.send(*ids, b), "POST", HTTPStatus.CREATED),
             ok(r"/conversations/(\d+)/retry", lambda ids, q, b: self.retry(*ids), "POST"),
             ok(r"/conversations/(\d+)/seen", lambda ids, q, b: self.seen(*ids), "POST"),
@@ -185,7 +175,7 @@ class Api:
             ok(r"/launch-options", lambda ids, q, b: self.launch_options()),
             ok(r"/launch-presets", lambda ids, q, b: self.launch_presets()),
             ok(r"/prompt-presets", lambda ids, q, b: self.prompt_presets()),
-        ]
+        ] + self._agent_routes() + self._view_routes()
 
     def route(self, method: str, path: str, query: dict[str, str], body: dict) -> tuple[HTTPStatus, object]:
         if not path.startswith(PREFIX + "/"):
@@ -194,7 +184,7 @@ class Api:
         for route_method, pattern, status, handler in self._routes:
             match = pattern.fullmatch(rest)
             if match and route_method == method:
-                return status, handler([int(g) for g in match.groups()], query, body)
+                return status, handler([int(g) if g.isdigit() else g for g in match.groups()], query, body)
         raise ApiError(HTTPStatus.NOT_FOUND, _("Not found."))
 
     # --- endpoints ------------------------------------------------------------
@@ -235,8 +225,8 @@ class Api:
             "needs_approval": needs_approval,
             "unseen": unseen,
             "last_error": q.last_error,
-            "next_retry_at": _time(q.next_retry_at),
-            "updated_at": _time(q.updated_at),
+            "next_retry_at": iso(q.next_retry_at),
+            "updated_at": iso(q.updated_at),
             "group": group,
         }
 
@@ -252,7 +242,7 @@ class Api:
             "flags": launch_options.describe_flags(q.launch_flags),
             "remote_control_url": q.remote_control_url,
             "queued": [
-                {"id": item.id, "text": item.prompt_text, "not_before": _time(item.not_before)}
+                {"id": item.id, "text": item.prompt_text, "not_before": iso(item.not_before)}
                 for item in self.storage.list_pending_items(q.id)
             ],
             "permissions": [self._permission(r) for r in self.storage.pending_permission_requests(q.id)],
@@ -276,7 +266,7 @@ class Api:
                     "index": i,
                     "kind": e.kind,
                     "text": e.text,
-                    "time": _time(e.timestamp),
+                    "time": iso(e.timestamp),
                     "tool_use_id": e.tool_use_id,
                     "detail": e.detail,
                 }
@@ -328,7 +318,7 @@ class Api:
             "paused": queue.paused,
             "auto_continue": queue.auto_continue,
             "tasks": [
-                {"id": item.id, "text": item.prompt_text, "not_before": _time(item.not_before),
+                {"id": item.id, "text": item.prompt_text, "not_before": iso(item.not_before),
                  "by_routine": item.routine_id is not None}
                 for item in self.storage.list_pending_items(queue_id)
             ],
@@ -337,17 +327,17 @@ class Api:
     def add_task(self, queue_id: int, body: dict) -> dict:
         """{"text", "when"}: when is empty (as soon as possible), HH:MM, YYYY-MM-DD HH:MM or "reset"."""
         self._queue(queue_id)
-        text = _str(body, "text").strip()
+        text = text_of(body, "text").strip()
         if not text:
             raise ApiError(HTTPStatus.BAD_REQUEST, _("The task is empty."))
         item = self.storage.add_queue_item(queue_id, text, not_before=self._when(body))
-        return {"id": item.id, "text": item.prompt_text, "not_before": _time(item.not_before)}
+        return {"id": item.id, "text": item.prompt_text, "not_before": iso(item.not_before)}
 
     def edit_task(self, item_id: int, body: dict) -> dict:
         """{"text"} and / or {"when"} of a task that hasn't started."""
         item = self._pending_item(item_id)
         if "text" in body:
-            text = _str(body, "text").strip()
+            text = text_of(body, "text").strip()
             if not text:
                 raise ApiError(HTTPStatus.BAD_REQUEST, _("The task is empty."))
             self.storage.update_item_text(item.id, text)
@@ -393,7 +383,7 @@ class Api:
         from ccc.limits import RESET_BUFFER
         from ccc.schedule import parse_when
 
-        text = _str(body, "when")
+        text = text_of(body, "when")
         reset_at = None
         if text.strip().lower() == "reset":
             from ccc.usage_api import get_pro_usage
@@ -414,8 +404,8 @@ class Api:
         return [
             {
                 "id": run.id,
-                "started_at": _time(run.started_at),
-                "finished_at": _time(run.finished_at),
+                "started_at": iso(run.started_at),
+                "finished_at": iso(run.finished_at),
                 "status": run.status.value,
                 "tokens": run.input_tokens + run.output_tokens + run.cache_read_tokens + run.cache_creation_tokens,
                 "cost_usd": run.cost_usd,
@@ -455,7 +445,7 @@ class Api:
         run = self._run(run_id)
         return {
             "commit": run.git_commit,
-            "task": _task_line(run.prompt_text),
+            "task": task_line(run.prompt_text),
             "lines": [
                 {"index": i, "text": line.text, "kind": line.kind, "path": line.path,
                  "old_line": line.old_line, "new_line": line.new_line, "commentable": line.commentable}
@@ -482,7 +472,7 @@ class Api:
                 raise ApiError(HTTPStatus.BAD_REQUEST, _("Every comment needs a changed line and a text."))
             comments.append((index, Comment(lines[index], text.strip())))
         item = self.storage.add_queue_item(
-            run.queue_id, prompt(run.git_commit, _task_line(run.prompt_text, 200), [c for _i, c in sorted(comments)]))
+            run.queue_id, prompt(run.git_commit, task_line(run.prompt_text, 200), [c for _i, c in sorted(comments)]))
         return {"id": item.id, "comments": len(comments)}
 
     def revert(self, run_id: int, body: dict) -> dict:
@@ -515,14 +505,14 @@ class Api:
         return self.conversation(queue_id)
 
     def rename_group(self, body: dict) -> dict:
-        old, new = _str(body, "old").strip(), _str(body, "new").strip()
+        old, new = text_of(body, "old").strip(), text_of(body, "new").strip()
         if not old or not new:
             raise ApiError(HTTPStatus.BAD_REQUEST, _("Give the group's name and its new name."))
         groups.rename(self.storage, old, new)
         return self.groups()
 
     def delete_group(self, body: dict) -> dict:
-        name = _str(body, "name").strip()
+        name = text_of(body, "name").strip()
         if not name:
             raise ApiError(HTTPStatus.BAD_REQUEST, _("Give the group's name."))
         groups.delete(self.storage, name)
@@ -535,7 +525,7 @@ class Api:
         from ccc.search import search_conversations
 
         return [
-            {"conversation_id": h.queue_id, "name": h.queue_name, "time": _time(h.timestamp), "kind": h.kind,
+            {"conversation_id": h.queue_id, "name": h.queue_name, "time": iso(h.timestamp), "kind": h.kind,
              "snippet": h.snippet}
             for h in search_conversations(self.storage, text)
         ]
@@ -589,7 +579,7 @@ class Api:
             "conversation_id": request.queue_id,
             "tool": request.tool_name,
             "input": request.input,
-            "created_at": _time(request.created_at),
+            "created_at": iso(request.created_at),
         }
 
     def decide(self, request_id: int, body: dict) -> dict:
@@ -614,13 +604,13 @@ class Api:
             return None
 
         def window(w) -> dict | None:
-            return {"percent": w.utilization_pct, "resets_at": _time(w.resets_at)} if w else None
+            return {"percent": w.utilization_pct, "resets_at": iso(w.resets_at)} if w else None
 
         return {
             "five_hour": window(usage.five_hour),
             "seven_day": window(usage.seven_day),
             "per_model": [
-                {"model": m.model, "percent": m.utilization_pct, "resets_at": _time(m.resets_at)}
+                {"model": m.model, "percent": m.utilization_pct, "resets_at": iso(m.resets_at)}
                 for m in usage.per_model
             ],
         }
@@ -636,7 +626,7 @@ class Api:
         if not folder or not os.path.isdir(folder):
             return []
         return [
-            {"session_id": s.session_id, "modified": _time(s.modified), "first_prompt": s.first_prompt,
+            {"session_id": s.session_id, "modified": iso(s.modified), "first_prompt": s.first_prompt,
              "messages": s.message_count}
             for s in list_sessions_for_directory(folder)
         ]
@@ -682,7 +672,7 @@ class Api:
         try:
             queue = start_conversation(
                 self.storage, os.path.expanduser(path.strip()), selection,
-                name=_str(body, "name"), session_id=_str(body, "session_id") or None, pr=_str(body, "pr"),
+                name=text_of(body, "name"), session_id=text_of(body, "session_id") or None, pr=text_of(body, "pr"),
                 auto_continue=bool(body.get("auto_continue", True)),
                 remote_control=bool(body.get("remote_control", False)),
                 interactive=bool(body.get("interactive", True)),
@@ -777,25 +767,6 @@ class Api:
                 return list(cached.events)
             cached.events.extend(events)
             return list(cached.events)
-
-
-def _task_line(text: str, limit: int = 80) -> str:
-    """A task's first line, for titles."""
-    return (text.strip().splitlines() or [""])[0][:limit]
-
-
-def _int(query: dict[str, str], key: str) -> int | None:
-    raw = query.get(key)
-    if raw is None:
-        return None
-    if not re.fullmatch(r"-?\d+", raw):
-        raise ApiError(HTTPStatus.BAD_REQUEST, _("{name} must be a number.").format(name=key))
-    return int(raw)
-
-
-def _str(body: dict, key: str) -> str:
-    value = body.get(key)
-    return value if isinstance(value, str) else ""
 
 
 class _Handler(BaseHTTPRequestHandler):

@@ -17,7 +17,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.luquas95.ccc.ui.AgentsActions
+import io.github.luquas95.ccc.ui.AgentsScreen
+import io.github.luquas95.ccc.ui.AnalyticsScreen
 import io.github.luquas95.ccc.ui.AppViewModel
+import io.github.luquas95.ccc.ui.CccSettingsScreen
+import io.github.luquas95.ccc.ui.LiveSessionsScreen
+import io.github.luquas95.ccc.ui.RoutinesActions
+import io.github.luquas95.ccc.ui.RoutinesScreen
+import io.github.luquas95.ccc.ui.SettingsActions
 import io.github.luquas95.ccc.ui.ApprovalsScreen
 import io.github.luquas95.ccc.ui.ConversationActions
 import io.github.luquas95.ccc.ui.ConversationScreen
@@ -63,6 +71,11 @@ private fun App(model: AppViewModel) {
     val tasks by model.tasks.collectAsStateWithLifecycle()
     val runs by model.runs.collectAsStateWithLifecycle()
     val diff by model.diff.collectAsStateWithLifecycle()
+    val agents by model.more.agents.collectAsStateWithLifecycle()
+    val routines by model.more.routines.collectAsStateWithLifecycle()
+    val sessions by model.more.sessions.collectAsStateWithLifecycle()
+    val analytics by model.more.analytics.collectAsStateWithLifecycle()
+    val cccSettings by model.more.settings.collectAsStateWithLifecycle()
     val nameOf = { id: Int -> (home.conversations + home.archived).firstOrNull { it.id == id }?.name.orEmpty() }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -102,7 +115,7 @@ private fun App(model: AppViewModel) {
             actions = ConversationsActions(
                 open = { model.open(Screen.Conversation(it)) },
                 approvals = { model.open(Screen.Approvals) },
-                settings = { model.open(Screen.Setup) },
+                settings = { model.open(Screen.CccSettings) },
                 new = { model.open(Screen.NewConversation) },
                 refresh = model::pullToRefresh,
                 search = { model.open(Screen.Search) },
@@ -111,6 +124,9 @@ private fun App(model: AppViewModel) {
                 nextWaiting = model::openNextWaiting,
                 renameGroup = model::renameGroup,
                 deleteGroup = model::deleteGroup,
+                routines = { model.open(Screen.Routines) },
+                sessions = { model.open(Screen.LiveSessions) },
+                analytics = { model.open(Screen.Analytics) },
             ),
         )
         is Screen.Conversation -> conversation?.takeIf { it.id == screen.id }?.let {
@@ -133,6 +149,7 @@ private fun App(model: AppViewModel) {
                     mention = model::mention,
                     tasks = { model.open(Screen.Tasks(screen.id)) },
                     runs = { model.open(Screen.Runs(screen.id)) },
+                    agents = { model.open(Screen.Agents(screen.id)) },
                 ),
             )
         }
@@ -171,6 +188,70 @@ private fun App(model: AppViewModel) {
                 onSend = model::sendComments,
             )
         }
+        is Screen.Agents -> agents?.takeIf { it.id == screen.id }?.let {
+            val more = model.more
+            AgentsScreen(
+                state = it,
+                name = nameOf(screen.id),
+                others = home.conversations.filter { c -> c.id != screen.id },
+                firstTab = screen.tab,
+                snackbar = snackbar,
+                actions = AgentsActions(
+                    back = model::back,
+                    review = more::requestReview,
+                    stopReview = more::stopReview,
+                    applyReview = more::applyReview,
+                    goal = more::startGoal,
+                    stopGoal = more::stopGoal,
+                    workflow = more::startWorkflow,
+                    answer = more::answerWorkflow,
+                    stopWorkflow = more::stopWorkflow,
+                    ask = more::ask,
+                    cancelAsk = more::cancelAsk,
+                ),
+            )
+        }
+        Screen.Routines -> RoutinesScreen(
+            state = routines,
+            conversations = home.conversations,
+            snackbar = snackbar,
+            actions = RoutinesActions(
+                back = model::back,
+                save = model.more::saveRoutine,
+                delete = model.more::deleteRoutine,
+                enable = model.more::enableRoutine,
+                run = model.more::runRoutine,
+            ),
+        )
+        Screen.LiveSessions -> LiveSessionsScreen(
+            sessions = sessions,
+            snackbar = snackbar,
+            onBack = model::back,
+            onRefresh = model.more::loadSessions,
+            onPrompt = { id, prompt -> model.more.promptSession(id, prompt, context.getString(R.string.prompt_queued)) },
+        )
+        Screen.Analytics -> AnalyticsScreen(
+            state = analytics,
+            usage = home.usage,
+            snackbar = snackbar,
+            onBack = model::back,
+            onMonth = { year, month -> model.more.loadAnalytics(year, month) },
+            onArchive = { model.more.archiveAnalytics(context.getString(R.string.archived_months)) },
+        )
+        Screen.CccSettings -> CccSettingsScreen(
+            state = cccSettings,
+            presets = home.promptPresets,
+            snackbar = snackbar,
+            actions = SettingsActions(
+                back = model::back,
+                save = { model.more.changeSettings(it, context.getString(R.string.settings_saved)) },
+                action = { model.more.settingsAction(it, context.getString(R.string.done)) },
+                savePresets = model::savePromptPresets,
+                deleteLaunchPreset = model.more::deleteLaunchPreset,
+                backup = { model.more.backup(context.getString(R.string.backed_up)) },
+                connection = { model.open(Screen.Setup) },
+            ),
+        )
         Screen.Search -> SearchScreen(
             state = search,
             snackbar = snackbar,

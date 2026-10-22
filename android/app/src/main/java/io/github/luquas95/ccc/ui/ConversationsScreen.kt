@@ -21,11 +21,13 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -78,6 +80,9 @@ class ConversationsActions(
     val nextWaiting: () -> Unit,
     val renameGroup: (String, String) -> Unit,
     val deleteGroup: (String) -> Unit,
+    val routines: () -> Unit,
+    val sessions: () -> Unit,
+    val analytics: () -> Unit,
 )
 
 private val MARKERS = listOf(ListFilter.WORKING, ListFilter.APPROVAL, ListFilter.ERROR, ListFilter.UNSEEN)
@@ -102,7 +107,18 @@ fun ConversationsScreen(state: HomeState, snackbar: SnackbarHostState, actions: 
                             if (state.permissions.isNotEmpty()) Badge { Text(state.permissions.size.toString()) }
                         }) { Icon(Icons.Filled.Notifications, stringResource(R.string.approvals)) }
                     }
-                    IconButton(onClick = actions.settings) { Icon(Icons.Filled.Settings, stringResource(R.string.settings)) }
+                    var menu by remember { mutableStateOf(false) }
+                    IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.more)) }
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        listOf(
+                            R.string.routines to actions.routines,
+                            R.string.live_sessions to actions.sessions,
+                            R.string.analytics to actions.analytics,
+                            R.string.ccc_settings to actions.settings,
+                        ).forEach { (label, go) ->
+                            DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { menu = false; go() })
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CccColors.Background),
             )

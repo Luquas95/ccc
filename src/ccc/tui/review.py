@@ -19,20 +19,13 @@ from ccc.tui.layout import MODAL_CSS
 
 REFRESH_SECONDS = 2.0
 VERDICT_STYLES = {Verdict.PASS: "bold green", Verdict.FAIL: "bold red", Verdict.PARTIAL: "bold yellow"}
-STATUS_LABELS = {
-    ReviewStatus.PENDING: _("waiting"),
-    ReviewStatus.RUNNING: _("reviewing…"),
-    ReviewStatus.NOTHING: _("nothing new"),
-    ReviewStatus.ERROR: _("failed"),
-    ReviewStatus.STOPPED: _("stopped"),
-}
 
 
 def result_text(review: Review) -> Text:
     if review.status == ReviewStatus.DONE and review.verdict is not None:
         return Text(review.verdict.value, style=VERDICT_STYLES[review.verdict])
     style = "red" if review.status == ReviewStatus.ERROR else "yellow" if review.status in reviews.ACTIVE else "dim"
-    return Text(STATUS_LABELS[review.status], style=style)
+    return Text(_(reviews.STATUS_LABELS[review.status]), style=style)
 
 
 class ReviewModal(ModalScreen):

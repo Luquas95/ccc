@@ -72,7 +72,7 @@ import io.github.luquas95.ccc.ui.theme.CccColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Bar(title: String, subtitle: String?, onBack: () -> Unit, actions: @Composable () -> Unit = {}) {
+internal fun Bar(title: String, subtitle: String?, onBack: () -> Unit, actions: @Composable () -> Unit = {}) {
     TopAppBar(
         title = {
             Column {

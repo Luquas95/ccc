@@ -89,6 +89,7 @@ class ConversationActions(
     val mention: (String?) -> Unit,
     val tasks: () -> Unit,
     val runs: () -> Unit,
+    val agents: () -> Unit,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -146,6 +147,8 @@ fun ConversationScreen(
                                 onClick = { menu = false; actions.tasks() })
                             DropdownMenuItem(text = { Text(stringResource(R.string.runs)) },
                                 onClick = { menu = false; actions.runs() })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.agents)) },
+                                onClick = { menu = false; actions.agents() })
                             DropdownMenuItem(text = { Text(stringResource(R.string.group_put)) },
                                 onClick = { menu = false; dialog = "group" })
                             DropdownMenuItem(text = { Text(stringResource(R.string.export)) },
