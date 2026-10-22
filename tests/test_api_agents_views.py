@@ -191,3 +191,34 @@ def test_prompt_and_launch_presets_saved(storage):
 def test_backup_now(storage, tmp_path):
     result = api.Api(storage).route("POST", "/api/v1/backup", {}, {})[1]
     assert result["path"].startswith(str(tmp_path / "backups"))
+
+
+# --- Claude Code's terminal --------------------------------------------------------------
+
+
+def test_terminal_of_an_interactive_conversation(storage, tmp_path, monkeypatch):
+    from ccc import managed_sessions
+    from ccc.live_delivery import DeliveryResult
+    from ccc.models import DeliveryMode
+
+    folder = tmp_path / "web"
+    folder.mkdir()
+    q = storage.create_queue("web", str(folder), "s9", delivery_mode=DeliveryMode.INTERACTIVE)
+    headless = _queue(storage, tmp_path)
+    pressed, pasted = [], []
+    monkeypatch.setattr(managed_sessions, "is_running", lambda queue_id: True)
+    monkeypatch.setattr(managed_sessions, "screen", lambda queue_id: managed_sessions.Screen("> hi", 80, 24, 4, 0))
+    monkeypatch.setattr(managed_sessions, "press", lambda queue_id, keys: pressed.append(keys) or DeliveryResult(True))
+    monkeypatch.setattr(managed_sessions, "paste_and_submit",
+                        lambda queue_id, text, submit=True: pasted.append((text, submit)) or DeliveryResult(True))
+    endpoint = api.Api(storage)
+
+    assert endpoint.route("GET", f"/api/v1/conversations/{q.id}/terminal", {}, {})[1]["screen"] == "> hi"
+    endpoint.terminal_input(q.id, {"keys": ["Escape"]})
+    endpoint.terminal_input(q.id, {"paste": "/compact", "submit": False})
+    assert pressed == [["Escape"]] and pasted == [("/compact", False)]
+    assert _error(lambda: endpoint.terminal_input(q.id, {"paste": " "})).status == 400
+    assert _error(lambda: endpoint.terminal(headless.id)).status == 409
+
+    monkeypatch.setattr(managed_sessions, "is_running", lambda queue_id: False)
+    assert _error(lambda: endpoint.terminal(q.id)).status == 409

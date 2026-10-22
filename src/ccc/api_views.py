@@ -12,6 +12,8 @@ POST /api/v1/settings/telegram-test, telegram-off, discord-test, discord-off
 POST /api/v1/prompt-presets                {"presets": [{"name", "text", "send_now"}]}: all of them, in order
 POST /api/v1/launch-presets                {"name", "options", …} save one; POST launch-presets/delete {"name"}
 POST /api/v1/backup                        back the database up now
+GET  /api/v1/conversations/{id}/terminal   what its Claude Code shows (an interactive conversation)
+POST /api/v1/conversations/{id}/terminal   {"paste", "submit"} / {"keys": [tmux names]} / {"type": "y"}
 POST /api/v1/analytics/archive             archive finished months into the analytics folder now
 """
 from __future__ import annotations
@@ -60,6 +62,8 @@ class ViewEndpoints:
             ok(r"/launch-presets", lambda ids, q, b: self.save_launch_preset(b), "POST"),
             ok(r"/launch-presets/delete", lambda ids, q, b: self.delete_launch_preset(b), "POST"),
             ok(r"/backup", lambda ids, q, b: self.backup(), "POST"),
+            ok(r"/conversations/(\d+)/terminal", lambda ids, q, b: self.terminal(*ids)),
+            ok(r"/conversations/(\d+)/terminal", lambda ids, q, b: self.terminal_input(*ids, b), "POST"),
         ]
 
     # --- routines ----------------------------------------------------------------------
@@ -385,3 +389,49 @@ class ViewEndpoints:
 
         path = backup_now(self.storage.db_path, default_backup_dir(self.storage.db_path))
         return {"path": str(path), "at": iso(datetime.now())}
+
+    # --- Claude Code's terminal (Enter in the list of Conversations) ------------------------
+
+    def _terminal_queue(self, queue_id: int):
+        from ccc import managed_sessions
+
+        queue = self._queue(queue_id)
+        if not queue.delivery_mode.managed:
+            raise ApiError(HTTPStatus.CONFLICT, _("This conversation runs without a Claude Code terminal (headless)."))
+        if not managed_sessions.is_running(queue_id):
+            raise ApiError(HTTPStatus.CONFLICT, _("Its Claude Code isn't running — the daemon starts it for its next task."))
+        return queue
+
+    def terminal(self, queue_id: int) -> dict:
+        """The screen of the conversation's Claude Code, with its colours (ANSI) and cursor."""
+        from ccc import managed_sessions
+
+        self._terminal_queue(queue_id)
+        shown = managed_sessions.screen(queue_id)
+        if shown is None:
+            raise ApiError(HTTPStatus.CONFLICT, _("Its Claude Code isn't running — the daemon starts it for its next task."))
+        return {"screen": shown.text, "width": shown.width, "height": shown.height,
+                "cursor_x": shown.cursor_x, "cursor_y": shown.cursor_y}
+
+    def terminal_input(self, queue_id: int, body: dict) -> dict:
+        """Into the conversation's Claude Code: {"paste": text, "submit": bool} as one paste (Enter after
+        it unless submit is false), {"keys": [...]} tmux keys from managed_sessions.KEYS, {"type": "y"}
+        a few characters as typed."""
+        from ccc import managed_sessions
+
+        self._terminal_queue(queue_id)
+        if "paste" in body:
+            text = text_of(body, "paste")
+            if not text.strip():
+                raise ApiError(HTTPStatus.BAD_REQUEST, _("The message is empty."))
+            result = managed_sessions.paste_and_submit(queue_id, text, submit=body.get("submit", True) is not False)
+        elif "keys" in body:
+            keys = body.get("keys")
+            if not isinstance(keys, list) or not all(isinstance(k, str) for k in keys):
+                raise ApiError(HTTPStatus.BAD_REQUEST, _("keys must be a list of key names."))
+            result = managed_sessions.press(queue_id, keys)
+        else:
+            result = managed_sessions.type_text(queue_id, text_of(body, "type"))
+        if not result.delivered:
+            raise ApiError(HTTPStatus.BAD_REQUEST, result.error or _("Not delivered."))
+        return self.terminal(queue_id)

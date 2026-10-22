@@ -173,6 +173,16 @@ data class Analytics(
     val reserve: Int? = null,
 )
 
+/** What a conversation's Claude Code shows: the screen with its colours (ANSI) and the cursor. */
+@Serializable
+data class Terminal(
+    val screen: String,
+    val width: Int = 80,
+    val height: Int = 24,
+    @SerialName("cursor_x") val cursorX: Int = 0,
+    @SerialName("cursor_y") val cursorY: Int = 0,
+)
+
 @Serializable
 data class Choice(val value: String, val label: String)
 

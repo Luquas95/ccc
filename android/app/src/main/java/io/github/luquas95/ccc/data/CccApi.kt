@@ -255,6 +255,19 @@ class CccApi(
         post<Unit>("backup", "{}")
     }
 
+    suspend fun terminal(id: Int): Terminal = get("conversations/$id/terminal")
+
+    /** Text into the conversation's Claude Code as one paste (and Enter, unless [submit] is false). */
+    suspend fun terminalPaste(id: Int, text: String, submit: Boolean): Terminal =
+        post("conversations/$id/terminal", body("paste" to JsonPrimitive(text), "submit" to JsonPrimitive(submit)))
+
+    /** tmux key names: Enter, Escape, Tab, BTab, Up, Down, Left, Right, C-c … */
+    suspend fun terminalKeys(id: Int, keys: List<String>): Terminal =
+        post("conversations/$id/terminal", body("keys" to JsonArray(keys.map { JsonPrimitive(it) })))
+
+    /** A few characters as typed (an answer to a menu). */
+    suspend fun terminalType(id: Int, text: String): Terminal = post("conversations/$id/terminal", body("type" to JsonPrimitive(text)))
+
     suspend fun permissions(): List<Permission> = get("permissions")
 
     /** [decision]: "allow", "always" (this tool in this conversation from now on) or "deny". */

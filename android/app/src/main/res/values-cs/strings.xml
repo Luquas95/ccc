@@ -20,7 +20,6 @@
     <string name="needs_approval">čeká na schválení</string>
     <string name="new_reply">nová odpověď</string>
     <string name="approvals">Schválení</string>
-    <string name="settings">Nastavení</string>
     <string name="new_conversation">Nová konverzace</string>
     <string name="usage_five_hour">5 hodin</string>
     <string name="usage_seven_day">7 dní</string>
@@ -253,4 +252,18 @@
     <string name="workflow_start">Spustit workflow</string>
     <string name="workflow_task">Úkol</string>
     <string name="workflow_template">Šablona</string>
+
+    <!-- Kolo 4: oznámení, terminál -->
+    <string name="terminal">Terminál Claude Code</string>
+    <string name="terminal_hint">Text do Claude Code (odešle se Enterem)</string>
+    <string name="notifications">Oznámení</string>
+    <string name="notifications_hint">Když je aplikace zavřená, drží spojení s ccc a dá ti vědět o schváleních (odpovíš přímo v oznámení), chybách, limitech využití a hotových odpovědích. Na Xiaomi / HyperOS aplikaci povol i běh na pozadí (baterie).</string>
+    <string name="notifications_on">Oznamovat, i když je aplikace zavřená</string>
+    <string name="battery">Nastavení optimalizace baterie</string>
+    <string name="watch_title">ccc hlídá tvé konverzace</string>
+    <string name="watch_text">Schválení a konverzace, které tě potřebují, přijdou jako oznámení.</string>
+    <string name="channel_approvals">Schválení</string>
+    <string name="channel_needs_you">Konverzace, které tě potřebují</string>
+    <string name="channel_watch">Hlídání (stále zapnuté)</string>
+    <string name="approval_waiting">Čeká na tebe schválení</string>
 </resources>

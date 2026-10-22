@@ -20,6 +20,8 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
 | <img src="screenshots/en/reviews.png" width="260" alt="Reviews"> | <img src="screenshots/en/workflow.png" width="260" alt="Workflow"> | <img src="screenshots/en/analytics.png" width="260" alt="Analytics"> |
 | **Routines** | **Live sessions** | **ccc settings** |
 | <img src="screenshots/en/routines.png" width="260" alt="Routines"> | <img src="screenshots/en/live_sessions.png" width="260" alt="Live sessions"> | <img src="screenshots/en/ccc_settings.png" width="260" alt="ccc settings"> |
+| **Claude Code's terminal** | **Connection and notifications** | |
+| <img src="screenshots/en/terminal.png" width="260" alt="Terminal"> | <img src="screenshots/en/connection.png" width="260" alt="Connection"> | |
 
 ## What it does
 
@@ -60,6 +62,17 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
   per day, model and conversation; and ccc's own settings (language,
   queues, context, Telegram / Discord with a test message, folders,
   preset prompts, presets, backup).
+- **Claude Code's terminal** (a conversation's menu, interactive
+  conversations) — what its Claude Code shows, live, in colour; keys for
+  its menus (Esc, Tab, ⇧Tab, arrows, Enter, Ctrl+C …), quick answers
+  (y, n, 1–3) and text into it — what you'd do in ccc's pane.
+- **Notifications** (Connection) — while the app is closed it keeps the
+  connection to ccc (a foreground service, no push server: everything
+  stays on the tailnet) and tells you about an approval — **Allow /
+  Deny right in the notification** —, an error, a usage limit or a
+  finished reply; a tap opens the conversation. On Xiaomi / HyperOS let
+  the app run in the background (the battery button there), or the
+  system stops it.
 - **Approvals** — Allow, Always (this tool in this conversation) or
   Deny, right in the conversation or all of them behind the bell.
 - **New conversation** — a folder (recently used ones offered), the same
@@ -67,8 +80,7 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
   choice, with your presets; resume a session of the folder, from a pull
   request, remote control, auto-continue and a first message.
 - **Live** — while the app is open it keeps ccc's event stream open: a
-  new reply or approval shows up by itself. In the background it's
-  closed (notifications are coming).
+  new reply or approval shows up by itself.
 
 ## Building and installing
 
@@ -113,4 +125,9 @@ from there.
    2. the task queue and a queue's runs, diffs and commits — done;
    3. reviews, goals, workflows, questions, routines, live sessions,
       analytics, settings — done;
-   4. notifications with Allow / Deny, and Claude Code's live terminal.
+   4. notifications with Allow / Deny, and Claude Code's live terminal —
+      done.
+
+What stays in the terminal only: keyboard shortcuts and their
+settings, the external editor, ccc's own screenshots, workflow template
+import / export.

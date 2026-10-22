@@ -205,3 +205,40 @@ def test_old_trust_dialog_still_confirmed(monkeypatch):
     monkeypatch.setattr(ms, "_tmux", lambda *args, input_text=None: sent.append(args[-1]))
     assert ms.confirm(19, sleep=lambda s: None) is True
     assert sent == ["Enter"]
+
+
+def _fake_tmux(monkeypatch, answers=None):
+    calls = []
+
+    def fake(*args, input_text=None):
+        calls.append(args)
+        out = (answers or {}).get(args[0], "")
+        return subprocess.CompletedProcess(args, 0, out, "")
+
+    monkeypatch.setattr(ms, "_tmux", fake)
+    return calls
+
+
+def test_screen_has_the_colours_and_the_cursor(monkeypatch):
+    calls = _fake_tmux(monkeypatch, {"capture-pane": "\x1b[32m> hi\x1b[0m\n", "display-message": "120 40 3 7\n"})
+    shown = ms.screen(7)
+    assert shown == ms.Screen("\x1b[32m> hi\x1b[0m\n", 120, 40, 3, 7)
+    assert calls[0] == ("capture-pane", "-p", "-e", "-t", "q7")
+
+
+def test_only_allowed_keys_are_pressed(monkeypatch):
+    calls = _fake_tmux(monkeypatch)
+    assert ms.press(7, ["Escape", "C-c"]).delivered
+    assert calls == [("send-keys", "-t", "q7", "Escape", "C-c")]
+    assert not ms.press(7, ["Enter", "C-x"]).delivered
+    assert not ms.press(7, []).delivered
+    assert len(calls) == 1
+
+
+def test_typed_text_is_literal_short_and_plain(monkeypatch):
+    calls = _fake_tmux(monkeypatch)
+    assert ms.type_text(7, "y").delivered
+    assert calls == [("send-keys", "-t", "q7", "-l", "y")]
+    for bad in ("", "a\nb", "\x1b[A", "x" * 201):
+        assert not ms.type_text(7, bad).delivered
+    assert len(calls) == 1

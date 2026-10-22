@@ -22,6 +22,7 @@ import io.github.luquas95.ccc.data.Settings
 import io.github.luquas95.ccc.data.Status
 import io.github.luquas95.ccc.data.Usage
 import io.github.luquas95.ccc.data.Waiting
+import io.github.luquas95.ccc.notify.WatchService
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -49,6 +50,8 @@ sealed interface Screen {
     data object LiveSessions : Screen
     data object Analytics : Screen
     data object CccSettings : Screen
+    /** A conversation's Claude Code, live. */
+    data class Terminal(val id: Int) : Screen
 }
 
 data class HomeState(
@@ -148,6 +151,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     val server: String get() = settings.server
 
+    private val _notifications = MutableStateFlow(settings.notifications)
+    /** Notifications while the app is closed (notify.WatchService). */
+    val notifications: StateFlow<Boolean> = _notifications.asStateFlow()
+
+    fun setNotifications(on: Boolean) {
+        settings.notifications = on
+        _notifications.value = on
+        WatchService.sync(getApplication())
+    }
+
     private var events: Job? = null
     private var foreground = false
     /** Agents, routines, live sessions, analytics, ccc's settings. */
@@ -176,6 +189,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             Screen.LiveSessions -> more.loadSessions()
             Screen.Analytics -> more.loadAnalytics()
             Screen.CccSettings -> more.loadSettings()
+            is Screen.Terminal -> more.openTerminal(screen.id, { api }, { foreground && _screens.value.lastOrNull() == screen })
             is Screen.Diff -> {
                 _diff.value = DiffState(screen.runId)
                 action { client -> _diff.update { it?.copy(diff = client.diff(screen.runId)) } }
@@ -184,9 +198,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** A notification tapped: its conversation on top of the list. */
+    fun openFromNotification(id: Int) {
+        if (api == null) return
+        _screens.value = listOf(Screen.Conversations)
+        open(Screen.Conversation(id))
+    }
+
     fun back() {
         _screens.update { if (it.size > 1) it.dropLast(1) else it }
         val current = _screens.value.last()
+        if (_screens.value.none { it is Screen.Terminal }) more.closeTerminal()
         _conversation.update { state -> state?.takeIf { current is Screen.Conversation && current.id == it.id } }
         if (current is Screen.Conversation && _conversation.value == null) openConversation(current.id)
     }
@@ -213,6 +235,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 _screens.value = listOf(Screen.Conversations)
                 restartEvents()
                 refresh()
+                WatchService.sync(getApplication())
                 onDone(true)
             } catch (e: CancellationException) {
                 throw e
@@ -230,6 +253,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _home.value = HomeState()
         _conversation.value = null
         _screens.value = listOf(Screen.Setup)
+        _notifications.value = false
+        WatchService.sync(getApplication())
     }
 
     // --- the app in front / behind ----------------------------------------------------

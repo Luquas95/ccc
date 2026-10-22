@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ccc</string>
+    <string name="app_name" translatable="false">ccc</string>
 
     <!-- Signing in -->
     <string name="setup_title">Connect to ccc</string>
@@ -22,7 +22,6 @@
     <string name="needs_approval">needs approval</string>
     <string name="new_reply">new reply</string>
     <string name="approvals">Approvals</string>
-    <string name="settings">Settings</string>
     <string name="new_conversation">New conversation</string>
     <string name="usage_five_hour">5 hours</string>
     <string name="usage_seven_day">7 days</string>
@@ -255,4 +254,18 @@
     <string name="workflow_start">Start the workflow</string>
     <string name="workflow_task">The task</string>
     <string name="workflow_template">Template</string>
+
+    <!-- Round 4: notifications, terminal -->
+    <string name="terminal">Claude Code terminal</string>
+    <string name="terminal_hint">Text into Claude Code (sent with Enter)</string>
+    <string name="notifications">Notifications</string>
+    <string name="notifications_hint">While the app is closed, it keeps a connection to ccc and tells you about approvals (answer them right in the notification), errors, usage limits and finished replies. On Xiaomi / HyperOS also allow the app to run in the background (battery).</string>
+    <string name="notifications_on">Notify while the app is closed</string>
+    <string name="battery">Battery optimisation settings</string>
+    <string name="watch_title">ccc is watching your conversations</string>
+    <string name="watch_text">Approvals and conversations that need you come as notifications.</string>
+    <string name="channel_approvals">Approvals</string>
+    <string name="channel_needs_you">Conversations that need you</string>
+    <string name="channel_watch">Watching (always on)</string>
+    <string name="approval_waiting">An approval waits for you</string>
 </resources>

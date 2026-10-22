@@ -13,6 +13,16 @@ class Settings(context: Context) {
     val token: String get() = prefs.getString(TOKEN, "").orEmpty()
     val configured: Boolean get() = server.isNotBlank() && token.isNotBlank()
 
+    /** Notifications while the app is closed (the watch service). */
+    var notifications: Boolean
+        get() = prefs.getBoolean(NOTIFICATIONS, false)
+        set(value) = prefs.edit().putBoolean(NOTIFICATIONS, value).apply()
+
+    /** Keys of the alerts shown (see Alerts), so a restart doesn't show them again. */
+    var shownAlerts: Set<String>
+        get() = prefs.getStringSet(SHOWN, emptySet()).orEmpty().toSet()
+        set(value) = prefs.edit().putStringSet(SHOWN, value).apply()
+
     fun save(server: String, token: String) {
         prefs.edit().putString(SERVER, server.trim()).putString(TOKEN, token.trim()).apply()
     }
@@ -24,5 +34,7 @@ class Settings(context: Context) {
     private companion object {
         const val SERVER = "server"
         const val TOKEN = "token"
+        const val NOTIFICATIONS = "notifications"
+        const val SHOWN = "shown_alerts"
     }
 }

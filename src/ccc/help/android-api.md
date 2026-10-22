@@ -31,6 +31,20 @@ token.
 Without the service, `ccc api serve` runs it in the terminal
 (`--port` for another port).
 
+## In the app
+
+Everything ccc's window does, made for the phone: the conversations,
+the task queue, runs and diffs, reviews, goals, workflows, questions,
+routines, live sessions, analytics, settings — and an interactive
+conversation's Claude Code, live, with keys for its menus.
+
+**Notifications** (Connection → *Notify while the app is closed*): the
+app keeps its connection to ccc open in the background and tells you
+about an approval — answer it right in the notification —, an error, a
+usage limit or a finished reply. No push server is involved; on Xiaomi
+/ HyperOS allow the app to run in the background, or the system stops
+it.
+
 ## Endpoints
 
 Every path starts with `/api/v1`; every request has the header
@@ -69,6 +83,8 @@ Every path starts with `/api/v1`; every request has the header
 | `GET /analytics?year=&month=` | a month's tokens per day, model and conversation, the months there are ([Analytics](analytics.md)); `POST /analytics/archive` archives finished months now |
 | `GET /settings` | ccc's [settings](settings.md) with the choices for each (secrets only as set / not set); `POST` changes some of them; `POST /settings/telegram-test`, `telegram-off`, `discord-test`, `discord-off` |
 | `POST /prompt-presets` | `{"presets": [{"name", "text", "send_now"}]}` — all of them, in order; `POST /launch-presets` saves a New conversation preset, `POST /launch-presets/delete` `{"name"}` |
+| `GET /conversations/{id}/terminal` | what an interactive conversation's Claude Code shows now — its screen with colours (ANSI) and cursor |
+| `POST /conversations/{id}/terminal` | into its Claude Code: `{"paste", "submit"}` text as one paste (Enter after it unless `submit` is false), `{"keys": […]}` keys (Enter, Escape, Tab, BTab, arrows, Home, End, PageUp, PageDown, BSpace, Space, C-c, C-d, C-l, C-o, C-r, C-t, C-u), `{"type": "y"}` a few characters |
 | `POST /backup` | back the database up now |
 | `GET /launch-options` | the options a conversation can be started with (keys and labels) |
 | `GET /projects` | recently used folders |

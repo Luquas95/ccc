@@ -167,7 +167,17 @@ open class ScreenshotsTest {
 
     @Test
     fun setup() = shot("setup", "ccc") {
-        SetupScreen("", false, SnackbarHostState(), null, { _, _, _ -> }, {})
+        SetupScreen("", false, false, SnackbarHostState(), null, { _, _, _ -> }, {}, {})
+    }
+
+    @Test
+    fun connection() = shot("connection", "computer.tailnet") {
+        SetupScreen("computer.tailnet.ts.net", true, true, SnackbarHostState(), {}, { _, _, _ -> }, {}, {})
+    }
+
+    @Test
+    fun terminal() = shot("terminal", "Welcome") {
+        TerminalScreen(terminalState, "web", SnackbarHostState(), TerminalActions({}, { _, _ -> }, {}, {}))
     }
 
     private fun shot(name: String, expect: String, content: @Composable () -> Unit) {
@@ -182,7 +192,19 @@ open class ScreenshotsTest {
     private companion object {
         val listActions = ConversationsActions({}, {}, {}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {})
         val conversationActions = ConversationActions(
-            {}, { _, _ -> }, {}, {}, { _, _ -> }, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {},
+            {}, { _, _ -> }, {}, {}, { _, _ -> }, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {}, {},
+        )
+        val terminalState = TerminalState(
+            5,
+            io.github.luquas95.ccc.data.Terminal(
+                "\u001b[38;5;214m✻\u001b[0m \u001b[1mWelcome to Claude Code!\u001b[0m\n\n" +
+                    "  \u001b[2m/help for help, /status for your current setup\u001b[0m\n\n" +
+                    "\u001b[38;5;74m> \u001b[0mAdd caching to GET /products\n\n" +
+                    "\u001b[32m●\u001b[0m I'll add a Redis cache with a 60 s TTL.\n\n" +
+                    "\u001b[1mDo you want to make this edit to src/api/products.py?\u001b[0m\n" +
+                    " \u001b[38;5;74m❯ 1. Yes\u001b[0m\n   2. Yes, and don't ask again this session\n   3. No, and tell Claude what to do differently\n",
+                100, 30, 3, 9,
+            ),
         )
         val agentsActions = AgentsActions({}, { _, _, _ -> }, {}, {}, { _, _, _ -> }, {}, { _, _, _, _ -> }, { _, _ -> }, {},
             { _, _, _ -> }, {})

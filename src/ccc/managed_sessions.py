@@ -14,6 +14,7 @@ import shlex
 import signal
 import subprocess
 import time
+from dataclasses import dataclass
 
 from ccc.live_delivery import DeliveryResult
 from ccc.models import DeliveryMode, Queue
@@ -164,6 +165,59 @@ def stop(queue_id: int) -> None:
 def capture(queue_id: int) -> str:
     result = _tmux("capture-pane", "-p", "-t", target(queue_id))
     return result.stdout if result.returncode == 0 else ""
+
+
+# Keys the phone's terminal may press (tmux key names): Claude Code's
+# menus, history, interrupt and completion — nothing else.
+KEYS = frozenset({"Enter", "Escape", "Tab", "BTab", "Up", "Down", "Left", "Right", "Home", "End", "PageUp",
+                  "PageDown", "BSpace", "Space", "C-c", "C-d", "C-l", "C-o", "C-r", "C-t", "C-u"})
+TYPE_MAX_CHARS = 200
+
+
+@dataclass(frozen=True)
+class Screen:
+    text: str  # with its colours (ANSI escapes)
+    width: int
+    height: int
+    cursor_x: int
+    cursor_y: int
+
+
+def screen(queue_id: int) -> Screen | None:
+    """What the conversation's Claude Code shows now, colours included
+    (None: it isn't running)."""
+    shown = _tmux("capture-pane", "-p", "-e", "-t", target(queue_id))
+    size = _tmux("display-message", "-p", "-t", target(queue_id),
+                 "#{pane_width} #{pane_height} #{cursor_x} #{cursor_y}")
+    if shown.returncode != 0 or size.returncode != 0:
+        return None
+    try:
+        width, height, x, y = (int(n) for n in size.stdout.split())
+    except ValueError:
+        return None
+    return Screen(shown.stdout, width, height, x, y)
+
+
+def press(queue_id: int, keys: list[str]) -> DeliveryResult:
+    """Press KEYS (tmux names) in the conversation's Claude Code."""
+    unknown = [k for k in keys if k not in KEYS]
+    if unknown or not keys:
+        return DeliveryResult(delivered=False, error=f"not an allowed key: {', '.join(unknown) or '(none)'}")
+    result = _tmux("send-keys", "-t", target(queue_id), *keys)
+    if result.returncode != 0:
+        return DeliveryResult(delivered=False, error=result.stderr.strip() or "tmux send-keys failed")
+    return DeliveryResult(delivered=True)
+
+
+def type_text(queue_id: int, text: str) -> DeliveryResult:
+    """Type a few characters as they are (an answer to a menu, a "y") —
+    no control characters; longer text goes through paste_and_submit."""
+    if not text or len(text) > TYPE_MAX_CHARS or any(ord(c) < 32 or ord(c) == 127 for c in text):
+        return DeliveryResult(delivered=False, error="text to type must be short, without control characters")
+    result = _tmux("send-keys", "-t", target(queue_id), "-l", text)
+    if result.returncode != 0:
+        return DeliveryResult(delivered=False, error=result.stderr.strip() or "tmux send-keys failed")
+    return DeliveryResult(delivered=True)
 
 
 def pane_pid(queue_id: int) -> int | None:
