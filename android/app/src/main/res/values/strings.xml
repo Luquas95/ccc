@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ccc</string>
+
+    <!-- Signing in -->
+    <string name="setup_title">Connect to ccc</string>
+    <string name="setup_intro">ccc\'s API on your computer, reached over Tailscale. Turn it on there with bin/install.sh --api and tailscale serve --bg 8737.</string>
+    <string name="setup_server">Address</string>
+    <string name="setup_server_hint">computer.tailnet.ts.net</string>
+    <string name="setup_token">Token</string>
+    <string name="setup_token_hint">From ccc api token on the computer</string>
+    <string name="setup_connect">Connect</string>
+    <string name="setup_sign_out">Sign out</string>
+    <string name="setup_connected_to">Connected to %1$s</string>
+
+    <!-- Conversations -->
+    <string name="conversations_empty">No conversations yet.</string>
+    <string name="daemon_running">daemon running</string>
+    <string name="daemon_stopped">daemon not running</string>
+    <string name="offline">not connected — retrying</string>
+    <string name="pending_count">%1$d queued</string>
+    <string name="needs_approval">needs approval</string>
+    <string name="new_reply">new reply</string>
+    <string name="approvals">Approvals</string>
+    <string name="settings">Settings</string>
+    <string name="new_conversation">New conversation</string>
+    <string name="usage_five_hour">5 hours</string>
+    <string name="usage_seven_day">7 days</string>
+
+    <!-- States (ccc\'s QueueStatus) -->
+    <string name="status_idle">idle</string>
+    <string name="status_running">running</string>
+    <string name="status_waiting_retry">waiting to retry</string>
+    <string name="status_blocked_error">blocked by an error</string>
+    <string name="status_paused_limit">paused at a usage limit</string>
+    <string name="status_unknown">unknown</string>
+
+    <!-- One conversation -->
+    <string name="back">Back</string>
+    <string name="message_hint">Message for Claude…</string>
+    <string name="send">Send</string>
+    <string name="queued">queued</string>
+    <string name="retry">Retry / resume</string>
+    <string name="load_older">Older messages</string>
+    <string name="no_messages">No conversation yet.</string>
+    <string name="you">You</string>
+    <string name="claude">Claude</string>
+    <string name="remote_control_link">Remote control link</string>
+
+    <!-- Approvals -->
+    <string name="approval_title">%1$s wants to use %2$s</string>
+    <string name="allow">Allow</string>
+    <string name="always_allow">Always</string>
+    <string name="deny">Deny</string>
+    <string name="no_approvals">Nothing waits for your approval.</string>
+
+    <!-- A new conversation -->
+    <string name="folder">Folder on the computer</string>
+    <string name="recent_folders">Recently used</string>
+    <string name="name_optional">Name (optional: the folder\'s)</string>
+    <string name="pull_request">Pull request (number or URL)</string>
+    <string name="remote_control">Remote control (phone / claude.ai)</string>
+    <string name="auto_continue">Auto-continue after usage limit</string>
+    <string name="first_message">First message (optional)</string>
+    <string name="start">Start</string>
+
+    <!-- Errors -->
+    <string name="error_network">ccc can\'t be reached. Is the computer on and in your tailnet?</string>
+    <string name="error_token">ccc refused the token. Make a new one with ccc api token --new.</string>
+    <string name="error_server_address">That isn\'t an address.</string>
+</resources>

@@ -1,10 +1,10 @@
 # Aplikace pro Android a API
 
-Pro ccc vzniká aplikace pro Android (`android/` v repozitáři). S ccc
-mluví přes malé HTTP API, které už můžeš zapnout: konverzace a jejich
-zprávy, odeslání zprávy, schvalování nástrojů, nová konverzace, limity
-využití — a proud změn, takže telefon novou odpověď nebo žádost
-o schválení uvidí hned.
+ccc má aplikaci pro Android (`android/` v repozitáři — jak ji sestavit
+a nainstalovat: [android/README.md](../../../../android/README.md)).
+S ccc mluví přes malé HTTP API: konverzace a jejich zprávy, odeslání
+zprávy, schvalování nástrojů, nová konverzace, limity využití — a proud
+změn, takže telefon novou odpověď nebo žádost o schválení uvidí hned.
 
 API stejně jako TUI jen čte a zapisuje databázi ccc; práci dělá daemon.
 Je dostupné jen z tvé sítě [Tailscale](https://tailscale.com) a každý
@@ -20,9 +20,10 @@ požadavek potřebuje token.
    `tailscale serve status`.
 3. `ccc api token` vytvoří token, kterým se aplikace přihlásí, a vypíše
    ho — **jen tentokrát**: ccc si drží jen jeho otisk (SHA-256), takže ho
-   z databáze nikdo nepřečte. Ztratil jsi ho, nebo telefon?
+   z databáze nikdo nepřečte. Je token pryč, nebo se ztratil telefon?
    `ccc api token --new` vytvoří nový; starý hned přestane platit, i pro
    otevřená spojení.
+4. V aplikaci zadej adresu (stačí `<počítač>.<tailnet>.ts.net`) a token.
 
 Bez služby ho spustí v terminálu `ccc api serve` (`--port` pro jiný
 port).
