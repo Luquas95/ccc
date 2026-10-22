@@ -12,15 +12,20 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.luquas95.ccc.data.Conversation
 import io.github.luquas95.ccc.data.ConversationDetail
 import io.github.luquas95.ccc.data.Group
+import io.github.luquas95.ccc.data.LaunchChoice
+import io.github.luquas95.ccc.data.LaunchPresets
 import io.github.luquas95.ccc.data.LaunchGroup
 import io.github.luquas95.ccc.data.LaunchOption
 import io.github.luquas95.ccc.data.LaunchOptions
 import io.github.luquas95.ccc.data.Message
 import io.github.luquas95.ccc.data.Permission
+import io.github.luquas95.ccc.data.PromptPreset
+import io.github.luquas95.ccc.data.SearchHit
 import io.github.luquas95.ccc.data.Queued
 import io.github.luquas95.ccc.data.Status
 import io.github.luquas95.ccc.data.Usage
 import io.github.luquas95.ccc.data.UsageWindow
+import io.github.luquas95.ccc.data.Waiting
 import io.github.luquas95.ccc.ui.theme.CccTheme
 import java.io.File
 import kotlinx.serialization.json.JsonPrimitive
@@ -49,12 +54,30 @@ open class ScreenshotsTest {
 
     @Test
     fun conversations() = shot("conversations", "shop-api") {
-        ConversationsScreen(home, SnackbarHostState(), {}, {}, {}, {}, {})
+        ConversationsScreen(home, SnackbarHostState(), listActions)
+    }
+
+    @Test
+    fun archive() = shot("archive", "old-prototype") {
+        ConversationsScreen(home.copy(showArchive = true, filter = "proto"), SnackbarHostState(), listActions)
     }
 
     @Test
     fun conversation() = shot("conversation", "Rate limiting added") {
-        ConversationScreen(conversation, SnackbarHostState(), {}, { _, _ -> }, {}, {}, { _, _ -> })
+        ConversationScreen(conversation, home.promptPresets, home.ownGroups, SnackbarHostState(), conversationActions)
+    }
+
+    @Test
+    fun mention() = shot("mention", "src/api/limits.py") {
+        ConversationScreen(
+            conversation.copy(mentions = listOf("src/api/limits.py", "src/api/orders.py", "tests/api/test_limits.py")),
+            home.promptPresets, home.ownGroups, SnackbarHostState(), conversationActions,
+        )
+    }
+
+    @Test
+    fun search() = shot("search", "rate limiting") {
+        SearchScreen(searchState, SnackbarHostState(), {}, {}, {})
     }
 
     @Test
@@ -64,8 +87,12 @@ open class ScreenshotsTest {
 
     @Test
     fun newConversation() = shot("new_conversation", "shop-api") {
-        NewConversationScreen(NewConversationState(launchOptions, listOf("/home/you/projects/shop-api", "/home/you/projects/docs-site")),
-            SnackbarHostState(), {}, {})
+        NewConversationScreen(
+            NewConversationState(launchOptions, listOf("/home/you/projects/shop-api", "/home/you/projects/docs-site"),
+                LaunchPresets(presets = listOf(LaunchChoice(listOf("perm_plan", "model_opus"), name = "Review"),
+                    LaunchChoice(listOf("perm_skip", "model_sonnet"), name = "Quick fix")))),
+            SnackbarHostState(), {}, {}, {},
+        )
     }
 
     @Test
@@ -83,6 +110,23 @@ open class ScreenshotsTest {
     }
 
     private companion object {
+        val listActions = ConversationsActions({}, {}, {}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {})
+        val conversationActions = ConversationActions(
+            {}, { _, _ -> }, {}, {}, { _, _ -> }, {}, {}, {}, {}, { _, _ -> }, {},
+        )
+
+        val searchState = SearchState(
+            query = "rate limiting",
+            hits = listOf(
+                SearchHit(1, "shop-api", "2026-10-21T18:13:00+00:00", "assistant_text",
+                    "Rate limiting added: • GET /orders and GET /orders/{id} allow 60 requests/min per API key…"),
+                SearchHit(1, "shop-api", "2026-10-21T18:02:00+00:00", "human",
+                    "Add rate limiting to GET /orders — 60 requests a minute per API key."),
+                SearchHit(6, "old-prototype", "2026-09-02T09:40:00+00:00", "assistant_text",
+                    "…no rate limiting yet, the prototype trusts every client…"),
+            ),
+        )
+
         val permission = Permission(
             id = 1, conversationId = 1, tool = "Bash", conversation = "shop-api",
             input = buildJsonObject { put("command", JsonPrimitive("pytest -q tests/api")) },
@@ -92,6 +136,15 @@ open class ScreenshotsTest {
             status = Status("0.1.0", "en", daemonRunning = true, conversations = 5, running = 2, needsApproval = 1),
             usage = Usage(UsageWindow(64.0), UsageWindow(38.0)),
             permissions = listOf(permission),
+            waiting = listOf(Waiting(1, "shop-api", "approval", "waits for approval"),
+                Waiting(3, "data-pipeline", "error", "error")),
+            ownGroups = listOf("Release 2.1"),
+            promptPresets = listOf(PromptPreset(1, "Tests", "Run the full test suite", sendNow = true),
+                PromptPreset(2, "Commit", "Commit what you have", sendNow = false)),
+            archived = listOf(
+                Conversation(6, "old-prototype", "/home/you/projects/old-prototype", "idle", "headless", archived = true),
+                Conversation(7, "spike-auth", "/home/you/projects/spike-auth", "idle", "interactive", archived = true),
+            ),
             loaded = true,
             live = true,
             conversations = listOf(

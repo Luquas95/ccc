@@ -1,5 +1,6 @@
 package io.github.luquas95.ccc.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -27,7 +29,9 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -51,6 +55,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.luquas95.ccc.R
 import io.github.luquas95.ccc.data.LaunchGroup
@@ -58,9 +63,8 @@ import io.github.luquas95.ccc.data.NewConversation
 import io.github.luquas95.ccc.data.Permission
 import io.github.luquas95.ccc.ui.theme.CccColors
 
-/** Options the phone doesn't offer: resuming needs a list of the folder's sessions. */
-private val HIDDEN_OPTIONS = setOf("session_resume")
 private const val FROM_PR = "session_from_pr"
+private const val RESUME = "session_resume"
 private const val SESSION_NEW = "session_new"
 private const val FORK = "fork"
 
@@ -116,8 +120,10 @@ fun NewConversationScreen(
     state: NewConversationState,
     snackbar: SnackbarHostState,
     onBack: () -> Unit,
+    onLoadSessions: (String) -> Unit,
     onCreate: (NewConversation) -> Unit,
 ) {
+    var sessionId by rememberSaveable { mutableStateOf("") }
     var path by rememberSaveable { mutableStateOf("") }
     var name by rememberSaveable { mutableStateOf("") }
     var pr by rememberSaveable { mutableStateOf("") }
@@ -126,8 +132,17 @@ fun NewConversationScreen(
     var autoContinue by rememberSaveable { mutableStateOf(true) }
     var selection by rememberSaveable { mutableStateOf(emptyList<String>()) }
     val options = state.options
-    LaunchedEffect(options) {
-        if (options != null && selection.isEmpty()) selection = options.default
+    // As ccc's window: the last choice first, else the defaults.
+    LaunchedEffect(options, state.presets) {
+        if (options != null && selection.isEmpty()) {
+            val last = state.presets?.last
+            selection = last?.options ?: options.default
+            last?.let { remote = it.remoteControl; autoContinue = it.autoContinue }
+        }
+    }
+    val resume = RESUME in selection
+    LaunchedEffect(path, resume) {
+        if (resume) onLoadSessions(path.trim())
     }
     Scaffold(
         topBar = { TopBar(stringResource(R.string.new_conversation), onBack) },
@@ -163,6 +178,24 @@ fun NewConversationScreen(
                     }
                 }
             }
+            val presets = state.presets?.presets.orEmpty()
+            if (presets.isNotEmpty()) {
+                Text(stringResource(R.string.launch_presets), style = MaterialTheme.typography.labelMedium, color = CccColors.Muted)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    presets.forEach { preset ->
+                        FilterChip(
+                            selected = false,
+                            onClick = {
+                                selection = preset.options
+                                remote = preset.remoteControl
+                                autoContinue = preset.autoContinue
+                            },
+                            label = { Text(preset.name.orEmpty()) },
+                            colors = chipColors(),
+                        )
+                    }
+                }
+            }
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -172,6 +205,9 @@ fun NewConversationScreen(
             )
             options?.groups?.forEach { group ->
                 OptionGroup(group, selection) { selection = toggle(group, selection, it, options.groups) }
+            }
+            if (resume) {
+                SessionList(state, path.trim(), sessionId) { sessionId = it }
             }
             if (FROM_PR in selection) {
                 OutlinedTextField(
@@ -193,9 +229,10 @@ fun NewConversationScreen(
             )
             Button(
                 onClick = {
-                    onCreate(NewConversation(path.trim(), name.trim(), selection, pr.trim(), remote, autoContinue, prompt))
+                    onCreate(NewConversation(path.trim(), name.trim(), selection, pr.trim(),
+                        if (resume) sessionId else "", remote, autoContinue, prompt))
                 },
-                enabled = path.isNotBlank() && !state.creating,
+                enabled = path.isNotBlank() && !state.creating && (!resume || sessionId.isNotEmpty()),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = CccColors.Claude, contentColor = Color.Black),
             ) {
@@ -208,7 +245,7 @@ fun NewConversationScreen(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun OptionGroup(group: LaunchGroup, selection: List<String>, onToggle: (String) -> Unit) {
-    val shown = group.options.filter { it.key !in HIDDEN_OPTIONS }
+    val shown = group.options
     if (group.key == "session_extra" && SESSION_NEW in selection) return  // nothing to copy from
     Column {
         if (group.title.isNotEmpty()) {
@@ -239,6 +276,84 @@ internal fun toggle(group: LaunchGroup, selection: List<String>, key: String, gr
     }
     if (SESSION_NEW in result) result.remove(FORK)
     return groups.flatMap { g -> g.options.map { it.key } }.filter { it in result }
+}
+
+/** The folder's Claude Code sessions, newest first, to resume one. */
+@Composable
+private fun SessionList(state: NewConversationState, path: String, chosen: String, onChoose: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(stringResource(R.string.sessions), style = MaterialTheme.typography.titleSmall, color = CccColors.Title,
+            fontWeight = FontWeight.Bold)
+        if (state.sessionsFor == path && state.sessions.isEmpty()) {
+            Text(stringResource(R.string.sessions_none), color = CccColors.Muted, style = MaterialTheme.typography.bodySmall)
+        }
+        state.sessions.take(20).forEach { session ->
+            Row(
+                Modifier.fillMaxWidth().clickable { onChoose(session.sessionId) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = session.sessionId == chosen, onClick = { onChoose(session.sessionId) })
+                Column {
+                    Text(session.firstPrompt, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        listOfNotNull(shortTime(session.modified), stringResource(R.string.session_messages, session.messages))
+                            .joinToString(" · "),
+                        style = MaterialTheme.typography.labelSmall, color = CccColors.Muted,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SearchScreen(
+    state: SearchState,
+    snackbar: SnackbarHostState,
+    onBack: () -> Unit,
+    onSearch: (String) -> Unit,
+    onOpen: (Int) -> Unit,
+) {
+    Scaffold(
+        topBar = { TopBar(stringResource(R.string.search), onBack) },
+        snackbarHost = { SnackbarHost(snackbar) },
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp)) {
+            OutlinedTextField(
+                value = state.query,
+                onValueChange = onSearch,
+                placeholder = { Text(stringResource(R.string.search_hint)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (state.searching) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 4.dp))
+            LazyColumn(contentPadding = PaddingValues(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (state.query.isNotBlank() && !state.searching && state.hits.isEmpty()) {
+                    item { Text(stringResource(R.string.search_nothing), color = CccColors.Muted, modifier = Modifier.padding(16.dp)) }
+                }
+                items(state.hits) { hit ->
+                    Column(
+                        Modifier.fillMaxWidth().clickable { onOpen(hit.conversationId) }.padding(vertical = 6.dp),
+                    ) {
+                        Row {
+                            Text(hit.name, color = CccColors.Title, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                listOfNotNull(
+                                    stringResource(if (hit.kind == "human") R.string.you else R.string.claude),
+                                    shortTime(hit.time),
+                                ).joinToString(" · "),
+                                color = CccColors.Muted,
+                                style = MaterialTheme.typography.labelMedium,
+                            )
+                        }
+                        Text(hit.snippet, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

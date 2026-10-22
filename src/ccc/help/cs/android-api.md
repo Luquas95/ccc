@@ -43,9 +43,20 @@ Každá cesta začíná `/api/v1`; každý požadavek má hlavičku
 | `POST /conversations/{id}/messages` | `{"text": "…"}` zařadí zprávu do fronty, jako pole pro zprávu |
 | `POST /conversations/{id}/retry` | zopakovat / obnovit zablokovanou nebo pozastavenou konverzaci (`r`) |
 | `POST /conversations/{id}/seen` | označit jako přečtenou |
+| `POST /conversations/{id}/archive` | `{"archived": true \| false}` — do [Archivu](archive.md) / zpět |
+| `DELETE /conversations/{id}` | smazat ji z ccc (ne, když na ní Claude pracuje); přepis Claude Code zůstane |
+| `POST /conversations/{id}/group` | `{"name": "…"}` do vlastní skupiny (vznikne, je-li nová), `null` ze skupiny ven |
+| `GET /conversations/{id}/export` | `{"filename", "markdown"}` — konverzace jako Markdown, tajné údaje zamaskované |
+| `GET /conversations/{id}/files?q=` | soubory její složky pro @zmínku, nejlepší první |
 | `POST /conversations` | založit konverzaci: `{"path", "name", "options": [klíče], "interactive", "remote_control", "auto_continue", "worktree", "session_id", "pr", "prompt"}` — jako v [Zahájení konverzace](new-conversation.md); vynechané volby jsou výchozí |
 | `GET /launch-options` | volby, se kterými jde konverzace založit (klíče a popisky) |
 | `GET /projects` | naposledy použité složky |
+| `GET /sessions?path=` | relace Claude Code ve složce, nejnovější první (k pokračování: `session_id` v `POST /conversations` se `session_resume`) |
+| `GET /launch-presets` | předvolby okna Nová konverzace a poslední volba |
+| `GET /prompt-presets` | přednastavené prompty (Alt+1 … 9 v ccc) |
+| `GET /groups` | seskupení a tvé vlastní skupiny; `POST /groups/rename` `{"old", "new"}`, `POST /groups/delete` `{"name"}` |
+| `GET /search?q=` | hledání ve všech konverzacích (i archivovaných), nejnovější první |
+| `GET /waiting` | konverzace, které tě potřebují, nejnaléhavější první (Alt+N v ccc) |
 | `GET /permissions` | všechna čekající [schválení](approvals.md) |
 | `POST /permissions/{id}` | `{"decision": "allow" \| "always" \| "deny"}` |
 | `GET /usage` | [limity využití](limits.md) (null, když nejsou známé) |

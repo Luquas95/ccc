@@ -22,7 +22,18 @@ GET  /api/v1/conversations/{id}/messages  the transcript (?after=N new ones, ?be
 POST /api/v1/conversations/{id}/messages  {"text"}: queue a message
 POST /api/v1/conversations/{id}/retry     retry / resume a blocked or paused one
 POST /api/v1/conversations/{id}/seen      mark it read
+DELETE /api/v1/conversations/{id}         delete it from ccc (not while it runs)
+POST /api/v1/conversations/{id}/archive   {"archived": bool}
+POST /api/v1/conversations/{id}/group     {"name": "…" | null}: its own group
+GET  /api/v1/conversations/{id}/export    as Markdown, secrets masked
+GET  /api/v1/conversations/{id}/files?q=  files of its folder for an @-mention
 POST /api/v1/conversations                start one (as the New conversation window)
+GET  /api/v1/groups                       grouping mode and own groups; POST groups/rename, groups/delete
+GET  /api/v1/search?q=                    search every conversation
+GET  /api/v1/waiting                      conversations that need you (Alt+N)
+GET  /api/v1/prompt-presets               the preset prompts (Alt+1 … 9)
+GET  /api/v1/launch-presets               New conversation presets and the last choice
+GET  /api/v1/sessions?path=               Claude Code sessions of a folder (to resume one)
 GET  /api/v1/permissions                  every approval waiting
 POST /api/v1/permissions/{id}             {"decision": "allow" | "always" | "deny"}
 GET  /api/v1/usage                        Claude usage limits
@@ -119,54 +130,54 @@ class Api:
         self.storage = storage
         self._lock = threading.Lock()
         self._transcripts: dict[str, _Transcript] = {}
+        self._routes = self._route_table()
 
     # --- routing -------------------------------------------------------------
+
+    def _route_table(self) -> list[tuple[str, re.Pattern, HTTPStatus, object]]:
+        """(method, path after /api/v1, status, handler(ids, query, body)); a
+        number in the path is an id, passed in `ids`."""
+        def ok(pattern: str, handler, method: str = "GET", status: HTTPStatus = HTTPStatus.OK):
+            return method, re.compile(pattern), status, handler
+
+        return [
+            ok(r"/status", lambda ids, q, b: self.status()),
+            ok(r"/conversations", lambda ids, q, b: self.conversations(archived=q.get("archived") in ("1", "true"))),
+            ok(r"/conversations", lambda ids, q, b: self.create(b), "POST", HTTPStatus.CREATED),
+            ok(r"/conversations/(\d+)", lambda ids, q, b: self.conversation(*ids)),
+            ok(r"/conversations/(\d+)", lambda ids, q, b: self.delete(*ids), "DELETE"),
+            ok(r"/conversations/(\d+)/messages", lambda ids, q, b: self.messages(
+                *ids, after=_int(q, "after"), before=_int(q, "before"), limit=_int(q, "limit") or MESSAGES_LIMIT)),
+            ok(r"/conversations/(\d+)/messages", lambda ids, q, b: self.send(*ids, b), "POST", HTTPStatus.CREATED),
+            ok(r"/conversations/(\d+)/retry", lambda ids, q, b: self.retry(*ids), "POST"),
+            ok(r"/conversations/(\d+)/seen", lambda ids, q, b: self.seen(*ids), "POST"),
+            ok(r"/conversations/(\d+)/archive", lambda ids, q, b: self.archive(*ids, b), "POST"),
+            ok(r"/conversations/(\d+)/group", lambda ids, q, b: self.set_group(*ids, b), "POST"),
+            ok(r"/conversations/(\d+)/export", lambda ids, q, b: self.export(*ids)),
+            ok(r"/conversations/(\d+)/files", lambda ids, q, b: self.files(*ids, q.get("q", ""))),
+            ok(r"/groups", lambda ids, q, b: self.groups()),
+            ok(r"/groups/rename", lambda ids, q, b: self.rename_group(b), "POST"),
+            ok(r"/groups/delete", lambda ids, q, b: self.delete_group(b), "POST"),
+            ok(r"/permissions", lambda ids, q, b: self.permissions()),
+            ok(r"/permissions/(\d+)", lambda ids, q, b: self.decide(*ids, b), "POST"),
+            ok(r"/search", lambda ids, q, b: self.search(q.get("q", ""))),
+            ok(r"/waiting", lambda ids, q, b: self.waiting()),
+            ok(r"/usage", lambda ids, q, b: self.usage()),
+            ok(r"/projects", lambda ids, q, b: self.projects()),
+            ok(r"/sessions", lambda ids, q, b: self.sessions(q.get("path", ""))),
+            ok(r"/launch-options", lambda ids, q, b: self.launch_options()),
+            ok(r"/launch-presets", lambda ids, q, b: self.launch_presets()),
+            ok(r"/prompt-presets", lambda ids, q, b: self.prompt_presets()),
+        ]
 
     def route(self, method: str, path: str, query: dict[str, str], body: dict) -> tuple[HTTPStatus, object]:
         if not path.startswith(PREFIX + "/"):
             raise ApiError(HTTPStatus.NOT_FOUND, _("Not found."))
-        parts = path[len(PREFIX) + 1:].strip("/").split("/")
-        name, rest = parts[0], parts[1:]
-        if name == "conversations":
-            return self._conversations(method, rest, query, body)
-        if name == "permissions":
-            if method == "GET" and not rest:
-                return HTTPStatus.OK, self.permissions()
-            if method == "POST" and len(rest) == 1:
-                return HTTPStatus.OK, self.decide(_id(rest[0]), body)
-        elif not rest and method == "GET":
-            getters = {
-                "status": self.status, "usage": self.usage, "projects": self.projects,
-                "launch-options": self.launch_options,
-            }
-            if name in getters:
-                return HTTPStatus.OK, getters[name]()
-        raise ApiError(HTTPStatus.NOT_FOUND, _("Not found."))
-
-    def _conversations(self, method, rest, query, body) -> tuple[HTTPStatus, object]:
-        if not rest:
-            if method == "GET":
-                return HTTPStatus.OK, self.conversations(archived=query.get("archived") in ("1", "true"))
-            if method == "POST":
-                return HTTPStatus.CREATED, self.create(body)
-        else:
-            queue_id = _id(rest[0])
-            action = rest[1] if len(rest) == 2 else None
-            if len(rest) == 1 and method == "GET":
-                return HTTPStatus.OK, self.conversation(queue_id)
-            if action == "messages" and method == "GET":
-                return HTTPStatus.OK, self.messages(
-                    queue_id, after=_int(query, "after"), before=_int(query, "before"),
-                    limit=_int(query, "limit") or MESSAGES_LIMIT,
-                )
-            if action == "messages" and method == "POST":
-                return HTTPStatus.CREATED, self.send(queue_id, body)
-            if action == "retry" and method == "POST":
-                return HTTPStatus.OK, self.retry(queue_id)
-            if action == "seen" and method == "POST":
-                self._queue(queue_id)
-                self.storage.mark_seen(queue_id)
-                return HTTPStatus.OK, {"ok": True}
+        rest = path[len(PREFIX):].rstrip("/")
+        for route_method, pattern, status, handler in self._routes:
+            match = pattern.fullmatch(rest)
+            if match and route_method == method:
+                return status, handler([int(g) for g in match.groups()], query, body)
         raise ApiError(HTTPStatus.NOT_FOUND, _("Not found."))
 
     # --- endpoints ------------------------------------------------------------
@@ -214,8 +225,10 @@ class Api:
 
     def conversation(self, queue_id: int) -> dict:
         q = self._queue(queue_id)
+        own = self.storage.conversation_groups().get(q.id)
         summary = self._summary(
-            q, q.id in self.storage.unseen_queue_ids(), q.id in self.storage.queues_waiting_for_approval(), None,
+            q, q.id in self.storage.unseen_queue_ids(), q.id in self.storage.queues_waiting_for_approval(),
+            {"key": f"own:{own}", "title": own} if own else None,  # its own group (the list adds projects)
         )
         summary.update({
             "session_id": q.session_id,
@@ -265,6 +278,105 @@ class Api:
     def retry(self, queue_id: int) -> dict:
         self._queue(queue_id)
         return {"retried": self.storage.retry_queue(queue_id)}
+
+    def seen(self, queue_id: int) -> dict:
+        self._queue(queue_id)
+        self.storage.mark_seen(queue_id)
+        return {"ok": True}
+
+    def archive(self, queue_id: int, body: dict) -> dict:
+        """{"archived": true} into the Archive, false back (as x in the TUI)."""
+        self._queue(queue_id)
+        archived = body.get("archived")
+        if not isinstance(archived, bool):
+            raise ApiError(HTTPStatus.BAD_REQUEST, _("archived must be true or false."))
+        self.storage.set_queue_archived(queue_id, archived)
+        return self.conversation(queue_id)
+
+    def delete(self, queue_id: int) -> dict:
+        """Out of ccc with its tasks and history; Claude Code's transcript stays."""
+        queue = self._queue(queue_id)
+        if queue.status == QueueStatus.RUNNING:
+            raise ApiError(HTTPStatus.CONFLICT,
+                           _("Claude is working on '{name}' right now — wait or pause it first.").format(name=queue.name))
+        self.storage.delete_queue(queue_id)
+        return {"deleted": queue_id}
+
+    # --- groups -----------------------------------------------------------------
+
+    def groups(self) -> dict:
+        """The grouping mode and your own groups' names."""
+        own = sorted(set(self.storage.conversation_groups().values()), key=str.casefold)
+        return {"mode": groups.mode(self.storage), "own": own}
+
+    def set_group(self, queue_id: int, body: dict) -> dict:
+        """{"name": "…"} into that own group (made if new); null or "" out of it."""
+        self._queue(queue_id)
+        name = body.get("name")
+        if name is not None and not isinstance(name, str):
+            raise ApiError(HTTPStatus.BAD_REQUEST, _("name must be text or null."))
+        self.storage.set_conversation_group(queue_id, (name or "").strip() or None)
+        return self.conversation(queue_id)
+
+    def rename_group(self, body: dict) -> dict:
+        old, new = _str(body, "old").strip(), _str(body, "new").strip()
+        if not old or not new:
+            raise ApiError(HTTPStatus.BAD_REQUEST, _("Give the group's name and its new name."))
+        groups.rename(self.storage, old, new)
+        return self.groups()
+
+    def delete_group(self, body: dict) -> dict:
+        name = _str(body, "name").strip()
+        if not name:
+            raise ApiError(HTTPStatus.BAD_REQUEST, _("Give the group's name."))
+        groups.delete(self.storage, name)
+        return self.groups()
+
+    # --- finding and sharing -------------------------------------------------------
+
+    def search(self, text: str) -> list[dict]:
+        """Every conversation's messages (archived too), newest first."""
+        from ccc.search import search_conversations
+
+        return [
+            {"conversation_id": h.queue_id, "name": h.queue_name, "time": _time(h.timestamp), "kind": h.kind,
+             "snippet": h.snippet}
+            for h in search_conversations(self.storage, text)
+        ]
+
+    def export(self, queue_id: int) -> dict:
+        """The conversation as Markdown, secrets masked — to share from the phone."""
+        from ccc.search import markdown_export
+
+        self._queue(queue_id)
+        filename, text = markdown_export(self.storage, queue_id)
+        return {"filename": filename, "markdown": text}
+
+    def files(self, queue_id: int, text: str) -> list[str]:
+        """Files of the conversation's folder for an @-mention, best first."""
+        from ccc import gitops
+        from ccc.file_mentions import INDEX, rank
+
+        queue = self._queue(queue_id)
+        return rank(INDEX.files(queue.project_path, gitops.claude_can_run_commands(queue)), text)
+
+    def waiting(self) -> list[dict]:
+        """Conversations that need you, most urgent first (Alt+N in the TUI)."""
+        from ccc import attention
+
+        return [
+            {"conversation_id": w.queue_id, "name": w.name, "kind": w.kind, "label": _(attention.LABELS[w.kind])}
+            for w in attention.waiting(self.storage)
+        ]
+
+    def prompt_presets(self) -> list[dict]:
+        """The preset prompts (Alt+1 … Alt+9): sent at once, or put into the message box."""
+        from ccc.prompt_presets import load_prompt_presets
+
+        return [
+            {"number": i, "name": p.name, "text": p.text, "send_now": p.send_now}
+            for i, p in enumerate(load_prompt_presets(self.storage), 1)
+        ]
 
     def permissions(self) -> list[dict]:
         names = {q.id: q.name for q in self.storage.list_queues()}
@@ -320,6 +432,34 @@ class Api:
     def projects(self) -> list[str]:
         return self.storage.recent_project_paths()
 
+    def sessions(self, path: str) -> list[dict]:
+        """Claude Code sessions recorded in a folder, newest first (to resume one)."""
+        from ccc.transcript import list_sessions_for_directory
+
+        folder = os.path.expanduser(path.strip())
+        if not folder or not os.path.isdir(folder):
+            return []
+        return [
+            {"session_id": s.session_id, "modified": _time(s.modified), "first_prompt": s.first_prompt,
+             "messages": s.message_count}
+            for s in list_sessions_for_directory(folder)
+        ]
+
+    def launch_presets(self) -> dict:
+        """The New conversation window's presets and the last choice."""
+        from ccc import presets
+
+        def choice(c) -> dict | None:
+            if c is None:
+                return None
+            return {"options": sorted(c.selection), "auto_continue": c.auto_continue,
+                    "remote_control": c.remote_control}
+
+        return {
+            "last": choice(presets.load_last(self.storage)),
+            "presets": [dict(choice(c), name=name) for name, c in presets.list_presets(self.storage).items()],
+        }
+
     def launch_options(self) -> dict:
         return {
             "groups": [
@@ -354,6 +494,10 @@ class Api:
             )
         except ValueError as exc:
             raise ApiError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
+        from ccc.presets import LaunchChoice, save_last
+
+        save_last(self.storage, LaunchChoice(selection, bool(body.get("auto_continue", True)),
+                                             bool(body.get("remote_control", False))))
         prompt = body.get("prompt")
         if isinstance(prompt, str) and prompt.strip():
             send_message(self.storage, queue.id, prompt)
@@ -439,12 +583,6 @@ class Api:
             return list(cached.events)
 
 
-def _id(raw: str) -> int:
-    if not re.fullmatch(r"\d+", raw):
-        raise ApiError(HTTPStatus.NOT_FOUND, _("Not found."))
-    return int(raw)
-
-
 def _int(query: dict[str, str], key: str) -> int | None:
     raw = query.get(key)
     if raw is None:
@@ -468,6 +606,9 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         self._handle("POST")
+
+    def do_DELETE(self) -> None:
+        self._handle("DELETE")
 
     def _handle(self, method: str) -> None:
         url = urlsplit(self.path)

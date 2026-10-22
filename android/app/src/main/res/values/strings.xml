@@ -68,4 +68,41 @@
     <string name="error_network">ccc can\'t be reached. Is the computer on and in your tailnet?</string>
     <string name="error_token">ccc refused the token. Make a new one with ccc api token --new.</string>
     <string name="error_server_address">That isn\'t an address.</string>
+
+    <!-- Round 1: managing conversations -->
+    <string name="conversations">Conversations</string>
+    <string name="archive">Archive</string>
+    <string name="archive_empty">Nothing archived.</string>
+    <string name="archive_it">Archive</string>
+    <string name="restore">Restore</string>
+    <string name="delete">Delete</string>
+    <string name="delete_title">Delete conversation</string>
+    <string name="delete_text">Delete \'%1$s\' with its queued tasks and run history from ccc? Claude Code\'s own transcript stays, so it can still be resumed later.</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="more">More</string>
+    <string name="clear">Clear</string>
+    <string name="search">Search</string>
+    <string name="search_hint">Search in every conversation</string>
+    <string name="search_nothing">Nothing found.</string>
+    <string name="filter_hint">Filter: name or folder</string>
+    <string name="filter_nothing">Nothing matches the filter.</string>
+    <string name="filter_working">working</string>
+    <string name="filter_approval">approval</string>
+    <string name="filter_error">error</string>
+    <string name="filter_unseen">new</string>
+    <string name="needs_you">Needs you: %1$d</string>
+    <string name="open_next">Open</string>
+    <string name="export">Export as Markdown</string>
+    <string name="group_put">Put into a group</string>
+    <string name="group_none">No own group</string>
+    <string name="group_new">New group</string>
+    <string name="group_title">Group %1$s</string>
+    <string name="group_rename">New name (an existing one merges them)</string>
+    <string name="group_delete">Delete group</string>
+    <string name="group_delete_hint">Deleting it puts its conversations back under their project.</string>
+    <string name="launch_presets">Presets</string>
+    <string name="sessions">Session to resume</string>
+    <string name="sessions_none">No Claude Code session in this folder.</string>
+    <string name="session_messages">%1$d messages</string>
 </resources>

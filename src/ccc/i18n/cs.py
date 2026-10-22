@@ -1319,6 +1319,12 @@ CS: dict[str, str] = {
     # --- HTTP API for the Android app (api.py, api_cli.py) -------------------
     "Android app & API": "Aplikace pro Android a API",
     "Not found.": "Nenalezeno.",
+    "archived must be true or false.": "archived musí být true nebo false.",
+    "name must be text or null.": "name musí být text nebo null.",
+    "Give the group's name and its new name.": "Zadej název skupiny a její nový název.",
+    "Give the group's name.": "Zadej název skupiny.",
+    "Claude is working on '{name}' right now — wait or pause it first.":
+        "Claude na „{name}“ právě pracuje — počkej, nebo ji nejdřív pozastav.",
     "The message is empty.": "Zpráva je prázdná.",
     "decision must be allow, always or deny.": "decision musí být allow, always nebo deny.",
     "No such approval.": "Takové schválení neexistuje.",

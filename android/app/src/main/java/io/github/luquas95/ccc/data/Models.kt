@@ -81,6 +81,7 @@ data class ConversationDetail(
     val unseen: Boolean = false,
     @SerialName("last_error") val lastError: String? = null,
     @SerialName("next_retry_at") val nextRetryAt: String? = null,
+    val group: Group? = null,
     val flags: String = "",
     @SerialName("remote_control_url") val remoteControlUrl: String? = null,
     val queued: List<Queued> = emptyList(),
@@ -137,9 +138,63 @@ data class NewConversation(
     val name: String = "",
     val options: List<String>,
     val pr: String = "",
+    @SerialName("session_id") val sessionId: String = "",
     @SerialName("remote_control") val remoteControl: Boolean = false,
     @SerialName("auto_continue") val autoContinue: Boolean = true,
     val prompt: String = "",
+)
+
+@Serializable
+data class Groups(val mode: String, val own: List<String> = emptyList())
+
+@Serializable
+data class SearchHit(
+    @SerialName("conversation_id") val conversationId: Int,
+    val name: String,
+    val time: String? = null,
+    val kind: String,
+    val snippet: String,
+)
+
+@Serializable
+data class Export(val filename: String, val markdown: String)
+
+/** A conversation that needs you: kind is "approval", "error", "limit" or "done". */
+@Serializable
+data class Waiting(
+    @SerialName("conversation_id") val conversationId: Int,
+    val name: String,
+    val kind: String,
+    val label: String,
+)
+
+@Serializable
+data class PromptPreset(
+    val number: Int,
+    val name: String,
+    val text: String,
+    @SerialName("send_now") val sendNow: Boolean = false,
+)
+
+/** A New conversation preset (or the last choice): options and the two switches. */
+@Serializable
+data class LaunchChoice(
+    val options: List<String>,
+    @SerialName("auto_continue") val autoContinue: Boolean = true,
+    @SerialName("remote_control") val remoteControl: Boolean = false,
+    val name: String? = null,
+)
+
+@Serializable
+data class LaunchPresets(val last: LaunchChoice? = null, val presets: List<LaunchChoice> = emptyList())
+
+/** A Claude Code session recorded in a folder (to resume). */
+@Serializable
+data class Session(
+    @SerialName("session_id") val sessionId: String,
+    val modified: String? = null,
+    @SerialName("first_prompt") val firstPrompt: String = "",
+    val messages: Int = 0,
 )
 
 @Serializable

@@ -11,25 +11,39 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
 
 | Conversations | A conversation | New conversation |
 |---|---|---|
-| <img src="screenshots/en/conversations.png" width="260" alt="Conversations"> | <img src="screenshots/en/conversation.png" width="260" alt="A conversation"> | <img src="screenshots/en/new_conversation.png" width="260" alt="New conversation"> |
+| <img src="screenshots/en/conversations.png" width="260" alt="Conversations"> | <img src="screenshots/en/mention.png" width="260" alt="A conversation"> | <img src="screenshots/en/new_conversation.png" width="260" alt="New conversation"> |
+| **Search** | **Archive** | **Approvals** |
+| <img src="screenshots/en/search.png" width="260" alt="Search"> | <img src="screenshots/en/archive.png" width="260" alt="Archive"> | <img src="screenshots/en/approvals.png" width="260" alt="Approvals"> |
 
 ## What it does
 
 - **Conversations** — in ccc's order and groups, each with its state,
   queued messages, "needs approval" and "new reply"; the usage limits on
-  top. Pull down to reload.
+  top, and **who needs you** (an approval, an error, a limit, a finished
+  reply) with one tap to the next — Alt+N in ccc. Pull down to reload.
+- **Filter** — name or folder, and the state chips `! working`,
+  `? approval`, `x error`, `* new` — the same as `f` in ccc.
+- **Search** (the magnifier) — every conversation's messages, archived
+  ones too.
+- **Archive** — the second tab; a conversation's menu archives it,
+  restores it or deletes it from ccc.
+- **Own groups** — a conversation's menu puts it into a group (or a new
+  one); tap an own group's heading to rename or delete it.
 - **A conversation** — Claude's replies, your messages, tool calls (tap
   one for the whole of it), older messages as you scroll up; write a
-  message (it's queued, as in ccc); retry / resume a blocked or paused
-  one.
+  message (it's queued, as in ccc), with **@-mentions** of the folder's
+  files and the **preset prompts** (⏎ sent at once, ✎ put into the
+  message); retry / resume a blocked or paused one; **export** it as
+  Markdown to the share sheet (secrets masked).
 - **Approvals** — Allow, Always (this tool in this conversation) or
   Deny, right in the conversation or all of them behind the bell.
 - **New conversation** — a folder (recently used ones offered), the same
-  options as ccc's New conversation window, remote control,
-  auto-continue and a first message.
+  options as ccc's New conversation window, starting from your last
+  choice, with your presets; resume a session of the folder, from a pull
+  request, remote control, auto-continue and a first message.
 - **Live** — while the app is open it keeps ccc's event stream open: a
   new reply or approval shows up by itself. In the background it's
-  closed (notifications are the next step).
+  closed (notifications are coming).
 
 ## Building and installing
 
@@ -68,5 +82,10 @@ from there.
 1. **API** in ccc — done.
 2. **The app** — done: conversations, messages, sending, approvals, a
    new conversation, usage limits.
-3. **Notifications** with Allow / Deny right in them.
-4. The rest of ccc as needed (tasks, routines, reviews, archive …).
+3. To match the TUI, in rounds:
+   1. managing conversations (archive, groups, filter, search, export,
+      presets, who needs you, resuming a session, @-mentions) — done;
+   2. the task queue and a queue's runs, diffs and commits;
+   3. reviews, goals, workflows, questions, routines, live sessions,
+      analytics, settings;
+   4. notifications with Allow / Deny, and Claude Code's live terminal.

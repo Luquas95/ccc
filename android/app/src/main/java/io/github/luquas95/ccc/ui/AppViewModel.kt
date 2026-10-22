@@ -8,14 +8,20 @@ import io.github.luquas95.ccc.data.ApiException
 import io.github.luquas95.ccc.data.CccApi
 import io.github.luquas95.ccc.data.Conversation
 import io.github.luquas95.ccc.data.ConversationDetail
+import io.github.luquas95.ccc.data.Export
 import io.github.luquas95.ccc.data.LaunchOptions
+import io.github.luquas95.ccc.data.LaunchPresets
 import io.github.luquas95.ccc.data.Message
 import io.github.luquas95.ccc.data.NewConversation
 import io.github.luquas95.ccc.data.Permission
+import io.github.luquas95.ccc.data.PromptPreset
+import io.github.luquas95.ccc.data.SearchHit
+import io.github.luquas95.ccc.data.Session
 import io.github.luquas95.ccc.data.ServerEvent
 import io.github.luquas95.ccc.data.Settings
 import io.github.luquas95.ccc.data.Status
 import io.github.luquas95.ccc.data.Usage
+import io.github.luquas95.ccc.data.Waiting
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -33,6 +39,7 @@ sealed interface Screen {
     data class Conversation(val id: Int) : Screen
     data object Approvals : Screen
     data object NewConversation : Screen
+    data object Search : Screen
 }
 
 data class HomeState(
@@ -40,6 +47,15 @@ data class HomeState(
     val conversations: List<Conversation> = emptyList(),
     val permissions: List<Permission> = emptyList(),
     val usage: Usage? = null,
+    val archived: List<Conversation> = emptyList(),
+    /** The Archive tab instead of the conversations. */
+    val showArchive: Boolean = false,
+    /** The list filter as typed (see ListFilter). */
+    val filter: String = "",
+    /** Conversations that need you, most urgent first. */
+    val waiting: List<Waiting> = emptyList(),
+    val ownGroups: List<String> = emptyList(),
+    val promptPresets: List<PromptPreset> = emptyList(),
     val loaded: Boolean = false,
     val refreshing: Boolean = false,
     /** The events stream is open: what the app shows is current. */
@@ -54,6 +70,8 @@ data class ConversationState(
     val total: Int = 0,
     val loadingOlder: Boolean = false,
     val sending: Boolean = false,
+    /** Files for the @-mention being typed. */
+    val mentions: List<String> = emptyList(),
 ) {
     val hasOlder: Boolean get() = (messages.firstOrNull()?.index ?: 0) > 0
 }
@@ -61,8 +79,14 @@ data class ConversationState(
 data class NewConversationState(
     val options: LaunchOptions? = null,
     val projects: List<String> = emptyList(),
+    val presets: LaunchPresets? = null,
+    /** Sessions of [sessionsFor] (to resume one). */
+    val sessions: List<Session> = emptyList(),
+    val sessionsFor: String = "",
     val creating: Boolean = false,
 )
+
+data class SearchState(val query: String = "", val hits: List<SearchHit> = emptyList(), val searching: Boolean = false)
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val settings = Settings(application)
@@ -80,6 +104,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _newConversation = MutableStateFlow(NewConversationState())
     val newConversation: StateFlow<NewConversationState> = _newConversation.asStateFlow()
 
+    private val _search = MutableStateFlow(SearchState())
+    val search: StateFlow<SearchState> = _search.asStateFlow()
+
+    /** A conversation to share (Markdown); handed to the share sheet once, then [shared]. */
+    private val _share = MutableStateFlow<Export?>(null)
+    val share: StateFlow<Export?> = _share.asStateFlow()
+
     /** A message for a snackbar; shown once, then [messageShown]. */
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
@@ -88,6 +119,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private var events: Job? = null
     private var foreground = false
+    private var searching: Job? = null
+    private var mentioning: Job? = null
 
     // --- navigation --------------------------------------------------------------
 
@@ -219,8 +252,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val status = client.status()
             val conversations = client.conversations()
             val permissions = client.permissions()
+            val archived = client.conversations(archived = true)
+            val waiting = client.waiting()
+            val groups = client.groups()
+            val presets = client.promptPresets()
             _home.update {
-                it.copy(status = status, conversations = conversations, permissions = permissions, loaded = true)
+                it.copy(
+                    status = status, conversations = conversations, permissions = permissions, archived = archived,
+                    waiting = waiting, ownGroups = groups.own, promptPresets = presets, loaded = true,
+                )
             }
             // The usage comes from Anthropic through ccc: slower, and not worth an error.
             val usage = runCatching { client.usage() }.getOrNull()
@@ -318,7 +358,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             guard {
                 val options = client.launchOptions()
                 val projects = client.projects()
-                _newConversation.update { it.copy(options = options, projects = projects) }
+                val presets = client.launchPresets()
+                _newConversation.update { it.copy(options = options, projects = projects, presets = presets) }
             }
         }
     }
@@ -338,7 +379,122 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // --- the list: archive, filter, groups, what needs you -------------------------------------
+
+    fun showArchive(value: Boolean) {
+        _home.update { it.copy(showArchive = value) }
+    }
+
+    fun setFilter(text: String) {
+        _home.update { it.copy(filter = text) }
+    }
+
+    /** Open the conversation that needs you most (Alt+N in ccc). */
+    fun openNextWaiting() {
+        val next = _home.value.waiting.firstOrNull { w -> _conversation.value?.id != w.conversationId } ?: return
+        open(Screen.Conversation(next.conversationId))
+    }
+
+    fun renameGroup(old: String, new: String) = action {
+        it.renameGroup(old, new)
+        refresh()
+    }
+
+    fun deleteGroup(name: String) = action {
+        it.deleteGroup(name)
+        refresh()
+    }
+
+    // --- one conversation: archive, delete, group, export, presets, @-mentions -------------------
+
+    fun archive(id: Int, archived: Boolean) = action {
+        it.archive(id, archived)
+        refresh()
+        if (_conversation.value?.id == id) reloadConversation(id)
+    }
+
+    fun delete(id: Int) = action {
+        it.delete(id)
+        _screens.update { stack -> stack.filterNot { s -> s is Screen.Conversation && s.id == id } }
+        if (_conversation.value?.id == id) _conversation.value = null
+        refresh()
+    }
+
+    fun setGroup(id: Int, name: String?) = action {
+        it.setGroup(id, name)
+        refresh()
+        if (_conversation.value?.id == id) reloadConversation(id)
+    }
+
+    fun export(id: Int) = action {
+        _share.value = it.export(id)
+    }
+
+    fun shared() {
+        _share.value = null
+    }
+
+    /** A preset prompt: sent at once, or [insert]ed into the message box. */
+    fun usePreset(preset: PromptPreset, insert: (String) -> Unit) {
+        if (preset.sendNow) send(preset.text) {} else insert(preset.text)
+    }
+
+    /** Offer files for the @-mention being typed (null: none being typed). */
+    fun mention(query: String?) {
+        mentioning?.cancel()
+        val state = _conversation.value ?: return
+        val client = api ?: return
+        if (query == null) {
+            _conversation.update { it?.copy(mentions = emptyList()) }
+            return
+        }
+        mentioning = viewModelScope.launch {
+            delay(200)
+            val files = runCatching { client.files(state.id, query) }.getOrDefault(emptyList())
+            _conversation.update { if (it?.id == state.id) it.copy(mentions = files) else it }
+        }
+    }
+
+    // --- search ------------------------------------------------------------------------------------
+
+    fun search(text: String) {
+        searching?.cancel()
+        _search.update { it.copy(query = text) }
+        val client = api ?: return
+        if (text.isBlank()) {
+            _search.update { it.copy(hits = emptyList(), searching = false) }
+            return
+        }
+        searching = viewModelScope.launch {
+            delay(300)
+            _search.update { it.copy(searching = true) }
+            guard {
+                val hits = client.search(text)
+                _search.update { if (it.query == text) it.copy(hits = hits) else it }
+            }
+            _search.update { it.copy(searching = false) }
+        }
+    }
+
+    // --- New conversation: presets, sessions to resume -----------------------------------------------
+
+    fun loadSessions(path: String) {
+        val client = api ?: return
+        if (path.isBlank() || _newConversation.value.sessionsFor == path) return
+        viewModelScope.launch {
+            val sessions = runCatching { client.sessions(path) }.getOrDefault(emptyList())
+            _newConversation.update { it.copy(sessions = sessions, sessionsFor = path) }
+        }
+    }
+
     // --- helpers -------------------------------------------------------------------------------
+
+    /** Run an API call in the background, errors to the snackbar. */
+    private fun action(block: suspend (CccApi) -> Unit) {
+        val client = api ?: return
+        viewModelScope.launch { guard { block(client) } }
+    }
+
 
     /** Run [block]; a network or API error becomes the snackbar message. True when it went through. */
     private suspend fun guard(block: suspend () -> Unit): Boolean = try {

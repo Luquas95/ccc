@@ -69,7 +69,9 @@ def _safe_name(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "-", name).strip("-") or "conversation"
 
 
-def export_markdown(storage: Storage, queue_id: int, out_dir: Path) -> Path:
+def markdown_export(storage: Storage, queue_id: int) -> tuple[str, str]:
+    """(file name, Markdown) of a conversation, secrets masked — an
+    export is something you share; see ccc.redact."""
     queue = storage.get_queue(queue_id)
     lines = [f"# {queue.name}", "", f"`{queue.project_path}` · session `{queue.session_id}`", ""]
     for event in _events(storage, queue):
@@ -80,8 +82,13 @@ def export_markdown(storage: Storage, queue_id: int, out_dir: Path) -> Path:
             lines += [f"## **Claude** · {when}", "", event.text, ""]
         elif event.kind == "tool_call":
             lines += [f"- ⚙ {event.text}"]
+    name = f"{_safe_name(queue.name)}-{datetime.now():%Y%m%d-%H%M%S}.md"
+    return name, redact("\n".join(lines) + "\n", known_secrets(storage))
+
+
+def export_markdown(storage: Storage, queue_id: int, out_dir: Path) -> Path:
+    name, text = markdown_export(storage, queue_id)
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / f"{_safe_name(queue.name)}-{datetime.now():%Y%m%d-%H%M%S}.md"
-    # Masked: an export is a file you share; see ccc.redact.
-    path.write_text(redact("\n".join(lines) + "\n", known_secrets(storage)), encoding="utf-8")
+    path = out_dir / name
+    path.write_text(text, encoding="utf-8")
     return path

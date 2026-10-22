@@ -1,5 +1,6 @@
 package io.github.luquas95.ccc
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -12,15 +13,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.luquas95.ccc.ui.AppViewModel
 import io.github.luquas95.ccc.ui.ApprovalsScreen
+import io.github.luquas95.ccc.ui.ConversationActions
 import io.github.luquas95.ccc.ui.ConversationScreen
+import io.github.luquas95.ccc.ui.ConversationsActions
 import io.github.luquas95.ccc.ui.ConversationsScreen
 import io.github.luquas95.ccc.ui.NewConversationScreen
 import io.github.luquas95.ccc.ui.Screen
+import io.github.luquas95.ccc.ui.SearchScreen
 import io.github.luquas95.ccc.ui.SetupScreen
 import io.github.luquas95.ccc.ui.theme.CccTheme
 
@@ -49,7 +54,23 @@ private fun App(model: AppViewModel) {
     val conversation by model.conversation.collectAsStateWithLifecycle()
     val newConversation by model.newConversation.collectAsStateWithLifecycle()
     val message by model.message.collectAsStateWithLifecycle()
+    val search by model.search.collectAsStateWithLifecycle()
+    val share by model.share.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    // An export: to the share sheet (save it, mail it, send it to a chat …).
+    LaunchedEffect(share) {
+        share?.let { export ->
+            model.shared()
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "text/markdown"
+                putExtra(Intent.EXTRA_SUBJECT, export.filename)
+                putExtra(Intent.EXTRA_TITLE, export.filename)
+                putExtra(Intent.EXTRA_TEXT, export.markdown)
+            }
+            context.startActivity(Intent.createChooser(send, export.filename))
+        }
+    }
     LaunchedEffect(message) {
         message?.let {
             model.messageShown()
@@ -70,23 +91,48 @@ private fun App(model: AppViewModel) {
         Screen.Conversations -> ConversationsScreen(
             state = home,
             snackbar = snackbar,
-            onOpen = { model.open(Screen.Conversation(it)) },
-            onApprovals = { model.open(Screen.Approvals) },
-            onSettings = { model.open(Screen.Setup) },
-            onNew = { model.open(Screen.NewConversation) },
-            onRefresh = model::pullToRefresh,
+            actions = ConversationsActions(
+                open = { model.open(Screen.Conversation(it)) },
+                approvals = { model.open(Screen.Approvals) },
+                settings = { model.open(Screen.Setup) },
+                new = { model.open(Screen.NewConversation) },
+                refresh = model::pullToRefresh,
+                search = { model.open(Screen.Search) },
+                showArchive = model::showArchive,
+                filter = model::setFilter,
+                nextWaiting = model::openNextWaiting,
+                renameGroup = model::renameGroup,
+                deleteGroup = model::deleteGroup,
+            ),
         )
         is Screen.Conversation -> conversation?.takeIf { it.id == screen.id }?.let {
             ConversationScreen(
                 state = it,
+                presets = home.promptPresets,
+                ownGroups = home.ownGroups,
                 snackbar = snackbar,
-                onBack = model::back,
-                onSend = model::send,
-                onRetry = model::retry,
-                onLoadOlder = model::loadOlder,
-                onDecide = model::decide,
+                actions = ConversationActions(
+                    back = model::back,
+                    send = model::send,
+                    retry = model::retry,
+                    loadOlder = model::loadOlder,
+                    decide = model::decide,
+                    archive = { archived -> model.archive(screen.id, archived) },
+                    delete = { model.delete(screen.id) },
+                    setGroup = { name -> model.setGroup(screen.id, name) },
+                    export = { model.export(screen.id) },
+                    usePreset = model::usePreset,
+                    mention = model::mention,
+                ),
             )
         }
+        Screen.Search -> SearchScreen(
+            state = search,
+            snackbar = snackbar,
+            onBack = model::back,
+            onSearch = model::search,
+            onOpen = { model.open(Screen.Conversation(it)) },
+        )
         Screen.Approvals -> ApprovalsScreen(
             permissions = home.permissions,
             snackbar = snackbar,
@@ -98,6 +144,7 @@ private fun App(model: AppViewModel) {
             state = newConversation,
             snackbar = snackbar,
             onBack = model::back,
+            onLoadSessions = model::loadSessions,
             onCreate = model::create,
         )
     }
