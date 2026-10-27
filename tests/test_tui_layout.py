@@ -128,6 +128,7 @@ async def test_sidebar_buttons_are_only_the_views_own_actions(tmp_path):
         "d": [],  # only an overview
         "s": ["Add prompt (+)", "Reload session list (r)"],
         "a": [],
+        "h": [],  # Archive: nothing to start from there
         "c": ["New conversation (n)", "Retry blocked queue (r)"],
     }
     async with app.run_test() as pilot:
