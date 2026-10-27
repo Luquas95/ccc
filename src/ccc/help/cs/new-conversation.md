@@ -21,7 +21,7 @@ Stejné přepínače jako na příkazové řádce `claude`. Skupiny označené
 | | **Jako kopie (fork)** — s Pokračovat / Obnovit / Z PR: nová konverzace, která z té původní vychází; původní zůstane, jak byla |
 | Oprávnění (*jedna*) | **Přeskočit všechny kontroly oprávnění** — Claude dělá všechno bez ptaní · **Automaticky přijímat úpravy** — úpravy souborů ano, ostatní nástroje se ptají · **Jen plán** — Claude jen plánuje |
 | Model (*jedna*) | Opus · Sonnet · Haiku · Fable |
-| Úsilí (*jedna*) | high · xhigh · max |
+| Úsilí (*jedna*) | low · medium · high · xhigh · max |
 | MCP servery | **Jen vybrané MCP servery (méně tokenů)** — viz [MCP servery](#mcp-servery) |
 | Ostatní | Při přetížení přejít na Sonnet · Claude v Chromu · Bezpečný režim |
 | | **Vlastní git worktree** — samostatná pracovní kopie a větev pro tuto konverzaci (`.claude/worktrees/<název>`, větev `worktree-<název>`), aby mohla pracovat vedle ostatních ve stejném repozitáři; jen s novou relací nebo z pull requestu a s *Přeskočit všechny kontroly oprávnění* (ccc spouští git jen tam). Viz [Git](git.md#více-konverzací-v-jedné-složce) |
