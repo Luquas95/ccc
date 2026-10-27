@@ -45,14 +45,19 @@ QUIT_OPTION = "@ccc-quit-key"
 # Only while Claude Code is open (#{P:} looks through the window's panes
 # for @ccc-cli): with ccc alone the keys can't go anywhere else.
 CLI_OPEN_FORMAT = f"#{{P:#{{?#{{{PANE_OPTION}}},1,}}}}"
+# Every line of the frame (the borders of all panes, not just the focused
+# one's) is coloured by where the keys go: green while you type in Claude
+# Code, cyan in ccc — all of it at once, so no stretch stays the other colour.
+BORDER_COLOR = f"#{{?#{{P:#{{?#{{&&:#{{pane_active}},#{{{PANE_OPTION}}}}},1,}}}},green,cyan}}"
 BORDER_OPTIONS: tuple[tuple[str, str], ...] = (
     ("pane-border-status", "top"),
     ("pane-border-format",
      f"#{{?#{{&&:#{{pane_active}},{CLI_OPEN_FORMAT}}},"
-     f"#[fg=black#,bg=green#,bold] {_("⌨ typing here")} #[default],}} #{{{TITLE_OPTION}}} "
+     f"#[fg=black#,bg=green#,bold] {_("⌨ typing here")} #[default],}}"
+     f"#{{?#{{{TITLE_OPTION}}}, #{{{TITLE_OPTION}}} ,}}"
      f"#{{?#{{&&:#{{{PANE_OPTION}}},#{{{WAITING_OPTION}}}}},#[fg=black#,bg=yellow#,bold] #{{{WAITING_OPTION}}} #[default] ,}}"),
-    ("pane-active-border-style", "fg=green,bold"),
-    ("pane-border-style", "fg=brightblack"),
+    ("pane-active-border-style", f"fg={BORDER_COLOR},bold"),
+    ("pane-border-style", f"fg={BORDER_COLOR}"),
 )
 # ccc keeps exactly its sidebar (layout.SHARED_CSS #sidebar width) while
 # the pane is open, so the menu doesn't move or change size.
@@ -193,7 +198,8 @@ def ensure_strip() -> str | None:
             return None
         strip = result.stdout.strip()
         _tmux("set-option", "-p", "-t", strip, STRIP_OPTION, "1")
-        _tmux("set-option", "-p", "-t", strip, TITLE_OPTION, "ccc · keys")
+    # No title text on the strip (one set by an older ccc goes too).
+    _tmux("set-option", "-pu", "-t", strip, TITLE_OPTION)
     _tmux("resize-pane", "-t", strip, "-y", "1")
     if find() is None:
         _tmux("set-hook", "-w", "-t", _own_pane(), "window-resized",
@@ -371,7 +377,9 @@ def open(queue_id: int, title: str = "", db_path: str | None = None) -> str | No
         if result.returncode == 0:
             bar = result.stdout.strip()
             _tmux("set-option", "-p", "-t", bar, BAR_OPTION, "1")
-            _tmux("set-option", "-p", "-t", bar, TITLE_OPTION, "ccc · presets & keys")
+    bar = find_bar()
+    if bar is not None:
+        _tmux("set-option", "-pu", "-t", bar, TITLE_OPTION)  # no title text on the bar either
     if _on_ccc_server() and db_path is not None:
         bind_keys(_own_pane(), pane, queue_id, db_path, keys)
     bar = find_bar()

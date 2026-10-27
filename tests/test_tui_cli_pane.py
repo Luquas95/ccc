@@ -299,3 +299,22 @@ def test_publish_waiting_escapes_hashes(monkeypatch):
     monkeypatch.setattr(cli_pane, "_own_pane", lambda: "%0")
     cli_pane.publish_waiting("? #1 #[fg=red] waits")
     assert calls == [("set-option", "-w", "-t", "%0", cli_pane.WAITING_OPTION, "? ##1 ##[fg=red] waits")]
+
+
+def test_whole_frame_coloured_by_where_the_keys_go():
+    options = dict(cli_pane.BORDER_OPTIONS)
+    # Active and inactive borders share one colour (decided by which pane is
+    # focused, looking through all of the window's panes), so the line isn't
+    # green only along the focused pane.
+    assert options["pane-border-style"] == f"fg={cli_pane.BORDER_COLOR}"
+    assert options["pane-active-border-style"] == f"fg={cli_pane.BORDER_COLOR},bold"
+    assert cli_pane.BORDER_COLOR == "#{?#{P:#{?#{&&:#{pane_active},#{@ccc-cli}},1,}},green,cyan}"
+
+
+def test_strip_and_bar_have_no_title_text(tmux):
+    cli_pane.open(4, "Kompas", db_path="/tmp/ccc.db")
+    titles = [c for c in tmux.calls if c[0] == "set-option" and "@ccc-title" in c]
+    assert not any("keys" in str(c[-1]) for c in titles)
+    strip, bar = cli_pane.find_strip(), cli_pane.find_bar()
+    assert ("set-option", "-pu", "-t", strip, "@ccc-title") in tmux.calls
+    assert ("set-option", "-pu", "-t", bar, "@ccc-title") in tmux.calls
