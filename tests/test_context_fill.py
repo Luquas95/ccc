@@ -39,8 +39,8 @@ def test_fill_is_the_last_main_reply_prompt_over_the_window(projects):
     fill = ContextTracker(projects).fill(_queue())
     assert fill == ContextFill(124_000, 200_000)
     assert fill.percent == 62
-    assert list_text(fill) == "62%"
-    assert header_text(fill) == "context 62 % · 124k / 200k"
+    assert list_text(fill) == "124k/200k"
+    assert header_text(fill) == "context 124k / 200k"
 
 
 def test_reads_only_new_lines_and_waits_for_a_whole_line(projects):
@@ -133,7 +133,7 @@ def test_daemon_notifies_when_a_conversation_reaches_the_warning(tmp_path, proje
     tracker = ContextTracker(projects)
     notifier = _Notifier()
     assert context_tick(storage, notifier, tracker) == notifier.sent
-    assert len(notifier.sent) == 1 and "shop-api" in notifier.sent[0] and "85 %" in notifier.sent[0]
+    assert len(notifier.sent) == 1 and "shop-api" in notifier.sent[0] and "170k/200k" in notifier.sent[0]
     context_tick(storage, notifier, tracker)
     assert len(notifier.sent) == 1  # once
     storage.set_setting(context_fill.ALERTED_KEY, "")
@@ -169,11 +169,11 @@ async def test_conversations_show_the_fill_in_the_list_and_header(tmp_path, monk
         table = screen.query_one("#conversation-queue-list", DataTable)
         rows = [table.get_row_at(n)[0] for n in range(table.row_count)]
         by_name = {name: next(r for r in rows if name in r.plain) for name in ("calm", "full")}
-        assert by_name["calm"].plain.endswith("62%")
-        assert by_name["full"].plain.endswith("92%")
+        assert by_name["calm"].plain.endswith("124k/200k")
+        assert by_name["full"].plain.endswith("185k/200k")
         assert any("red" in str(span.style) for span in by_name["full"].spans)
         screen._current_queue_id = next(q.id for q in storage.list_queues() if q.name == "full")
         await screen._refresh_current()
         header = str(screen.query_one("#conversation-header").render())
-        assert "context 92 % · 185k / 200k" in header
+        assert "context 185k / 200k" in header
         assert "consider /compact or a new conversation" in header
