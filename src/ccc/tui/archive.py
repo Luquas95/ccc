@@ -10,7 +10,6 @@ from ccc import keymap
 from ccc.i18n import _
 from ccc.models import Queue
 from ccc.tui.conversations import ConversationsScreen
-from ccc.tui.layout import NEW_CONVERSATION_BUTTON
 
 # Conversation actions that make no sense for an archived one.
 DISABLED_ACTIONS = {"tasks", "approve", "retry_queue", "prompt_preset"}
@@ -40,7 +39,7 @@ class ArchiveScreen(ConversationsScreen):
         self._focus_input_on_mount = False  # no message box here
 
     def sidebar_buttons(self):
-        return [NEW_CONVERSATION_BUTTON]
+        return []  # nothing to start from here; the Archive only restores and deletes
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action in DISABLED_ACTIONS:
