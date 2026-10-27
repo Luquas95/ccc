@@ -46,3 +46,33 @@ def test_describe_flags():
     assert describe_flags(None) == "legacy (skip permissions)"
     assert describe_flags(["--permission-mode", "plan", "--model", "haiku"]) == "plan only · Haiku"
     assert describe_flags(["--weird"]) == "--weird"
+
+
+def test_permission_modes_match_installed_claude():
+    """Every `--permission-mode` claude accepts is offered (issue #99);
+    bypassPermissions is the "Skip all permission checks" flag."""
+    import re
+    import shutil
+    import subprocess
+
+    import pytest
+
+    from ccc.launch_options import GROUPS
+
+    if not shutil.which("claude"):
+        pytest.skip("claude CLI not installed")
+    out = subprocess.run(["claude", "--help"], capture_output=True, text=True, timeout=60).stdout
+    m = re.search(r"--permission-mode <mode>.*?\(choices: ([^)]*)\)", out, re.S)
+    if not m:
+        pytest.skip("claude --help does not list permission modes")
+    cli = set(re.findall(r'"(\w+)"', m.group(1))) - {"bypassPermissions"}
+    ours = {o.flags[1] for g in GROUPS if g.key == "permissions" for o in g.options if o.flags[0] == "--permission-mode"}
+    assert ours == cli
+
+
+def test_every_offered_permission_mode_has_a_rank():
+    from ccc.asks import _RANKS
+    from ccc.launch_options import GROUPS
+
+    modes = {o.flags[1] for g in GROUPS if g.key == "permissions" for o in g.options if o.flags[0] == "--permission-mode"}
+    assert modes <= set(_RANKS)

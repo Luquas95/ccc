@@ -59,7 +59,7 @@ def answer_prompt(ask: Ask, target: Queue) -> str:
 
 # How much a conversation may do on its own, by its permission mode.
 SKIP_RANK = 4
-_RANKS = {"plan": 0, "dontAsk": 1, "default": 1, "acceptEdits": 2, "auto": 3, "bypassPermissions": SKIP_RANK}
+_RANKS = {"plan": 0, "dontAsk": 1, "default": 1, "manual": 1, "acceptEdits": 2, "auto": 3, "bypassPermissions": SKIP_RANK}
 
 
 def permission_rank(queue: Queue) -> int:

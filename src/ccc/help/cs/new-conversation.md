@@ -19,7 +19,7 @@ Stejné přepínače jako na příkazové řádce `claude`. Skupiny označené
 |---|---|
 | Relace (*jedna*) | **Nová relace** · **Pokračovat v poslední ve složce** · **Obnovit vybranou…** (vybereš některou z dřívějších relací Claude Code v této složce) · **Z pull requestu…** |
 | | **Jako kopie (fork)** — s Pokračovat / Obnovit / Z PR: nová konverzace, která z té původní vychází; původní zůstane, jak byla |
-| Oprávnění (*jedna*) | **Přeskočit všechny kontroly oprávnění** — Claude dělá všechno bez ptaní · **Automaticky přijímat úpravy** — úpravy souborů ano, ostatní nástroje se ptají · **Jen plán** — Claude jen plánuje |
+| Oprávnění (*jedna*) | **Přeskočit všechny kontroly oprávnění** — Claude dělá všechno bez ptaní · **Automaticky přijímat úpravy** — úpravy souborů ano, ostatní nástroje se ptají · **Ptát se na vše** — ptá se každý nástroj, i úpravy · **Jen povolené** — co ještě není povolené, se odmítne, nic se neptá · **Automatický režim** — Claude Code sám rozhoduje, co je bezpečné · **Jen plán** — Claude jen plánuje |
 | Model (*jedna*) | Opus · Sonnet · Haiku · Fable |
 | Úsilí (*jedna*) | high · xhigh · max |
 | MCP servery | **Jen vybrané MCP servery (méně tokenů)** — viz [MCP servery](#mcp-servery) |
