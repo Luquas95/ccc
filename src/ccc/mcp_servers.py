@@ -72,14 +72,15 @@ def approved_project_servers(project: str, names) -> set[str]:
     settings_dir = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
     user_settings = _json_object(settings_dir / "settings.json")
     approved: set[str] = set()
+    disabled: set[str] = set()
     for source in (entry, user_settings):
         if source.get("enableAllProjectMcpServers") is True:
             approved |= set(names)
-        listed = source.get("enabledMcpjsonServers")
-        if isinstance(listed, list):
-            approved |= {n for n in listed if isinstance(n, str)}
-    disabled = entry.get("disabledMcpjsonServers")
-    return approved - set(disabled if isinstance(disabled, list) else [])
+        for key, into in (("enabledMcpjsonServers", approved), ("disabledMcpjsonServers", disabled)):
+            listed = source.get(key)
+            if isinstance(listed, list):
+                into |= {n for n in listed if isinstance(n, str)}
+    return approved - disabled  # a rejection anywhere wins
 
 
 def discover(project_path: str) -> dict[str, dict]:

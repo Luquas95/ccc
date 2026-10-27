@@ -54,6 +54,15 @@ def test_project_servers_need_the_users_approval(home, tmp_path):
     assert mcp_servers.names(str(project)) == ["evil", "off", "ok"]  # the user's own settings approve all
 
 
+def test_a_rejection_in_either_place_wins(home, tmp_path):
+    project = tmp_path / "proj"
+    project.mkdir()
+    _write(project / ".mcp.json", {"mcpServers": {"a": {"command": "x"}, "b": {"command": "y"}}})
+    _write(home / ".claude.json", {"projects": {str(project): {"enabledMcpjsonServers": ["a", "b"]}}})
+    _write(home / "settings.json", {"disabledMcpjsonServers": ["b"]})
+    assert mcp_servers.names(str(project)) == ["a"]
+
+
 def test_a_remembered_choice_does_not_run_an_unapproved_project_server(home, tmp_path):
     project = tmp_path / "proj"
     project.mkdir()
