@@ -34,6 +34,7 @@ One row per conversation (archived ones are in the [Archive](archive.md)):
 | `✖` | stopped on an error — needs you |
 | `?` | Claude is waiting for you to [approve a tool call](approvals.md) |
 | `◆` | a new reply you haven't looked at yet |
+| `○` | idle, and you have already looked at its last reply |
 
 In the Conversations list `·3` after the name means three tasks queued.
 

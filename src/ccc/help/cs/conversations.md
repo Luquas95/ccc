@@ -18,6 +18,7 @@ Každá konverzace má před názvem značku a za ním `·N`, když v její
 | `✖` | zastavila se chybou — potřebuje tě |
 | `?` | Claude čeká, až [schválíš nástroj](approvals.md) |
 | `◆` | nová odpověď, kterou jsi ještě neviděl(a) |
+| `○` | nečinná a poslední odpověď jsi už viděl(a) |
 
 Za názvem je, jak moc je zaplněné kontextové okno konverzace, např.
 `62%` — od prahu varování žlutě, od poplachu červeně (viz
