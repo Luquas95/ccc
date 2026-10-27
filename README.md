@@ -152,7 +152,7 @@ journalctl --user -u ccc -f        # daemon log
 
 1. **Open ccc:** `ccc` in any terminal, local or over SSH. There's only
    ever one ccc — every terminal shows the same screen; `Ctrl+Q` closes it
-   there and it keeps running. The sidebar should say *● daemon running*.
+   there and it keeps running. The sidebar warns only if the daemon is *not running*.
 2. **Start a conversation:** press `n`, choose a project folder, tick the
    options you want, *Start*. Claude Code opens beside ccc's menu.
 3. **Queue more work:** press `t` and add tasks — they run one after

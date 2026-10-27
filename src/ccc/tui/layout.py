@@ -15,7 +15,7 @@ from rich.text import Text
 from textual.css.query import NoMatches
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen, Screen
-from textual.widgets import Button, Footer, Header, Rule, Static
+from textual.widgets import Button, Footer, Rule, Static
 
 from ccc import keymap
 from ccc.i18n import _
@@ -392,7 +392,6 @@ class SidebarScreen(Screen):
     # --- frame -----------------------------------------------------------
 
     def compose(self):
-        yield Header(icon=" ")
         nav_items = []
         for key, label in VIEWS:
             item = Static(self._nav_text(key, label), id=f"nav-{key}", classes="nav-item")
@@ -439,11 +438,14 @@ class SidebarScreen(Screen):
     def refresh_daemon_state(self) -> None:
         from ccc.heartbeat import daemon_alive
 
+        # Only a stopped daemon is news; a running one is the normal state.
         if daemon_alive(self.storage):
-            text = Text(_("● daemon running"), style="green")
+            text = Text("")
         else:
             text = Text(_("✖ daemon not running — queues are stopped"), style="bold red")
-        self.query_one("#daemon-state", Static).update(text)
+        state = self.query_one("#daemon-state", Static)
+        state.update(text)
+        state.display = bool(text.plain)
         self.sync_retry_button()
 
     def _keys(self) -> dict[str, str]:
