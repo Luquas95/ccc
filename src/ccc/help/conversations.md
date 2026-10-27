@@ -18,6 +18,7 @@ when N tasks wait in its [queue](tasks.md):
 | `✖` | stopped on an error — needs you |
 | `?` | Claude is waiting for you to [approve a tool call](approvals.md) |
 | `◆` | a new reply you haven't looked at yet |
+| `○` | idle, and you have already looked at its last reply |
 
 Behind the name is how full the conversation's context window is, e.g.
 `62%` — yellow from the warning threshold, red from the alarm (see

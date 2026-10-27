@@ -41,8 +41,11 @@ def test_queue_marker():
     from ccc.models import Queue
 
     q = Queue(id=1, name="a", project_path="/a", session_id="s")
-    assert queue_marker(q, unseen=False)[0] == " "
+    assert queue_marker(q, unseen=False)[0] == "○"  # idle, already looked at
     assert queue_marker(q, unseen=True)[0] == "◆"
+    q.archived = True
+    assert queue_marker(q, unseen=False)[0] == " "
+    q.archived = False
     for status, icon in [(QueueStatus.RUNNING, "●"), (QueueStatus.WAITING_RETRY, "‖"),
                          (QueueStatus.PAUSED_LIMIT, "‖"), (QueueStatus.BLOCKED_ERROR, "✖")]:
         q.status = status
@@ -72,7 +75,7 @@ async def test_list_shows_markers_and_pending_count_and_clears_new_when_opened(s
         await pilot.pause()
         assert b.id not in storage.unseen_queue_ids()
         names = _names(app.screen.query_one("#conversation-queue-list", DataTable))
-        assert not names[1].startswith("◆")
+        assert names[1].startswith("○ b")
 
 
 @pytest.mark.asyncio
@@ -89,7 +92,7 @@ async def test_archive_moves_it_to_the_archive_view_and_x_restores(storage):
         await pilot.pause()
         assert storage.get_queue(b.id).archived is True
         table = app.screen.query_one("#conversation-queue-list", DataTable)
-        assert [n.strip() for n in _names(table)] == ["a"]
+        assert [n.strip() for n in _names(table)] == ["○ a"]
         await pilot.press("h")  # the Archive tab
         await pilot.pause()
         assert isinstance(app.screen, ArchiveScreen)
@@ -160,7 +163,7 @@ async def test_delete_asks_then_deletes(storage):
         await pilot.pause()
         assert storage.find_queue(b.id) is None
         assert app.screen._current_queue_id == a.id
-        assert [n.strip() for n in _names(app.screen.query_one("#conversation-queue-list", DataTable))] == ["a"]
+        assert [n.strip() for n in _names(app.screen.query_one("#conversation-queue-list", DataTable))] == ["○ a"]
 
 
 @pytest.mark.asyncio

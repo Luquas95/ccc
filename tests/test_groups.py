@@ -142,7 +142,7 @@ async def test_list_groups_by_project_enter_folds_and_it_survives_the_refresh(tm
     async with app.run_test() as pilot:
         await pilot.pause()
         assert [r.split(" ·")[0].strip() for r in _rows(app)] == [
-            "▾ docs (1)", "guide", "▾ shop (2)", "api", "● web"]
+            "▾ docs (1)", "○ guide", "▾ shop (2)", "○ api", "● web"]
         assert _rows(app)[2].endswith("· ●1")
         table = app.screen.query_one("#conversation-queue-list", DataTable)
         table.focus()
@@ -169,7 +169,7 @@ async def test_list_groups_by_project_enter_folds_and_it_survives_the_refresh(tm
         # Opening a conversation of a folded group unfolds it.
         app.screen.open_conversation(api.id)
         await pilot.pause()
-        assert "api" in [r.strip() for r in _rows(app)]
+        assert "○ api" in [r.strip() for r in _rows(app)]
         assert groups.collapsed(storage) == set()
 
 
@@ -201,7 +201,7 @@ async def test_m_puts_a_conversation_into_a_new_group_and_renames_and_deletes_it
         await pilot.press(*"Urgent", "enter")
         await pilot.pause()
         assert storage.conversation_groups() == {api.id: "Urgent"}
-        assert _rows(app)[:2] == ["▾ Urgent (1)", "    api"]
+        assert _rows(app)[:2] == ["▾ Urgent (1)", "  ○ api"]
         table = app.screen.query_one("#conversation-queue-list", DataTable)
         assert table.cursor_row == 1  # it followed the conversation
 
@@ -288,4 +288,4 @@ async def test_settings_switch_to_own_groups_only(tmp_path, monkeypatch, groupin
     app = _host(ConversationsScreen(storage))
     async with app.run_test() as pilot:
         await pilot.pause()
-        assert [r.strip() for r in _rows(app)] == ["api", "guide", "● web"]  # no own group: flat
+        assert [r.strip() for r in _rows(app)] == ["○ api", "○ guide", "● web"]  # no own group: flat

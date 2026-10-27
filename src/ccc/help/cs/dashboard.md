@@ -32,6 +32,7 @@ Jeden řádek na konverzaci (archivované jsou v [Archivu](archive.md)):
 | `✖` | zastavila se chybou — potřebuje tě |
 | `?` | Claude čeká, až [schválíš nástroj](approvals.md) |
 | `◆` | nová odpověď, kterou jsi ještě neviděl(a) |
+| `○` | nečinná a poslední odpověď jsi už viděl(a) |
 
 V seznamu Konverzací znamená `·3` za názvem tři úkoly ve frontě.
 
