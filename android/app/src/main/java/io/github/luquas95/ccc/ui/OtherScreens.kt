@@ -76,6 +76,8 @@ private const val FROM_PR = "session_from_pr"
 private const val RESUME = "session_resume"
 private const val SESSION_NEW = "session_new"
 private const val FORK = "fork"
+private const val MCP_SELECT = "mcp_select"
+private const val MCP_PREFIX = "mcp:"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,6 +132,7 @@ fun NewConversationScreen(
     snackbar: SnackbarHostState,
     onBack: () -> Unit,
     onLoadSessions: (String) -> Unit,
+    onLoadMcpServers: (String) -> Unit,
     onCreate: (NewConversation) -> Unit,
 ) {
     var sessionId by rememberSaveable { mutableStateOf("") }
@@ -152,6 +155,10 @@ fun NewConversationScreen(
     val resume = RESUME in selection
     LaunchedEffect(path, resume) {
         if (resume) onLoadSessions(path.trim())
+    }
+    val mcpOn = MCP_SELECT in selection
+    LaunchedEffect(path, mcpOn) {
+        if (mcpOn) onLoadMcpServers(path.trim())
     }
     Scaffold(
         topBar = { TopBar(stringResource(R.string.new_conversation), onBack) },
@@ -214,6 +221,9 @@ fun NewConversationScreen(
             )
             options?.groups?.forEach { group ->
                 OptionGroup(group, selection) { selection = toggle(group, selection, it, options.groups) }
+                if (group.key == "mcp" && mcpOn) {
+                    McpServers(state, path.trim(), selection) { selection = toggle(group, selection, MCP_PREFIX + it, options.groups) }
+                }
             }
             if (resume) {
                 SessionList(state, path.trim(), sessionId) { sessionId = it }
@@ -273,10 +283,38 @@ private fun OptionGroup(group: LaunchGroup, selection: List<String>, onToggle: (
     }
 }
 
-/** As launch_options.toggle in ccc: one per exclusive group, required groups never empty. */
+/** The MCP servers configured for the folder (plus ticked ones that are gone): tick those the conversation may use. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun McpServers(state: NewConversationState, path: String, selection: List<String>, onToggle: (String) -> Unit) {
+    val chosen = selection.filter { it.startsWith(MCP_PREFIX) }.map { it.removePrefix(MCP_PREFIX) }
+    val names = (if (state.mcpFor == path) state.mcpServers else emptyList()).union(chosen).sorted()
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        names.forEach { name ->
+            FilterChip(
+                selected = name in chosen,
+                onClick = { onToggle(name) },
+                label = { Text(name) },
+                colors = chipColors(),
+            )
+        }
+    }
+}
+
+/**
+ * As launch_options.toggle in ccc: one per exclusive group, required groups never empty.
+ * A server key ("mcp:<name>") is not in the catalogue: ticking one turns "only selected
+ * MCP servers" on, unticking that mode forgets the servers.
+ */
 internal fun toggle(group: LaunchGroup, selection: List<String>, key: String, groups: List<LaunchGroup>): List<String> {
     val keys = group.options.map { it.key }.toSet()
     val result = selection.toMutableList()
+    if (key.startsWith(MCP_PREFIX)) {
+        if (key in result) result.remove(key) else result.add(key)
+        if (MCP_SELECT !in result) result.add(MCP_SELECT)
+        return ordered(result, groups)
+    }
+    if (key == MCP_SELECT && key in result) result.removeAll { it.startsWith(MCP_PREFIX) }
     if (key in result) {
         if (!group.required) result.remove(key)
     } else {
@@ -284,8 +322,12 @@ internal fun toggle(group: LaunchGroup, selection: List<String>, key: String, gr
         result.add(key)
     }
     if (SESSION_NEW in result) result.remove(FORK)
-    return groups.flatMap { g -> g.options.map { it.key } }.filter { it in result }
+    return ordered(result, groups)
 }
+
+/** In catalogue order, then the MCP servers. */
+private fun ordered(result: List<String>, groups: List<LaunchGroup>): List<String> =
+    groups.flatMap { g -> g.options.map { it.key } }.filter { it in result } + result.filter { it.startsWith(MCP_PREFIX) }.sorted()
 
 /** The folder's Claude Code sessions, newest first, to resume one. */
 @Composable

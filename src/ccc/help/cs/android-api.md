@@ -84,6 +84,7 @@ Každá cesta začíná `/api/v1`; každý požadavek má hlavičku
 | `POST /backup` | zálohovat databázi hned |
 | `GET /launch-options` | volby, se kterými jde konverzace založit (klíče a popisky) |
 | `GET /projects` | naposledy použité složky |
+| `GET /mcp-servers?path=` | názvy MCP serverů nastavených pro složku (zaškrtnou se jako `mcp:<název>` v `options`, spolu s `mcp_select`) |
 | `GET /sessions?path=` | relace Claude Code ve složce, nejnovější první (k pokračování: `session_id` v `POST /conversations` se `session_resume`) |
 | `GET /launch-presets` | předvolby okna Nová konverzace a poslední volba |
 | `GET /prompt-presets` | přednastavené prompty (Alt+1 … 9 v ccc) |

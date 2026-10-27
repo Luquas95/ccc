@@ -106,6 +106,8 @@ class CccApi(
 
     suspend fun launchPresets(): LaunchPresets = get("launch-presets")
 
+    suspend fun mcpServers(path: String): List<String> = get("mcp-servers", mapOf("path" to path))
+
     suspend fun sessions(path: String): List<Session> = get("sessions", mapOf("path" to path))
 
     suspend fun tasks(id: Int): Tasks = get("conversations/$id/tasks")

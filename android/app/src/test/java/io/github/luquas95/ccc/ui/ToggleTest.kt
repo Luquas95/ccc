@@ -13,7 +13,8 @@ class ToggleTest {
     private val session = group("session", true, true, "session_new", "session_continue", "session_from_pr")
     private val extra = group("session_extra", false, false, "fork")
     private val model = group("model", true, false, "model_opus", "model_sonnet")
-    private val groups = listOf(session, extra, model)
+    private val mcp = group("mcp", false, false, "mcp_select")
+    private val groups = listOf(session, extra, model, mcp)
 
     @Test
     fun `an exclusive group keeps one`() {
@@ -32,6 +33,16 @@ class ToggleTest {
         val forked = toggle(extra, listOf("session_continue"), "fork", groups)
         assertEquals(listOf("session_continue", "fork"), forked)
         assertEquals(listOf("session_new"), toggle(session, forked, "session_new", groups))
+    }
+
+    @Test
+    fun `ticking an MCP server turns the mode on, unticking the mode forgets the servers`() {
+        val one = toggle(mcp, listOf("session_new"), "mcp:docs", groups)
+        assertEquals(listOf("session_new", "mcp_select", "mcp:docs"), one)
+        val two = toggle(mcp, one, "mcp:db", groups)
+        assertEquals(listOf("session_new", "mcp_select", "mcp:db", "mcp:docs"), two)
+        assertEquals(listOf("session_new", "mcp_select", "mcp:db"), toggle(mcp, two, "mcp:docs", groups))
+        assertEquals(listOf("session_new"), toggle(mcp, two, "mcp_select", groups))
     }
 }
 

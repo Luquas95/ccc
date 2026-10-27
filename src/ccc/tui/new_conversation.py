@@ -8,10 +8,11 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, DirectoryTree, Input, OptionList, Select, Static
 from textual.widgets.option_list import Option
 
-from ccc import keymap
+from ccc import keymap, mcp_servers
 from ccc.i18n import _
 from ccc.launch_options import (
-    DEFAULT_SELECTION, FORK, GROUPS, SESSION_FROM_PR, SESSION_NEW, SESSION_RESUME, session_mode, toggle,
+    DEFAULT_SELECTION, FORK, GROUPS, MCP_PREFIX, MCP_SELECT, SESSION_FROM_PR, SESSION_NEW, SESSION_RESUME,
+    is_mcp_server, session_mode, toggle,
 )
 from ccc.orchestrator import start_conversation
 from ccc.presets import LaunchChoice, list_presets, load_last, save_last, save_preset
@@ -87,6 +88,10 @@ class NewConversationModal(ModalScreen):
     NewConversationModal #from-pr-input {
         margin-left: 4;
     }
+    NewConversationModal #mcp-servers {
+        height: auto;
+        margin-left: 4;
+    }
     NewConversationModal #preset-row {
         height: 3;
     }
@@ -148,6 +153,8 @@ class NewConversationModal(ModalScreen):
         self._initial = last
         self._sessions_for: str | None = None
         self._session_ids: list[str] = []
+        self._mcp_shown: list[str] | None = None  # server names currently listed
+        self._mcp_generation = 0  # keeps widget ids unique across rebuilds
 
     def _preset_options(self) -> list[tuple[str, str]]:
         return [(name, name) for name in sorted(list_presets(self.storage))]
@@ -166,7 +173,9 @@ class NewConversationModal(ModalScreen):
                 right.append(Static(_(group.title), classes="group-title"))
             for option in group.options:
                 right.append(Checkbox(_(option.label), value=option.key in self.selection, id=f"opt-{option.key}"))
-                if option.key == SESSION_RESUME:
+                if option.key == MCP_SELECT:
+                    right.append(Vertical(id="mcp-servers"))
+                elif option.key == SESSION_RESUME:
                     right.append(OptionList(id="resume-sessions"))
                 elif option.key == SESSION_FROM_PR:
                     right.append(Input(placeholder=_("PR number or URL"), id="from-pr-input"))
@@ -205,6 +214,7 @@ class NewConversationModal(ModalScreen):
 
     def on_mount(self) -> None:
         self._sync_session_widgets()
+        self._refresh_mcp()
 
     # --- directory ------------------------------------------------------
 
@@ -218,13 +228,46 @@ class NewConversationModal(ModalScreen):
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "launch-path":
             self._sync_session_widgets()
+            self._refresh_mcp()
 
     def _path(self) -> str:
         return str(Path(self.query_one("#launch-path", Input).value.strip()).expanduser())
 
     # --- attributes -----------------------------------------------------
 
+    def _chosen_mcp(self) -> list[str]:
+        return sorted(k.removeprefix(MCP_PREFIX) for k in self.selection if is_mcp_server(k))
+
+    def _refresh_mcp(self) -> None:
+        """List the MCP servers configured for the chosen directory (plus
+        ticked ones that are gone) under "Only selected MCP servers"."""
+        box = self.query_one("#mcp-servers", Vertical)
+        box.display = MCP_SELECT in self.selection
+        path = self._path() if self.query_one("#launch-path", Input).value.strip() else ""
+        found = mcp_servers.names(path) if path and Path(path).is_dir() else []
+        names = sorted(set(found) | set(self._chosen_mcp()))
+        if names != self._mcp_shown:
+            self._mcp_shown = names
+            self._mcp_generation += 1
+            box.remove_children()
+            for i, name in enumerate(names):
+                label = name if name in found else _("{name} (not found here)").format(name=name)
+                checkbox = Checkbox(Content(label), id=f"mcp-srv-{self._mcp_generation}-{i}")
+                checkbox.mcp_name = name
+                box.mount(checkbox)
+        for checkbox in box.query(Checkbox):
+            wanted = f"{MCP_PREFIX}{checkbox.mcp_name}" in self.selection
+            if checkbox.value != wanted:
+                checkbox.value = wanted
+
     def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
+        name = getattr(event.checkbox, "mcp_name", None)
+        if name is not None:
+            key = f"{MCP_PREFIX}{name}"
+            if event.value != (key in self.selection):
+                self.selection = toggle(self.selection, key, event.value)
+                self.query_one(f"#opt-{MCP_SELECT}", Checkbox).value = MCP_SELECT in self.selection
+            return
         if not event.checkbox.id.startswith("opt-"):
             return  # e.g. auto-continue: independent of the flag catalogue
         key = event.checkbox.id.removeprefix("opt-")
@@ -238,6 +281,7 @@ class NewConversationModal(ModalScreen):
             if checkbox.value != wanted:
                 checkbox.value = wanted
         self._sync_session_widgets()
+        self._refresh_mcp()
 
     def _sync_session_widgets(self) -> None:
         mode = session_mode(self.selection)
@@ -275,6 +319,7 @@ class NewConversationModal(ModalScreen):
                 wanted = checkbox.id.removeprefix("opt-") in self.selection
                 if checkbox.value != wanted:
                     checkbox.value = wanted
+        self._refresh_mcp()
         self.query_one("#auto-continue", Checkbox).value = choice.auto_continue
         self.query_one("#remote-control", Checkbox).value = choice.remote_control
         self._sync_session_widgets()

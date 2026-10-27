@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ccc import mcp_servers
 from ccc.i18n import N_, _
 
 SESSION_NEW = "session_new"
@@ -11,6 +12,10 @@ SESSION_CONTINUE = "session_continue"
 SESSION_RESUME = "session_resume"
 SESSION_FROM_PR = "session_from_pr"
 FORK = "fork"
+MCP_SELECT = "mcp_select"
+# One ticked server of the "MCP servers" group: "mcp:<name>". The names
+# come from the user's Claude Code config (ccc.mcp_servers), not from GROUPS.
+MCP_PREFIX = "mcp:"
 
 
 @dataclass(frozen=True)
@@ -57,6 +62,9 @@ GROUPS: tuple[OptionGroup, ...] = (
         LaunchOption("effort_xhigh", N_("xhigh"), ("--effort", "xhigh"), N_("effort xhigh")),
         LaunchOption("effort_max", N_("max"), ("--effort", "max"), N_("effort max")),
     ), exclusive=True, required=False),
+    OptionGroup("mcp", N_("MCP servers"), (
+        LaunchOption(MCP_SELECT, N_("Only selected MCP servers (fewer tokens)"), (), N_("MCP")),
+    ), exclusive=False, required=False),
     OptionGroup("other", N_("Other"), (
         LaunchOption("other_fallback_sonnet", N_("Fallback to Sonnet when overloaded"), ("--fallback-model", "sonnet"), N_("fallback Sonnet")),
         LaunchOption("other_chrome", N_("Claude in Chrome"), ("--chrome",), N_("Chrome")),
@@ -71,7 +79,13 @@ SESSION_GROUP_KEYS = ("session", "session_extra")
 DEFAULT_SELECTION: frozenset[str] = frozenset({SESSION_NEW, "perm_skip"})
 
 
+def is_mcp_server(key: str) -> bool:
+    return key.startswith(MCP_PREFIX) and mcp_servers.valid_name(key[len(MCP_PREFIX):])
+
+
 def group_of(key: str) -> OptionGroup:
+    if is_mcp_server(key):
+        return next(g for g in GROUPS if g.key == "mcp")
     for group in GROUPS:
         if any(o.key == key for o in group.options):
             return group
@@ -81,6 +95,14 @@ def group_of(key: str) -> OptionGroup:
 def toggle(selection: frozenset[str], key: str, checked: bool) -> frozenset[str]:
     group = group_of(key)
     sel = set(selection)
+    if is_mcp_server(key):
+        # A server only counts while the mode is on; ticking one turns it on.
+        sel.add(key) if checked else sel.discard(key)
+        if checked:
+            sel.add(MCP_SELECT)
+        return frozenset(sel)
+    if key == MCP_SELECT and not checked:
+        sel = {k for k in sel if not is_mcp_server(k)}
     if checked:
         if group.exclusive:
             sel -= {o.key for o in group.options}
@@ -107,6 +129,8 @@ def persistent_flags(selection: frozenset[str]) -> list[str]:
         for option in group.options:
             if option.key in selection:
                 flags.extend(option.flags)
+    if MCP_SELECT in selection:
+        flags.append(mcp_servers.marker(k[len(MCP_PREFIX):] for k in selection if is_mcp_server(k)))
     return flags
 
 
@@ -114,10 +138,10 @@ def describe_flags(flags: list[str] | None) -> str:
     """Compact human summary of a queue's persistent flags."""
     if flags is None:
         return _("legacy (skip permissions)")
-    remaining = list(flags)
+    remaining = [f for f in flags if not f.startswith(mcp_servers.MARKER)]
     parts: list[str] = []
     for group in GROUPS:
-        if group.key in SESSION_GROUP_KEYS:
+        if group.key in SESSION_GROUP_KEYS or group.key == "mcp":
             continue
         for option in group.options:
             n = len(option.flags)
@@ -126,5 +150,8 @@ def describe_flags(flags: list[str] | None) -> str:
                     parts.append(_(option.short))
                     del remaining[i:i + n]
                     break
+    chosen = mcp_servers.selected_names(flags)
+    if chosen is not None:
+        parts.append(_("MCP: {servers}").format(servers=", ".join(chosen)) if chosen else _("MCP: none"))
     parts.extend(remaining)
     return " · ".join(parts) if parts else _("default")

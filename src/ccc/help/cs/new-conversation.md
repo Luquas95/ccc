@@ -22,6 +22,7 @@ Stejné přepínače jako na příkazové řádce `claude`. Skupiny označené
 | Oprávnění (*jedna*) | **Přeskočit všechny kontroly oprávnění** — Claude dělá všechno bez ptaní · **Automaticky přijímat úpravy** — úpravy souborů ano, ostatní nástroje se ptají · **Jen plán** — Claude jen plánuje |
 | Model (*jedna*) | Opus · Sonnet · Haiku · Fable |
 | Úsilí (*jedna*) | high · xhigh · max |
+| MCP servery | **Jen vybrané MCP servery (méně tokenů)** — viz [MCP servery](#mcp-servery) |
 | Ostatní | Při přetížení přejít na Sonnet · Claude v Chromu · Bezpečný režim |
 | | **Vlastní git worktree** — samostatná pracovní kopie a větev pro tuto konverzaci (`.claude/worktrees/<název>`, větev `worktree-<název>`), aby mohla pracovat vedle ostatních ve stejném repozitáři; jen s novou relací nebo z pull requestu a s *Přeskočit všechny kontroly oprávnění* (ccc spouští git jen tam). Viz [Git](git.md#více-konverzací-v-jedné-složce) |
 
@@ -36,6 +37,26 @@ Pod nimi:
   [Vzdálené ovládání](remote-control.md).
 
 Nic nezaškrtnuto znamená výchozí nastavení Claude Code.
+
+## MCP servery
+
+Claude Code ve výchozím stavu načte každý MCP server, který najde — tvoje
+z `~/.claude.json`, `.mcp.json` ve složce i konektory z claude.ai (Gmail,
+Vercel…) — a definice všech jejich nástrojů dává do kontextu každého tahu.
+Při pár velkých serverech jsou to stovky nástrojů a spousta tokenů, které
+platíš s každou zprávou, ať je konverzace potřebuje, nebo ne. (Jedno
+měření: 543 nástrojů bez výběru, 24 bez serverů.)
+
+Zaškrtni **Jen vybrané MCP servery** a pod tím se objeví servery nastavené
+pro zvolenou složku; zaškrtni ty, které smí konverzace používat. Nic
+nezaškrtnuto znamená žádné. Vlastní server ccc (schvalování, ptaní se
+jiných konverzací) je zapnutý vždy. Výběr platí pro celou konverzaci,
+pamatuje se na příště a ukládá se do předvoleb.
+
+- Konektory z claude.ai vybírat nejde: s touto volbou jsou všechny vypnuté.
+- Server, který jsi mezitím z konfigurace odstranil, se přeskočí.
+- ccc ukládá jen názvy, nikdy nastavení serverů (mohou obsahovat tokeny);
+  nastavení se čte při startu Claude Code.
 
 ## Předvolby
 

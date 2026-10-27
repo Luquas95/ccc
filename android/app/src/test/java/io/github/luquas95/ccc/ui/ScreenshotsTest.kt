@@ -161,7 +161,7 @@ open class ScreenshotsTest {
             NewConversationState(launchOptions, listOf("/home/you/projects/shop-api", "/home/you/projects/docs-site"),
                 LaunchPresets(presets = listOf(LaunchChoice(listOf("perm_plan", "model_opus"), name = "Review"),
                     LaunchChoice(listOf("perm_skip", "model_sonnet"), name = "Quick fix")))),
-            SnackbarHostState(), {}, {}, {},
+            SnackbarHostState(), {}, {}, {}, {},
         )
     }
 

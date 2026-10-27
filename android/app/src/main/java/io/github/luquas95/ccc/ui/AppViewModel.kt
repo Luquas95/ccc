@@ -95,6 +95,9 @@ data class NewConversationState(
     /** Sessions of [sessionsFor] (to resume one). */
     val sessions: List<Session> = emptyList(),
     val sessionsFor: String = "",
+    /** Names of the MCP servers configured in [mcpFor] (to pick from). */
+    val mcpServers: List<String> = emptyList(),
+    val mcpFor: String = "",
     val creating: Boolean = false,
 )
 
@@ -636,6 +639,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val sessions = runCatching { client.sessions(path) }.getOrDefault(emptyList())
             _newConversation.update { it.copy(sessions = sessions, sessionsFor = path) }
+        }
+    }
+
+    fun loadMcpServers(path: String) {
+        val client = api ?: return
+        if (path.isBlank() || _newConversation.value.mcpFor == path) return
+        viewModelScope.launch {
+            val servers = runCatching { client.mcpServers(path) }.getOrDefault(emptyList())
+            _newConversation.update { it.copy(mcpServers = servers, mcpFor = path) }
         }
     }
 

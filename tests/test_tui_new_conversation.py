@@ -241,3 +241,46 @@ async def test_clearing_the_preset_select_keeps_the_options(tmp_path, monkeypatc
         assert select.value is Select.NULL
         assert looked_up == ["haiku-fast"]
         assert app.screen.query_one("#opt-model_haiku", Checkbox).value is True  # kept
+
+
+@pytest.mark.asyncio
+async def test_mcp_servers_of_the_folder_can_be_picked(tmp_path):
+    storage = Storage(tmp_path / "h.db")
+    project = tmp_path / "proj"; project.mkdir()
+    (project / ".mcp.json").write_text('{"mcpServers": {"db": {"command": "x"}, "docs": {"command": "y"}}}')
+    results = []
+    app = _host(NewConversationModal(storage, browse_root=tmp_path), results)
+    async with app.run_test(size=(160, 50)) as pilot:
+        await pilot.pause()
+        assert not app.screen.query_one("#mcp-servers").display  # hidden until the mode is ticked
+        app.screen.query_one("#launch-path", Input).value = str(project)
+        app.screen.query_one("#opt-mcp_select", Checkbox).value = True
+        await pilot.pause()
+        boxes = {c.mcp_name: c for c in app.screen.query("#mcp-servers Checkbox")}
+        assert sorted(boxes) == ["db", "docs"] and not any(c.value for c in boxes.values())
+        boxes["docs"].value = True
+        await pilot.pause()
+        await pilot.click("#launch-start")
+        await pilot.pause()
+    assert storage.get_queue(results[0]).launch_flags == ["--dangerously-skip-permissions", "--ccc-mcp=docs"]
+
+
+@pytest.mark.asyncio
+async def test_ticking_a_server_turns_the_mode_on_and_unticking_the_mode_clears_them(tmp_path):
+    storage = Storage(tmp_path / "h.db")
+    project = tmp_path / "proj"; project.mkdir()
+    (project / ".mcp.json").write_text('{"mcpServers": {"db": {"command": "x"}}}')
+    app = _host(NewConversationModal(storage, browse_root=tmp_path), [])
+    async with app.run_test(size=(160, 50)) as pilot:
+        await pilot.pause()
+        app.screen.query_one("#launch-path", Input).value = str(project)
+        app.screen.query_one("#opt-mcp_select", Checkbox).value = True
+        await pilot.pause()
+        server = app.screen.query_one("#mcp-servers Checkbox", Checkbox)
+        server.value = True
+        await pilot.pause()
+        assert "mcp:db" in app.screen.selection
+        app.screen.query_one("#opt-mcp_select", Checkbox).value = False
+        await pilot.pause()
+        assert not any(k.startswith("mcp") for k in app.screen.selection)
+        assert not app.screen.query_one("#mcp-servers").display
