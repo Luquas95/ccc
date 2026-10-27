@@ -90,3 +90,10 @@ async def test_click_goes_through_the_client_like_a_typed_key(monkeypatch):
         await pilot.pause()
     # Through tmux's key tables: its Alt+0 binding switches to Claude.
     assert ("send-keys", "-K", "-c", "/dev/pts/3", "M-0") in sent
+
+
+def test_wrap_splits_keys_into_rows_that_fit():
+    items = [["a", "Alpha", "a"], ["b", "Beta", "b"], ["c", "Gamma", "c"]]
+    assert footer_strip.wrap(items, 100) == [items]
+    assert footer_strip.wrap(items, 17) == [items[:2], items[2:]]
+    assert footer_strip.wrap([], 10) == [[]]
