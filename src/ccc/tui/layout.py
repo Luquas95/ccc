@@ -197,6 +197,35 @@ Button.modal-cancel, Button.settings-danger, Button.review-danger, Button.goal-d
 Button.routines-danger, Button.workflow-danger, Button.sidebar-button-red {
     background: $ccc-button-danger;
 }
+/* sidebar buttons are 3D (#102): light top edge, dark bottom edge, swapped while pressed */
+Button.sidebar-button {
+    border-top: tall #5fd7d7;
+    border-bottom: tall #005f5f;
+}
+Button.sidebar-button-green {
+    border-top: tall #5fd75f;
+    border-bottom: tall #005f00;
+}
+Button.sidebar-button-red {
+    border-top: tall #ff5f5f;
+    border-bottom: tall #5f0000;
+}
+Button.sidebar-button.-active {
+    border-top: tall #005f5f;
+    border-bottom: tall #5fd7d7;
+}
+Button.sidebar-button-green.-active {
+    border-top: tall #005f00;
+    border-bottom: tall #5fd75f;
+}
+Button.sidebar-button-red.-active {
+    border-top: tall #5f0000;
+    border-bottom: tall #ff5f5f;
+}
+Button.sidebar-button:disabled {
+    border-top: tall $panel;
+    border-bottom: tall $panel;
+}
 Button:disabled {
     background: $panel;
     color: $text-muted;
