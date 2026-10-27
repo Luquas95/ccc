@@ -178,8 +178,8 @@ def context_tick(storage: Storage, notifier: Notifier, tracker) -> list[str]:
     fills = tracker.fills(storage, queues.values())
     sent = []
     for queue_id in context_fill.alerts(storage, fills):
-        text = _("⚠️ {name}: context {tokens} full — consider /compact or a new conversation").format(
-            name=queues[queue_id].name, tokens=context_fill.list_text(fills[queue_id]))
+        text = _("⚠️ {name}: context {percent} % full — consider /compact or a new conversation").format(
+            name=queues[queue_id].name, percent=fills[queue_id].percent)
         notifier.send_now(text)
         sent.append(text)
     return sent

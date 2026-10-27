@@ -210,18 +210,18 @@ class ContextTracker:
 
 
 def list_text(fill: ContextFill) -> str:
-    """Short form for the list of conversations: 124k/200k (or 124k)."""
-    if fill.window is None:
+    """Short form for the list of conversations: 62% · 124k/200k (or 124k)."""
+    if fill.percent is None:
         return short_tokens(fill.tokens)
-    return f"{short_tokens(fill.tokens)}/{short_tokens(fill.window)}"
+    return f"{fill.percent}% · {short_tokens(fill.tokens)}/{short_tokens(fill.window)}"
 
 
 def header_text(fill: ContextFill) -> str:
-    """context 124k / 200k (or context 124k tokens)."""
+    """context 62 % · 124k / 200k (or context 124k tokens)."""
     if fill.percent is None:
         return _("context {tokens} tokens (window unknown)").format(tokens=short_tokens(fill.tokens))
-    return _("context {tokens} / {window}").format(
-        tokens=short_tokens(fill.tokens), window=short_tokens(fill.window))
+    return _("context {percent} % · {tokens} / {window}").format(
+        percent=fill.percent, tokens=short_tokens(fill.tokens), window=short_tokens(fill.window))
 
 
 def _alerted(storage) -> set[int]:
