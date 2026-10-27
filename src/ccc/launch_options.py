@@ -49,6 +49,9 @@ GROUPS: tuple[OptionGroup, ...] = (
     OptionGroup("permissions", N_("Permissions"), (
         LaunchOption("perm_skip", N_("Skip all permission checks"), ("--dangerously-skip-permissions",), N_("skip permissions")),
         LaunchOption("perm_accept_edits", N_("Auto-accept edits"), ("--permission-mode", "acceptEdits"), N_("accept edits")),
+        LaunchOption("perm_manual", N_("Ask for everything"), ("--permission-mode", "manual"), N_("ask for everything")),
+        LaunchOption("perm_dont_ask", N_("Only what is allowed"), ("--permission-mode", "dontAsk"), N_("only allowed")),
+        LaunchOption("perm_auto", N_("Auto mode"), ("--permission-mode", "auto"), N_("auto mode")),
         LaunchOption("perm_plan", N_("Plan only"), ("--permission-mode", "plan"), N_("plan only")),
     ), exclusive=True, required=True),
     OptionGroup("model", N_("Model"), (
