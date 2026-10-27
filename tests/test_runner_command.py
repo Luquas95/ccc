@@ -1,3 +1,5 @@
+import json
+
 from ccc.runner import build_command
 
 
@@ -51,4 +53,5 @@ def test_mcp_marker_is_resolved_for_the_project(tmp_path, monkeypatch):
     (tmp_path / ".claude.json").write_text('{"mcpServers": {"a": {"command": "x"}}}')
     cmd = build_command("sid", "hi", False, ["--ccc-mcp=a"], None, str(tmp_path))
     assert "--ccc-mcp=a" not in cmd and "--strict-mcp-config" in cmd
-    assert cmd[cmd.index("--mcp-config") + 1] == '{"mcpServers": {"a": {"command": "x"}}}'
+    path = cmd[cmd.index("--mcp-config") + 1]
+    assert json.loads(open(path).read()) == {"mcpServers": {"a": {"command": "x"}}}

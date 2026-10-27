@@ -47,6 +47,8 @@ every turn. With a few large servers that is hundreds of tools and a lot of
 tokens you pay for with every message, whether the conversation needs them
 or not. (One test: 543 tools without a choice, 24 with none.)
 
+![MCP servers](../../../docs/screenshots/new_conversation_mcp.png)
+
 Tick **Only selected MCP servers** and the servers configured for the chosen
 folder appear below it; tick the ones this conversation may use. Nothing
 ticked means none. ccc's own server (approvals, asking other conversations)
@@ -54,6 +56,9 @@ is always on. The choice holds for the whole conversation, is remembered
 for next time and saved in presets.
 
 - claude.ai connectors can't be picked: with this option they are all off.
+- A server from the folder's `.mcp.json` appears only after you've approved
+  it for that folder in Claude Code (it asks the first time); a repository
+  can't get a command run just by defining a server.
 - A server that has since been removed from your configuration is skipped.
 - ccc stores only the names, never the server settings (they can hold
   tokens); the settings are read when Claude Code starts.

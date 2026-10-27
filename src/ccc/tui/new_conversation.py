@@ -244,7 +244,7 @@ class NewConversationModal(ModalScreen):
         box = self.query_one("#mcp-servers", Vertical)
         box.display = MCP_SELECT in self.selection
         path = self._path() if self.query_one("#launch-path", Input).value.strip() else ""
-        found = mcp_servers.names(path) if path and Path(path).is_dir() else []
+        found = mcp_servers.names(path if Path(path).is_dir() else "")
         names = sorted(set(found) | set(self._chosen_mcp()))
         if names != self._mcp_shown:
             self._mcp_shown = names

@@ -581,8 +581,9 @@ def test_no_diff_where_claude_may_not_run_commands(storage, repo_run):
         endpoint.comment(run_id, {"comments": [{"index": 0, "text": "x"}]})
 
 
-def test_mcp_servers_lists_names_only(storage, tmp_path):
-    (tmp_path / ".mcp.json").write_text('{"mcpServers": {"db": {"command": "x", "env": {"TOKEN": "secret"}}}}')
+def test_mcp_servers_lists_names_only(storage, tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    (tmp_path / ".claude.json").write_text('{"mcpServers": {"db": {"command": "x", "env": {"TOKEN": "secret"}}}}')
     endpoint = api.Api(storage)
 
     assert endpoint.mcp_servers(str(tmp_path)) == ["db"]

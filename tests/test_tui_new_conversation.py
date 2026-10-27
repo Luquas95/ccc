@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from textual.app import App
 from textual.widgets import Checkbox, Input, OptionList
@@ -243,11 +245,18 @@ async def test_clearing_the_preset_select_keeps_the_options(tmp_path, monkeypatc
         assert app.screen.query_one("#opt-model_haiku", Checkbox).value is True  # kept
 
 
+def _claude_config(monkeypatch, tmp_path, servers):
+    config = tmp_path / "claude-config"
+    config.mkdir(exist_ok=True)
+    (config / ".claude.json").write_text(json.dumps({"mcpServers": servers}))
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config))
+
+
 @pytest.mark.asyncio
-async def test_mcp_servers_of_the_folder_can_be_picked(tmp_path):
+async def test_mcp_servers_of_the_folder_can_be_picked(tmp_path, monkeypatch):
     storage = Storage(tmp_path / "h.db")
     project = tmp_path / "proj"; project.mkdir()
-    (project / ".mcp.json").write_text('{"mcpServers": {"db": {"command": "x"}, "docs": {"command": "y"}}}')
+    _claude_config(monkeypatch, tmp_path, {"db": {"command": "x"}, "docs": {"command": "y"}})
     results = []
     app = _host(NewConversationModal(storage, browse_root=tmp_path), results)
     async with app.run_test(size=(160, 50)) as pilot:
@@ -266,10 +275,10 @@ async def test_mcp_servers_of_the_folder_can_be_picked(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_ticking_a_server_turns_the_mode_on_and_unticking_the_mode_clears_them(tmp_path):
+async def test_ticking_a_server_turns_the_mode_on_and_unticking_the_mode_clears_them(tmp_path, monkeypatch):
     storage = Storage(tmp_path / "h.db")
     project = tmp_path / "proj"; project.mkdir()
-    (project / ".mcp.json").write_text('{"mcpServers": {"db": {"command": "x"}}}')
+    _claude_config(monkeypatch, tmp_path, {"db": {"command": "x"}})
     app = _host(NewConversationModal(storage, browse_root=tmp_path), [])
     async with app.run_test(size=(160, 50)) as pilot:
         await pilot.pause()

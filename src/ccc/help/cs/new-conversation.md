@@ -47,6 +47,8 @@ Při pár velkých serverech jsou to stovky nástrojů a spousta tokenů, které
 platíš s každou zprávou, ať je konverzace potřebuje, nebo ne. (Jedno
 měření: 543 nástrojů bez výběru, 24 bez serverů.)
 
+![MCP servery](../../../../docs/screenshots/new_conversation_mcp.png)
+
 Zaškrtni **Jen vybrané MCP servery** a pod tím se objeví servery nastavené
 pro zvolenou složku; zaškrtni ty, které smí konverzace používat. Nic
 nezaškrtnuto znamená žádné. Vlastní server ccc (schvalování, ptaní se
@@ -54,6 +56,9 @@ jiných konverzací) je zapnutý vždy. Výběr platí pro celou konverzaci,
 pamatuje se na příště a ukládá se do předvoleb.
 
 - Konektory z claude.ai vybírat nejde: s touto volbou jsou všechny vypnuté.
+- Server z `.mcp.json` ve složce se nabídne až poté, co jsi ho pro tu
+  složku schválil v Claude Code (zeptá se při prvním použití); repozitář
+  tak nemůže spustit příkaz jen tím, že server definuje.
 - Server, který jsi mezitím z konfigurace odstranil, se přeskočí.
 - ccc ukládá jen názvy, nikdy nastavení serverů (mohou obsahovat tokeny);
   nastavení se čte při startu Claude Code.

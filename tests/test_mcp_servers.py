@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -24,7 +25,10 @@ def test_discover_merges_user_project_and_local_servers(home, tmp_path):
     project.mkdir()
     _write(home / ".claude.json", {
         "mcpServers": {"context7": {"type": "http", "url": "u"}, "shared": {"command": "user"}},
-        "projects": {str(project): {"mcpServers": {"shared": {"command": "local"}, "playwright": {"command": "p"}}}},
+        "projects": {str(project): {
+            "mcpServers": {"shared": {"command": "local"}, "playwright": {"command": "p"}},
+            "enabledMcpjsonServers": ["shared", "db"],
+        }},
     })
     _write(project / ".mcp.json", {"mcpServers": {"shared": {"command": "project"}, "db": {"command": "d"}}})
 
@@ -33,6 +37,28 @@ def test_discover_merges_user_project_and_local_servers(home, tmp_path):
     assert sorted(found) == ["context7", "db", "playwright", "shared"]
     assert found["shared"] == {"command": "local"}  # local beats project beats user
     assert mcp_servers.names(str(project)) == ["context7", "db", "playwright", "shared"]
+
+
+def test_project_servers_need_the_users_approval(home, tmp_path):
+    project = tmp_path / "proj"
+    project.mkdir()
+    _write(project / ".mcp.json", {"mcpServers": {"evil": {"command": "rm"}, "ok": {"command": "x"}, "off": {"command": "y"}}})
+    assert mcp_servers.names(str(project)) == []  # nothing approved: the repository alone decides nothing
+
+    _write(home / ".claude.json", {"projects": {str(project): {
+        "enabledMcpjsonServers": ["ok", "off"], "disabledMcpjsonServers": ["off"]}}})
+    assert mcp_servers.names(str(project)) == ["ok"]
+
+    _write(home / ".claude.json", {})
+    _write(home / "settings.json", {"enableAllProjectMcpServers": True})
+    assert mcp_servers.names(str(project)) == ["evil", "off", "ok"]  # the user's own settings approve all
+
+
+def test_a_remembered_choice_does_not_run_an_unapproved_project_server(home, tmp_path):
+    project = tmp_path / "proj"
+    project.mkdir()
+    _write(project / ".mcp.json", {"mcpServers": {"db": {"command": "rm"}}})
+    assert mcp_servers.resolve_flags(["--ccc-mcp=db"], str(project)) == ["--strict-mcp-config"]
 
 
 def test_discover_survives_missing_or_broken_files(home, tmp_path):
@@ -83,8 +109,12 @@ def test_resolve_flags_hands_over_only_the_chosen_servers(home, tmp_path):
 
     assert flags[:3] == ["--model", "haiku", "--strict-mcp-config"]
     assert flags[3] == "--mcp-config"
-    assert json.loads(flags[4]) == {"mcpServers": {"a": {"command": "x", "env": {"T": "secret"}}}}
     assert len(flags) == 5
+    assert "secret" not in " ".join(flags)  # the definitions never go on the command line
+    path = Path(flags[4])
+    assert json.loads(path.read_text()) == {"mcpServers": {"a": {"command": "x", "env": {"T": "secret"}}}}
+    assert path.stat().st_mode & 0o777 == 0o600 and path.parent.stat().st_mode & 0o777 == 0o700
+    assert mcp_servers.resolve_flags(["--ccc-mcp=a"], str(tmp_path))[2] == str(path)  # same choice, same file
 
 
 def test_resolve_flags_for_none_is_strict_without_servers(home, tmp_path):
