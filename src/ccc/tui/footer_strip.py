@@ -10,11 +10,13 @@ shows them; clicking one presses that key in ccc."""
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 
+from rich.cells import cell_len
 from rich.text import Text
 from textual.app import App
-from textual.containers import Horizontal
+from textual.containers import Horizontal, Vertical
 from textual.widgets import Static
 
 from ccc import keymap
@@ -50,6 +52,22 @@ def decode(value: str) -> list[list[str]]:
     return [i for i in items if isinstance(i, list) and len(i) == 3] if isinstance(items, list) else []
 
 
+def wrap(items: list[list[str]], width: int) -> list[list[list[str]]]:
+    """Items split into rows no wider than `width` (an item is its key, a
+    space, its description and a cell of padding either side), so the
+    whole key list stays readable in a narrow window."""
+    rows: list[list[list[str]]] = [[]]
+    used = 0
+    for item in items:
+        cost = cell_len(f"{item[0]} {item[1]}") + 2
+        if rows[-1] and used + cost > width:
+            rows.append([])
+            used = 0
+        rows[-1].append(item)
+        used += cost
+    return rows
+
+
 def _tmux(*args: str) -> subprocess.CompletedProcess:
     # Plain `tmux`: $TMUX points at ccc's server (this runs in its pane).
     return subprocess.run(["tmux", *args], capture_output=True, text=True, timeout=5)
@@ -61,6 +79,9 @@ class FooterStrip(App):
         background: $footer-background;
     }
     #strip-items {
+        height: auto;
+    }
+    .strip-row {
         height: 1;
     }
     .strip-item {
@@ -78,26 +99,43 @@ class FooterStrip(App):
         super().__init__()
         self.main_pane = main_pane
         self._shown: str | None = None
+        self._laid_out: tuple[str, int, int] | None = None
 
     def compose(self):
-        yield Horizontal(id="strip-items")
+        yield Vertical(id="strip-items")
 
     async def on_mount(self) -> None:
         await self.refresh_items()
         self.set_interval(POLL_SECONDS, self.refresh_items)
 
     async def refresh_items(self) -> None:
-        value = _tmux("show-options", "-wqv", "-t", self.main_pane, FOOTER_OPTION).stdout.strip()
-        if value == self._shown:
+        self._shown = _tmux("show-options", "-wqv", "-t", self.main_pane, FOOTER_OPTION).stdout.strip()
+        await self.layout_items()
+
+    async def on_resize(self, event) -> None:
+        await self.layout_items()
+
+    async def layout_items(self) -> None:
+        value, width, height = self._shown, self.size.width, self.size.height
+        if value is None or width == 0 or self._laid_out == (value, width, height):
             return
-        self._shown = value
-        row = self.query_one("#strip-items", Horizontal)
-        await row.remove_children()
-        await row.mount_all(
-            Static(Text.assemble((shown, "bold yellow"), " ", description),
-                   classes="strip-item", name=key)
-            for shown, description, key in decode(value)
+        self._laid_out = (value, width, height)
+        rows = wrap(decode(value), width)
+        column = self.query_one("#strip-items", Vertical)
+        await column.remove_children()
+        await column.mount_all(
+            Horizontal(*(
+                Static(Text.assemble((shown, "bold yellow"), " ", description),
+                       classes="strip-item", name=key)
+                for shown, description, key in row
+            ), classes="strip-row")
+            for row in rows
         )
+        # The pane is as tall as the rows the keys wrap into (tmux puts it
+        # back to 1 row when the window is resized, which resizes this app).
+        pane = os.environ.get("TMUX_PANE")
+        if pane and len(rows) != height:
+            _tmux("resize-pane", "-t", pane, "-y", str(len(rows)))
 
     def on_click(self, event) -> None:
         widget = event.widget
