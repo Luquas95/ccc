@@ -579,3 +579,23 @@ def test_no_diff_where_claude_may_not_run_commands(storage, repo_run):
     assert error.value.status == 409
     with pytest.raises(api.ApiError):
         endpoint.comment(run_id, {"comments": [{"index": 0, "text": "x"}]})
+
+
+def test_mcp_servers_lists_names_only(storage, tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    (tmp_path / ".claude.json").write_text('{"mcpServers": {"db": {"command": "x", "env": {"TOKEN": "secret"}}}}')
+    endpoint = api.Api(storage)
+
+    assert endpoint.mcp_servers(str(tmp_path)) == ["db"]
+    assert endpoint.mcp_servers("") == []
+
+
+def test_create_stores_the_chosen_mcp_servers_as_a_marker(storage, tmp_path):
+    folder = tmp_path / "shop"
+    folder.mkdir()
+
+    result = api.Api(storage).create({
+        "path": str(folder), "options": ["mcp_select", "mcp:db"], "interactive": False, "auto_continue": False,
+    })
+
+    assert storage.get_queue(result["id"]).launch_flags == ["--dangerously-skip-permissions", "--ccc-mcp=db"]

@@ -41,6 +41,7 @@ GET  /api/v1/waiting                      conversations that need you (Alt+N)
 GET  /api/v1/prompt-presets               the preset prompts (Alt+1 … 9)
 GET  /api/v1/launch-presets               New conversation presets and the last choice
 GET  /api/v1/sessions?path=               Claude Code sessions of a folder (to resume one)
+GET  /api/v1/mcp-servers?path=            names of the MCP servers configured for a folder (to choose from)
 GET  /api/v1/permissions                  every approval waiting
 POST /api/v1/permissions/{id}             {"decision": "allow" | "always" | "deny"}
 GET  /api/v1/usage                        Claude usage limits
@@ -66,7 +67,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from ccc import __version__, groups, i18n, launch_options
+from ccc import __version__, groups, i18n, launch_options, mcp_servers
 from ccc.api_agents import AgentEndpoints
 from ccc.api_common import ApiError, int_of, iso, route, task_line, text_of
 from ccc.api_views import ViewEndpoints
@@ -172,6 +173,7 @@ class Api(AgentEndpoints, ViewEndpoints):
             ok(r"/usage", lambda ids, q, b: self.usage()),
             ok(r"/projects", lambda ids, q, b: self.projects()),
             ok(r"/sessions", lambda ids, q, b: self.sessions(q.get("path", ""))),
+            ok(r"/mcp-servers", lambda ids, q, b: self.mcp_servers(q.get("path", ""))),
             ok(r"/launch-options", lambda ids, q, b: self.launch_options()),
             ok(r"/launch-presets", lambda ids, q, b: self.launch_presets()),
             ok(r"/prompt-presets", lambda ids, q, b: self.prompt_presets()),
@@ -631,6 +633,11 @@ class Api(AgentEndpoints, ViewEndpoints):
             for s in list_sessions_for_directory(folder)
         ]
 
+    def mcp_servers(self, path: str) -> list[str]:
+        """Names (never the definitions — they can hold tokens) of the MCP
+        servers Claude Code would load in a folder."""
+        return mcp_servers.names(os.path.expanduser(path.strip())) if path.strip() else []
+
     def launch_presets(self) -> dict:
         """The New conversation window's presets and the last choice."""
         from ccc import presets
@@ -704,7 +711,7 @@ class Api(AgentEndpoints, ViewEndpoints):
             if group.required and not chosen:
                 selection |= {o.key for o in group.options} & launch_options.DEFAULT_SELECTION
         known = {o.key for g in launch_options.GROUPS for o in g.options}
-        unknown = selection - known
+        unknown = {k for k in selection - known if not launch_options.is_mcp_server(k)}
         if unknown:
             raise ApiError(HTTPStatus.BAD_REQUEST,
                            _("Unknown options: {options}.").format(options=", ".join(sorted(unknown))))

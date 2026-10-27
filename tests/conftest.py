@@ -47,3 +47,12 @@ def _ccc_colours(monkeypatch):
     from ccc.tui import theme
 
     monkeypatch.setattr(App, "get_theme_variable_defaults", lambda self: theme.VARIABLES)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_claude_config(tmp_path_factory, monkeypatch):
+    # The New conversation window lists the MCP servers of ~/.claude.json
+    # (ccc.mcp_servers): tests must neither read the developer's real ones
+    # nor depend on them.
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path_factory.mktemp("claude-config")))
+    monkeypatch.setenv("CCC_MCP_DIR", str(tmp_path_factory.mktemp("ccc-mcp")))

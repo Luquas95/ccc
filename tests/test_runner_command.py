@@ -1,3 +1,5 @@
+import json
+
 from ccc.runner import build_command
 
 
@@ -44,3 +46,12 @@ async def test_execute_gives_permission_tool_a_long_mcp_timeout(monkeypatch):
     assert int(seen["env"]["MCP_TOOL_TIMEOUT"]) >= 7 * 24 * 3600 * 1000
     await runner.execute("/tmp", "s", "hi", False, ["--model", "haiku"])
     assert seen["env"] is None or "MCP_TOOL_TIMEOUT" not in seen["env"]
+
+
+def test_mcp_marker_is_resolved_for_the_project(tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    (tmp_path / ".claude.json").write_text('{"mcpServers": {"a": {"command": "x"}}}')
+    cmd = build_command("sid", "hi", False, ["--ccc-mcp=a"], None, str(tmp_path))
+    assert "--ccc-mcp=a" not in cmd and "--strict-mcp-config" in cmd
+    path = cmd[cmd.index("--mcp-config") + 1]
+    assert json.loads(open(path).read()) == {"mcpServers": {"a": {"command": "x"}}}

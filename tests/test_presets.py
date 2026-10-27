@@ -38,3 +38,10 @@ def test_corrupt_settings_are_ignored(tmp_path):
     storage.set_setting("last_launch_selection", "not json")
     storage.set_setting("launch_presets", "[1, 2]")
     assert load_last(storage) is None and list_presets(storage) == {}
+
+
+def test_mcp_servers_are_remembered_with_the_choice(tmp_path):
+    storage = Storage(tmp_path / "h.db")
+    sel = toggle(DEFAULT_SELECTION, "mcp:context7", True)
+    save_last(storage, LaunchChoice(sel))
+    assert {"mcp_select", "mcp:context7"} <= load_last(storage).selection

@@ -307,6 +307,7 @@ private fun App(model: AppViewModel) {
             snackbar = snackbar,
             onBack = model::back,
             onLoadSessions = model::loadSessions,
+            onLoadMcpServers = model::loadMcpServers,
             onCreate = model::create,
         )
     }

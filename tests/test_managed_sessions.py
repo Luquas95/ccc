@@ -242,3 +242,11 @@ def test_typed_text_is_literal_short_and_plain(monkeypatch):
     for bad in ("", "a\nb", "\x1b[A", "x" * 201):
         assert not ms.type_text(7, bad).delivered
     assert len(calls) == 1
+
+
+def test_command_resolves_the_mcp_marker(tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    q = _queue(delivery_mode=DeliveryMode.INTERACTIVE, launch_flags=["--ccc-mcp="])
+    assert ms.build_interactive_command(q, False, ["--mcp-config", "{}"]) == [
+        "claude", "--session-id", "sid-1", "--strict-mcp-config", "--mcp-config", "{}",
+    ]

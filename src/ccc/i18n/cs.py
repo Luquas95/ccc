@@ -253,6 +253,12 @@ CS: dict[str, str] = {
     "Safe mode (no customizations)": "Bezpečný režim (bez přizpůsobení)",
     "safe mode": "bezpečný režim",
     "legacy (skip permissions)": "starší (bez kontrol oprávnění)",
+    "MCP servers": "MCP servery",
+    "Only selected MCP servers (fewer tokens)": "Jen vybrané MCP servery (méně tokenů)",
+    "MCP": "MCP",
+    "MCP: {servers}": "MCP: {servers}",
+    "MCP: none": "MCP: žádné",
+    "{name} (not found here)": "{name} (zde nenalezen)",
 
     # --- Approvals ----------------------------------------------------------------
     "Allow": "Povolit",

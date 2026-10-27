@@ -88,6 +88,7 @@ Every path starts with `/api/v1`; every request has the header
 | `POST /backup` | back the database up now |
 | `GET /launch-options` | the options a conversation can be started with (keys and labels) |
 | `GET /projects` | recently used folders |
+| `GET /mcp-servers?path=` | names of the MCP servers configured for a folder (tick them as `mcp:<name>` in `options`, together with `mcp_select`) |
 | `GET /sessions?path=` | Claude Code sessions recorded in a folder, newest first (to resume one: `session_id` in `POST /conversations` with `session_resume`) |
 | `GET /launch-presets` | the New conversation presets and the last choice |
 | `GET /prompt-presets` | the preset prompts (Alt+1 … 9 in ccc) |

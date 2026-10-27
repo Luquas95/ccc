@@ -5,6 +5,7 @@ import os
 import json
 from dataclasses import dataclass, field
 
+from ccc import mcp_servers
 from ccc.models import RunStatus
 
 RATE_LIMIT_PATTERNS = (
@@ -128,6 +129,7 @@ def build_command(
     resume: bool,
     launch_flags: list[str] | None = None,
     first_run_flags: list[str] | None = None,
+    project_path: str | None = None,
 ) -> list[str]:
     first = list(first_run_flags or [])
     if any(flag in first for flag in _SESSION_SELECTING_FLAGS):
@@ -135,6 +137,8 @@ def build_command(
     else:
         session_flag = ["--resume", session_id] if resume else ["--session-id", session_id]
     flags = LEGACY_FLAGS if launch_flags is None else list(launch_flags)
+    if project_path is not None:
+        flags = mcp_servers.resolve_flags(flags, project_path)
     return ["claude", *session_flag, *first, "-p", prompt, "--output-format", "json", *flags]
 
 
@@ -152,7 +156,7 @@ async def execute(
         # don't let Claude Code give up on the MCP call first.
         env = {**os.environ, "MCP_TOOL_TIMEOUT": str(PERMISSION_TOOL_TIMEOUT_MS)}
     proc = await asyncio.create_subprocess_exec(
-        *build_command(session_id, prompt, resume, launch_flags, first_run_flags),
+        *build_command(session_id, prompt, resume, launch_flags, first_run_flags, project_path),
         cwd=project_path,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
