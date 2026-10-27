@@ -97,3 +97,21 @@ def test_wrap_splits_keys_into_rows_that_fit():
     assert footer_strip.wrap(items, 100) == [items]
     assert footer_strip.wrap(items, 17) == [items[:2], items[2:]]
     assert footer_strip.wrap([], 10) == [[]]
+
+
+@pytest.mark.asyncio
+async def test_hover_goes_away_when_the_mouse_stops_reporting(monkeypatch):
+    import subprocess
+
+    value = footer_strip.encode([["?", "Keys", "?"], ["t", "Tasks", "t"]])
+    monkeypatch.setattr(footer_strip, "_tmux", lambda *a: subprocess.CompletedProcess(a, 0, value, ""))
+    monkeypatch.setattr(footer_strip, "HOVER_IDLE_SECONDS", 0.2)
+    app = footer_strip.FooterStrip("%0")
+    async with app.run_test(size=(100, 1)) as pilot:
+        await pilot.pause()
+        item = list(app.query(".strip-item"))[1]
+        await pilot.hover(item)
+        await pilot.pause()
+        assert item.has_class("-hover")
+        await pilot.pause(0.6)
+        assert not item.has_class("-hover")

@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+from time import monotonic
 
 from rich.cells import cell_len
 from rich.text import Text
@@ -23,6 +24,10 @@ from ccc import keymap
 
 FOOTER_OPTION = "@ccc-footer"
 POLL_SECONDS = 0.3
+# tmux only passes the mouse to the pane it's over, so when the pointer
+# leaves the strip no "left" ever arrives: the highlight goes after this
+# long without a mouse move instead.
+HOVER_IDLE_SECONDS = 0.5
 
 # Textual key names → tmux key names, for clicks (send-keys).
 tmux_key = keymap.tmux_key
@@ -88,7 +93,7 @@ class FooterStrip(App):
         width: auto;
         padding: 0 1;
     }
-    .strip-item:hover {
+    .strip-item.-hover {
         background: $footer-item-background;
         text-style: reverse;
     }
@@ -100,6 +105,8 @@ class FooterStrip(App):
         self.main_pane = main_pane
         self._shown: str | None = None
         self._laid_out: tuple[str, int, int] | None = None
+        self._hovered: Static | None = None
+        self._hover_at = 0.0
 
     def compose(self):
         yield Vertical(id="strip-items")
@@ -107,6 +114,27 @@ class FooterStrip(App):
     async def on_mount(self) -> None:
         await self.refresh_items()
         self.set_interval(POLL_SECONDS, self.refresh_items)
+        self.set_interval(0.1, self.expire_hover)
+
+    def set_hover(self, widget: Static | None) -> None:
+        if widget is not self._hovered:
+            if self._hovered is not None:
+                self._hovered.remove_class("-hover")
+            if widget is not None:
+                widget.add_class("-hover")
+            self._hovered = widget
+        self._hover_at = monotonic()
+
+    def expire_hover(self) -> None:
+        if self._hovered is not None and monotonic() - self._hover_at > HOVER_IDLE_SECONDS:
+            self.set_hover(None)
+
+    def on_mouse_move(self, event) -> None:
+        widget = event.widget
+        self.set_hover(widget if widget is not None and widget.has_class("strip-item") else None)
+
+    def on_leave(self, event) -> None:
+        self.set_hover(None)
 
     async def refresh_items(self) -> None:
         self._shown = _tmux("show-options", "-wqv", "-t", self.main_pane, FOOTER_OPTION).stdout.strip()
@@ -122,6 +150,7 @@ class FooterStrip(App):
         self._laid_out = (value, width, height)
         rows = wrap(decode(value), width)
         column = self.query_one("#strip-items", Vertical)
+        self._hovered = None
         await column.remove_children()
         await column.mount_all(
             Horizontal(*(
