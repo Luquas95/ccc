@@ -17,7 +17,7 @@ approval, commits finished work and tells you on Telegram or Discord.
   read conversations, queue tasks and change settings here. Close it any
   time; nothing stops.
 
-The sidebar shows whether the daemon runs: **● daemon running**. If it
+The sidebar warns when the daemon isn't running. If it
 says *daemon not running*, nothing gets done — see
 [Troubleshooting](troubleshooting.md).
 

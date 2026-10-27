@@ -17,7 +17,7 @@ commitne hotovou práci a dá ti vědět přes Telegram nebo Discord.
   konverzace, řadíš úkoly a měníš nastavení. Můžeš ho kdykoli zavřít;
   nic se nezastaví.
 
-Postranní panel ukazuje, jestli daemon běží: **● daemon běží**. Pokud
+Postranní panel upozorní, když daemon neběží. Pokud
 tam stojí *daemon neběží*, nic se neděje — viz
 [Řešení potíží](troubleshooting.md).
 

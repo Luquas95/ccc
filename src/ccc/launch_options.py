@@ -61,6 +61,8 @@ GROUPS: tuple[OptionGroup, ...] = (
         LaunchOption("model_fable", N_("Fable"), ("--model", "fable"), N_("Fable")),
     ), exclusive=True, required=False),
     OptionGroup("effort", N_("Effort"), (
+        LaunchOption("effort_low", N_("low"), ("--effort", "low"), N_("effort low")),
+        LaunchOption("effort_medium", N_("medium"), ("--effort", "medium"), N_("effort medium")),
         LaunchOption("effort_high", N_("high"), ("--effort", "high"), N_("effort high")),
         LaunchOption("effort_xhigh", N_("xhigh"), ("--effort", "xhigh"), N_("effort xhigh")),
         LaunchOption("effort_max", N_("max"), ("--effort", "max"), N_("effort max")),

@@ -48,6 +48,27 @@ def test_describe_flags():
     assert describe_flags(["--weird"]) == "--weird"
 
 
+def test_effort_levels_match_installed_claude():
+    """The effort choices must be what `claude --effort` accepts (issue #99)."""
+    import re
+    import shutil
+    import subprocess
+
+    import pytest
+
+    from ccc.launch_options import GROUPS
+
+    if not shutil.which("claude"):
+        pytest.skip("claude CLI not installed")
+    out = subprocess.run(["claude", "--help"], capture_output=True, text=True, timeout=60).stdout
+    m = re.search(r"--effort <level>.*?\(([a-z, ]+)\)", out, re.S)
+    if not m:
+        pytest.skip("claude --help does not list effort levels")
+    cli = [x.strip() for x in m.group(1).split(",")]
+    ours = [o.flags[1] for g in GROUPS if g.key == "effort" for o in g.options]
+    assert sorted(ours) == sorted(cli)
+
+
 def test_permission_modes_match_installed_claude():
     """Every `--permission-mode` claude accepts is offered (issue #99);
     bypassPermissions is the "Skip all permission checks" flag."""

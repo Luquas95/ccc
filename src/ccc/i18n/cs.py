@@ -82,7 +82,6 @@ CS: dict[str, str] = {
     "New conversation": "Nová konverzace",
     "y / Enter yes  ·  n / Esc no": "y / Enter ano  ·  n / Esc ne",
     "Esc close": "Esc zavřít",
-    "● daemon running": "● daemon běží",
     "✖ daemon not running — queues are stopped": "✖ daemon neběží — fronty stojí",
 
     # --- Dashboard ------------------------------------------------------------
@@ -245,6 +244,10 @@ CS: dict[str, str] = {
     "Haiku": "Haiku",
     "Fable": "Fable",
     "Effort": "Úsilí",
+    "low": "low",
+    "effort low": "úsilí low",
+    "medium": "medium",
+    "effort medium": "úsilí medium",
     "high": "high",
     "effort high": "úsilí high",
     "xhigh": "xhigh",
