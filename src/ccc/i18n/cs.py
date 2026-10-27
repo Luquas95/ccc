@@ -1252,7 +1252,7 @@ CS: dict[str, str] = {
         "Otevřít další konverzaci, která tě potřebuje (i z Claude Code)",
     # --- context fill (context_fill) ------------------------------------------
     "context {tokens} tokens (window unknown)": "kontext {tokens} tokenů (velikost okna neznámá)",
-    "context {percent} % · {tokens} / {window}": "kontext {percent} % · {tokens} / {window}",
+    "context {percent} %": "kontext {percent} %",
     "consider /compact or a new conversation": "zvaž /compact nebo novou konverzaci",
     "⚠️ {name}: context {percent} % full — consider /compact or a new conversation":
         "⚠️ {name}: kontext zaplněn na {percent} % — zvaž /compact nebo novou konverzaci",

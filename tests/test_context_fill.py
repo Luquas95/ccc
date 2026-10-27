@@ -40,7 +40,7 @@ def test_fill_is_the_last_main_reply_prompt_over_the_window(projects):
     assert fill == ContextFill(124_000, 200_000)
     assert fill.percent == 62
     assert list_text(fill) == "62%"
-    assert header_text(fill) == "context 62 % · 124k / 200k"
+    assert header_text(fill) == "context 62 %"
 
 
 def test_reads_only_new_lines_and_waits_for_a_whole_line(projects):
@@ -175,5 +175,5 @@ async def test_conversations_show_the_fill_in_the_list_and_header(tmp_path, monk
         screen._current_queue_id = next(q.id for q in storage.list_queues() if q.name == "full")
         await screen._refresh_current()
         header = str(screen.query_one("#conversation-header").render())
-        assert "context 92 % · 185k / 200k" in header
+        assert "context 92 %" in header
         assert "consider /compact or a new conversation" in header
