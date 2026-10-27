@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 from rich.markup import escape
 from rich.text import Text
+from textual.css.query import NoMatches
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Footer, Header, Rule, Static
@@ -417,10 +418,14 @@ class SidebarScreen(Screen):
 
     def sync_retry_button(self) -> None:
         """Show the retry button only while there is something to retry."""
-        buttons = self.query(f"#{RETRY_BUTTON.id}")
-        if buttons:
-            target = self.retry_target()
-            buttons.first().display = target is not None and target.status in RETRYABLE
+        # query_one stops at the first match; a query() walks every widget
+        # of the screen — a long transcript has thousands.
+        try:
+            button = self.query_one(f"#{RETRY_BUTTON.id}")
+        except NoMatches:
+            return
+        target = self.retry_target()
+        button.display = target is not None and target.status in RETRYABLE
 
     def on_mount(self) -> None:
         # Textual dispatches on_mount along the MRO, so this runs in

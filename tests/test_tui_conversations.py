@@ -31,7 +31,7 @@ async def test_shows_queue_list_and_placeholder_for_no_transcript(tmp_path, monk
         assert any("proj-a" in cell for cell in rows)
 
         right_panel_text = "\n".join(
-            str(s.render()) for s in app.screen.query("#conversation-transcript Static")
+            str(s.render()) for s in _shown(app, "Static")
         )
         assert "No conversation yet." in right_panel_text
 
@@ -69,7 +69,7 @@ async def test_renders_real_conversation_and_switches_on_arrow_key(tmp_path, mon
         await pilot.pause()
 
         def right_panel_text():
-            return "\n".join(str(s.render()) for s in app.screen.query("#conversation-transcript Static"))
+            return "\n".join(str(s.render()) for s in _shown(app, "Static"))
 
         assert "ahoj z A" in right_panel_text()
 
@@ -115,7 +115,7 @@ async def test_picks_up_new_transcript_lines_on_periodic_refresh(tmp_path, monke
         await screen._refresh_current()
         await pilot.pause()
 
-        right_panel_text = "\n".join(str(s.render()) for s in app.screen.query("#conversation-transcript Static"))
+        right_panel_text = "\n".join(str(s.render()) for s in _shown(app, "Static"))
         assert "first" in right_panel_text
         assert "second" in right_panel_text
 
@@ -156,7 +156,7 @@ async def test_message_text_containing_markup_like_syntax_renders_literally(tmp_
     async with app.run_test() as pilot:
         await pilot.pause()
 
-        right_panel_text = "\n".join(str(s.render()) for s in app.screen.query("#conversation-transcript Static"))
+        right_panel_text = "\n".join(str(s.render()) for s in _shown(app, "Static"))
         assert "[red]URGENT[/red]" in right_panel_text
 
 
@@ -188,6 +188,13 @@ async def test_sidebar_buttons_show_full_label_text(tmp_path, monkeypatch):
 from textual.widgets import Input
 
 from ccc.tui.message_box import MessageBox
+
+
+def _shown(app, selector):
+    """Widgets matching `selector` in the transcript on screen — not in the
+    ones kept hidden for conversations you switched away from."""
+    view = next(v for v in app.screen.query("#conversation-transcript > .transcript-view") if v.display)
+    return view.query(selector)
 
 
 async def _open(storage, **kw):
@@ -278,7 +285,7 @@ async def test_truncated_tool_preview_with_bracket_does_not_crash(tmp_path, monk
     app = await _open(storage)
     async with app.run_test() as pilot:
         await pilot.pause()
-        text = "\n".join(str(s.render()) for s in app.screen.query("#conversation-transcript Static"))
+        text = "\n".join(str(s.render()) for s in _shown(app, "Static"))
         assert "data-section" in text
 
 
@@ -303,16 +310,18 @@ async def test_long_transcript_renders_only_newest_events_and_appends_new_ones(t
     app = await _open(storage)
     async with app.run_test() as pilot:
         await pilot.pause()
-        boxes = app.screen.query("#conversation-transcript .message-box")
+        await app.workers.wait_for_complete()  # the older events follow the newest
+        await pilot.pause()
+        boxes = _shown(app, ".message-box")
         assert len(boxes) == MAX_RENDERED_EVENTS
         assert "30 earlier messages not shown" in "\n".join(
-            str(s.render()) for s in app.screen.query("#conversation-transcript Static")
+            str(s.render()) for s in _shown(app, "Static")
         )
         with open(transcript, "a") as f:
             f.write(user_line(total))
         await app.screen._refresh_current()
         await pilot.pause()
-        boxes = app.screen.query("#conversation-transcript .message-box")
+        boxes = _shown(app, ".message-box")
         assert len(boxes) == MAX_RENDERED_EVENTS + 1
         assert f"msg {total}" in "\n".join(str(w.render()) for w in boxes.last().query(Static))
 
@@ -466,8 +475,8 @@ async def test_markdown_reply_and_expandable_tool_with_late_result(tmp_path, mon
     app = await _open(storage)
     async with app.run_test(size=(140, 40)) as pilot:
         await pilot.pause()
-        assert len(app.screen.query("#conversation-transcript Markdown")) == 1
-        tool = app.screen.query_one("#conversation-transcript Collapsible", Collapsible)
+        assert len(_shown(app, "Markdown")) == 1
+        tool = _shown(app, "Collapsible").first(Collapsible)
         assert tool.collapsed and "Bash" in str(tool.title)
         assert "waiting for result" in str(app.screen.query_one(".tool-result").render())
         with open(transcript, "a") as f:
@@ -477,7 +486,7 @@ async def test_markdown_reply_and_expandable_tool_with_late_result(tmp_path, mon
         await app.screen._refresh_current()
         await pilot.pause()
         assert str(app.screen.query_one(".tool-result").render()) == "a.txt [b]"
-        assert len(app.screen.query("#conversation-transcript Collapsible")) == 1  # filled in, not re-added
+        assert len(_shown(app, "Collapsible")) == 1  # filled in, not re-added
 
 
 @pytest.mark.asyncio
@@ -651,3 +660,58 @@ async def test_filter_enter_opens_the_first_result_which_stays_listed(tmp_path, 
         await app.screen._refresh_current()
         assert _list_names(app) == ["b"]
         assert app.screen.query_one("#conversation-filter", Input).value == "*"
+
+
+@pytest.mark.asyncio
+async def test_switching_back_reuses_the_rendered_transcript_and_catches_up(tmp_path, monkeypatch):
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    project_dir = tmp_path / "projects" / "-tmp-proj-a"
+    project_dir.mkdir(parents=True)
+    storage = Storage(tmp_path / "history.db")
+    qa = storage.create_queue("proj-a", "/tmp/proj-a", "session-aaa")
+    qb = storage.create_queue("proj-b", "/tmp/proj-a", "session-bbb")
+
+    def user_line(text):
+        return json.dumps(
+            {"type": "user", "message": {"role": "user", "content": text}, "timestamp": "2026-09-04T10:00:00.000Z"}
+        ) + "\n"
+
+    (project_dir / "session-aaa.jsonl").write_text(user_line("hello from a"))
+    (project_dir / "session-bbb.jsonl").write_text(user_line("hello from b"))
+    app = await _open(storage)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        screen = app.screen
+        view_a = screen._views[qa.id].container
+        await screen._show_queue(qb.id)
+        await pilot.pause()
+        assert not view_a.display
+        assert "hello from b" in "\n".join(str(s.render()) for s in _shown(app, "Static"))
+
+        with open(project_dir / "session-aaa.jsonl", "a") as f:
+            f.write(user_line("more from a"))
+        await screen._show_queue(qa.id)
+        await pilot.pause()
+        assert screen._views[qa.id].container is view_a  # not mounted again
+        assert view_a.display
+        text = "\n".join(str(s.render()) for s in _shown(app, "Static"))
+        assert "hello from a" in text and "more from a" in text and "hello from b" not in text
+
+
+@pytest.mark.asyncio
+async def test_only_the_latest_views_are_kept(tmp_path, monkeypatch):
+    from ccc.tui.conversations import VIEWS_KEPT
+
+    monkeypatch.setattr("ccc.transcript.PROJECTS_ROOT", tmp_path / "projects")
+    (tmp_path / "projects").mkdir()
+    storage = Storage(tmp_path / "history.db")
+    queues = [storage.create_queue(f"proj-{i}", "/tmp/proj", f"session-{i}") for i in range(VIEWS_KEPT + 2)]
+    app = await _open(storage)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        for q in queues:
+            await app.screen._show_queue(q.id)
+        await pilot.pause()
+        assert len(app.screen._views) == VIEWS_KEPT
+        assert len(app.screen.query("#conversation-transcript > .transcript-view")) == VIEWS_KEPT
+        assert queues[0].id not in app.screen._views

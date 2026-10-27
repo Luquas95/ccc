@@ -39,9 +39,31 @@ CONTEXT_SECONDS = 5.0
 # Newest transcript events mounted when a conversation is opened; older
 # ones are summarised in one line (Markdown + tool widgets cost ~15ms each).
 MAX_RENDERED_EVENTS = 60
+# Of those, the newest are mounted first — the conversation shows at once —
+# and the older ones follow in chunks, so the keys stay responsive.
+FIRST_RENDERED_EVENTS = 12
+RENDER_CHUNK_EVENTS = 8
+# Conversations whose rendered transcript is kept (hidden) after you switch
+# away: switching back is then instant instead of mounting it all again.
+VIEWS_KEPT = 6
 
 # Marker order in a group's heading (layout.queue_marker icons).
 HEADING_MARKERS = ("?", "●", "✖", "‖", "◆")
+
+
+class _View:
+    """One conversation's rendered transcript pane: a scroll container that
+    stays mounted (hidden) while another conversation is shown."""
+
+    def __init__(self, container: VerticalScroll) -> None:
+        self.container = container
+        self.queued: Vertical | None = None  # None: only the "No conversation yet" line
+        # tool_use_id -> the result widget of a rendered tool call, so a
+        # result arriving later can be filled in.
+        self.tool_results: dict[str, Static] = {}
+        # (queue, event count, pending item ids) as last drawn — update when it changes.
+        self.key: tuple | None = None
+        self.filler = None  # the worker mounting the older events
 
 
 class ConversationList(DataTable):
@@ -149,6 +171,9 @@ class ConversationsScreen(SidebarScreen):
         width: 1fr;
         height: 1fr;
     }
+    ConversationsScreen .transcript-view {
+        height: 1fr;
+    }
     ConversationsScreen #conversation-status {
         height: auto;
         max-height: 3;
@@ -173,7 +198,7 @@ class ConversationsScreen(SidebarScreen):
     ConversationsScreen #prompt-presets-bar .prompt-preset-item:hover {
         background: $boost;
     }
-    ConversationsScreen #queued-messages {
+    ConversationsScreen .queued-messages {
         height: auto;
     }
     ConversationsScreen .message-box {
@@ -248,12 +273,10 @@ class ConversationsScreen(SidebarScreen):
         # Plain text of the list rows as last drawn — rebuild when it changes
         # (new/removed conversation, status marker, pending count).
         self._list_signature: list[str] = []
-        # tool_use_id -> the result widget of a rendered tool call, so a
-        # result arriving later can be filled in.
-        self._tool_results: dict[str, Static] = {}
-        # What the transcript pane currently shows (queue, event count,
-        # pending item ids) — re-render only when this changes.
-        self._rendered_key: tuple | None = None
+        # The rendered transcripts kept (_View), least recently shown first,
+        # and the conversation whose one is on screen.
+        self._views: dict[int, _View] = {}
+        self._shown: int | None = None
         # queue_id -> gitops.WorkStatus of its folder, refreshed in a thread
         # (GIT_STATUS_SECONDS) so the 2 s refresh never waits for git.
         self._git_status: dict[int, object] = {}
@@ -289,7 +312,7 @@ class ConversationsScreen(SidebarScreen):
 
     def compose_main(self):
         yield Static(id="conversation-header")
-        yield VerticalScroll(id="conversation-transcript")
+        yield Vertical(id="conversation-transcript")
         yield Static(id="conversation-status")
         yield MessageBox(placeholder=_("Message Claude… (Enter send · Ctrl+J new line · Ctrl+E editor · Esc back)"), id="message-input")
         yield Horizontal(id="prompt-presets-bar")
@@ -466,7 +489,7 @@ class ConversationsScreen(SidebarScreen):
             self._cursor_group = row  # a heading: the conversation stays
             return
         self._cursor_group = None
-        if row != self._current_queue_id or self._rendered_key is None:
+        if row != self._current_queue_id or self._shown is None:
             await self._show_queue(row)
 
     async def _show_queue(self, queue_id: int) -> None:
@@ -608,50 +631,108 @@ class ConversationsScreen(SidebarScreen):
         return bool(events)
 
     async def _render_transcript(self, queue_id: int) -> None:
-        """Full re-render of the transcript pane (switching queues). Only
-        the newest MAX_RENDERED_EVENTS events are mounted — a long resumed
-        session has thousands, and mounting each costs ~7ms."""
+        """Show a conversation's transcript pane (switching queues): the one
+        kept from last time, brought up to date, else a new one. Only the
+        newest MAX_RENDERED_EVENTS events are mounted — a long resumed
+        session has thousands, and mounting each costs ~30ms."""
         queue = self.storage.get_queue(queue_id)
         pending = self.storage.list_pending_items(queue_id)
         events: list[TranscriptEvent] = self._cache[queue_id]["events"]
         self._update_header(queue)
         self.query_one("#conversation-status", Static).update(self._status_for(queue, pending))
-        self._rendered_key = (queue_id, len(events), tuple(i.id for i in pending))
 
-        container = self.query_one("#conversation-transcript", VerticalScroll)
-        await container.remove_children()
+        view = self._views.pop(queue_id, None)
+        if view is not None and (view.queued is None or view.key[1] > len(events)):
+            await self._drop(view)  # was empty (or the cache restarted)
+            view = None
+        # display, not a class: a class change restyles every widget inside
+        # (~1 s for a long transcript), display only hides the container.
+        for other in self._views.values():
+            other.container.display = False
+        if view is None:
+            view = await self._mount_view(queue_id, events, pending)
+        else:
+            view.container.display = True
+            if view.key != self._view_key(queue_id, events, pending):
+                await self._append_new_events(view, events[view.key[1]:], pending)
+                view.key = self._view_key(queue_id, events, pending)
+        self._views[queue_id] = view
+        self._shown = queue_id
+        while len(self._views) > VIEWS_KEPT:
+            await self._drop(self._views.pop(next(iter(self._views))))
+
+    @staticmethod
+    def _view_key(queue_id: int, events: list[TranscriptEvent], pending) -> tuple:
+        return (queue_id, len(events), tuple(i.id for i in pending))
+
+    @staticmethod
+    async def _drop(view: _View) -> None:
+        if view.filler is not None:
+            view.filler.cancel()
+        await view.container.remove()
+
+    async def _drop_view(self, queue_id: int) -> None:
+        view = self._views.pop(queue_id, None)
+        if view is not None:
+            await self._drop(view)
+        if self._shown == queue_id:
+            self._shown = None
+
+    async def _mount_view(self, queue_id: int, events: list[TranscriptEvent], pending) -> _View:
+        host = self.query_one("#conversation-transcript", Vertical)
+        view = _View(VerticalScroll(classes="transcript-view"))
+        view.key = self._view_key(queue_id, events, pending)
         if not events and not pending:
-            await container.mount(Static(_("No conversation yet."), id="transcript-placeholder"))
-            return
-        shown = [e for e in events if e.kind != "tool_result"][-MAX_RENDERED_EVENTS:]
-        hidden = sum(1 for e in events if e.kind != "tool_result") - len(shown)
+            await host.mount(view.container)
+            await view.container.mount(Static(_("No conversation yet."), id="transcript-placeholder"))
+            return view
+        shown = [e for e in events if e.kind != "tool_result"]
+        recent = shown[-MAX_RENDERED_EVENTS:]
+        older, first = recent[:-FIRST_RENDERED_EVENTS], recent[-FIRST_RENDERED_EVENTS:]
         widgets = []
-        if hidden > 0:
-            widgets.append(Static(_("… {n} earlier messages not shown").format(n=hidden), classes="tool-call-line"))
-        self._tool_results = {}
+        if len(shown) > len(recent):
+            widgets.append(Static(
+                _("… {n} earlier messages not shown").format(n=len(shown) - len(recent)), classes="tool-call-line"))
         results = {e.tool_use_id: e.text for e in events if e.kind == "tool_result" and e.tool_use_id}
-        widgets += [self._render_event(e, results) for e in shown]
-        widgets.append(Vertical(*self._queued_widgets(pending), id="queued-messages"))
+        first_widgets = [self._render_event(e, results, view.tool_results) for e in first]
+        view.queued = Vertical(*self._queued_widgets(pending), classes="queued-messages")
         # One mount call = one layout pass, much faster than mounting
         # each widget separately.
-        await container.mount(*widgets)
-        container.scroll_end(animate=False)
+        await host.mount(view.container)
+        await view.container.mount(*widgets, *first_widgets, view.queued)
+        view.container.scroll_end(animate=False)
+        if older and first_widgets:
+            view.filler = self.run_worker(self._mount_older(view, older, results, first_widgets[0]))
+        return view
 
-    async def _append_new_events(self, queue_id: int, new_events: list[TranscriptEvent], pending) -> None:
+    async def _mount_older(self, view: _View, older: list[TranscriptEvent], results: dict[str, str], anchor) -> None:
+        """The older events of a newly shown conversation, newest chunk
+        first, each in front of the last."""
+        container = view.container
+        while older:
+            chunk, older = older[-RENDER_CHUNK_EVENTS:], older[:-RENDER_CHUNK_EVENTS]
+            widgets = [self._render_event(e, results, view.tool_results) for e in chunk]
+            at_bottom = container.scroll_y >= container.max_scroll_y - 1
+            await container.mount(*widgets, before=anchor)
+            if at_bottom:
+                container.scroll_end(animate=False)
+            anchor = widgets[0]
+            await asyncio.sleep(0)
+
+    async def _append_new_events(self, view: _View, new_events: list[TranscriptEvent], pending) -> None:
         """Incremental update while a conversation is open: add only the new
         events (before the queued bubbles) and refresh the queued list,
         instead of re-mounting the whole transcript every 2 seconds."""
-        container = self.query_one("#conversation-transcript", VerticalScroll)
-        queued_box = self.query_one("#queued-messages", Vertical)
+        container, queued_box = view.container, view.queued
         results = {e.tool_use_id: e.text for e in new_events if e.kind == "tool_result" and e.tool_use_id}
         # A result for a call that's already on screen: fill it in.
         for tool_use_id, text in results.items():
-            widget = self._tool_results.get(tool_use_id)
+            widget = view.tool_results.get(tool_use_id)
             if widget is not None:
                 widget.update(Content(text or _("(no output)")))
         shown = [e for e in new_events if e.kind != "tool_result"]
         if shown:
-            await container.mount(*[self._render_event(e, results) for e in shown], before=queued_box)
+            await container.mount(*[self._render_event(e, results, view.tool_results) for e in shown], before=queued_box)
         await queued_box.remove_children()
         await queued_box.mount(*self._queued_widgets(pending))
         container.scroll_end(animate=False)
@@ -666,7 +747,7 @@ class ConversationsScreen(SidebarScreen):
             for item in pending
         ]
 
-    def _render_event(self, event: TranscriptEvent, results: dict[str, str]):
+    def _render_event(self, event: TranscriptEvent, results: dict[str, str], tool_results: dict[str, Static]):
         # event.text is arbitrary conversation content (human-typed or a
         # model's tool input/reply). It must never go through Textual's
         # markup parsing: escaping isn't enough — a tool preview cut mid-way
@@ -680,7 +761,7 @@ class ConversationsScreen(SidebarScreen):
                 classes="tool-result",
             )
             if event.tool_use_id:
-                self._tool_results[event.tool_use_id] = result
+                tool_results[event.tool_use_id] = result
             return Collapsible(
                 Static(Content(event.detail or event.text), classes="tool-input"),
                 result,
@@ -793,23 +874,20 @@ class ConversationsScreen(SidebarScreen):
         queue = self.storage.get_queue(queue_id)
         pending = self.storage.list_pending_items(queue_id)
         events = self._cache[queue_id]["events"]
-        key = (queue_id, len(events), tuple(i.id for i in pending))
         self._update_header(queue)
         self.query_one("#conversation-status", Static).update(self._status_for(queue, pending))
-        if key == self._rendered_key:
-            return
-        rendered = self._rendered_key
-        incremental = (
-            rendered is not None
-            and rendered[0] == queue_id
-            and len(events) >= rendered[1]
-            and self.query("#queued-messages")
-        )
-        if incremental:
-            await self._append_new_events(queue_id, events[rendered[1]:], pending)
-            self._rendered_key = key
-        else:
+        view = self._views.get(queue_id) if self._shown == queue_id else None
+        if view is None:
             await self._render_transcript(queue_id)
+            return
+        key = self._view_key(queue_id, events, pending)
+        if key == view.key:
+            return
+        if view.queued is None or view.key[1] > len(events):
+            await self._render_transcript(queue_id)  # was empty: now it has a transcript
+            return
+        await self._append_new_events(view, events[view.key[1]:], pending)
+        view.key = key
 
     async def on_message_box_submitted(self, event: MessageBox.Submitted) -> None:
         if await self._enqueue_text(event.text):
@@ -948,7 +1026,7 @@ class ConversationsScreen(SidebarScreen):
             self.storage.delete_queue(queue.id)
             self._cache.pop(queue.id, None)
             self._select_neighbour()
-            self.run_worker(self._after_delete(), exclusive=True, group="refresh")
+            self.run_worker(self._after_delete(queue.id), exclusive=True, group="refresh")
 
         self.app.push_screen(
             ConfirmModal(
@@ -970,16 +1048,14 @@ class ConversationsScreen(SidebarScreen):
         else:
             rest = ids
         self._current_queue_id = rest[0] if rest else None
-        self._rendered_key = None
+        self._shown = None
 
-    async def _after_delete(self) -> None:
+    async def _after_delete(self, deleted_id: int) -> None:
+        await self._drop_view(deleted_id)
         self._rebuild_queue_list()
         self._move_cursor_to_current()
         if self._current_queue_id is None:
             self._sync_cli_pane()  # the NO CONVERSATION banner
-            container = self.query_one("#conversation-transcript", VerticalScroll)
-            await container.remove_children()
-            await container.mount(Static(_("No conversation yet.")))
             self.query_one("#conversation-header", Static).update("")
             self.query_one("#conversation-status", Static).update("")
             return
