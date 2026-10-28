@@ -52,7 +52,7 @@ class CCContinueApp(App):
         self.theme = theme.NAME
 
     def get_theme_variable_defaults(self) -> dict[str, str]:
-        return theme.VARIABLES
+        return theme.frame_variables(self.keys_in)
 
     async def on_mount(self) -> None:
         # The user's shortcuts (Settings → Keyboard shortcuts).
@@ -73,8 +73,30 @@ class CCContinueApp(App):
             self.set_interval(0.3, self.publish_footer)
         if cli_pane.available() and cli_pane.on_ccc_server():
             self.set_interval(WAITING_SECONDS, self.publish_waiting)
+            # ccc's own lines match the tmux frame (cli_pane.BORDER_COLOR).
+            self.set_keys_in("ccc")
+            self.set_interval(0.3, self.poll_keys_in)
         for screen in self.initial_screens():
             await self.push_screen(screen)
+
+    # Where the keys go in the tmux frame: "ccc", "claude", None without a
+    # frame (outside ccc's tmux server). Colours ccc's lines (theme.frame_variables).
+    keys_in: str | None = None
+
+    def set_keys_in(self, keys_in: str) -> None:
+        if keys_in != self.keys_in:
+            self.keys_in = keys_in
+            self.refresh_css(animate=False)
+
+    def poll_keys_in(self) -> None:
+        """Who has the keyboard, from tmux, in a thread (never the UI's time)."""
+        def work() -> None:
+            from ccc.tui import cli_pane
+
+            keys_in = "claude" if cli_pane.keys_in_claude() else "ccc"
+            self.call_from_thread(self.set_keys_in, keys_in)
+
+        self.run_worker(work, thread=True, group="poll-keys-in", exclusive=True)
 
     footer_strip = False
     _published_footer: str | None = None

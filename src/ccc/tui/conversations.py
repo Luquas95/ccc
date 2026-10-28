@@ -143,7 +143,7 @@ class ConversationsScreen(SidebarScreen):
         height: auto;
         padding: 0 1;
         margin-bottom: 1;
-        border-bottom: solid $ccc-line;
+        border-bottom: solid $ccc-frame;
     }
     ConversationsScreen.-cli-open #main {
         display: none;
