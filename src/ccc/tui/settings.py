@@ -66,8 +66,8 @@ class SettingsModal(ModalScreen):
         height: 1fr;
     }
     SettingsModal .settings-section {
-        border: round $ccc-line;
-        border-title-color: $ccc-title;
+        border: round $ccc-frame;
+        border-title-color: $ccc-frame;
         border-title-style: bold;
         padding: 0 1;
         margin-bottom: 1;

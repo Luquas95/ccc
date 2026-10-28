@@ -20,6 +20,7 @@ import sys
 
 from ccc import instance, keymap
 from ccc.storage import Storage
+from ccc.tui import theme
 from ccc.i18n import _
 
 PANE_OPTION = "@ccc-cli"
@@ -47,13 +48,15 @@ QUIT_OPTION = "@ccc-quit-key"
 CLI_OPEN_FORMAT = f"#{{P:#{{?#{{{PANE_OPTION}}},1,}}}}"
 # Every line of the frame (the borders of all panes, not just the focused
 # one's) is coloured by where the keys go: green while you type in Claude
-# Code, cyan in ccc — all of it at once, so no stretch stays the other colour.
-BORDER_COLOR = f"#{{?#{{P:#{{?#{{&&:#{{pane_active}},#{{{PANE_OPTION}}}}},1,}}}},green,cyan}}"
+# Code, blue in ccc — all of it at once, so no stretch stays the other colour.
+BORDER_COLOR = (f"#{{?#{{P:#{{?#{{&&:#{{pane_active}},#{{{PANE_OPTION}}}}},1,}}}},"
+                f"{theme.TMUX_FRAME_CLAUDE},{theme.TMUX_FRAME_CCC}}}")
 BORDER_OPTIONS: tuple[tuple[str, str], ...] = (
     ("pane-border-status", "top"),
     ("pane-border-format",
      f"#{{?#{{&&:#{{pane_active}},{CLI_OPEN_FORMAT}}},"
-     f"#[fg=black#,bg=green#,bold] {_("⌨ typing here")} #[default],}}"
+     f"#{{?#{{{PANE_OPTION}}},#[fg=black#,bg={theme.TMUX_FRAME_CLAUDE}#,bold],#[fg=black#,bg={theme.TMUX_FRAME_CCC}#,bold]}}"
+     f" {_("⌨ typing here")} #[default],}}"
      f"#{{?#{{{TITLE_OPTION}}}, #{{{TITLE_OPTION}}} ,}}"
      f"#{{?#{{&&:#{{{PANE_OPTION}}},#{{{WAITING_OPTION}}}}},#[fg=black#,bg=yellow#,bold] #{{{WAITING_OPTION}}} #[default] ,}}"),
     ("pane-active-border-style", f"fg={BORDER_COLOR},bold"),
@@ -170,6 +173,19 @@ def fit_command(main: str, bar: str | None, strip: str | None = None, sidebar: b
 
 def strip_command(main: str) -> str:
     return shlex.join([sys.executable, "-m", "ccc.tui.footer_strip", main])
+
+
+def keys_in_claude() -> bool:
+    """True when the keyboard is in the Claude Code pane (it's the window's
+    active pane), False in ccc — and in the bar or the key strip."""
+    result = _tmux("list-panes", "-t", _own_pane(), "-F", f"#{{pane_active}} #{{{PANE_OPTION}}}")
+    if result.returncode != 0:
+        return False
+    for line in result.stdout.splitlines():
+        active, _sep, queue = line.partition(" ")
+        if active == "1" and queue.strip().isdigit():
+            return True
+    return False
 
 
 def _find_flag(option: str) -> str | None:

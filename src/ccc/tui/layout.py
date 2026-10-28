@@ -240,7 +240,7 @@ SidebarScreen {
 SidebarScreen #sidebar {
     width: 32;
     background: $ccc-sidebar;
-    border-right: solid $ccc-line;
+    border-right: solid $ccc-frame;
 }
 SidebarScreen #daemon-state {
     padding: 0 1;
@@ -251,7 +251,7 @@ SidebarScreen .sidebar-title {
     color: $accent;
 }
 SidebarScreen .sidebar-rule {
-    color: $ccc-line;
+    color: $ccc-frame;
     margin: 0 0 1 0;
 }
 SidebarScreen .sidebar-label {
@@ -303,8 +303,8 @@ SidebarScreen #main {
     padding: 0 1;
 }
 SidebarScreen .panel {
-    border: round $ccc-line;
-    border-title-color: $ccc-title;
+    border: round $ccc-frame;
+    border-title-color: $ccc-frame;
     border-title-style: bold;
     padding: 0 1;
     margin-bottom: 1;
