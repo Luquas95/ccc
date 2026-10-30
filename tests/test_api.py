@@ -660,3 +660,16 @@ def test_update_endpoints_check_and_apply(storage, monkeypatch):
     with pytest.raises(api.ApiError) as error:
         server.route("POST", "/api/v1/update", {}, {})
     assert error.value.status == 409
+
+
+def test_a_new_ccc_version_is_a_change_of_its_own(storage):
+    from ccc import updates
+
+    server = api.Api(storage)
+    before = server.snapshot()
+    assert server.changes(before, server.snapshot()) is None
+    updates.save(storage, updates.UpdateState(behind=2, remote_head="abc1", commits=["abc1 one"]))
+    change = server.changes(before, server.snapshot())
+    assert change == {"conversations": [], "removed": [], "update": True}
+    again = server.snapshot()
+    assert server.changes(again, server.snapshot()) is None

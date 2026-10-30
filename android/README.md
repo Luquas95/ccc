@@ -34,6 +34,12 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
   lines / commits ahead and behind (only where Claude may run commands),
   the queued tasks and the folder. Connection → *Conversation list* turns
   each on or off, kept on the phone.
+- **Updates** — a banner when ccc finds new commits on `origin/main`,
+  with an *Update* button (after asking: it shows the commits and, if
+  ccc can't update now, why) and a notification when the app is closed;
+  and a note when this app's build is older than the one in ccc's
+  checkout (the app is built by hand). Details:
+  [Settings → Updating ccc](../src/ccc/help/settings.md#updating-ccc).
 - **Filter** — name or folder, and the state chips `! working`,
   `? approval`, `x error`, `* new` — the same as `f` in ccc.
 - **Search** (the magnifier) — every conversation's messages, archived

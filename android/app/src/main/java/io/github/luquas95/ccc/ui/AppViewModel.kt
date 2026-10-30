@@ -174,6 +174,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _listDetails.value = next
     }
 
+    /** This app's build number (gradle: commits that changed its sources), to compare with ccc's. */
+    val appBuild: Int = runCatching {
+        val app = getApplication<Application>()
+        app.packageManager.getPackageInfo(app.packageName, 0).longVersionCode.toInt()
+    }.getOrDefault(0)
+
+    /** Update ccc (it pulls, installs, restarts); what it answers goes to the snackbar. */
+    fun applyUpdate() {
+        viewModelScope.launch {
+            guard {
+                val result = api?.applyUpdate() ?: return@guard
+                _message.value = result.message
+                delay(3_000)
+                refresh()
+            }
+        }
+    }
+
     private var events: Job? = null
     private var foreground = false
     /** Agents, routines, live sessions, analytics, ccc's settings. */

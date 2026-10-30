@@ -99,7 +99,7 @@ class WatchService : Service() {
     }
 
     private suspend fun check(api: CccApi, settings: Settings) = checking.withLock {
-        val changes = Alerts.changes(api.permissions(), api.waiting(), settings.shownAlerts)
+        val changes = Alerts.changes(api.permissions(), api.waiting(), settings.shownAlerts, api.status().update)
         val manager = NotificationManagerCompat.from(this)
         changes.gone.forEach { manager.cancel(it, ALERT_ID) }
         changes.show.forEach { post(this, it) }
@@ -173,6 +173,11 @@ class WatchService : Service() {
                     }
                     builder
                 }
+                is Alert.Update -> NotificationCompat.Builder(context, CHANNEL_NEEDS_YOU)
+                    .setContentTitle(context.getString(R.string.update_notification_title))
+                    .setContentText(context.getString(R.string.update_notification_text, alert.behind))
+                    .setContentIntent(openApp(context, null))
+                    .setAutoCancel(true)
                 is Alert.NeedsYou -> NotificationCompat.Builder(context, CHANNEL_NEEDS_YOU)
                     .setContentTitle(alert.waiting.name)
                     .setContentText(alert.waiting.label)

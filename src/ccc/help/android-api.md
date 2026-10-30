@@ -45,6 +45,8 @@ usage limit or a finished reply. No push server is involved; on Xiaomi
 / HyperOS allow the app to run in the background, or the system stops
 it.
 
+**Updates:** `GET /status` has `update` (new commits found on `origin/main`, `can_apply`, why not) and `android_build`; `POST /update/check` looks now, `POST /update` updates ccc (pull, install, restart; 409 with the reason when it can't) — see [Settings](settings.md#updating-ccc). The app shows a banner with an *Update* button and tells you when it is older than ccc (`android_build`); the events stream says `update` when a new version appears.
+
 **What the list shows** (Connection → *Conversation list*): the context
 fill, the git state, the queued tasks and the folder, each on or off —
 kept on the phone, so a small screen can show less.

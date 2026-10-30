@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -66,6 +67,7 @@ import io.github.luquas95.ccc.data.ConversationStatus
 import io.github.luquas95.ccc.data.Group
 import io.github.luquas95.ccc.data.ListDetail
 import io.github.luquas95.ccc.data.ListFilter
+import io.github.luquas95.ccc.data.UpdateInfo
 import io.github.luquas95.ccc.data.shortPath
 import io.github.luquas95.ccc.ui.theme.CccColors
 
@@ -85,6 +87,7 @@ class ConversationsActions(
     val routines: () -> Unit,
     val sessions: () -> Unit,
     val analytics: () -> Unit,
+    val applyUpdate: () -> Unit = {},
 )
 
 private val MARKERS = listOf(ListFilter.WORKING, ListFilter.APPROVAL, ListFilter.ERROR, ListFilter.UNSEEN)
@@ -94,6 +97,7 @@ private val MARKERS = listOf(ListFilter.WORKING, ListFilter.APPROVAL, ListFilter
 fun ConversationsScreen(
     state: HomeState,
     listDetails: Set<String>,
+    appBuild: Int,
     snackbar: SnackbarHostState,
     actions: ConversationsActions,
 ) {
@@ -159,7 +163,7 @@ fun ConversationsScreen(
                 onRefresh = actions.refresh,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                ConversationList(state, listDetails, actions) { groupMenu = it }
+                ConversationList(state, listDetails, appBuild, actions) { groupMenu = it }
             }
         }
     }
@@ -170,6 +174,7 @@ fun ConversationsScreen(
 private fun ConversationList(
     state: HomeState,
     listDetails: Set<String>,
+    appBuild: Int,
     actions: ConversationsActions,
     onGroupMenu: (String) -> Unit,
 ) {
@@ -191,6 +196,12 @@ private fun ConversationList(
             }
             if (state.waiting.isNotEmpty()) {
                 item(key = "waiting") { WaitingBanner(state, actions.nextWaiting) }
+            }
+            state.status?.update?.takeIf { it.available }?.let { update ->
+                item(key = "update") { UpdateBanner(update, actions.applyUpdate) }
+            }
+            state.status?.androidBuild?.takeIf { appBuild in 1 until it }?.let { newest ->
+                item(key = "app-older") { AppOlderBanner(appBuild, newest) }
             }
         }
         item(key = "filter") { FilterField(state.filter, actions.filter) }
@@ -239,6 +250,63 @@ private fun DaemonLine(state: HomeState) {
 }
 
 /** Who needs you, most urgent first; a tap opens the first (Alt+N in ccc). */
+/** A new ccc version on origin/main, with the button that updates it (after asking). */
+@Composable
+private fun UpdateBanner(update: UpdateInfo, onUpdate: () -> Unit) {
+    var asking by remember { mutableStateOf(false) }
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = CccColors.Surface),
+        border = BorderStroke(1.dp, CccColors.Waiting),
+    ) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.update_available, update.behind), color = CccColors.Waiting,
+                    fontWeight = FontWeight.Bold)
+                if (update.android) {
+                    Text(stringResource(R.string.update_android), style = MaterialTheme.typography.bodySmall, color = CccColors.Title)
+                }
+            }
+            TextButton(onClick = { asking = true }) { Text(stringResource(R.string.update_button)) }
+        }
+    }
+    if (asking) {
+        AlertDialog(
+            onDismissRequest = { asking = false },
+            title = { Text(stringResource(R.string.update_title)) },
+            text = {
+                Column {
+                    update.commits.forEach { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 2) }
+                    if (update.behind > update.commits.size) Text("…", color = CccColors.Muted)
+                    Spacer(Modifier.height(8.dp))
+                    val reason = update.reason?.takeIf { !update.canApply }
+                    if (reason != null) Text(reason, color = CccColors.Error)
+                    else Text(stringResource(R.string.update_confirm_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = update.canApply, onClick = { asking = false; onUpdate() }) {
+                    Text(stringResource(R.string.update_do))
+                }
+            },
+            dismissButton = { TextButton(onClick = { asking = false }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+}
+
+/** The installed app is older than the ccc it talks to (ccc's checkout has newer app sources). */
+@Composable
+private fun AppOlderBanner(build: Int, newest: Int) {
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = CccColors.Surface),
+        border = BorderStroke(1.dp, CccColors.Title),
+    ) {
+        Text(stringResource(R.string.app_older, build, newest), Modifier.padding(12.dp), color = CccColors.Title,
+            style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
 @Composable
 private fun WaitingBanner(state: HomeState, onNext: () -> Unit) {
     val first = state.waiting.first()

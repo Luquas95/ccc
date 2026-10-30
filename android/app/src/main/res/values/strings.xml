@@ -21,6 +21,15 @@
     <string name="pending_count">%1$d queued</string>
     <string name="needs_approval">needs approval</string>
     <string name="new_reply">new reply</string>
+    <string name="update_available">ccc update: %1$d new commit(s)</string>
+    <string name="update_button">Update</string>
+    <string name="update_title">Update ccc</string>
+    <string name="update_do">Update now</string>
+    <string name="update_android">The Android app changed too — build and install it.</string>
+    <string name="update_confirm_hint">ccc pulls the new commits and restarts. Interactive conversations keep running.</string>
+    <string name="update_notification_title">ccc update available</string>
+    <string name="update_notification_text">%1$d new commit(s) on origin/main</string>
+    <string name="app_older">This app is older than ccc (build %1$d, ccc has %2$d) — build and install the new one.</string>
     <string name="context_short">context %1$s</string>
     <string name="list_details">Conversation list</string>
     <string name="list_details_hint">What each conversation shows besides its name and state. Kept on this phone.</string>

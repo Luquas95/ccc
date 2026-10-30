@@ -41,6 +41,9 @@ class CccApi(
 
     suspend fun status(): Status = get("status")
 
+    /** Update ccc (git pull, install, restart); an error says why not (a task is running …). */
+    suspend fun applyUpdate(): UpdateResult = post("update", "{}")
+
     suspend fun conversations(archived: Boolean = false): List<Conversation> =
         get("conversations", if (archived) mapOf("archived" to "1") else emptyMap())
 
