@@ -1393,16 +1393,25 @@ CS: dict[str, str] = {
     "Unknown options: {options}.": "Neznámé volby: {options}.",
     "Something went wrong in ccc.": "V ccc se něco pokazilo.",
     "Choose one of: {options}.": "Vyber jen jedno z: {options}.",
-    "HTTP API for the Android app (serve, token)": "HTTP API pro aplikaci pro Android (serve, token)",
+    "HTTP API for the Android app (serve, token, devices)":
+        "HTTP API pro aplikaci pro Android (serve, token, devices)",
     "Run the API (what the ccc-api service runs)": "Spustit API (to, co spouští služba ccc-api)",
     "Make the token the app signs in with (shown once)": "Vytvořit token, kterým se aplikace přihlásí (ukáže se jen jednou)",
     "A token is set. ccc keeps only its fingerprint, so it can't show it again — "
-    "`ccc api token --new` makes a new one (the old one stops working).":
+    "`ccc api token --new` makes a new one (every device is signed out).":
         "Token je nastavený. ccc si drží jen jeho otisk, takže ho znovu ukázat nejde — "
-        "`ccc api token --new` vytvoří nový (starý přestane platit).",
-    "Enter it in the app now — it isn't shown again. A token made before no longer works.":
-        "Zadej ho teď do aplikace — znovu se neukáže. Dřív vytvořený token už neplatí.",
-    "make a new one; the old one stops working": "vytvořit nový; starý přestane fungovat",
+        "`ccc api token --new` vytvoří nový (všechna zařízení se odhlásí).",
+    "Enter it in the app now — it isn't shown again. Every token made before no longer works.":
+        "Zadej ho teď do aplikace — znovu se neukáže. Každý dřív vytvořený token už neplatí.",
+    "make a new one; every device is signed out": "vytvořit nový; všechna zařízení se odhlásí",
+    "List the devices signed in": "Vypsat přihlášená zařízení",
+    "Sign a device out": "Odhlásit zařízení",
+    "its number from `ccc api devices`": "jeho číslo z `ccc api devices`",
+    "last seen": "naposledy vidět",
+    "No device is signed in.": "Není přihlášené žádné zařízení.",
+    "No such device.": "Takové zařízení neexistuje.",
+    "Signed out.": "Odhlášeno.",
+    "The device needs a name.": "Zařízení potřebuje jméno.",
     "address to listen on (default {host}: reach it through tailscale serve)":
         "adresa, na které poslouchat (výchozí {host}: zvenku přes tailscale serve)",
 

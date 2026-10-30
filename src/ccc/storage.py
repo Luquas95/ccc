@@ -10,6 +10,7 @@ from pathlib import Path
 from ccc.models import (
     Ask,
     AskStatus,
+    Device,
     DeliveryMode,
     Goal,
     GoalPhase,
@@ -259,6 +260,15 @@ CREATE TABLE IF NOT EXISTS session_usage (
 -- The group a conversation was put into in the list (ccc.groups); none =
 -- its project's. A table of its own so the migration is just this table:
 -- an older ccc ignores it, DROP TABLE takes the database back.
+CREATE TABLE IF NOT EXISTS devices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    token_sha256 TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL,
+    last_seen_at TEXT,
+    last_ip TEXT NOT NULL DEFAULT ''
+);
+
 CREATE TABLE IF NOT EXISTS conversation_groups (
     queue_id INTEGER PRIMARY KEY REFERENCES queues(id),
     name TEXT NOT NULL
@@ -278,6 +288,20 @@ class Storage:
             conn.commit()
             self._migrate_queues_unique_key(conn)
             self._migrate_add_always_resume_column(conn)
+            self._migrate_api_token_to_device(conn)
+
+    def _migrate_api_token_to_device(self, conn: sqlite3.Connection) -> None:
+        """The single API token of before devices existed becomes a device,
+        so the phone that has it stays signed in."""
+        row = conn.execute("SELECT value FROM settings WHERE key = 'api_token_sha256'").fetchone()
+        if row is None:
+            return
+        conn.execute(
+            "INSERT OR IGNORE INTO devices (name, token_sha256, created_at) VALUES (?, ?, ?)",
+            ("Original token", row["value"], datetime.now().isoformat()),
+        )
+        conn.execute("DELETE FROM settings WHERE key = 'api_token_sha256'")
+        conn.commit()
 
     def _migrate_queues_unique_key(self, conn: sqlite3.Connection) -> None:
         """One-time migration: older databases had UNIQUE on project_path
@@ -1253,6 +1277,58 @@ class Storage:
                 "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                 (key, value),
             )
+            conn.commit()
+
+    @staticmethod
+    def _row_to_device(row: sqlite3.Row) -> Device:
+        return Device(
+            id=row["id"], name=row["name"], token_sha256=row["token_sha256"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+            last_seen_at=datetime.fromisoformat(row["last_seen_at"]) if row["last_seen_at"] else None,
+            last_ip=row["last_ip"],
+        )
+
+    def add_device(self, name: str, token_sha256: str) -> Device:
+        with closing(self._connect()) as conn:
+            cursor = conn.execute(
+                "INSERT INTO devices (name, token_sha256, created_at) VALUES (?, ?, ?)",
+                (name, token_sha256, datetime.now().isoformat()),
+            )
+            conn.commit()
+            row = conn.execute("SELECT * FROM devices WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        return self._row_to_device(row)
+
+    def list_devices(self) -> list[Device]:
+        with closing(self._connect()) as conn:
+            rows = conn.execute("SELECT * FROM devices ORDER BY id").fetchall()
+        return [self._row_to_device(row) for row in rows]
+
+    def device_by_token(self, token_sha256: str) -> Device | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT * FROM devices WHERE token_sha256 = ?", (token_sha256,)).fetchone()
+        return self._row_to_device(row) if row else None
+
+    def touch_device(self, device_id: int, ip: str) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute("UPDATE devices SET last_seen_at = ?, last_ip = ? WHERE id = ?",
+                         (datetime.now().isoformat(), ip, device_id))
+            conn.commit()
+
+    def rename_device(self, device_id: int, name: str) -> bool:
+        with closing(self._connect()) as conn:
+            changed = conn.execute("UPDATE devices SET name = ? WHERE id = ?", (name, device_id)).rowcount
+            conn.commit()
+        return bool(changed)
+
+    def delete_device(self, device_id: int) -> bool:
+        with closing(self._connect()) as conn:
+            deleted = conn.execute("DELETE FROM devices WHERE id = ?", (device_id,)).rowcount
+            conn.commit()
+        return bool(deleted)
+
+    def delete_all_devices(self) -> None:
+        with closing(self._connect()) as conn:
+            conn.execute("DELETE FROM devices")
             conn.commit()
 
     def set_item_status(self, item_id: int, status: ItemStatus) -> None:

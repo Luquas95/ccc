@@ -21,8 +21,10 @@ požadavek potřebuje token.
 3. `ccc api token` vytvoří token, kterým se aplikace přihlásí, a vypíše
    ho — **jen tentokrát**: ccc si drží jen jeho otisk (SHA-256), takže ho
    z databáze nikdo nepřečte. Je token pryč, nebo se ztratil telefon?
-   `ccc api token --new` vytvoří nový; starý hned přestane platit, i pro
-   otevřená spojení.
+   `ccc api token --new` vytvoří nový; všechna dosavadní zařízení se
+   odhlásí hned, i otevřená spojení. Každé zařízení má vlastní token a dá
+   se odhlásit samo: `ccc api devices` je vypíše, `ccc api revoke ID`
+   odhlásí jedno.
 4. V aplikaci zadej adresu (stačí `<počítač>.<tailnet>.ts.net`) a token.
 
 Bez služby ho spustí v terminálu `ccc api serve` (`--port` pro jiný
@@ -94,6 +96,7 @@ Každá cesta začíná `/api/v1`; každý požadavek má hlavičku
 | `GET /sessions?path=` | relace Claude Code ve složce, nejnovější první (k pokračování: `session_id` v `POST /conversations` se `session_resume`) |
 | `GET /launch-presets` | předvolby okna Nová konverzace a poslední volba |
 | `GET /prompt-presets` | přednastavené prompty (Alt+1 … 9 v ccc) |
+| `GET /devices` | přihlášená zařízení: jméno, vytvoření, naposledy vidět, adresa; `current` označí volajícího. `POST /devices/{id}` `{"name"}` jedno přejmenuje, `DELETE /devices/{id}` ho hned odhlásí (i otevřená spojení) |
 | `GET /groups` | seskupení a tvé vlastní skupiny; `POST /groups/rename` `{"old", "new"}`, `POST /groups/delete` `{"name"}` |
 | `GET /search?q=` | hledání ve všech konverzacích (i archivovaných), nejnovější první |
 | `GET /waiting` | konverzace, které tě potřebují, nejnaléhavější první (Alt+N v ccc) |

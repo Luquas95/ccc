@@ -39,16 +39,38 @@ def _transcript_line(role, text, minute=0):
     }) + "\n"
 
 
-def test_only_the_tokens_fingerprint_is_kept_and_a_new_one_replaces_it(storage):
+def test_only_the_tokens_fingerprint_is_kept_and_a_new_one_signs_the_rest_out(storage):
     assert not api.has_token(storage)
     first = api.new_token(storage)
     assert len(first) > 30
-    assert first not in storage.get_setting(api.TOKEN_KEY)
+    assert first not in [d.token_sha256 for d in storage.list_devices()]
     assert api.token_valid(storage, first)
     second = api.new_token(storage)
     assert api.token_valid(storage, second)
     assert not api.token_valid(storage, first)
     assert not api.token_valid(storage, "")
+
+
+def test_every_device_has_its_own_token_and_is_signed_out_alone(storage):
+    phone, phone_token = api.add_device(storage, "Phone")
+    _tablet, tablet_token = api.add_device(storage, "Tablet")
+    assert api.authenticate(storage, phone_token).id == phone.id
+    storage.delete_device(phone.id)
+    assert not api.token_valid(storage, phone_token)
+    assert api.token_valid(storage, tablet_token)
+
+
+def test_the_token_from_before_devices_becomes_a_device(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "old.db"
+    Storage(path)
+    with sqlite3.connect(path) as conn:
+        conn.execute("INSERT INTO settings (key, value) VALUES ('api_token_sha256', ?)", (api._digest("old-token"),))
+    storage = Storage(path)
+    assert api.token_valid(storage, "old-token")
+    assert storage.get_setting("api_token_sha256") is None
+    assert [d.name for d in storage.list_devices()] == ["Original token"]
 
 
 def test_conversations_list_with_state(storage, tmp_path):
@@ -673,3 +695,44 @@ def test_a_new_ccc_version_is_a_change_of_its_own(storage):
     assert change == {"conversations": [], "removed": [], "update": True}
     again = server.snapshot()
     assert server.changes(again, server.snapshot()) is None
+
+
+def test_http_devices_are_listed_renamed_and_signed_out(server, storage):
+    base, token = server
+    other, other_token = api.add_device(storage, "Tablet")
+    status, result = _call(f"{base}/api/v1/devices?_device={other.id}", token)
+    assert status == 200
+    by_name = {d["name"]: d for d in result["devices"]}
+    assert by_name["Tablet"]["current"] is False  # the caller can't claim to be another device
+    assert [d["name"] for d in result["devices"] if d["current"]] == ["Token"]
+    assert by_name["Token"]["last_seen_at"] is not None
+    assert _call(f"{base}/api/v1/devices/{other.id}", token, "POST", {"name": "iPad"})[0] == 200
+    assert storage.list_devices()[1].name == "iPad"
+    assert _call(f"{base}/api/v1/devices/{other.id}", token, "POST", {"name": " "})[0] == 400
+    assert _call(f"{base}/api/v1/devices/{other.id}", token, "DELETE")[0] == 200
+    assert _call(f"{base}/api/v1/status", other_token)[0] == 401
+    assert _call(f"{base}/api/v1/devices/{other.id}", token, "DELETE")[0] == 404
+
+
+def test_http_events_stream_ends_when_its_device_is_signed_out(server, storage, monkeypatch):
+    monkeypatch.setattr(api, "EVENTS_POLL_SECONDS", 0.05)
+    base, token = server
+    device, device_token = api.add_device(storage, "Phone")
+    request = urllib.request.Request(f"{base}/api/v1/events", headers={"Authorization": f"Bearer {device_token}"})
+    with urllib.request.urlopen(request, timeout=5) as stream:
+        assert stream.readline() == b": connected\n"
+        storage.delete_device(device.id)
+        assert stream.read() == b"\n"
+    assert _call(f"{base}/api/v1/status", token)[0] == 200
+
+
+def test_cli_lists_and_signs_out_devices(storage, capsys):
+    from argparse import Namespace
+
+    from ccc import api_cli
+
+    device, _token = api.add_device(storage, "Phone")
+    api_cli.run(storage, "", Namespace(api_command="devices"))
+    assert "Phone" in capsys.readouterr().out
+    assert api_cli.run(storage, "", Namespace(api_command="revoke", id=device.id)) == 0
+    assert api_cli.run(storage, "", Namespace(api_command="revoke", id=device.id)) == 1

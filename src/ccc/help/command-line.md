@@ -51,5 +51,6 @@ ccc-tui`); changed in Settings they work right away.
 | `ccc ask FROM TO "QUESTION"` | one conversation [asks another](asking.md) (ids or names); `--no-deliver` = don't pass the answer into FROM, `--wait` = wait and print the answer |
 | `ccc asks [CONVERSATION]` | questions between conversations, newest first (`🤖` = Claude asked) |
 | `ccc api serve [--port N]` | run the [API for the Android app](android-api.md) (normally run by `ccc-api.service`) |
-| `ccc api token [--new]` | make the token the app signs in with (shown only then); `--new` = a new one, the old one stops working |
+| `ccc api token [--new]` | make the token the app signs in with (shown only then); `--new` = a new one, every device is signed out |
+| `ccc api devices` / `ccc api revoke ID` | list the devices signed in / sign one out |
 | `ccc-daemon` | the daemon itself (normally run by `ccc.service`) |
