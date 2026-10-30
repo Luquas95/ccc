@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from textual.widgets import Input, Select
+from textual.widgets import Input, Select, Static
 
 from ccc.notify import TELEGRAM_CHAT_KEY, TELEGRAM_TOKEN_KEY
 from ccc.orchestrator import RESERVE_KEY
@@ -137,6 +137,9 @@ async def test_reserve_off_and_telegram_test_and_turn_off(tmp_path, monkeypatch)
         await pilot.pause(0.3)
         await app.workers.wait_for_complete()
         assert sent == [("t0k", "7")]
+        # The test went through: "on" right away, not only after Save and reopening.
+        assert app.storage.get_setting(TELEGRAM_TOKEN_KEY) == "t0k"
+        assert "● on" in modal.query_one("#telegram-state", Static).render().plain
         modal._telegram_off()
         assert app.storage.get_setting(TELEGRAM_TOKEN_KEY) == ""
         modal.query_one("#settings-reserve", Select).value = "off"
@@ -239,7 +242,8 @@ async def test_discord_test_and_turn_off(tmp_path, monkeypatch):
         await pilot.pause(0.3)
         await app.workers.wait_for_complete()
         assert sent == [HOOK]
-        app.storage.set_setting(DISCORD_WEBHOOK_KEY, HOOK)
+        assert app.storage.get_setting(DISCORD_WEBHOOK_KEY) == HOOK
+        assert "● on" in modal.query_one("#discord-state", Static).render().plain
         modal._discord_off()
         assert app.storage.get_setting(DISCORD_WEBHOOK_KEY) == ""
 
@@ -358,3 +362,28 @@ async def test_editor_choice_offers_only_installed_editors_and_is_saved(tmp_path
         assert external_editor.command(app.storage) == ("hx",)
         modal = await _open_settings(pilot, app)
         assert modal.query_one("#settings-editor", Select).value == "hx"
+
+
+@pytest.mark.asyncio
+async def test_failed_test_does_not_turn_the_connection_on(tmp_path, monkeypatch):
+    from ccc.notify import DISCORD_WEBHOOK_KEY
+
+    def fail(*args):
+        raise OSError("down")
+
+    monkeypatch.setattr("ccc.tui.settings.send_telegram", fail)
+    monkeypatch.setattr("ccc.tui.settings.send_discord", fail)
+    app = _app(tmp_path)
+    async with app.run_test(size=(140, 45)) as pilot:
+        modal = await _open_settings(pilot, app)
+        modal.query_one("#settings-telegram-token", Input).value = "t0k"
+        modal.query_one("#settings-telegram-chat", Input).value = "7"
+        modal.query_one("#settings-discord-webhook", Input).value = HOOK
+        modal._send_test()
+        modal._send_discord_test()
+        await pilot.pause(0.3)
+        await app.workers.wait_for_complete()
+        assert not app.storage.get_setting(TELEGRAM_TOKEN_KEY)
+        assert not app.storage.get_setting(DISCORD_WEBHOOK_KEY)
+        assert "○ off" in modal.query_one("#telegram-state", Static).render().plain
+        assert "○ off" in modal.query_one("#discord-state", Static).render().plain

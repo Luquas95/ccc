@@ -503,9 +503,17 @@ class SettingsModal(ModalScreen):
         try:
             send_telegram(token, chat, _(TEST_MESSAGE))
             text = Text(_("✓ Sent — check Telegram."), style="green")
+            self.app.call_from_thread(self._telegram_works, token, chat)
         except Exception as exc:  # never show the exception text: it may contain the token
             text = Text(_("✖ Sending failed ({error}) — check the token and chat id.").format(error=type(exc).__name__), style="red")
         self.app.call_from_thread(self.query_one("#telegram-test-result", Static).update, text)
+
+    def _telegram_works(self, token: str, chat: str) -> None:
+        """The test went through: the connection is on now (kept like the
+        Off button's change, not only with Save)."""
+        self.storage.set_setting(TELEGRAM_TOKEN_KEY, token)
+        self.storage.set_setting(TELEGRAM_CHAT_KEY, chat)
+        self._refresh_telegram_state()
 
     # --- Discord -------------------------------------------------------------
 
@@ -532,9 +540,16 @@ class SettingsModal(ModalScreen):
         try:
             send_discord(url, _(DISCORD_TEST_MESSAGE))
             text = Text(_("✓ Sent — check the Discord channel."), style="green")
+            self.app.call_from_thread(self._discord_works, url)
         except Exception as exc:  # never show the exception text: it may contain the URL
             text = Text(_("✖ Sending failed ({error}) — check the webhook URL.").format(error=type(exc).__name__), style="red")
         self.app.call_from_thread(self.query_one("#discord-test-result", Static).update, text)
+
+    def _discord_works(self, url: str) -> None:
+        """The test went through: the connection is on now (kept like the
+        Off button's change, not only with Save)."""
+        self.storage.set_setting(DISCORD_WEBHOOK_KEY, url)
+        self._refresh_discord_state()
 
     def _discord_off(self) -> None:
         self.storage.set_setting(DISCORD_WEBHOOK_KEY, "")
