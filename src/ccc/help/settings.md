@@ -22,6 +22,7 @@ now* act right away.
 | Keyboard shortcuts | change any key, export / import them — see below |
 | Exports | the folder for exported conversations (`e`) and screenshots (`Alt+S`); optionally send each export to Telegram / Discord |
 | Monthly analytics archive | see [Analytics](analytics.md) |
+| Updates | look for new versions of ccc, on or off — see below |
 | Data | where the database and its daily backups are, *Back up now* |
 
 The same values can be set from the shell, see
@@ -136,3 +137,31 @@ pictures of the screen and are not masked.
 The daemon backs up ccc's database every day and keeps the last 14
 (`~/.local/share/ccc/backups/`). To restore one, see
 [Troubleshooting](troubleshooting.md).
+
+## Updating ccc
+
+ccc is a git checkout, so a new version is new commits on `origin/main`.
+Every few hours the daemon looks (`git fetch`, nothing is changed) and, when
+there is something new, tells you:
+
+- in ccc: a yellow line *⬆ Update* under the title, on every screen — `U`
+  (or a click on it) opens the **Update** window with the new commits;
+- on the phone: a banner in the Android app's list, with the same button
+  ([Android app & API](android-api.md));
+- in Telegram and Discord, once for each new version.
+
+*Update now* does a fast-forward `git pull` and runs `bin/install.sh` with the
+options ccc was installed with, then restarts the services (an interactive
+conversation's Claude Code keeps running; ccc and the API are back in a
+moment). It asks first and never runs by itself, because what arrives is
+whatever was pushed to `origin/main`. It refuses — and says why — when the
+checkout is not on `main`, has uncommitted or unpushed changes, or a task is
+running. The install's output is in `~/.local/share/ccc/update.log`.
+
+The Update window also says when the new commits change the Android app —
+the app is built and installed by hand, so it stays old until you do. The
+app itself tells you when it is older than ccc.
+
+*Settings → Updates → Look for updates* turns the looking (and these
+messages) off; the repository must be reachable without a password prompt
+(a credential helper or SSH key), otherwise the window shows what failed.

@@ -1,0 +1,116 @@
+"""The Update window: what's new on origin/main, and the button that
+applies it (ccc.updates) — pull, install, restart."""
+from __future__ import annotations
+
+from rich.text import Text
+from textual import work
+from textual.containers import Container, Horizontal
+from textual.screen import ModalScreen
+from textual.widgets import Button, Static
+
+from ccc import keymap, updates
+from ccc.i18n import _
+from ccc.storage import Storage
+from ccc.tui.layout import MODAL_CSS
+
+
+class UpdateModal(ModalScreen):
+    DEFAULT_CSS = MODAL_CSS.format(cls="UpdateModal") + """
+    UpdateModal > Container {
+        border: round yellow;
+        border-title-color: yellow;
+    }
+    UpdateModal #update-info {
+        margin-bottom: 1;
+    }
+    UpdateModal .modal-buttons {
+        height: 3;
+    }
+    UpdateModal .modal-buttons Button {
+        margin-right: 1;
+    }
+    """
+
+    BINDINGS = [keymap.binding("window.cancel", "close", _("Close"))]
+
+    def __init__(self, storage: Storage):
+        super().__init__()
+        self.storage = storage
+        self._busy = False
+
+    def compose(self):
+        box = Container(
+            Static(id="update-info"),
+            Horizontal(
+                Button(_("Update now"), id="update-apply", classes="modal-submit"),
+                Button(_("Check again"), id="update-check"),
+                Button(_("Close"), id="update-close", classes="modal-cancel"),
+                classes="modal-buttons",
+            ),
+        )
+        box.border_title = _("Update ccc")
+        yield box
+
+    def on_mount(self) -> None:
+        self._show()
+
+    def _show(self, message: Text | None = None) -> None:
+        state = updates.load(self.storage)
+        reason = updates.refusal(self.storage) if state.available else None
+        text = Text()
+        if state.error:
+            text.append(_("Can't look for the update: {error}").format(error=state.error) + "\n", style="red")
+        elif state.available:
+            text.append(_("{n} new commit(s) on {branch}:").format(n=state.behind, branch=updates.BRANCH) + "\n",
+                        style="bold")
+            for commit in state.commits:
+                text.append(f"  {commit}\n")
+            if state.behind > len(state.commits):
+                text.append("  …\n", style="dim")
+            if state.android:
+                text.append(_("The Android app changed too — build and install it.") + "\n", style="cyan")
+        elif state.checked_at:
+            text.append(_("ccc is up to date.") + "\n", style="green")
+        else:
+            text.append(_("Not looked yet.") + "\n", style="dim")
+        if state.checked_at:
+            text.append(_("Looked {when}").format(when=state.checked_at.replace("T", " ")) + "\n", style="dim")
+        if reason:
+            text.append("\n" + reason + "\n", style="yellow")
+        if message is not None:
+            text.append("\n").append_text(message)
+        self.query_one("#update-info", Static).update(text)
+        self.query_one("#update-apply", Button).disabled = not state.available or bool(reason) or self._busy
+        self.query_one("#update-check", Button).disabled = self._busy
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        event.stop()
+        {"update-apply": self._apply, "update-check": self._check, "update-close": self.action_close}.get(
+            event.button.id or "", lambda: None)()
+
+    def _apply(self) -> None:
+        self._busy = True
+        self._show(Text(_("Updating…"), style="dim"))
+        self._apply_worker()
+
+    def _check(self) -> None:
+        self._busy = True
+        self._show(Text(_("Looking…"), style="dim"))
+        self._check_worker()
+
+    @work(thread=True, exclusive=True, group="update")
+    def _apply_worker(self) -> None:
+        ok, message = updates.apply(self.storage)
+        self.app.call_from_thread(self._done, Text(message, style="green" if ok else "red"))
+
+    @work(thread=True, exclusive=True, group="update")
+    def _check_worker(self) -> None:
+        updates.check(self.storage)
+        self.app.call_from_thread(self._done, None)
+
+    def _done(self, message: Text | None) -> None:
+        self._busy = False
+        self._show(message)
+
+    def action_close(self) -> None:
+        self.dismiss(None)

@@ -254,6 +254,13 @@ SidebarScreen.-tmux-frame.-cli-open #sidebar {
 SidebarScreen #daemon-state {
     padding: 0 1;
 }
+SidebarScreen #update-state {
+    padding: 0 1;
+    color: yellow;
+}
+SidebarScreen #update-state:hover {
+    text-style: underline;
+}
 SidebarScreen .sidebar-title {
     padding: 1 1 0 1;
     text-style: bold;
@@ -405,6 +412,7 @@ class SidebarScreen(Screen):
         keymap.binding("views.new_conversation", "new_conversation", _("New conversation"), show=False),
         keymap.binding("views.help", "key_help", _("Help")),
         keymap.binding("views.routines", "routines", _("Routines")),
+        keymap.binding("views.update", "update", _("Update"), show=False),
     ]
 
     def __init__(self, storage):
@@ -440,6 +448,7 @@ class SidebarScreen(Screen):
             Vertical(
                 Static("ccc", classes="sidebar-title"),
                 Static("", id="daemon-state"),
+                Static("", id="update-state"),
                 Rule(classes="sidebar-rule"),
                 Vertical(*nav_items, id="sidebar-nav"),
                 Vertical(*self.compose_sidebar_section(), id="sidebar-section"),
@@ -486,7 +495,29 @@ class SidebarScreen(Screen):
         state = self.query_one("#daemon-state", Static)
         state.update(text)
         state.display = bool(text.plain)
+        self._refresh_update_state()
         self.sync_retry_button()
+
+    def _refresh_update_state(self) -> None:
+        """A new version on origin/main (ccc.updates, found by the daemon):
+        a line under the title; the key (or a click) opens the Update window."""
+        from ccc import updates
+
+        found = updates.load(self.storage)
+        shown = found.available and updates.check_enabled(self.storage)
+        line = self.query_one("#update-state", Static)
+        line.update(Text(_("⬆ Update: {n} new — {key}").format(
+            n=found.behind, key=keymap.pretty(self._keys()["views.update"])) if shown else ""))
+        line.display = shown
+
+    def on_click(self, event) -> None:
+        if getattr(event.widget, "id", None) == "update-state":
+            self.action_update()
+
+    def action_update(self) -> None:
+        from ccc.tui.update import UpdateModal
+
+        self.app.push_screen(UpdateModal(self.storage))
 
     def _keys(self) -> dict[str, str]:
         return keymap.current(self.storage)

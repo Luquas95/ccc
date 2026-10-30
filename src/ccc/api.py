@@ -15,7 +15,7 @@ out at once — open event streams too.
 Standard library only (http.server), like the ccc MCP server: no web
 framework to install for a handful of JSON endpoints.
 
-GET  /api/v1/status                       daemon, counts, language
+GET  /api/v1/status                       daemon, counts, language, the update found, the Android build
 GET  /api/v1/conversations[?archived=1]   the list, with groups
 GET  /api/v1/conversations/{id}           one, with its queued messages and approvals
 GET  /api/v1/conversations/{id}/messages  the transcript (?after=N new ones, ?before=N older, ?limit=)
@@ -37,6 +37,7 @@ POST /api/v1/runs/{id}/comments           {"comments": [{"index", "text"}]} sent
 POST /api/v1/runs/{id}/revert             {"tell": bool}: undo the commit
 GET  /api/v1/groups                       grouping mode and own groups; POST groups/rename, groups/delete
 GET  /api/v1/search?q=                    search every conversation
+POST /api/v1/update/check                 look for a new ccc version now; POST /api/v1/update applies it
 GET  /api/v1/waiting                      conversations that need you (Alt+N)
 GET  /api/v1/prompt-presets               the preset prompts (Alt+1 … 9)
 GET  /api/v1/launch-presets               New conversation presets and the last choice
@@ -67,7 +68,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from ccc import __version__, context_fill, groups, i18n, launch_options, mcp_servers
+from ccc import __version__, context_fill, groups, i18n, launch_options, mcp_servers, updates
 from ccc.api_agents import AgentEndpoints
 from ccc.api_common import ApiError, int_of, iso, route, task_line, text_of
 from ccc.api_views import ViewEndpoints
@@ -135,6 +136,7 @@ class Api(AgentEndpoints, ViewEndpoints):
         self._transcripts: dict[str, _Transcript] = {}
         self._context = context_fill.ContextTracker()
         self._git: dict[str, tuple[float, object]] = {}  # folder -> (when, gitops.WorkStatus | None)
+        self._build: tuple[float, int] = (-1e9, 0)
         self._routes = self._route_table()
 
     # --- routing -------------------------------------------------------------
@@ -145,6 +147,8 @@ class Api(AgentEndpoints, ViewEndpoints):
         ok = route
         return [
             ok(r"/status", lambda ids, q, b: self.status()),
+            ok(r"/update/check", lambda ids, q, b: self.update_check(), "POST"),
+            ok(r"/update", lambda ids, q, b: self.update_apply(), "POST"),
             ok(r"/conversations", lambda ids, q, b: self.conversations(archived=q.get("archived") in ("1", "true"))),
             ok(r"/conversations", lambda ids, q, b: self.create(b), "POST", HTTPStatus.CREATED),
             ok(r"/conversations/(\d+)", lambda ids, q, b: self.conversation(*ids)),
@@ -205,7 +209,42 @@ class Api(AgentEndpoints, ViewEndpoints):
             "conversations": len(queues),
             "running": sum(q.status == QueueStatus.RUNNING for q in queues),
             "needs_approval": len(self.storage.queues_waiting_for_approval()),
+            "update": self._update(),
+            "android_build": self._android_build(),
         }
+
+    def _update(self) -> dict | None:
+        """A new version of ccc on origin/main (ccc.updates), as the daemon
+        last found it; None when looking is turned off."""
+        if not updates.check_enabled(self.storage):
+            return None
+        state = updates.load(self.storage)
+        reason = updates.refusal(self.storage) if state.available else None
+        return {"available": state.available, "behind": state.behind, "commits": state.commits,
+                "android": state.android, "error": state.error, "checked_at": state.checked_at,
+                "can_apply": state.available and reason is None, "reason": reason}
+
+    def _android_build(self) -> int:
+        """The Android app's build number in this checkout (updates.android_build),
+        read at most once a minute: a phone older than this should be updated."""
+        now = time.monotonic()
+        with self._lock:
+            when, value = self._build
+        if now - when >= 60:
+            value = updates.android_build()
+            with self._lock:
+                self._build = (now, value)
+        return value
+
+    def update_check(self) -> dict:
+        updates.check(self.storage)
+        return self._update() or {"available": False}
+
+    def update_apply(self) -> dict:
+        ok, message = updates.apply(self.storage)
+        if not ok:
+            raise ApiError(HTTPStatus.CONFLICT, message)
+        return {"ok": True, "message": message}
 
     def conversations(self, archived: bool = False) -> list[dict]:
         queues = [q for q in self.storage.list_queues() if q.archived == archived]
