@@ -21,6 +21,13 @@
     <string name="pending_count">%1$d queued</string>
     <string name="needs_approval">needs approval</string>
     <string name="new_reply">new reply</string>
+    <string name="context_short">context %1$s</string>
+    <string name="list_details">Conversation list</string>
+    <string name="list_details_hint">What each conversation shows besides its name and state. Kept on this phone.</string>
+    <string name="detail_pending">Queued tasks</string>
+    <string name="detail_context">Context fill</string>
+    <string name="detail_git">Git state</string>
+    <string name="detail_path">Folder</string>
     <string name="approvals">Approvals</string>
     <string name="new_conversation">New conversation</string>
     <string name="usage_five_hour">5 hours</string>

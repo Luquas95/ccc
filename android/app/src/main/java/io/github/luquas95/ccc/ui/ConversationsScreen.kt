@@ -64,7 +64,9 @@ import io.github.luquas95.ccc.R
 import io.github.luquas95.ccc.data.Conversation
 import io.github.luquas95.ccc.data.ConversationStatus
 import io.github.luquas95.ccc.data.Group
+import io.github.luquas95.ccc.data.ListDetail
 import io.github.luquas95.ccc.data.ListFilter
+import io.github.luquas95.ccc.data.shortPath
 import io.github.luquas95.ccc.ui.theme.CccColors
 
 /** What the list can do, besides showing [HomeState]. */
@@ -89,7 +91,12 @@ private val MARKERS = listOf(ListFilter.WORKING, ListFilter.APPROVAL, ListFilter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConversationsScreen(state: HomeState, snackbar: SnackbarHostState, actions: ConversationsActions) {
+fun ConversationsScreen(
+    state: HomeState,
+    listDetails: Set<String>,
+    snackbar: SnackbarHostState,
+    actions: ConversationsActions,
+) {
     var groupMenu by remember { mutableStateOf<String?>(null) }
     Scaffold(
         topBar = {
@@ -152,7 +159,7 @@ fun ConversationsScreen(state: HomeState, snackbar: SnackbarHostState, actions: 
                 onRefresh = actions.refresh,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                ConversationList(state, actions) { groupMenu = it }
+                ConversationList(state, listDetails, actions) { groupMenu = it }
             }
         }
     }
@@ -160,7 +167,12 @@ fun ConversationsScreen(state: HomeState, snackbar: SnackbarHostState, actions: 
 }
 
 @Composable
-private fun ConversationList(state: HomeState, actions: ConversationsActions, onGroupMenu: (String) -> Unit) {
+private fun ConversationList(
+    state: HomeState,
+    listDetails: Set<String>,
+    actions: ConversationsActions,
+    onGroupMenu: (String) -> Unit,
+) {
     val filter = ListFilter.parse(state.filter)
     val shown = (if (state.showArchive) state.archived else state.conversations).filter(filter::matches)
     LazyColumn(
@@ -204,7 +216,7 @@ private fun ConversationList(state: HomeState, actions: ConversationsActions, on
                 item(key = "group:${heading.key}") { GroupHeader(heading, onGroupMenu) }
             }
             group = heading?.key
-            item(key = conversation.id) { ConversationRow(conversation) { actions.open(conversation.id) } }
+            item(key = conversation.id) { ConversationRow(conversation, listDetails) { actions.open(conversation.id) } }
         }
     }
 }
@@ -345,7 +357,7 @@ private fun GroupDialog(name: String, actions: ConversationsActions, onClose: ()
 }
 
 @Composable
-private fun ConversationRow(conversation: Conversation, onClick: () -> Unit) {
+private fun ConversationRow(conversation: Conversation, listDetails: Set<String>, onClick: () -> Unit) {
     val state = conversation.state
     Card(
         Modifier.fillMaxWidth().clickable(onClick = onClick),
@@ -372,7 +384,9 @@ private fun ConversationRow(conversation: Conversation, onClick: () -> Unit) {
                 }
                 val details = buildList {
                     add(if (conversation.needsApproval) stringResource(R.string.needs_approval) else statusLabel(state))
-                    if (conversation.pending > 0) add(stringResource(R.string.pending_count, conversation.pending))
+                    if (ListDetail.PENDING in listDetails && conversation.pending > 0) {
+                        add(stringResource(R.string.pending_count, conversation.pending))
+                    }
                     if (conversation.unseen) add(stringResource(R.string.new_reply))
                 }
                 val highlighted = state != ConversationStatus.IDLE || conversation.needsApproval
@@ -381,6 +395,37 @@ private fun ConversationRow(conversation: Conversation, onClick: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = if (highlighted) statusColor(state, conversation.needsApproval) else CccColors.Muted,
                 )
+                val context = conversation.context.takeIf { ListDetail.CONTEXT in listDetails }
+                val git = conversation.git?.text?.takeIf { ListDetail.GIT in listDetails && it.isNotEmpty() }
+                if (context != null || git != null) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (context != null) {
+                            Text(
+                                stringResource(R.string.context_short, context.text),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = when (context.level) {
+                                    "danger" -> CccColors.Error
+                                    "warn" -> CccColors.Waiting
+                                    else -> CccColors.Muted
+                                },
+                            )
+                        }
+                        if (git != null) {
+                            Text(
+                                git,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = CccColors.Title,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
+                        }
+                    }
+                }
+                if (ListDetail.PATH in listDetails) {
+                    Text(shortPath(conversation.path), style = MaterialTheme.typography.bodySmall,
+                        color = CccColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
                 conversation.lastError?.takeIf { state == ConversationStatus.BLOCKED_ERROR }?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = CccColors.Error, maxLines = 2,
                         overflow = TextOverflow.Ellipsis)

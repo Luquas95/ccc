@@ -18,6 +18,11 @@ class Settings(context: Context) {
         get() = prefs.getBoolean(NOTIFICATIONS, false)
         set(value) = prefs.edit().putBoolean(NOTIFICATIONS, value).apply()
 
+    /** What the conversation list shows besides the name and state (ListDetail keys). */
+    var listDetails: Set<String>
+        get() = prefs.getStringSet(LIST_DETAILS, null) ?: ListDetail.DEFAULT
+        set(value) = prefs.edit().putStringSet(LIST_DETAILS, value).apply()
+
     /** Keys of the alerts shown (see Alerts), so a restart doesn't show them again. */
     var shownAlerts: Set<String>
         get() = prefs.getStringSet(SHOWN, emptySet()).orEmpty().toSet()
@@ -36,5 +41,17 @@ class Settings(context: Context) {
         const val TOKEN = "token"
         const val NOTIFICATIONS = "notifications"
         const val SHOWN = "shown_alerts"
+        const val LIST_DETAILS = "list_details"
     }
+}
+
+/** The things a conversation's row can show besides its name and state: on the phone, as chosen. */
+object ListDetail {
+    const val PENDING = "pending"
+    const val CONTEXT = "context"
+    const val GIT = "git"
+    const val PATH = "path"
+
+    val ALL = listOf(PENDING, CONTEXT, GIT, PATH)
+    val DEFAULT: Set<String> = setOf(PENDING, CONTEXT, GIT)
 }

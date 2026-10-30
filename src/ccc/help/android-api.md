@@ -45,6 +45,10 @@ usage limit or a finished reply. No push server is involved; on Xiaomi
 / HyperOS allow the app to run in the background, or the system stops
 it.
 
+**What the list shows** (Connection → *Conversation list*): the context
+fill, the git state, the queued tasks and the folder, each on or off —
+kept on the phone, so a small screen can show less.
+
 ## Endpoints
 
 Every path starts with `/api/v1`; every request has the header
@@ -54,7 +58,7 @@ Every path starts with `/api/v1`; every request has the header
 | | |
 |---|---|
 | `GET /status` | the daemon running?, how many conversations, running, waiting for approval |
-| `GET /conversations` | the list in the TUI's order, with groups, states, queued messages and markers; `?archived=1` the archive |
+| `GET /conversations` | the list in the TUI's order, with groups, states, queued messages and markers, how full its context window is (`context`: tokens, percent, level) and its git state (`git`: branch, added, removed, ahead, behind; `null` where Claude may not run commands); `?archived=1` the archive |
 | `GET /conversations/{id}` | one, with its queued messages and approvals waiting |
 | `GET /conversations/{id}/messages` | its transcript, each message with an `index`; `?after=N` only newer ones, `?before=N` older ones, `?limit=` how many (200) |
 | `POST /conversations/{id}/messages` | `{"text": "…"}` queues a message, as the message box does |

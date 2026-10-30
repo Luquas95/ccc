@@ -164,6 +164,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         WatchService.sync(getApplication())
     }
 
+    private val _listDetails = MutableStateFlow(settings.listDetails)
+    /** What a conversation's row shows (data.ListDetail), kept on the phone. */
+    val listDetails: StateFlow<Set<String>> = _listDetails.asStateFlow()
+
+    fun setListDetail(key: String, on: Boolean) {
+        val next = if (on) _listDetails.value + key else _listDetails.value - key
+        settings.listDetails = next
+        _listDetails.value = next
+    }
+
     private var events: Job? = null
     private var foreground = false
     /** Agents, routines, live sessions, analytics, ccc's settings. */

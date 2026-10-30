@@ -96,6 +96,7 @@ private fun App(model: AppViewModel) {
     val cccSettings by model.more.settings.collectAsStateWithLifecycle()
     val terminal by model.more.terminal.collectAsStateWithLifecycle()
     val notifications by model.notifications.collectAsStateWithLifecycle()
+    val listDetails by model.listDetails.collectAsStateWithLifecycle()
     val nameOf = { id: Int -> (home.conversations + home.archived).firstOrNull { it.id == id }?.name.orEmpty() }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -125,6 +126,8 @@ private fun App(model: AppViewModel) {
             server = model.server,
             signedIn = screens.size > 1,
             notifications = notifications,
+            listDetails = listDetails,
+            onListDetail = model::setListDetail,
             snackbar = snackbar,
             onBack = if (screens.size > 1) model::back else null,
             onConnect = model::connect,
@@ -133,6 +136,7 @@ private fun App(model: AppViewModel) {
         )
         Screen.Conversations -> ConversationsScreen(
             state = home,
+            listDetails = listDetails,
             snackbar = snackbar,
             actions = ConversationsActions(
                 open = { model.open(Screen.Conversation(it)) },

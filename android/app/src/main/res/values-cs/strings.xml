@@ -19,6 +19,13 @@
     <string name="pending_count">ve frontě: %1$d</string>
     <string name="needs_approval">čeká na schválení</string>
     <string name="new_reply">nová odpověď</string>
+    <string name="context_short">kontext %1$s</string>
+    <string name="list_details">Seznam konverzací</string>
+    <string name="list_details_hint">Co každá konverzace ukazuje kromě názvu a stavu. Pamatuje si to tento telefon.</string>
+    <string name="detail_pending">Úkoly ve frontě</string>
+    <string name="detail_context">Zaplnění kontextu</string>
+    <string name="detail_git">Stav gitu</string>
+    <string name="detail_path">Složka</string>
     <string name="approvals">Schválení</string>
     <string name="new_conversation">Nová konverzace</string>
     <string name="usage_five_hour">5 hodin</string>

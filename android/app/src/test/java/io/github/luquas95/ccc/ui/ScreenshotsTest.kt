@@ -8,11 +8,15 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.core.view.drawToBitmap
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.luquas95.ccc.data.Analytics
 import io.github.luquas95.ccc.data.CccSettings
 import io.github.luquas95.ccc.data.Choice
+import io.github.luquas95.ccc.data.ContextFill
 import io.github.luquas95.ccc.data.Conversation
+import io.github.luquas95.ccc.data.GitState
+import io.github.luquas95.ccc.data.ListDetail
 import io.github.luquas95.ccc.data.ConversationTokens
 import io.github.luquas95.ccc.data.DayTokens
 import io.github.luquas95.ccc.data.Goals
@@ -78,12 +82,12 @@ open class ScreenshotsTest {
 
     @Test
     fun conversations() = shot("conversations", "shop-api") {
-        ConversationsScreen(home, SnackbarHostState(), listActions)
+        ConversationsScreen(home, ListDetail.DEFAULT, SnackbarHostState(), listActions)
     }
 
     @Test
     fun archive() = shot("archive", "old-prototype") {
-        ConversationsScreen(home.copy(showArchive = true, filter = "proto"), SnackbarHostState(), listActions)
+        ConversationsScreen(home.copy(showArchive = true, filter = "proto"), ListDetail.DEFAULT, SnackbarHostState(), listActions)
     }
 
     @Test
@@ -167,12 +171,18 @@ open class ScreenshotsTest {
 
     @Test
     fun setup() = shot("setup", "ccc") {
-        SetupScreen("", false, false, SnackbarHostState(), null, { _, _, _ -> }, {}, {})
+        SetupScreen("", false, false, ListDetail.DEFAULT, { _, _ -> }, SnackbarHostState(), null, { _, _, _ -> }, {}, {})
     }
 
     @Test
     fun connection() = shot("connection", "computer.tailnet") {
-        SetupScreen("computer.tailnet.ts.net", true, true, SnackbarHostState(), {}, { _, _, _ -> }, {}, {})
+        SetupScreen("computer.tailnet.ts.net", true, true, ListDetail.DEFAULT, { _, _ -> }, SnackbarHostState(), {}, { _, _, _ -> }, {}, {})
+    }
+
+    @Test
+    fun conversationListDetails() = shot("list_details", "computer.tailnet", scrollTo = io.github.luquas95.ccc.R.string.detail_path) {
+        SetupScreen("computer.tailnet.ts.net", true, true, setOf(ListDetail.CONTEXT, ListDetail.GIT), { _, _ -> },
+            SnackbarHostState(), {}, { _, _, _ -> }, {}, {})
     }
 
     @Test
@@ -180,9 +190,10 @@ open class ScreenshotsTest {
         TerminalScreen(terminalState, "web", SnackbarHostState(), TerminalActions({}, { _, _ -> }, {}, {}))
     }
 
-    private fun shot(name: String, expect: String, content: @Composable () -> Unit) {
+    private fun shot(name: String, expect: String, scrollTo: Int? = null, content: @Composable () -> Unit) {
         compose.setContent { CccTheme(content) }
         compose.onAllNodesWithText(expect, substring = true, useUnmergedTree = true).onFirst().assertExists()
+        scrollTo?.let { compose.onAllNodesWithText(compose.activity.getString(it)).onFirst().performScrollTo() }
         compose.waitForIdle()
         val bitmap = compose.activity.window.decorView.drawToBitmap()
         val folder = File("build/screenshots/$locale").apply { mkdirs() }
@@ -330,13 +341,16 @@ open class ScreenshotsTest {
             live = true,
             conversations = listOf(
                 Conversation(1, "shop-api", "/home/you/projects/shop-api", "running", "interactive", pending = 2,
-                    needsApproval = true, group = Group("own:Release 2.1", "Release 2.1")),
+                    needsApproval = true, group = Group("own:Release 2.1", "Release 2.1"),
+                    context = ContextFill(124_000, 62, ""), git = GitState("feature/rate-limit", 12, 3, 2, 0)),
                 Conversation(2, "docs-site", "/home/you/projects/docs-site", "waiting_retry", "interactive", pending = 1,
-                    group = Group("own:Release 2.1", "Release 2.1")),
+                    group = Group("own:Release 2.1", "Release 2.1"),
+                    context = ContextFill(172_000, 86, "warn"), git = GitState("main", 0, 0, 0, 1)),
                 Conversation(3, "data-pipeline", "/home/you/projects/data-pipeline", "blocked_error", "headless",
                     lastError = "pytest failed: 3 tests", group = Group("project:/home/you/projects/data-pipeline", "data-pipeline")),
                 Conversation(4, "mobile-app", "/home/you/projects/mobile-app", "idle", "interactive", unseen = true,
-                    group = Group("project:/home/you/projects/mobile-app", "mobile-app")),
+                    group = Group("project:/home/you/projects/mobile-app", "mobile-app"),
+                    context = ContextFill(186_000, 93, "danger"), git = GitState("fix/login-crash", 4, 1, 1, 0)),
                 Conversation(5, "infra", "/home/you/projects/infra", "running", "remote_control",
                     group = Group("project:/home/you/projects/infra", "infra")),
             ),
