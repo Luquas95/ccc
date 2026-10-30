@@ -185,6 +185,40 @@ def context_tick(storage: Storage, notifier: Notifier, tracker) -> list[str]:
     return sent
 
 
+UPDATE_FIRST_CHECK_SECONDS = 120.0
+
+
+async def update_loop(storage: Storage, notifier: Notifier, interval: float = None) -> None:
+    """Look for a new version on origin/main (ccc.updates) now and then and
+    tell Telegram / Discord once per new head; the TUI and the phone read
+    what was found from the settings."""
+    from ccc import updates
+
+    await asyncio.sleep(UPDATE_FIRST_CHECK_SECONDS)
+    while True:
+        try:
+            await asyncio.to_thread(update_tick, storage, notifier)
+        except Exception:
+            logger.exception("looking for a ccc update failed")
+        await asyncio.sleep(interval or updates.CHECK_SECONDS)
+
+
+def update_tick(storage: Storage, notifier: Notifier, repo=None) -> str | None:
+    """One look; returns the notice it sent (for tests)."""
+    from ccc import updates
+
+    if not updates.check_enabled(storage):
+        return None
+    state = updates.check(storage, *([repo] if repo else []))
+    if not state.available or state.remote_head == state.notified_head:
+        return None
+    text = updates.notice(state)
+    state.notified_head = state.remote_head
+    updates.save(storage, state)
+    notifier.send_now(text)
+    return text
+
+
 async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     storage = Storage(db_path)
     i18n.load(storage)
@@ -208,6 +242,7 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     flows = asyncio.create_task(workflows_loop(storage, notifier))
     answers = asyncio.create_task(asks_loop(storage, notifier))
     contexts = asyncio.create_task(context_loop(storage, notifier))
+    updating = asyncio.create_task(update_loop(storage, notifier))
     await stop_event.wait()
     logger.info("ccc daemon shutting down")
     heartbeat.cancel()
@@ -220,6 +255,7 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     flows.cancel()
     answers.cancel()
     contexts.cancel()
+    updating.cancel()
     await orchestrator.stop_all()
 
 

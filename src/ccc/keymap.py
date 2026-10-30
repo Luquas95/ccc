@@ -37,7 +37,7 @@ FORMAT = "ccc-keys"
 VIEWS = ("dashboard", "conversations", "archive", "sessions", "analytics", "queue_detail")
 WINDOWS = ("help", "confirm", "approval", "tasks", "task_edit", "preset_edit", "settings", "keys",
            "new_conversation", "preset_name", "add_prompt", "diff", "diff_comment", "search", "attach", "routines", "routine_edit",
-           "review", "goal", "workflow", "ask", "group")
+           "review", "goal", "workflow", "ask", "group", "update")
 CLAUDE = "claude"
 EVERYWHERE = (*VIEWS, *WINDOWS, CLAUDE)
 _CONVERSATIONS = ("conversations", "archive")
@@ -63,6 +63,7 @@ ACTIONS: tuple[KeyAction, ...] = (
     KeyAction("views.new_conversation", "n", N_("New conversation"), VIEWS),
     KeyAction("views.help", "question_mark", N_("This help"), (*VIEWS, "help")),
     KeyAction("views.routines", "o", N_("Routines (prompts on a schedule)"), VIEWS),
+    KeyAction("views.update", "U", N_("Update ccc (when there is a new version)"), VIEWS),
     KeyAction("app.settings", "ctrl+p", N_("Settings"), EVERYWHERE, tmux=True),
     KeyAction("app.screenshot", "alt+s", N_("Screenshot of ccc"), EVERYWHERE, tmux=True),
     KeyAction("app.quit", "ctrl+q", N_("Close ccc"), EVERYWHERE, tmux=True),

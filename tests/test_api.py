@@ -630,3 +630,33 @@ def test_no_context_and_no_git_where_claude_may_not_run_commands(storage, tmp_pa
     monkeypatch.setattr(gitops, "work_status", lambda cwd: pytest.fail("git must not run here"))
     listed = api.Api(storage).conversations()[0]
     assert listed["git"] is None and listed["context"] is None  # no transcript either
+
+
+def test_status_carries_the_update_and_the_android_build(storage, monkeypatch):
+    from ccc import updates
+
+    monkeypatch.setattr(updates, "android_build", lambda *a: 7)
+    status = api.Api(storage).status()
+    assert status["android_build"] == 7
+    assert status["update"]["available"] is False
+    updates.save(storage, updates.UpdateState(behind=2, commits=["abc1 one", "abc2 two"], android=True, remote_head="abc1"))
+    monkeypatch.setattr(updates, "refusal", lambda st, *a: "A task is running (shop)")
+    update = api.Api(storage).status()["update"]
+    assert update["behind"] == 2 and update["android"] and not update["can_apply"] and "shop" in update["reason"]
+    storage.set_setting(updates.CHECK_KEY, "off")
+    assert api.Api(storage).status()["update"] is None
+
+
+def test_update_endpoints_check_and_apply(storage, monkeypatch):
+    from ccc import updates
+
+    server = api.Api(storage)
+    monkeypatch.setattr(updates, "check", lambda st: updates.save(st, updates.UpdateState(behind=1, commits=["a b"])) or updates.load(st))
+    monkeypatch.setattr(updates, "refusal", lambda st, *a: None)
+    assert server.route("POST", "/api/v1/update/check", {}, {})[1]["available"] is True
+    monkeypatch.setattr(updates, "apply", lambda st: (True, "Updated to abc — ccc is restarting."))
+    assert server.route("POST", "/api/v1/update", {}, {})[1] == {"ok": True, "message": "Updated to abc — ccc is restarting."}
+    monkeypatch.setattr(updates, "apply", lambda st: (False, "A task is running (shop) — the restart would stop it."))
+    with pytest.raises(api.ApiError) as error:
+        server.route("POST", "/api/v1/update", {}, {})
+    assert error.value.status == 409

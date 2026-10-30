@@ -20,6 +20,7 @@ uvádějí výchozí klávesy.
 | `n` | Nová konverzace |
 | `?` | Tato nápověda |
 | `o` | Routiny: prompty podle plánu |
+| `U` | Aktualizovat ccc — jen když je nová verze |
 | `Ctrl+P` | Nastavení (jazyk, Telegram, fronty, předvolby, zkratky, záloha) |
 | `Alt+S` | Snímek obrazovky ccc (SVG do složky exportů, viz Nastavení) |
 | `Ctrl+Q` | Zavřít ccc (běží dál; `ccc` ho zase otevře) |

@@ -1405,4 +1405,35 @@ CS: dict[str, str] = {
     "make a new one; the old one stops working": "vytvořit nový; starý přestane fungovat",
     "address to listen on (default {host}: reach it through tailscale serve)":
         "adresa, na které poslouchat (výchozí {host}: zvenku přes tailscale serve)",
+
+    # --- Updates ----------------------------------------------------------------
+    "Update": "Aktualizace",
+    "Updates": "Aktualizace",
+    "Update ccc": "Aktualizovat ccc",
+    "Update ccc (when there is a new version)": "Aktualizovat ccc (když je nová verze)",
+    "Update now": "Aktualizovat teď",
+    "Update ccc — only when a new version is there": "Aktualizovat ccc — jen když je nová verze",
+    "Check again": "Zkontrolovat znovu",
+    "Updating…": "Aktualizuji…",
+    "Looking…": "Zjišťuji…",
+    "⬆ Update: {n} new — {key}": "⬆ Aktualizace: {n} nových — {key}",
+    "{n} new commit(s) on {branch}:": "Nových commitů na {branch}: {n}",
+    "ccc is up to date.": "ccc je aktuální.",
+    "Not looked yet.": "Zatím se nezjišťovalo.",
+    "Looked {when}": "Zjištěno {when}",
+    "Can't look for the update: {error}": "Aktualizaci se nepodařilo zjistit: {error}",
+    "The Android app changed too — build and install it.": "Změnila se i Android aplikace — sestav a nainstaluj ji.",
+    "The checkout is on branch “{branch}”, not {main}.": "Checkout je na větvi „{branch}“, ne na {main}.",
+    "The checkout has uncommitted changes.": "Checkout má neuložené změny.",
+    "The checkout has commits that aren't on {remote}/{main}.": "Checkout má commity, které nejsou na {remote}/{main}.",
+    "git can't be run in the ccc checkout.": "V checkoutu ccc nejde spustit git.",
+    "A task is running ({names}) — the restart would stop it.": "Běží úkol ({names}) — restart by ho zastavil.",
+    "Updated to {head} — ccc is restarting.": "Aktualizováno na {head} — ccc se restartuje.",
+    "⬆️ ccc update available: {n} new commit(s) on {branch}.": "⬆️ Je dostupná aktualizace ccc: nových commitů na {branch}: {n}.",
+    "Update it in ccc (Update window) or from the phone.": "Aktualizuj v ccc (okno Aktualizace) nebo z telefonu.",
+    "Look for updates": "Hledat aktualizace",
+    "Every few hours ccc looks for new commits on origin/main and tells you here (the {key} key), "
+    "on the phone, and in Telegram / Discord. Updating asks first.":
+        "Každých pár hodin ccc hledá nové commity na origin/main a dá ti vědět tady (klávesa {key}), "
+        "v telefonu a v Telegramu / Discordu. Aktualizace se před spuštěním ptá.",
 }

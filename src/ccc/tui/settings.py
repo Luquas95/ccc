@@ -21,7 +21,7 @@ from ccc.notify import (
     send_telegram,
 )
 from ccc.analytics_archive import FOLDER_KEY as ARCHIVE_FOLDER_KEY, archive
-from ccc import context_fill, dashboard_columns, external_editor, groups, i18n, keymap
+from ccc import context_fill, dashboard_columns, external_editor, groups, i18n, keymap, updates
 from ccc.reviews import MODEL_CHOICES as REVIEW_MODELS, MODEL_KEY as REVIEW_MODEL_KEY
 from ccc.i18n import N_, _
 from ccc.export_paths import (
@@ -338,6 +338,17 @@ class SettingsModal(ModalScreen):
                 classes="settings-actions",
             ),
         )
+        update_box = _section(
+            _("Updates"),
+            _row(_("Look for updates"), Select(
+                [(_("Yes"), "on"), (_("No"), "off")],
+                value="on" if updates.check_enabled(s) else "off", allow_blank=False, id="settings-update-check",
+            )),
+            Static(_("Every few hours ccc looks for new commits on origin/main and tells you here (the {key} key), "
+                     "on the phone, and in Telegram / Discord. Updating asks first.").format(
+                         key=keymap.pretty(keymap.current(s)["views.update"])),
+                   classes="settings-hint"),
+        )
         data = _section(
             _("Data"),
             Static(id="data-info", classes="settings-status"),
@@ -345,7 +356,7 @@ class SettingsModal(ModalScreen):
             Horizontal(Button(_("Back up now"), id="settings-backup"), classes="settings-actions"),
         )
         box = Container(
-            VerticalScroll(appearance, editor_box, telegram, discord, queues, context, dashboard, prompt_box, preset_box, shortcuts, exports, archive_box, data,
+            VerticalScroll(appearance, editor_box, telegram, discord, queues, context, dashboard, prompt_box, preset_box, shortcuts, exports, archive_box, update_box, data,
                            id="settings-scroll"),
             Horizontal(
                 Static(_("Ctrl+S save  ·  Esc cancel"), classes="modal-hint"),
@@ -674,6 +685,7 @@ class SettingsModal(ModalScreen):
         send = self.query_one("#settings-export-send", Select).value
         s.set_setting(EXPORT_SEND_KEY, "" if send == "folder" else str(send))
         s.set_setting(ARCHIVE_FOLDER_KEY, self._archive_folder_value())
+        s.set_setting(updates.CHECK_KEY, "" if self.query_one("#settings-update-check", Select).value == "on" else "off")
         language = str(self.query_one("#settings-language", Select).value)
         old_language = i18n.language()
         s.set_setting(i18n.LANGUAGE_KEY, "" if language == "auto" else language)

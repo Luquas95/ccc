@@ -22,6 +22,7 @@ změny zahodí. Tlačítka jako *Poslat testovací zprávu*, *Vypnout* nebo
 | Klávesové zkratky | změna libovolné klávesy, export / import — viz níže |
 | Exporty | složka pro exportované konverzace (`e`) a snímky obrazovky (`Alt+S`); volitelně posílat každý export na Telegram / Discord |
 | Měsíční archiv analytiky | viz [Analytika](analytics.md) |
+| Aktualizace | hledání nových verzí ccc, zapnuto / vypnuto — viz níže |
 | Data | kde je databáze a její denní zálohy, *Zálohovat hned* |
 
 Stejné hodnoty se dají nastavit i z příkazové řádky, viz
@@ -140,3 +141,31 @@ jsou obrázky obrazovky a nemaskují se.
 Daemon každý den zálohuje databázi ccc a drží posledních 14
 (`~/.local/share/ccc/backups/`). Jak zálohu obnovit, viz
 [Řešení potíží](troubleshooting.md).
+
+## Aktualizace ccc
+
+ccc je git checkout, takže nová verze jsou nové commity na `origin/main`.
+Daemon se jednou za pár hodin podívá (`git fetch`, nic se nemění) a když je
+něco nového, dá ti vědět:
+
+- v ccc: žlutý řádek *⬆ Aktualizace* pod titulkem na každé obrazovce —
+  `U` (nebo klik na něj) otevře okno **Aktualizace** s novými commity;
+- v telefonu: banner v seznamu Android aplikace se stejným tlačítkem
+  ([Android aplikace a API](android-api.md));
+- v Telegramu a Discordu, jednou pro každou novou verzi.
+
+*Aktualizovat teď* udělá `git pull --ff-only` a spustí `bin/install.sh` se
+stejnými volbami, s jakými byl ccc nainstalován, a restartuje služby
+(Claude Code interaktivní konverzace běží dál; ccc a API jsou za chvíli
+zpátky). Vždy se zeptá a nikdy neběží samo, protože přijde to, co někdo
+pushnul na `origin/main`. Odmítne — a řekne proč —, když checkout není na
+`main`, má neuložené nebo nepushnuté změny, nebo běží úkol. Výstup instalace
+je v `~/.local/share/ccc/update.log`.
+
+Okno Aktualizace také řekne, když nové commity mění Android aplikaci — ta se
+sestavuje a instaluje ručně, takže zůstane stará, dokud to neuděláš.
+Aplikace sama oznámí, že je starší než ccc.
+
+*Nastavení → Aktualizace → Hledat aktualizace* hledání (i tyto zprávy)
+vypne; repozitář musí být dostupný bez dotazu na heslo (credential helper
+nebo SSH klíč), jinak okno ukáže, co selhalo.
