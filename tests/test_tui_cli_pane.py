@@ -113,6 +113,28 @@ def test_focus_zooms_on_narrow_windows(tmux):
     assert ("resize-pane", "-Z", "-t", pane) in tmux.calls
 
 
+def test_zoom_ccc_for_a_dialog_only_while_claude_is_open(tmux, monkeypatch):
+    assert not cli_pane.zoom_ccc()  # no Claude Code pane: ccc has the window already
+    cli_pane.open(4)
+    zoom = {"on": False}
+
+    def zoomable(*args):
+        if args[0] == "display-message" and args[-1] == "#{window_zoomed_flag}":
+            return subprocess.CompletedProcess(args, 0, ("1" if zoom["on"] else "0") + "\n", "")
+        if args[:2] == ("resize-pane", "-Z"):
+            zoom["on"] = not zoom["on"]
+        return tmux(*args)
+
+    monkeypatch.setattr(cli_pane, "_tmux", zoomable)
+    zoomed = cli_pane.zoom_ccc()
+    assert zoomed and zoom["on"]
+    assert not cli_pane.zoom_ccc()  # already zoomed: not ours to undo
+    cli_pane.unzoom_ccc(False)
+    assert zoom["on"]
+    cli_pane.unzoom_ccc(zoomed)
+    assert not zoom["on"]
+
+
 def test_close_kills_only_the_cli_pane(tmux):
     cli_pane.close()  # nothing open: nothing killed
     assert not any(c[0] == "kill-pane" for c in tmux.calls)
