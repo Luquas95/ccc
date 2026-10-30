@@ -1,5 +1,5 @@
 import pytest
-from textual.widgets import Button, Input
+from textual.widgets import Button, Input, TabbedContent
 
 from ccc.storage import Storage
 from ccc.tui.analytics import AnalyticsScreen
@@ -227,6 +227,8 @@ async def test_buttons_keep_size_and_colour_on_hover_focus_and_click(tmp_path):
 
     app = Host(str(tmp_path / "h.db"))
     async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        app.screen.query_one(TabbedContent).active = "settings-tab-notifications"
         await pilot.pause()
         button = app.screen.query_one("#settings-telegram-test", Button)
         button.scroll_visible(animate=False)

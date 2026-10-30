@@ -70,6 +70,7 @@ class SettingsModal(ModalScreen):
     }
     SettingsModal .settings-scroll {
         height: 1fr;
+        scrollbar-gutter: stable;
     }
     SettingsModal .settings-section {
         border: round $ccc-frame;
@@ -501,6 +502,12 @@ class SettingsModal(ModalScreen):
     def on_resize(self) -> None:
         # The prompt column follows the window width.
         self.call_after_refresh(self._refresh_prompt_presets)
+
+    def on_tabbed_content_tab_activated(self, event: TabbedContent.TabActivated) -> None:
+        # The table of the Presets tab has no width while its tab is hidden: size it once it's shown.
+        event.stop()
+        if event.pane.id == "settings-tab-presets":
+            self.call_after_refresh(self._refresh_prompt_presets)
 
     def _selected_prompt_index(self) -> int | None:
         row = self.query_one("#settings-prompt-presets", DataTable).cursor_row

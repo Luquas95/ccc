@@ -1,5 +1,5 @@
 import pytest
-from textual.widgets import Checkbox, DataTable, Input, TextArea
+from textual.widgets import Checkbox, DataTable, Input, TabbedContent, TextArea
 
 from ccc.prompt_presets import PromptPreset, load_prompt_presets, save_prompt_presets
 from ccc.storage import Storage
@@ -175,6 +175,8 @@ async def test_settings_preset_table_fits_the_row_with_ellipsis(tmp_path, width)
     async with app.run_test(size=(width, 40)) as pilot:
         await pilot.pause()
         await pilot.press("ctrl+p")
+        await pilot.pause()
+        app.screen.query_one(TabbedContent).active = "settings-tab-presets"
         await pilot.pause()
         table = app.screen.query_one("#settings-prompt-presets", DataTable)
         assert table.max_scroll_x == 0

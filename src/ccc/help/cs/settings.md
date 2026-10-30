@@ -9,6 +9,22 @@ změny zahodí. Tlačítka jako *Poslat testovací zprávu*, *Vypnout* nebo
 
 ## Sekce
 
+Okno má záložku pro každý druh nastavení (přepínají se `←` `→` nebo
+klikem); *Uložit* použije všechny záložky najednou:
+
+| Záložka | Sekce |
+|---|---|
+| Obecné | Vzhled, Externí editor, Přehled, Klávesové zkratky |
+| Fronty a kontext | Fronty, Kontext |
+| Notifikace | Telegram, Discord |
+| Předvolby | Přednastavené prompty, Předvolby nové konverzace |
+| Data | Exporty, Měsíční archiv analytiky, Data |
+| Připojení a aktualizace | Zařízení, Aktualizace |
+
+*Nastavení ccc* v aplikaci pro Android má stejné druhy záložek (a navíc
+*Připojení*, které otevře vlastní obrazovku aplikace s přihlášením a
+zařízeními).
+
 | Sekce | |
 |---|---|
 | Vzhled | jazyk — *Automaticky* se řídí systémem (`LANG`), uložení jiného jazyka restartuje okno ccc |
