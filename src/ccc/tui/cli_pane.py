@@ -440,6 +440,26 @@ def focus() -> None:
         _tmux("resize-pane", "-Z", "-t", pane)
 
 
+def _zoomed() -> bool:
+    result = _tmux("display-message", "-p", "-t", _own_pane(), "#{window_zoomed_flag}")
+    return result.stdout.strip() == "1"
+
+
+def zoom_ccc() -> bool:
+    """Give ccc the whole window (the other panes are hidden, not closed),
+    for a dialog that needs more than the sidebar's columns. True when it
+    was zoomed now — pass that to unzoom_ccc()."""
+    if not (available() and find() is not None) or _zoomed():
+        return False
+    return _tmux("resize-pane", "-Z", "-t", _own_pane()).returncode == 0
+
+
+def unzoom_ccc(zoomed: bool) -> None:
+    """Undo zoom_ccc() (only when it zoomed)."""
+    if zoomed and _zoomed():
+        _tmux("resize-pane", "-Z", "-t", _own_pane())
+
+
 def close() -> None:
     """Close the pane and its bar (Claude keeps running in its session);
     the keys go back to ccc."""
