@@ -46,8 +46,46 @@ data class Conversation(
     @SerialName("next_retry_at") val nextRetryAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
     val group: Group? = null,
+    val context: ContextFill? = null,
+    val git: GitState? = null,
 ) {
     val state: ConversationStatus get() = ConversationStatus.of(status)
+}
+
+/** How full the context window is; `level` is "", "warn" or "danger" by ccc's Settings thresholds. */
+@Serializable
+data class ContextFill(
+    val tokens: Int,
+    val percent: Int? = null,
+    val level: String = "",
+) {
+    /** 62 % (or 124k when the window is unknown). */
+    val text: String get() = percent?.let { "$it %" } ?: if (tokens >= 1000) "${tokens / 1000}k" else tokens.toString()
+}
+
+/** The folder's branch and what is uncommitted / ahead / behind (null counts: no base to compare). */
+@Serializable
+data class GitState(
+    val branch: String? = null,
+    val added: Int = 0,
+    val removed: Int = 0,
+    val ahead: Int? = null,
+    val behind: Int? = null,
+) {
+    /** feature-x +12−3 ↑2 */
+    val text: String get() = buildList {
+        branch?.let { add(it) }
+        val lines = (if (added > 0) "+$added" else "") + (if (removed > 0) "−$removed" else "")
+        if (lines.isNotEmpty()) add(lines)
+        if ((ahead ?: 0) > 0) add("↑$ahead")
+        if ((behind ?: 0) > 0) add("↓$behind")
+    }.joinToString(" ")
+}
+
+/** The folder cut from the front: …/projects/shop-api — the last two folders stay. */
+fun shortPath(path: String): String {
+    val parts = path.trimEnd('/').split('/').filter { it.isNotEmpty() }
+    return if (parts.size <= 2) path else "…/" + parts.takeLast(2).joinToString("/")
 }
 
 @Serializable

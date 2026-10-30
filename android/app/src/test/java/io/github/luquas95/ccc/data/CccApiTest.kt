@@ -56,6 +56,23 @@ class CccApiTest {
     private fun api(token: String = "secret") = CccApi("http://127.0.0.1:${server.address.port}", token)
 
     @Test
+    fun `reads the context fill and the git state of a conversation`() = runBlocking {
+        answers["conversations"] = 200 to """[{"id": 1, "name": "shop", "path": "/p", "status": "idle",
+            "delivery_mode": "interactive", "context": {"tokens": 186000, "percent": 93, "level": "danger"},
+            "git": {"branch": "feature-x", "added": 12, "removed": 3, "ahead": 2, "behind": 0}},
+            {"id": 2, "name": "docs", "path": "/d", "status": "idle", "delivery_mode": "headless",
+            "context": null, "git": null}]"""
+
+        val (shop, docs) = api().conversations()
+
+        assertEquals("93 %", shop.context?.text)
+        assertEquals("danger", shop.context?.level)
+        assertEquals("feature-x +12−3 ↑2", shop.git?.text)
+        assertNull(docs.context)
+        assertNull(docs.git)
+    }
+
+    @Test
     fun `reads the list with the token`() = runBlocking {
         answers["conversations"] = 200 to """[{"id": 1, "name": "shop", "path": "/p", "status": "blocked_error",
             "delivery_mode": "interactive", "pending": 2, "needs_approval": true, "last_error": "boom",

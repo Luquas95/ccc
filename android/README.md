@@ -20,8 +20,8 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
 | <img src="screenshots/en/reviews.png" width="260" alt="Reviews"> | <img src="screenshots/en/workflow.png" width="260" alt="Workflow"> | <img src="screenshots/en/analytics.png" width="260" alt="Analytics"> |
 | **Routines** | **Live sessions** | **ccc settings** |
 | <img src="screenshots/en/routines.png" width="260" alt="Routines"> | <img src="screenshots/en/live_sessions.png" width="260" alt="Live sessions"> | <img src="screenshots/en/ccc_settings.png" width="260" alt="ccc settings"> |
-| **Claude Code's terminal** | **Connection and notifications** | |
-| <img src="screenshots/en/terminal.png" width="260" alt="Terminal"> | <img src="screenshots/en/connection.png" width="260" alt="Connection"> | |
+| **Claude Code's terminal** | **Connection and notifications** | **What the list shows** |
+| <img src="screenshots/en/terminal.png" width="260" alt="Terminal"> | <img src="screenshots/en/connection.png" width="260" alt="Connection"> | <img src="screenshots/en/list_details.png" width="260" alt="Conversation list settings"> |
 
 ## What it does
 
@@ -29,6 +29,11 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
   queued messages, "needs approval" and "new reply"; the usage limits on
   top, and **who needs you** (an approval, an error, a limit, a finished
   reply) with one tap to the next — Alt+N in ccc. Pull down to reload.
+- **What a row shows** — besides the state: how full its context window
+  is (yellow / red at ccc's thresholds), its git branch and uncommitted
+  lines / commits ahead and behind (only where Claude may run commands),
+  the queued tasks and the folder. Connection → *Conversation list* turns
+  each on or off, kept on the phone.
 - **Filter** — name or folder, and the state chips `! working`,
   `? approval`, `x error`, `* new` — the same as `f` in ccc.
 - **Search** (the magnifier) — every conversation's messages, archived

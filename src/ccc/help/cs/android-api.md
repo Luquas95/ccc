@@ -41,6 +41,10 @@ o schválení — odpovíš přímo v oznámení —, chybě, limitu využití n
 hotové odpovědi. Žádný push server se nepoužívá; na Xiaomi / HyperOS
 aplikaci povol běh na pozadí, jinak ji systém zastaví.
 
+**Co seznam ukazuje** (Připojení → *Seznam konverzací*): zaplnění kontextu,
+stav gitu, úkoly ve frontě a složku, každé zapnuté nebo vypnuté — pamatuje
+si to telefon, takže malá obrazovka může ukazovat méně.
+
 ## Endpointy
 
 Každá cesta začíná `/api/v1`; každý požadavek má hlavičku
@@ -50,7 +54,7 @@ Každá cesta začíná `/api/v1`; každý požadavek má hlavičku
 | | |
 |---|---|
 | `GET /status` | běží daemon?, kolik konverzací, kolik běží, kolik čeká na schválení |
-| `GET /conversations` | seznam v pořadí jako v TUI, se skupinami, stavy, zprávami ve frontě a značkami; `?archived=1` archiv |
+| `GET /conversations` | seznam v pořadí jako v TUI, se skupinami, stavy, zprávami ve frontě a značkami, zaplněním kontextového okna (`context`: tokeny, procenta, úroveň) a stavem gitu (`git`: větev, přidané, odebrané, před, za; `null`, kde Claude nesmí spouštět příkazy); `?archived=1` archiv |
 | `GET /conversations/{id}` | jedna konverzace s jejími zprávami ve frontě a čekajícími schváleními |
 | `GET /conversations/{id}/messages` | její přepis, každá zpráva s `index`; `?after=N` jen novější, `?before=N` starší, `?limit=` kolik (200) |
 | `POST /conversations/{id}/messages` | `{"text": "…"}` zařadí zprávu do fronty, jako pole pro zprávu |

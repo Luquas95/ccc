@@ -599,3 +599,34 @@ def test_create_stores_the_chosen_mcp_servers_as_a_marker(storage, tmp_path):
     })
 
     assert storage.get_queue(result["id"]).launch_flags == ["--dangerously-skip-permissions", "--ccc-mcp=db"]
+
+
+def test_conversations_carry_context_and_git(storage, tmp_path, monkeypatch):
+    from ccc import gitops
+    from ccc.context_fill import ContextFill, ContextTracker
+
+    q = _queue(storage, tmp_path)  # a legacy queue: Claude may run commands here
+    calls = []
+    monkeypatch.setattr(ContextTracker, "fills", lambda self, st, queues: {x.id: ContextFill(186_000, 200_000) for x in queues})
+    monkeypatch.setattr(gitops, "work_status", lambda cwd: calls.append(cwd) or gitops.WorkStatus(12, 3, 2, 0, "origin/main", "feature-x"))
+    server = api.Api(storage)
+
+    listed = server.conversations()[0]
+    assert listed["context"] == {"tokens": 186_000, "percent": 93, "level": "danger"}
+    assert listed["git"] == {"branch": "feature-x", "added": 12, "removed": 3, "ahead": 2, "behind": 0}
+    server.conversations()
+    server.conversation(q.id)
+    assert len(calls) == 1  # looked up once per folder in GIT_SECONDS
+    monkeypatch.setattr(api, "GIT_SECONDS", 0.0)
+    server.conversations()
+    assert len(calls) == 2
+
+
+def test_no_context_and_no_git_where_claude_may_not_run_commands(storage, tmp_path, monkeypatch):
+    from ccc import gitops
+
+    q = _queue(storage, tmp_path)
+    monkeypatch.setattr(gitops, "claude_can_run_commands", lambda queue: False)
+    monkeypatch.setattr(gitops, "work_status", lambda cwd: pytest.fail("git must not run here"))
+    listed = api.Api(storage).conversations()[0]
+    assert listed["git"] is None and listed["context"] is None  # no transcript either

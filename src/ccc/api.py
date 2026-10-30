@@ -67,7 +67,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from ccc import __version__, groups, i18n, launch_options, mcp_servers
+from ccc import __version__, context_fill, groups, i18n, launch_options, mcp_servers
 from ccc.api_agents import AgentEndpoints
 from ccc.api_common import ApiError, int_of, iso, route, task_line, text_of
 from ccc.api_views import ViewEndpoints
@@ -114,6 +114,9 @@ def token_valid(storage: Storage, given: str) -> bool:
     return bool(given) and bool(stored) and hmac.compare_digest(_digest(given), stored)
 
 
+GIT_SECONDS = 15.0
+
+
 @dataclass
 class _Transcript:
     path: Path | None = None
@@ -130,6 +133,8 @@ class Api(AgentEndpoints, ViewEndpoints):
         self.storage = storage
         self._lock = threading.Lock()
         self._transcripts: dict[str, _Transcript] = {}
+        self._context = context_fill.ContextTracker()
+        self._git: dict[str, tuple[float, object]] = {}  # folder -> (when, gitops.WorkStatus | None)
         self._routes = self._route_table()
 
     # --- routing -------------------------------------------------------------
@@ -230,7 +235,39 @@ class Api(AgentEndpoints, ViewEndpoints):
             "next_retry_at": iso(q.next_retry_at),
             "updated_at": iso(q.updated_at),
             "group": group,
+            "context": self._context_of(q),
+            "git": self._git_of(q),
         }
+
+    def _context_of(self, q) -> dict | None:
+        """How full its context window is (context_fill): tokens, percent
+        (None: window unknown) and the level the Settings thresholds give
+        it — "" / "warn" / "danger"."""
+        fill = self._context.fills(self.storage, [q]).get(q.id)
+        if fill is None:
+            return None
+        warn, danger = context_fill.thresholds(self.storage)
+        return {"tokens": fill.tokens, "percent": fill.percent, "level": context_fill.level(fill, warn, danger)}
+
+    def _git_of(self, q) -> dict | None:
+        """Its folder's branch and what's uncommitted / ahead / behind — only
+        where Claude may run commands anyway (see gitops), and looked up at
+        most every GIT_SECONDS per folder (a list asks for every conversation)."""
+        from ccc import gitops
+
+        if not gitops.claude_can_run_commands(q):
+            return None
+        now = time.monotonic()
+        with self._lock:
+            when, status = self._git.get(q.project_path, (0.0, None))
+        if now - when >= GIT_SECONDS:
+            status = gitops.work_status(q.project_path)
+            with self._lock:
+                self._git[q.project_path] = (now, status)
+        if status is None:
+            return None
+        return {"branch": status.branch, "added": status.added, "removed": status.removed,
+                "ahead": status.ahead, "behind": status.behind}
 
     def conversation(self, queue_id: int) -> dict:
         q = self._queue(queue_id)

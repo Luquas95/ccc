@@ -68,6 +68,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.luquas95.ccc.R
 import io.github.luquas95.ccc.data.LaunchGroup
+import io.github.luquas95.ccc.data.ListDetail
 import io.github.luquas95.ccc.data.NewConversation
 import io.github.luquas95.ccc.data.Permission
 import io.github.luquas95.ccc.ui.theme.CccColors
@@ -426,6 +427,8 @@ fun SetupScreen(
     server: String,
     signedIn: Boolean,
     notifications: Boolean,
+    listDetails: Set<String>,
+    onListDetail: (String, Boolean) -> Unit,
     snackbar: SnackbarHostState,
     onBack: (() -> Unit)?,
     onConnect: (String, String, (Boolean) -> Unit) -> Unit,
@@ -506,6 +509,21 @@ fun SetupScreen(
                     onClick = { context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) },
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(stringResource(R.string.battery)) }
+                Spacer(Modifier.height(16.dp))
+                Text(stringResource(R.string.list_details), style = MaterialTheme.typography.titleSmall,
+                    color = CccColors.Title, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.list_details_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
+                listOf(
+                    ListDetail.PENDING to R.string.detail_pending,
+                    ListDetail.CONTEXT to R.string.detail_context,
+                    ListDetail.GIT to R.string.detail_git,
+                    ListDetail.PATH to R.string.detail_path,
+                ).forEach { (key, label) ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(label), Modifier.weight(1f))
+                        Switch(checked = key in listDetails, onCheckedChange = { on -> onListDetail(key, on) })
+                    }
+                }
                 Spacer(Modifier.height(24.dp))
                 OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.setup_sign_out), color = CccColors.Error)
