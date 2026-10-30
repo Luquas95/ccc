@@ -41,6 +41,7 @@ GET  /api/v1/search?q=                    search every conversation
 POST /api/v1/update/check                 look for a new ccc version now; POST /api/v1/update applies it
 GET  /api/v1/waiting                      conversations that need you (Alt+N)
 GET  /api/v1/prompt-presets               the preset prompts (Alt+1 … 9)
+POST /api/v1/pair                         {"code", "name"}: the one request without a token — trades a pairing code (ccc.pairing) for a device and its token
 GET  /api/v1/devices                      the devices signed in; "current" marks the caller
 POST /api/v1/devices/{id}                 {"name"}: rename a device
 DELETE /api/v1/devices/{id}               sign a device out (the caller too)
@@ -238,6 +239,18 @@ class Api(AgentEndpoints, ViewEndpoints):
             {"id": d.id, "name": d.name, "created_at": iso(d.created_at), "last_seen_at": iso(d.last_seen_at),
              "last_ip": d.last_ip, "current": d.id == caller}
             for d in self.storage.list_devices()]}
+
+    def pair(self, body: dict, ip: str) -> dict:
+        """A phone that scanned the QR: its code for a device of its own."""
+        from ccc import pairing
+
+        name = text_of(body, "name").strip()[:60] or _("Phone")
+        paired = pairing.redeem(self.storage, text_of(body, "code").strip(), name)
+        if paired is None:
+            raise ApiError(HTTPStatus.UNAUTHORIZED, _("The pairing code is wrong, used or has run out."))
+        device, token = paired
+        self.storage.touch_device(device.id, ip)
+        return {"token": token, "device_id": device.id, "name": device.name, "version": __version__}
 
     def rename_device(self, device_id: int, body: dict) -> dict:
         name = text_of(body, "name").strip()
@@ -914,6 +927,9 @@ class _Handler(BaseHTTPRequestHandler):
         query = {k: v[-1] for k, v in parse_qs(url.query).items() if k != CALLER}
         try:
             i18n.load(self.api.storage)  # follows the language set in the TUI
+            if method == "POST" and url.path == PREFIX + "/pair":
+                self._send(HTTPStatus.CREATED, self.api.pair(self._body(), self.client_address[0]))
+                return
             if not self._authorized():
                 raise ApiError(HTTPStatus.UNAUTHORIZED, _("Missing or wrong API token."))
             if method == "GET" and url.path == PREFIX + "/events":

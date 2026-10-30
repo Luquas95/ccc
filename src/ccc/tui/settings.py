@@ -349,6 +349,14 @@ class SettingsModal(ModalScreen):
                          key=keymap.pretty(keymap.current(s)["views.update"])),
                    classes="settings-hint"),
         )
+        devices_box = _section(
+            _("Devices"),
+            Static(_("Phones signed in to the Android app's API. Pair a new one by QR code, or sign one out."),
+                   classes="settings-hint"),
+            Horizontal(Button(_("Devices…"), id="settings-devices"),
+                       Static(id="settings-devices-state", classes="settings-status"),
+                       classes="settings-actions"),
+        )
         data = _section(
             _("Data"),
             Static(id="data-info", classes="settings-status"),
@@ -356,7 +364,7 @@ class SettingsModal(ModalScreen):
             Horizontal(Button(_("Back up now"), id="settings-backup"), classes="settings-actions"),
         )
         box = Container(
-            VerticalScroll(appearance, editor_box, telegram, discord, queues, context, dashboard, prompt_box, preset_box, shortcuts, exports, archive_box, update_box, data,
+            VerticalScroll(appearance, editor_box, telegram, discord, queues, context, dashboard, prompt_box, preset_box, shortcuts, exports, archive_box, update_box, devices_box, data,
                            id="settings-scroll"),
             Horizontal(
                 Static(_("Ctrl+S save  ·  Esc cancel"), classes="modal-hint"),
@@ -380,6 +388,7 @@ class SettingsModal(ModalScreen):
         self._refresh_telegram_state()
         self._refresh_discord_state()
         self._refresh_data_info()
+        self._show_devices_state()
         self.query_one("#settings-language", Select).focus()
 
     def _refresh_telegram_state(self) -> None:
@@ -409,6 +418,7 @@ class SettingsModal(ModalScreen):
             "settings-preset-delete": self._delete_preset,
             "settings-backup": self._backup,
             "settings-keys": self._edit_keys,
+            "settings-devices": self._edit_devices,
             "settings-archive-now": self._archive_now,
             "settings-prompt-add": self._add_prompt_preset,
             "settings-prompt-edit": self._edit_prompt_preset,
@@ -418,6 +428,16 @@ class SettingsModal(ModalScreen):
         }.get(event.button.id or "")
         if handler:
             handler()
+
+    def _show_devices_state(self) -> None:
+        n = len(self.storage.list_devices())
+        self.query_one("#settings-devices-state", Static).update(
+            _("{n} signed in").format(n=n) if n else _("none"))
+
+    def _edit_devices(self) -> None:
+        from ccc.tui.devices import DevicesModal
+
+        self.app.push_screen(DevicesModal(self.storage), lambda _result: self._show_devices_state())
 
     def _edit_keys(self) -> None:
         from ccc.tui.keys import KeysModal

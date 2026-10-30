@@ -23,6 +23,7 @@ now* act right away.
 | Exports | the folder for exported conversations (`e`) and screenshots (`Alt+S`); optionally send each export to Telegram / Discord |
 | Monthly analytics archive | see [Analytics](analytics.md) |
 | Updates | look for new versions of ccc, on or off — see below |
+| Devices | the phones signed in to the Android app's API; pair a new one by QR code, sign one out — see [Android app & API](android-api.md) |
 | Data | where the database and its daily backups are, *Back up now* |
 
 The same values can be set from the shell, see

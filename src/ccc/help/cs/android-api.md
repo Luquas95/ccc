@@ -25,7 +25,18 @@ požadavek potřebuje token.
    odhlásí hned, i otevřená spojení. Každé zařízení má vlastní token a dá
    se odhlásit samo: `ccc api devices` je vypíše, `ccc api revoke ID`
    odhlásí jedno.
-4. V aplikaci zadej adresu (stačí `<počítač>.<tailnet>.ts.net`) a token.
+4. V aplikaci zadej adresu (stačí `<počítač>.<tailnet>.ts.net`) a token
+   — nebo kroky 3 a 4 přeskoč a **spáruj telefon QR kódem**:
+
+   *Nastavení → Zařízení… → Spárovat nové zařízení* (nebo `ccc api pair`
+   v terminálu) ukáže QR kód; v aplikaci zvol *Připojení → Skenovat QR*.
+   Kód obsahuje adresu API a jednorázový párovací kód, platný 5 minut a
+   pro jeden telefon; aplikace ho vymění za vlastní token (`POST /pair`,
+   jediný požadavek bez tokenu), takže se nic nepíše a token obrázkem
+   neprochází. Adresu ccc najde v `tailscale serve status`; když ne,
+   zadej ji: `ccc api pair --server https://<počítač>.<tailnet>.ts.net`.
+   *Nastavení → Zařízení…* také vypíše přihlášené telefony a jeden
+   odhlásí.
 
 Bez služby ho spustí v terminálu `ccc api serve` (`--port` pro jiný
 port).
@@ -96,6 +107,7 @@ Každá cesta začíná `/api/v1`; každý požadavek má hlavičku
 | `GET /sessions?path=` | relace Claude Code ve složce, nejnovější první (k pokračování: `session_id` v `POST /conversations` se `session_resume`) |
 | `GET /launch-presets` | předvolby okna Nová konverzace a poslední volba |
 | `GET /prompt-presets` | přednastavené prompty (Alt+1 … 9 v ccc) |
+| `POST /pair` | `{"code", "name"}` — bez tokenu: vymění párovací kód z QR za nové zařízení; vrátí `{"token", "device_id", "name", "version"}`, 401 při špatném, použitém nebo prošlém kódu |
 | `GET /devices` | přihlášená zařízení: jméno, vytvoření, naposledy vidět, adresa; `current` označí volajícího. `POST /devices/{id}` `{"name"}` jedno přejmenuje, `DELETE /devices/{id}` ho hned odhlásí (i otevřená spojení) |
 | `GET /groups` | seskupení a tvé vlastní skupiny; `POST /groups/rename` `{"old", "new"}`, `POST /groups/delete` `{"name"}` |
 | `GET /search?q=` | hledání ve všech konverzacích (i archivovaných), nejnovější první |

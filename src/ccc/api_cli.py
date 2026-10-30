@@ -5,12 +5,12 @@ from __future__ import annotations
 import argparse
 import logging
 
-from ccc import api
+from ccc import api, pairing
 from ccc.i18n import _
 
 
 def add_parser(subparsers) -> None:
-    parser = subparsers.add_parser("api", help=_("HTTP API for the Android app (serve, token, devices)"))
+    parser = subparsers.add_parser("api", help=_("HTTP API for the Android app (serve, token, pair, devices)"))
     sub = parser.add_subparsers(dest="api_command", required=True)
     serve = sub.add_parser("serve", help=_("Run the API (what the ccc-api service runs)"))
     serve.add_argument("--host", default=api.DEFAULT_HOST,
@@ -19,6 +19,8 @@ def add_parser(subparsers) -> None:
     serve.add_argument("--port", type=int, default=api.DEFAULT_PORT)
     token = sub.add_parser("token", help=_("Make the token the app signs in with (shown once)"))
     token.add_argument("--new", action="store_true", help=_("make a new one; every device is signed out"))
+    pair = sub.add_parser("pair", help=_("Show a QR code the app scans to sign in (good for 5 minutes)"))
+    pair.add_argument("--server", help=_("the API's address, if ccc can't find it (https://…ts.net)"))
     sub.add_parser("devices", help=_("List the devices signed in"))
     revoke = sub.add_parser("revoke", help=_("Sign a device out"))
     revoke.add_argument("id", type=int, help=_("its number from `ccc api devices`"))
@@ -29,6 +31,8 @@ def run(storage, db_path: str, args: argparse.Namespace) -> int:
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
         api.serve(db_path, args.host, args.port)
         return 0
+    if args.api_command == "pair":
+        return _pair(storage, args.server)
     if args.api_command == "devices":
         devices = storage.list_devices()
         for device in devices:
@@ -49,4 +53,19 @@ def run(storage, db_path: str, args: argparse.Namespace) -> int:
         return 0
     print(api.new_token(storage))
     print(_("Enter it in the app now — it isn't shown again. Every token made before no longer works."))
+    return 0
+
+
+def _pair(storage, server: str | None) -> int:
+    server = (server or "").strip().rstrip("/") or pairing.server_url(storage)
+    if not server:
+        print(_("ccc can't tell where the app reaches the API. Put it on the tailnet (tailscale serve --bg 8737) "
+                "or give the address: ccc api pair --server https://<computer>.<tailnet>.ts.net"))
+        return 1
+    code, expires = pairing.new_code(storage)
+    # Black on white whatever the terminal's colours: a scanner needs dark modules on a light ground.
+    for line in pairing.qr_lines(pairing.payload(server, code)):
+        print(f"\033[30;47m{line}\033[0m")
+    print(_("Scan it in the app (Connect → Scan QR). Good until {time}, once.").format(time=expires.strftime("%H:%M")))
+    print(_("Address: {server}").format(server=server))
     return 0
