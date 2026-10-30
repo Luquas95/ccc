@@ -7,6 +7,16 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// The app's build number: how many commits changed its sources, counted the
+// way ccc counts it (ccc.updates.android_build) — so a pull that changes the
+// app makes the installed build older than ccc's, and the app says so.
+val appBuild: Int = runCatching {
+    providers.exec {
+        commandLine("git", "rev-list", "--count", "HEAD", "--", "src/main")
+        workingDir = projectDir
+    }.standardOutput.asText.get().trim().toInt()
+}.getOrDefault(0).coerceAtLeast(1)
+
 android {
     namespace = "io.github.luquas95.ccc"
     compileSdk = 36
@@ -15,7 +25,7 @@ android {
         applicationId = "io.github.luquas95.ccc"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
+        versionCode = appBuild
         versionName = "0.1.0"
     }
 

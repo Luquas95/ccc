@@ -19,6 +19,15 @@
     <string name="pending_count">ve frontě: %1$d</string>
     <string name="needs_approval">čeká na schválení</string>
     <string name="new_reply">nová odpověď</string>
+    <string name="update_available">Aktualizace ccc — nové commity: %1$d</string>
+    <string name="update_button">Aktualizovat</string>
+    <string name="update_title">Aktualizovat ccc</string>
+    <string name="update_do">Aktualizovat teď</string>
+    <string name="update_android">Změnila se i Android aplikace — sestav a nainstaluj ji.</string>
+    <string name="update_confirm_hint">ccc stáhne nové commity a restartuje se. Interaktivní konverzace běží dál.</string>
+    <string name="update_notification_title">Je dostupná aktualizace ccc</string>
+    <string name="update_notification_text">Nových commitů na origin/main: %1$d</string>
+    <string name="app_older">Tato aplikace je starší než ccc (sestavení %1$d, ccc má %2$d) — sestav a nainstaluj novou.</string>
     <string name="context_short">kontext %1$s</string>
     <string name="list_details">Seznam konverzací</string>
     <string name="list_details_hint">Co každá konverzace ukazuje kromě názvu a stavu. Pamatuje si to tento telefon.</string>

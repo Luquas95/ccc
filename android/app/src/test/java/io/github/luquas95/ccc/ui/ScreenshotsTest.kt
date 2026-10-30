@@ -51,6 +51,7 @@ import io.github.luquas95.ccc.data.PromptPreset
 import io.github.luquas95.ccc.data.SearchHit
 import io.github.luquas95.ccc.data.Queued
 import io.github.luquas95.ccc.data.Status
+import io.github.luquas95.ccc.data.UpdateInfo
 import io.github.luquas95.ccc.data.Usage
 import io.github.luquas95.ccc.data.UsageWindow
 import io.github.luquas95.ccc.data.Waiting
@@ -82,12 +83,24 @@ open class ScreenshotsTest {
 
     @Test
     fun conversations() = shot("conversations", "shop-api") {
-        ConversationsScreen(home, ListDetail.DEFAULT, SnackbarHostState(), listActions)
+        ConversationsScreen(home, ListDetail.DEFAULT, 4, SnackbarHostState(), listActions)
+    }
+
+    @Test
+    fun updateBanner() = shot("update", "shop-api") {
+        val update = UpdateInfo(
+            available = true, behind = 3, remoteHead = "a1b2c3d", android = true, canApply = true,
+            commits = listOf("a1b2c3d Add rate limiting to the orders API", "9f8e7d6 Fix the login redirect",
+                "5c4b3a2 Dashboard: context fill and git state"),
+        )
+        val status = home.status!!.copy(update = update, androidBuild = 6)
+        ConversationsScreen(home.copy(status = status, waiting = emptyList(), usage = null), ListDetail.DEFAULT, 4,
+            SnackbarHostState(), listActions)
     }
 
     @Test
     fun archive() = shot("archive", "old-prototype") {
-        ConversationsScreen(home.copy(showArchive = true, filter = "proto"), ListDetail.DEFAULT, SnackbarHostState(), listActions)
+        ConversationsScreen(home.copy(showArchive = true, filter = "proto"), ListDetail.DEFAULT, 4, SnackbarHostState(), listActions)
     }
 
     @Test

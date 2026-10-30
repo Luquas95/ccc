@@ -12,6 +12,11 @@ sealed interface Alert {
     data class NeedsYou(val waiting: Waiting) : Alert {
         override val key get() = "w:${waiting.conversationId}:${waiting.kind}"
     }
+
+    /** A new ccc version: once per version (its head). */
+    data class Update(val behind: Int, val head: String) : Alert {
+        override val key get() = "u:$head"
+    }
 }
 
 /** The outcome of one check: alerts to show, and keys of shown ones that are over (to take away). */
@@ -24,8 +29,15 @@ data class AlertChanges(val show: List<Alert>, val gone: Set<String>)
  * only after it stopped needing you.
  */
 object Alerts {
-    fun changes(permissions: List<Permission>, waiting: List<Waiting>, shown: Set<String>): AlertChanges {
-        val now = permissions.map(Alert::Approval) + waiting.filter { it.kind != "approval" }.map(Alert::NeedsYou)
+    fun changes(
+        permissions: List<Permission>,
+        waiting: List<Waiting>,
+        shown: Set<String>,
+        update: UpdateInfo? = null,
+    ): AlertChanges {
+        val news = update?.takeIf { it.available && !it.remoteHead.isNullOrEmpty() }?.let { listOf(Alert.Update(it.behind, it.remoteHead!!)) }
+            .orEmpty()
+        val now = permissions.map(Alert::Approval) + waiting.filter { it.kind != "approval" }.map(Alert::NeedsYou) + news
         val keys = now.map { it.key }.toSet()
         return AlertChanges(show = now.filter { it.key !in shown }, gone = shown - keys)
     }

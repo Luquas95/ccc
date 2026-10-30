@@ -14,7 +14,26 @@ data class Status(
     val conversations: Int,
     val running: Int,
     @SerialName("needs_approval") val needsApproval: Int,
+    /** A new ccc version on origin/main; null when ccc isn't looking. */
+    val update: UpdateInfo? = null,
+    /** The app build ccc's checkout has; the installed app is older when its own is lower. */
+    @SerialName("android_build") val androidBuild: Int = 0,
 )
+
+@Serializable
+data class UpdateInfo(
+    val available: Boolean = false,
+    val behind: Int = 0,
+    @SerialName("remote_head") val remoteHead: String? = null,
+    val commits: List<String> = emptyList(),
+    val android: Boolean = false,
+    val error: String? = null,
+    @SerialName("can_apply") val canApply: Boolean = false,
+    val reason: String? = null,
+)
+
+@Serializable
+data class UpdateResult(val ok: Boolean = false, val message: String = "")
 
 @Serializable
 data class Group(val key: String, val title: String)
@@ -285,7 +304,12 @@ data class DiffLine(
 data class Diff(val commit: String, val task: String = "", val lines: List<DiffLine> = emptyList())
 
 @Serializable
-data class Change(val conversations: List<Int> = emptyList(), val removed: List<Int> = emptyList())
+data class Change(
+    val conversations: List<Int> = emptyList(),
+    val removed: List<Int> = emptyList(),
+    /** A new ccc version was found (or taken). */
+    val update: Boolean = false,
+)
 
 /** What the events stream says. */
 sealed interface ServerEvent {

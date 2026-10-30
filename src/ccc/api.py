@@ -116,6 +116,7 @@ def token_valid(storage: Storage, given: str) -> bool:
 
 
 GIT_SECONDS = 15.0
+UPDATE_KEY = -1  # the snapshot's entry for "a new ccc version", beside the conversations' ids
 
 
 @dataclass
@@ -220,7 +221,8 @@ class Api(AgentEndpoints, ViewEndpoints):
             return None
         state = updates.load(self.storage)
         reason = updates.refusal(self.storage) if state.available else None
-        return {"available": state.available, "behind": state.behind, "commits": state.commits,
+        return {"available": state.available, "behind": state.behind, "remote_head": state.remote_head,
+                "commits": state.commits,
                 "android": state.android, "error": state.error, "checked_at": state.checked_at,
                 "can_apply": state.available and reason is None, "reason": reason}
 
@@ -812,15 +814,19 @@ class Api(AgentEndpoints, ViewEndpoints):
                 q.name, q.status.value, q.archived, q.paused, q.last_error, own.get(q.id),
                 self.storage.count_pending_items(q.id), q.id in waiting, q.id in unseen, size,
             )
+        # Not a conversation: a new ccc version (updates) — told to the app as "update".
+        state = updates.load(self.storage)
+        result[UPDATE_KEY] = (state.remote_head, state.behind) if state.available else ()
         return result
 
     @staticmethod
     def changes(before: dict[int, tuple], after: dict[int, tuple]) -> dict | None:
-        changed = sorted(i for i in after if before.get(i) != after[i])
-        removed = sorted(set(before) - set(after))
-        if not changed and not removed:
+        changed = sorted(i for i in after if i != UPDATE_KEY and before.get(i) != after[i])
+        removed = sorted(set(before) - set(after) - {UPDATE_KEY})
+        update = before.get(UPDATE_KEY, ()) != after.get(UPDATE_KEY, ())
+        if not changed and not removed and not update:
             return None
-        return {"conversations": changed, "removed": removed}
+        return {"conversations": changed, "removed": removed, **({"update": True} if update else {})}
 
     # --- helpers --------------------------------------------------------------
 

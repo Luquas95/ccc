@@ -26,4 +26,17 @@ class AlertsTest {
         // Needs you again later: shown again, since it was taken away.
         assertEquals(listOf(Alert.NeedsYou(error)), Alerts.changes(emptyList(), listOf(error), emptySet()).show)
     }
+
+    @Test
+    fun `a new ccc version is told once, and again for the next one`() {
+        val update = UpdateInfo(available = true, behind = 3, remoteHead = "a1b2c3d")
+        val first = Alerts.changes(emptyList(), emptyList(), emptySet(), update)
+        assertEquals(listOf(Alert.Update(3, "a1b2c3d")), first.show)
+        assertEquals(emptyList<Alert>(), Alerts.changes(emptyList(), emptyList(), first.show.map { it.key }.toSet(), update).show)
+        val next = update.copy(remoteHead = "e4f5a6b", behind = 4)
+        assertEquals(listOf(Alert.Update(4, "e4f5a6b")), Alerts.changes(emptyList(), emptyList(), setOf("u:a1b2c3d"), next).show)
+        // Updated: it goes away.
+        assertEquals(setOf("u:a1b2c3d"), Alerts.changes(emptyList(), emptyList(), setOf("u:a1b2c3d"), UpdateInfo()).gone)
+        assertEquals(emptyList<Alert>(), Alerts.changes(emptyList(), emptyList(), emptySet(), UpdateInfo(available = true)).show)
+    }
 }

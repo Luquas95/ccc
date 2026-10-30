@@ -137,6 +137,7 @@ private fun App(model: AppViewModel) {
         Screen.Conversations -> ConversationsScreen(
             state = home,
             listDetails = listDetails,
+            appBuild = model.appBuild,
             snackbar = snackbar,
             actions = ConversationsActions(
                 open = { model.open(Screen.Conversation(it)) },
@@ -153,6 +154,7 @@ private fun App(model: AppViewModel) {
                 routines = { model.open(Screen.Routines) },
                 sessions = { model.open(Screen.LiveSessions) },
                 analytics = { model.open(Screen.Analytics) },
+                applyUpdate = model::applyUpdate,
             ),
         )
         is Screen.Conversation -> conversation?.takeIf { it.id == screen.id }?.let {

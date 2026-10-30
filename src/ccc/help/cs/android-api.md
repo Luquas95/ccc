@@ -41,6 +41,8 @@ o schválení — odpovíš přímo v oznámení —, chybě, limitu využití n
 hotové odpovědi. Žádný push server se nepoužívá; na Xiaomi / HyperOS
 aplikaci povol běh na pozadí, jinak ji systém zastaví.
 
+**Aktualizace:** `GET /status` má `update` (nové commity nalezené na `origin/main`, `can_apply`, proč ne) a `android_build`; `POST /update/check` zjistí hned, `POST /update` aktualizuje ccc (pull, instalace, restart; 409 s důvodem, když to nejde) — viz [Nastavení](settings.md#aktualizace-ccc). Aplikace ukáže banner s tlačítkem *Aktualizovat* a řekne, když je starší než ccc (`android_build`); proud událostí hlásí `update`, když se objeví nová verze.
+
 **Co seznam ukazuje** (Připojení → *Seznam konverzací*): zaplnění kontextu,
 stav gitu, úkoly ve frontě a složku, každé zapnuté nebo vypnuté — pamatuje
 si to telefon, takže malá obrazovka může ukazovat méně.

@@ -73,6 +73,24 @@ class CccApiTest {
     }
 
     @Test
+    fun `reads the update a new ccc version brings and applies it`() = runBlocking {
+        answers["status"] = 200 to """{"version": "0.1.0", "language": "en", "daemon_running": true, "conversations": 1,
+            "running": 0, "needs_approval": 0, "android_build": 7,
+            "update": {"available": true, "behind": 2, "remote_head": "abc1234", "commits": ["abc1234 one", "def5678 two"],
+            "android": true, "error": null, "checked_at": "2026-10-30T12:00:00", "can_apply": false,
+            "reason": "A task is running (shop)"}}"""
+        val status = api().status()
+        assertEquals(7, status.androidBuild)
+        assertEquals(2, status.update?.behind)
+        assertEquals("A task is running (shop)", status.update?.reason)
+        assertEquals(false, status.update?.canApply)
+
+        answers["update"] = 200 to """{"ok": true, "message": "Updated to abc1234 — ccc is restarting."}"""
+        assertEquals("Updated to abc1234 — ccc is restarting.", api().applyUpdate().message)
+        assertEquals("POST", seen.last().method)
+    }
+
+    @Test
     fun `reads the list with the token`() = runBlocking {
         answers["conversations"] = 200 to """[{"id": 1, "name": "shop", "path": "/p", "status": "blocked_error",
             "delivery_mode": "interactive", "pending": 2, "needs_approval": true, "last_error": "boom",
