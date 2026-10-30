@@ -517,3 +517,21 @@ def test_retry_does_nothing_to_a_working_queue(storage):
     storage.update_queue_status(queue.id, QueueStatus.RUNNING)
     assert not storage.retry_queue(queue.id)
     assert storage.get_queue(queue.id).status == QueueStatus.RUNNING
+
+
+def test_live_work_in_claude_code_shows_busy_then_unseen(tmp_path):
+    from datetime import timedelta
+
+    storage = Storage(tmp_path / "h.db")
+    q = storage.create_queue("a", "/tmp/a", "s1")
+    storage.mark_seen(q.id)
+    storage.set_live_busy(q.id, True)
+    assert storage.get_queue(q.id).live_busy
+    assert storage.unseen_queue_ids() == set()  # still working: nothing finished yet
+    storage.set_live_busy(q.id, False)
+    assert not storage.get_queue(q.id).live_busy
+    assert storage.unseen_queue_ids() == {q.id}  # it finished while you weren't looking
+    storage.set_live_busy(q.id, False)  # idle again and again: no new finish
+    storage.mark_seen(q.id)
+    assert storage.unseen_queue_ids() == set()
+    assert datetime.now() + timedelta(seconds=1) > storage.get_queue(q.id).last_seen_at

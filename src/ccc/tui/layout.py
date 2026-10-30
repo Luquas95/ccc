@@ -90,7 +90,7 @@ def queue_marker(queue: Queue, unseen: bool, needs_approval: bool = False) -> tu
     already looked at (an archived conversation has no marker)."""
     if needs_approval:
         return "?", "bold yellow"
-    if queue.status == QueueStatus.RUNNING:
+    if queue.status == QueueStatus.RUNNING or queue.live_busy:
         return "●", "bold green"
     if queue.status == QueueStatus.BLOCKED_ERROR:
         return "✖", "bold red"

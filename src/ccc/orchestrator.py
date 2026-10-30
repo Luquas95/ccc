@@ -608,6 +608,8 @@ class QueueRuntime:
         session = await self._managed_agent(queue)
         if session is None:
             return
+        # What you typed into Claude Code yourself shows in the list too.
+        self.storage.set_live_busy(queue.id, session.status == "busy")
         if queue.first_run_flags is not None and session.session_id != queue.session_id:
             # Fork / from-PR: the process created a new session id.
             self._adopt_session(queue, session.session_id)

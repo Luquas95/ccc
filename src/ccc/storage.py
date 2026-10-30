@@ -50,7 +50,9 @@ CREATE TABLE IF NOT EXISTS queues (
     paused INTEGER NOT NULL DEFAULT 0,
     archived INTEGER NOT NULL DEFAULT 0,
     last_seen_at TEXT,
-    remote_control_url TEXT
+    remote_control_url TEXT,
+    live_busy INTEGER NOT NULL DEFAULT 0,
+    live_finished_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS queue_items (
@@ -370,6 +372,10 @@ class Storage:
                 conn.commit()
         if "routine_id" not in columns:
             conn.execute("ALTER TABLE queues ADD COLUMN routine_id INTEGER")
+            conn.commit()
+        if "live_busy" not in columns:
+            conn.execute("ALTER TABLE queues ADD COLUMN live_busy INTEGER NOT NULL DEFAULT 0")
+            conn.execute("ALTER TABLE queues ADD COLUMN live_finished_at TEXT")
             conn.commit()
 
     def _connect(self) -> sqlite3.Connection:
@@ -1166,14 +1172,34 @@ class Storage:
             conn.execute("UPDATE queues SET last_seen_at = ? WHERE id = ?", (datetime.now().isoformat(), queue_id))
             conn.commit()
 
+    def set_live_busy(self, queue_id: int, busy: bool) -> None:
+        """What an interactive conversation's Claude Code is doing right now
+        (typed into its pane, not a queued prompt). Going from busy to idle
+        is a finished piece of work: unseen_queue_ids() reports it."""
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT live_busy FROM queues WHERE id = ?", (queue_id,)).fetchone()
+            if row is None or bool(row[0]) == busy:
+                return
+            if busy:
+                conn.execute("UPDATE queues SET live_busy = 1 WHERE id = ?", (queue_id,))
+            else:
+                conn.execute("UPDATE queues SET live_busy = 0, live_finished_at = ? WHERE id = ?",
+                             (datetime.now().isoformat(), queue_id))
+            conn.commit()
+
     def unseen_queue_ids(self) -> set[int]:
-        """Queues with a run that finished after they were last viewed."""
+        """Queues with a run (or live work in their Claude Code) that
+        finished after they were last viewed."""
         with closing(self._connect()) as conn:
             rows = conn.execute(
                 "SELECT DISTINCT q.id FROM queues q JOIN prompt_runs r ON r.queue_id = q.id "
                 "WHERE r.finished_at IS NOT NULL AND (q.last_seen_at IS NULL OR r.finished_at > q.last_seen_at)"
             ).fetchall()
-            return {r[0] for r in rows}
+            live = conn.execute(
+                "SELECT id FROM queues WHERE live_finished_at IS NOT NULL "
+                "AND (last_seen_at IS NULL OR live_finished_at > last_seen_at)"
+            ).fetchall()
+            return {r[0] for r in rows} | {r[0] for r in live}
 
     def set_item_continue_on_retry(self, item_id: int, value: bool) -> None:
         with closing(self._connect()) as conn:
@@ -1457,6 +1483,7 @@ class Storage:
             last_seen_at=datetime.fromisoformat(row["last_seen_at"]) if row["last_seen_at"] else None,
             remote_control_url=row["remote_control_url"],
             routine_id=row["routine_id"],
+            live_busy=bool(row["live_busy"]),
         )
 
     @staticmethod

@@ -91,6 +91,9 @@ class Queue:
     remote_control_url: str | None = None
     # Started by this routine for one run (target "fresh"); archived when done.
     routine_id: int | None = None
+    # Claude Code of an interactive conversation is working right now
+    # (anything, also what you typed into it), set by the daemon.
+    live_busy: bool = False
 
 
 @dataclass

@@ -51,6 +51,9 @@ def test_queue_marker():
         q.status = status
         assert queue_marker(q, unseen=True)[0] == icon  # activity beats "new"
     q.status = QueueStatus.IDLE
+    q.live_busy = True  # typed into its Claude Code, not a queued prompt
+    assert queue_marker(q, unseen=False)[0] == "●"
+    q.live_busy = False
     q.paused = True
     assert queue_marker(q, unseen=False)[0] == "‖"
 
