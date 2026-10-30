@@ -566,15 +566,9 @@ class SidebarScreen(Screen):
         self.app.push_screen(HelpScreen(VIEW_TOPICS.get(self.VIEW, "getting-started")))
 
     def action_new_conversation(self) -> None:
-        from ccc.tui import cli_pane
         from ccc.tui.new_conversation import NewConversationModal
 
-        # With Claude Code open ccc is only the sidebar's width: too narrow
-        # for the dialog, so it gets the whole window meanwhile.
-        zoomed = cli_pane.zoom_ccc()
-
         def opened(queue_id: int | None) -> None:
-            cli_pane.unzoom_ccc(zoomed)
             if queue_id is not None:
                 self.open_conversation(queue_id)
 
