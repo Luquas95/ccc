@@ -18,19 +18,10 @@ VARIABLES = {
     "ccc-selection": "#005f87",  # the selected row / view
     "ccc-human": "#5f87af",  # your messages
     "ccc-claude": "#5faf5f",  # Claude's replies
-    "ccc-frame": "#3a3a3a",  # frame lines when ccc has no tmux frame (see frame_variables)
+    "ccc-frame": "#5faf5f",  # frame lines (the same green as the tmux frame, FRAME)
 }
 
-# The frame lines (the tmux borders and ccc's own panel lines) have the
-# colour of where the keys go: Claude Code's or ccc's. The same two colours
-# in tmux (colour N of the 256 cube, as Textual's hex is rounded to) and in
-# ccc, so a line looks the same on both sides of the border.
-FRAME_CLAUDE, TMUX_FRAME_CLAUDE = "#5faf5f", "colour71"
-FRAME_CCC, TMUX_FRAME_CCC = "#5fafd7", "colour74"
-
-
-def frame_variables(keys_in: str | None) -> dict[str, str]:
-    """VARIABLES with ccc-frame for `keys_in`: "claude", "ccc", or None
-    (no tmux frame to match: the plain line colour)."""
-    frame = {"claude": FRAME_CLAUDE, "ccc": FRAME_CCC}.get(keys_in or "")
-    return {**VARIABLES, "ccc-frame": frame} if frame else VARIABLES
+# The frame lines — the tmux borders and ccc's own panel lines — are one
+# colour: green. colourN is the 256-cube colour Textual's hex is rounded
+# to, so a line looks the same on both sides of a border.
+FRAME, TMUX_FRAME = "#5faf5f", "colour71"

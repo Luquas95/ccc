@@ -240,7 +240,16 @@ SidebarScreen {
 SidebarScreen #sidebar {
     width: 32;
     background: $ccc-sidebar;
+    border: round $ccc-frame;
+}
+/* In ccc's tmux the frame is tmux's: one line between the menu and Claude
+   Code (none while Claude Code is open — tmux's line is the one). */
+SidebarScreen.-tmux-frame #sidebar {
+    border: none;
     border-right: solid $ccc-frame;
+}
+SidebarScreen.-tmux-frame.-cli-open #sidebar {
+    border-right: none;
 }
 SidebarScreen #daemon-state {
     padding: 0 1;
@@ -461,8 +470,10 @@ class SidebarScreen(Screen):
         self.refresh_daemon_state()
         self.set_interval(2.0, self.refresh_daemon_state)
         if getattr(self.app, "footer_strip", False):
-            # The keys are in the strip under the whole window (footer_strip).
+            # The keys are in the strip under the whole window (footer_strip),
+            # and tmux draws the frame (see SHARED_CSS: the menu's border).
             self.query_one(Footer).display = False
+            self.add_class("-tmux-frame")
 
     def refresh_daemon_state(self) -> None:
         from ccc.heartbeat import daemon_alive
