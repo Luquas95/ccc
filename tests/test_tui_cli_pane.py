@@ -323,14 +323,12 @@ def test_publish_waiting_escapes_hashes(monkeypatch):
     assert calls == [("set-option", "-w", "-t", "%0", cli_pane.WAITING_OPTION, "? ##1 ##[fg=red] waits")]
 
 
-def test_whole_frame_coloured_by_where_the_keys_go():
+def test_whole_frame_is_green():
     options = dict(cli_pane.BORDER_OPTIONS)
-    # Active and inactive borders share one colour (decided by which pane is
-    # focused, looking through all of the window's panes), so the line isn't
-    # green only along the focused pane.
-    assert options["pane-border-style"] == f"fg={cli_pane.BORDER_COLOR}"
-    assert options["pane-active-border-style"] == f"fg={cli_pane.BORDER_COLOR},bold"
-    assert cli_pane.BORDER_COLOR == "#{?#{P:#{?#{&&:#{pane_active},#{@ccc-cli}},1,}},colour71,colour74}"
+    # Active and inactive borders: the same green in ccc and in Claude Code.
+    assert options["pane-border-style"] == "fg=colour71"
+    assert options["pane-active-border-style"] == "fg=colour71,bold"
+    assert "colour74" not in options["pane-border-format"]
 
 
 def test_strip_and_bar_have_no_title_text(tmux):
