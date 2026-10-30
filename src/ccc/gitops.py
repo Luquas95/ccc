@@ -359,6 +359,8 @@ class WorkStatus:
     ahead: int | None = None
     behind: int | None = None
     base: str | None = None
+    # The checked-out branch ("HEAD" when detached).
+    branch: str | None = None
 
     def short(self) -> str:
         parts = []
@@ -415,7 +417,8 @@ def work_status(cwd: str) -> WorkStatus | None:
             counts = _git(cwd, "rev-list", "--left-right", "--count", f"{base}...HEAD").stdout.split()
             if len(counts) == 2:
                 behind, ahead = int(counts[0]), int(counts[1])
-        return WorkStatus(added, removed, ahead, behind, base)
+        head = _git(cwd, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+        return WorkStatus(added, removed, ahead, behind, base, head or None)
     except (OSError, subprocess.TimeoutExpired, ValueError):
         return None
 

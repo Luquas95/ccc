@@ -105,10 +105,18 @@ CS: dict[str, str] = {
     "Today's tokens": "Tokeny dnes",
     "{n} blocked": "zablokované: {n}",
     "{n} running": "běží: {n}",
+    "{n} waiting for you": "čeká na tebe: {n}",
+    "Git": "Git",
     "[b]{queues}[/b] queues  ·  {running}  ·  [b]{pending}[/b] pending  ·  {blocked}  ·  "
-    "[b]{tokens}[/b] tokens today":
+    "{needs}  ·  [b]{tokens}[/b] tokens today":
         "fronty: [b]{queues}[/b]  ·  {running}  ·  čeká: [b]{pending}[/b]  ·  {blocked}  ·  "
-        "tokeny dnes: [b]{tokens}[/b]",
+        "{needs}  ·  tokeny dnes: [b]{tokens}[/b]",
+    "Wide screen": "Široká obrazovka",
+    "Narrow screen": "Úzká obrazovka",
+    "Columns of the Dashboard table; the conversation's name is always shown. Narrow: a window "
+    "up to {width} columns wide, such as a phone.":
+        "Sloupce tabulky v Přehledu; název konverzace je vidět vždy. Úzká: okno široké nejvýše "
+        "{width} sloupců, např. telefon.",
 
     # --- Queue detail -----------------------------------------------------------
     "Queue detail": "Detail fronty",

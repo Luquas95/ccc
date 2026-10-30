@@ -5,7 +5,7 @@ from datetime import date
 from rich.text import Text
 from textual.widgets import DataTable, Static
 
-from ccc import keymap
+from ccc import attention, context_fill, dashboard_columns, gitops, keymap
 from ccc.i18n import _
 from ccc.models import QueueStatus
 from ccc.storage import Storage
@@ -17,7 +17,14 @@ from ccc.tui.layout import (
 )
 
 
-PATH_COLUMN_WIDTH = 48
+PATH_COLUMN_WIDTH = 48  # until the table's width is known
+MIN_PATH_WIDTH = 14
+CELL_PADDING = 2  # a DataTable column has a space on each side of its content
+BRANCH_WIDTH = 20
+# How often the transcripts (context fill) and the git folders are looked at,
+# in a thread, so the 2 s refresh of the table never waits for them.
+CONTEXT_SECONDS = 5.0
+GIT_STATUS_SECONDS = 15.0
 
 # Instead of an empty table, until the first conversation exists.
 GETTING_STARTED = _("""\
@@ -32,10 +39,21 @@ GETTING_STARTED = _("""\
 Press [b]?[/b] for the guide — every screen, every key.""")
 
 
-def _shorten_path(path: str) -> str:
-    """Keep the informative tail of long paths so the table doesn't need a
-    horizontal scrollbar."""
-    return path if len(path) <= PATH_COLUMN_WIDTH else "…" + path[-(PATH_COLUMN_WIDTH - 1):]
+def _shorten_path(path: str, width: int = PATH_COLUMN_WIDTH) -> str:
+    """Cut a long path from the front, so the folder Claude works in (the
+    last one) always stays: …/projects/shop-api. Only a last folder that is
+    itself too long loses its beginning."""
+    if len(path) <= width:
+        return path
+    *parents, last = path.split("/")
+    if len(last) + 1 >= width:
+        return "…" + last[-(width - 1):]
+    kept = last
+    for part in reversed(parents):
+        if len(kept) + len(part) + 3 > width:  # "…/" and the "/" before kept
+            break
+        kept = f"{part}/{kept}"
+    return f"…/{kept}"
 
 
 class DashboardScreen(SidebarScreen):
@@ -56,15 +74,114 @@ class DashboardScreen(SidebarScreen):
         yield panel(Static(GETTING_STARTED), title=_("Getting started"), id="dashboard-welcome")
         yield panel(DataTable(id="dashboard-table"), title=_("Queues"), fill=True)
 
+    _columns: list[str] | None = None  # the columns the table has now
+
     def on_mount(self) -> None:
         table = self.query_one("#dashboard-table", DataTable)
         table.cursor_type = "row"
-        table.add_columns(_("Project"), _("Status"), _("Pending"), _("Today's tokens"), _("Path"))
+        self._context_fills: dict[int, context_fill.ContextFill] = {}
+        self._context_tracker = context_fill.ContextTracker()
+        self._git_status: dict[int, gitops.WorkStatus | None] = {}
         self.refresh_table()
         self.set_interval(2.0, self.refresh_table)
+        self._refresh_context()
+        self.set_interval(CONTEXT_SECONDS, self._refresh_context)
+        self._refresh_git_status()
+        self.set_interval(GIT_STATUS_SECONDS, self._refresh_git_status)
+
+    def on_resize(self) -> None:
+        # Narrow ↔ wide changes which columns are shown (Settings).
+        if self._columns is not None:
+            self.refresh_table()
+
+    def _narrow(self) -> bool:
+        return dashboard_columns.is_narrow(self.app.size.width)
+
+    def _refresh_context(self) -> None:
+        if dashboard_columns.CONTEXT not in (self._columns or []):
+            return
+        queues = self._visible_queues()
+        tracker, storage = self._context_tracker, self.storage
+
+        def work() -> None:
+            self.app.call_from_thread(self._set_context, tracker.fills(storage, queues))
+
+        self.run_worker(work, thread=True, group="dashboard-context", exclusive=True)
+
+    def _set_context(self, fills: dict) -> None:
+        self._context_fills = fills
+
+    def _refresh_git_status(self) -> None:
+        """Only where Claude may run commands (ccc runs git only there, see
+        gitops); the other conversations show a dash."""
+        if dashboard_columns.GIT not in (self._columns or []):
+            return
+        queues = [q for q in self._visible_queues() if gitops.claude_can_run_commands(q)]
+
+        def work() -> None:
+            by_path: dict[str, gitops.WorkStatus | None] = {}
+            result = {}
+            for q in queues:
+                if q.project_path not in by_path:
+                    by_path[q.project_path] = gitops.work_status(q.project_path)
+                result[q.id] = by_path[q.project_path]
+            self.app.call_from_thread(self._set_git_status, result)
+
+        self.run_worker(work, thread=True, group="dashboard-git", exclusive=True)
+
+    def _set_git_status(self, result: dict) -> None:
+        self._git_status = result
+
+    def _set_columns(self, table: DataTable, columns: list[str]) -> None:
+        """Rebuild the table's columns: Project, then the chosen ones."""
+        table.clear(columns=True)
+        table.add_column(_("Project"))
+        titles = dict(dashboard_columns.COLUMNS)
+        for column in columns:
+            table.add_column(_(titles[column]))
+        self._columns = columns
+        # A column that just appeared has nothing to show until its worker ran.
+        self._refresh_context()
+        self._refresh_git_status()
+
+    @staticmethod
+    def _path_width(table: DataTable, columns: list[str], rows: list) -> int:
+        """What is left of the table's width for the path, once the other
+        columns have what they need (a path column is last)."""
+        if dashboard_columns.PATH not in columns or not table.size.width:
+            return PATH_COLUMN_WIDTH
+        titles = dict(dashboard_columns.COLUMNS)
+        used = max([Text(_("Project")).cell_len, *[row[0].cell_len for row in rows]]) + CELL_PADDING
+        for column in columns:
+            if column != dashboard_columns.PATH:
+                used += max([len(_(titles[column])), *[row[1][column].cell_len for row in rows]]) + CELL_PADDING
+        # The scrollbar's column and the path column's own padding.
+        return max(MIN_PATH_WIDTH, table.size.width - used - CELL_PADDING - 2)
+
+    def _git_cell(self, queue) -> Text:
+        status = self._git_status.get(queue.id)
+        if status is None:
+            return Text("–", style="dim")
+        cell = Text()
+        if status.branch:
+            branch = status.branch if len(status.branch) <= BRANCH_WIDTH else status.branch[:BRANCH_WIDTH - 1] + "…"
+            cell.append(branch, style="cyan")
+        if status.short():
+            cell.append((" " if cell else "") + status.short(), style="yellow")
+        return cell
+
+    def _context_cell(self, queue, warn: int, danger: int) -> Text:
+        fill = self._context_fills.get(queue.id)
+        if fill is None:
+            return Text("–", style="dim")
+        return Text(context_fill.list_text(fill), style=context_fill.LEVEL_STYLES[context_fill.level(fill, warn, danger)])
 
     def refresh_table(self) -> None:
         table = self.query_one("#dashboard-table", DataTable)
+        narrow = self._narrow()
+        columns = dashboard_columns.shown(self.storage, narrow)
+        if columns != self._columns:
+            self._set_columns(table, columns)
         # Keep the cursor where it was across the periodic rebuild.
         cursor_row = table.cursor_row
         table.clear()
@@ -72,6 +189,8 @@ class DashboardScreen(SidebarScreen):
         queues = self._visible_queues()
         unseen = self.storage.unseen_queue_ids()
         waiting = self.storage.queues_waiting_for_approval()
+        warn, danger = context_fill.thresholds(self.storage)
+        rows = []
         for queue in queues:
             pending = self.storage.count_pending_items(queue.id)
             today_tokens = self.storage.queue_token_total(queue.id, day=date.today())
@@ -79,13 +198,21 @@ class DashboardScreen(SidebarScreen):
             total_tokens += today_tokens
             blocked += queue.status == QueueStatus.BLOCKED_ERROR
             running += queue.status == QueueStatus.RUNNING
-            table.add_row(
+            rows.append((
                 queue_label(queue, queue.id in unseen, needs_approval=queue.id in waiting),
-                styled_status(queue.status),
-                str(pending),
-                f"{today_tokens:,}",
-                Text(_shorten_path(queue.project_path), style="dim"),
-            )
+                {
+                    dashboard_columns.STATUS: Text.from_markup(styled_status(queue.status)),
+                    dashboard_columns.PENDING: Text(str(pending)),
+                    dashboard_columns.TOKENS: Text(f"{today_tokens:,}"),
+                    dashboard_columns.CONTEXT: self._context_cell(queue, warn, danger),
+                    dashboard_columns.GIT: self._git_cell(queue),
+                },
+                queue.project_path,
+            ))
+        path_width = self._path_width(table, columns, rows)
+        for label, cells, path in rows:
+            cells[dashboard_columns.PATH] = Text(_shorten_path(path, path_width), style="dim")
+            table.add_row(label, *[cells[column] for column in columns])
         if queues and cursor_row is not None:
             table.move_cursor(row=min(cursor_row, len(queues) - 1))
 
@@ -97,11 +224,16 @@ class DashboardScreen(SidebarScreen):
             blocked_text = f"[bold red]{blocked_text}[/]"
         if running:
             running_text = f"[bold green]{running_text}[/]"
+        # What the Alt+N key and the Claude Code pane's title bar count too.
+        needs_you = len(attention.waiting(self.storage))
+        needs_text = _("{n} waiting for you").format(n=needs_you)
+        if needs_you:
+            needs_text = f"[bold yellow]{needs_text}[/]"
         self.query_one("#dashboard-overview", Static).update(
             _("[b]{queues}[/b] queues  ·  {running}  ·  [b]{pending}[/b] pending  ·  {blocked}  ·  "
-              "[b]{tokens}[/b] tokens today").format(
+              "{needs}  ·  [b]{tokens}[/b] tokens today").format(
                 queues=len(queues), running=running_text, pending=total_pending,
-                blocked=blocked_text, tokens=f"{total_tokens:,}",
+                blocked=blocked_text, needs=needs_text, tokens=f"{total_tokens:,}",
             )
         )
 
