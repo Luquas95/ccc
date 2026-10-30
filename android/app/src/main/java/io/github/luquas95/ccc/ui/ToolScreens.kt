@@ -359,6 +359,7 @@ fun CccSettingsScreen(
     presets: List<PromptPreset>,
     snackbar: SnackbarHostState,
     actions: SettingsActions,
+    initialTab: Int = 0,
 ) {
     Scaffold(
         topBar = { Bar(stringResource(R.string.ccc_settings), null, actions.back) },
@@ -387,7 +388,7 @@ fun CccSettingsScreen(
         val auto = stringResource(R.string.auto)
         // One tab per kind of setting, so each is found in one place; the values of all the tabs are
         // kept together and one Save (on the tabs that have fields) sends them.
-        var tab by rememberSaveable { mutableIntStateOf(0) }
+        var tab by rememberSaveable { mutableIntStateOf(initialTab) }
         val tabs = listOf(R.string.settings_general, R.string.settings_queues, R.string.settings_notifications,
             R.string.tab_presets, R.string.settings_data, R.string.settings_connection)
         Column(Modifier.fillMaxSize().padding(padding)) {

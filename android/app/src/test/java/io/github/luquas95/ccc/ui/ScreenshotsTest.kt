@@ -153,7 +153,7 @@ open class ScreenshotsTest {
 
     @Test
     fun cccSettings() = shot("ccc_settings", "80 %") {
-        CccSettingsScreen(settingsState, home.promptPresets, SnackbarHostState(), SettingsActions({}, {}, {}, {}, {}, {}, {}))
+        CccSettingsScreen(settingsState, home.promptPresets, SnackbarHostState(), SettingsActions({}, {}, {}, {}, {}, {}, {}), initialTab = 1)
     }
 
     @Test
