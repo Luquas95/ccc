@@ -16,6 +16,7 @@ import io.github.luquas95.ccc.data.LaunchPresets
 import io.github.luquas95.ccc.data.Message
 import io.github.luquas95.ccc.data.NewConversation
 import io.github.luquas95.ccc.data.Pairing
+import io.github.luquas95.ccc.data.PairingInvite
 import io.github.luquas95.ccc.data.Permission
 import io.github.luquas95.ccc.data.PromptPreset
 import io.github.luquas95.ccc.data.SearchHit
@@ -280,14 +281,26 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** A scanned QR code: a ccc pairing invite becomes a signed-in phone; anything else is refused. */
-    fun scanned(text: String, onDone: (Boolean) -> Unit) {
+    private val _invite = MutableStateFlow<PairingInvite?>(null)
+    /** A scanned ccc QR code waiting for a yes: its host is shown first, since anyone can print one. */
+    val invite: StateFlow<PairingInvite?> = _invite.asStateFlow()
+
+    /** The server this phone is signed in to now (empty when none): a QR code for another one is flagged. */
+    val currentServer: String get() = settings.server
+
+    fun scanned(text: String) {
         val invite = Pairing.parse(text)
-        if (invite == null) {
-            _message.value = text(R.string.error_qr)
-            onDone(false)
-            return
-        }
+        if (invite == null) _message.value = text(R.string.error_qr) else _invite.value = invite
+    }
+
+    fun inviteDismissed() {
+        _invite.value = null
+    }
+
+    /** The yes to [invite]: it becomes a signed-in phone. */
+    fun pair(onDone: (Boolean) -> Unit) {
+        val invite = _invite.value ?: return
+        _invite.value = null
         val unpaired = runCatching { CccApi(invite.server) }.getOrElse {
             _message.value = text(R.string.error_server_address)
             onDone(false)

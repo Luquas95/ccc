@@ -12,6 +12,10 @@
     <string name="setup_connect">Connect</string>
     <string name="setup_sign_out">Sign out</string>
     <string name="setup_connected_to">Connected to %1$s</string>
+    <string name="pair_title">Sign in to this ccc?</string>
+    <string name="pair_text">The QR code is for %1$s. Anyone can print a QR code — continue only if it is your own computer.</string>
+    <string name="pair_other">You are signed in to %1$s now; this replaces it.</string>
+    <string name="pair_yes">Sign in</string>
     <string name="scan_qr">Scan QR code</string>
     <string name="scan_hint">On the computer: ccc api pair, or ccc’s Settings → Devices… → Pair a new device. Nothing to type.</string>
     <string name="scan_prompt">Point the camera at the QR code ccc shows</string>
