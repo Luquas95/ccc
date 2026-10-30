@@ -22,6 +22,19 @@ class PairingTest {
         assertEquals("http://100.64.0.7:8737", invite("http://100.64.0.7:8737")?.server)
         assertEquals("https://xia.tail0ffcfb.ts.net:8737", invite("https://xia.tail0ffcfb.ts.net:8737")?.server)
         assertNull(invite("http://8.8.8.8:8737"))
+        assertNull(invite("https://xia.ts.net/somewhere/else"))
+        assertNull(invite("https://xia.ts.net/?next=evil"))
+        assertNull(invite("https://xia.ts.net/#evil"))
+        assertEquals("https://xia.ts.net/api/v1", invite("https://xia.ts.net/api/v1")?.server)
+    }
+
+    @Test
+    fun `the origin shown is the one the app connects to, port included`() {
+        assertEquals("https://xia.ts.net:443", Pairing.origin("https://xia.ts.net"))
+        assertEquals("https://xia.ts.net:8737", Pairing.origin("https://xia.ts.net:8737/api/v1/"))
+        assertEquals("https://xia.ts.net:443", Pairing.origin("xia.ts.net"))
+        assertEquals("http://100.64.0.7:8737", Pairing.origin("http://100.64.0.7:8737"))
+        assertNull(Pairing.origin(""))
     }
 
     @Test
