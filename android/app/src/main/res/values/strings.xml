@@ -12,6 +12,14 @@
     <string name="setup_connect">Connect</string>
     <string name="setup_sign_out">Sign out</string>
     <string name="setup_connected_to">Connected to %1$s</string>
+    <string name="scan_qr">Scan QR code</string>
+    <string name="scan_hint">On the computer: ccc api pair, or ccc’s Settings → Devices… → Pair a new device. Nothing to type.</string>
+    <string name="scan_prompt">Point the camera at the QR code ccc shows</string>
+    <string name="setup_manual">Or enter it by hand</string>
+    <string name="devices">Devices</string>
+    <string name="devices_hint">Phones signed in to ccc. Sign one out here, or on the computer (ccc api devices).</string>
+    <string name="device_this">%1$s (this phone)</string>
+    <string name="device_never">never seen</string>
 
     <!-- Conversations -->
     <string name="conversations_empty">No conversations yet.</string>
@@ -81,7 +89,9 @@
 
     <!-- Errors -->
     <string name="error_network">ccc can\'t be reached. Is the computer on and in your tailnet?</string>
-    <string name="error_token">ccc refused the token. Make a new one with ccc api token --new.</string>
+    <string name="error_token">ccc refused the token — this phone may have been signed out. Scan a new QR code (ccc api pair).</string>
+    <string name="error_qr">That is not a ccc QR code. Use the one from ccc api pair.</string>
+    <string name="error_pairing">The QR code is wrong, used or has run out. Make a new one (ccc api pair).</string>
     <string name="error_server_address">That isn\'t an address.</string>
 
     <!-- Round 1: managing conversations -->

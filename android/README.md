@@ -105,9 +105,15 @@ echo "sdk.dir=$HOME/Android/Sdk" > local.properties   # once
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Or copy `app-debug.apk` to the phone and open it there. Then enter the
-address (`tailscale serve status` on the computer prints it, e.g.
-`computer.tailnet.ts.net`) and the token (`ccc api token`).
+Or copy `app-debug.apk` to the phone and open it there. Then sign in
+with a **QR code**: on the computer run `ccc api pair` (or ccc's
+*Settings → Devices… → Pair a new device*) and tap *Scan QR code* in the
+app. The code is good for 5 minutes and one phone; the phone gets a token
+of its own, which *Connection → Devices* lists and can sign out. The
+scanner is ZXing, so nothing needs Google Play services.
+
+Or enter the address (`tailscale serve status` on the computer prints it,
+e.g. `computer.tailnet.ts.net`) and the token (`ccc api token`) by hand.
 
 The debug build also allows plain `http://` (e.g. ccc's API on the
 computer's Tailscale IP and port 8737, without `tailscale serve`) —

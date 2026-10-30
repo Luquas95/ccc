@@ -189,7 +189,11 @@ open class ScreenshotsTest {
 
     @Test
     fun connection() = shot("connection", "computer.tailnet") {
-        SetupScreen("computer.tailnet.ts.net", true, true, ListDetail.DEFAULT, { _, _ -> }, SnackbarHostState(), {}, { _, _, _ -> }, {}, {})
+        SetupScreen("computer.tailnet.ts.net", true, true, ListDetail.DEFAULT, { _, _ -> }, SnackbarHostState(), {}, { _, _, _ -> }, {}, {},
+            devices = listOf(
+                io.github.luquas95.ccc.data.Device(1, "Pixel 8", lastSeenAt = "2026-10-30T12:01:00", lastIp = "100.64.0.7", current = true),
+                io.github.luquas95.ccc.data.Device(2, "Redmi Note 13", lastSeenAt = "2026-10-29T07:54:00", lastIp = "100.64.0.9"),
+            ))
     }
 
     @Test

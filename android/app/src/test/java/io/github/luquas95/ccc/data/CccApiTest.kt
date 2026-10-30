@@ -106,6 +106,46 @@ class CccApiTest {
     }
 
     @Test
+    fun `pairing trades the code for a token without sending one`() = runBlocking {
+        answers["pair"] = 201 to """{"token": "t0k", "device_id": 4, "name": "Pixel", "version": "0.1.0"}"""
+
+        val paired = CccApi("http://127.0.0.1:${server.address.port}").pair("one-time", "Pixel")
+
+        assertEquals("t0k", paired.token)
+        assertEquals(4, paired.deviceId)
+        assertNull(seen.single().auth)
+        assertEquals("POST", seen.single().method)
+        assertTrue(seen.single().body.contains("\"code\":\"one-time\""))
+    }
+
+    @Test
+    fun `a wrong pairing code is an error with ccc's own text`() = runBlocking {
+        answers["pair"] = 401 to """{"error": "The pairing code is wrong, used or has run out."}"""
+        try {
+            CccApi("http://127.0.0.1:${server.address.port}").pair("nope", "Pixel")
+            fail("expected an error")
+        } catch (e: ApiException) {
+            assertEquals(401, e.code)
+        }
+    }
+
+    @Test
+    fun `lists the devices and signs one out`() = runBlocking {
+        answers["devices"] = 200 to """{"devices": [{"id": 1, "name": "Pixel", "last_seen_at": "2026-10-30T12:00:00",
+            "last_ip": "100.64.0.7", "current": true}, {"id": 2, "name": "Tablet", "created_at": "2026-10-29T08:00:00"}]}"""
+        answers["devices/2"] = 200 to """{"ok": true}"""
+
+        val devices = api().devices()
+        api().removeDevice(2)
+
+        assertEquals(listOf("Pixel", "Tablet"), devices.map { it.name })
+        assertTrue(devices[0].current)
+        assertEquals(false, devices[1].current)
+        assertNull(devices[1].lastSeenAt)
+        assertEquals("DELETE", seen.last().method)
+    }
+
+    @Test
     fun `messages ask for what is new`() = runBlocking {
         answers["conversations/7/messages"] = 200 to """{"total": 3, "messages": [
             {"index": 2, "kind": "assistant_text", "text": "Done", "time": "2026-10-21T10:00:00+00:00"}]}"""
