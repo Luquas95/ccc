@@ -62,7 +62,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.journeyapps.barcodescanner.ScanContract
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import io.github.luquas95.ccc.data.Pairing
 import io.github.luquas95.ccc.data.PairingInvite
 import com.journeyapps.barcodescanner.ScanOptions
 import io.github.luquas95.ccc.data.Device
@@ -479,14 +479,14 @@ fun SetupScreen(
         result.contents?.let(onScan)
     }
     if (invite != null) {
-        val host = remember(invite) { invite.server.toHttpUrlOrNull()?.host ?: invite.server }
-        val other = signedIn && !currentServer.contains(host)
+        val origin = remember(invite) { Pairing.origin(invite.server).orEmpty() }
+        val other = signedIn && Pairing.origin(currentServer) != origin
         AlertDialog(
             onDismissRequest = onInviteDismissed,
             title = { Text(stringResource(R.string.pair_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.pair_text, host), fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.pair_text, origin), fontWeight = FontWeight.Bold)
                     if (other) Text(stringResource(R.string.pair_other, currentServer), color = CccColors.Error)
                 }
             },
