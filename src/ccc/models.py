@@ -315,6 +315,18 @@ class AskStatus(str, Enum):
 
 
 @dataclass
+class Device:
+    """A phone (or other client) signed in to the API (ccc.api): it has its
+    own token, of which only the SHA-256 is kept."""
+    id: int
+    name: str
+    token_sha256: str
+    created_at: datetime = field(default_factory=datetime.now)
+    last_seen_at: datetime | None = None
+    last_ip: str = ""
+
+
+@dataclass
 class Ask:
     """A question one conversation asks another (ccc.asks)."""
     id: int

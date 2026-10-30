@@ -8,9 +8,10 @@ with HTTPS (see help/android-api.md). Every request needs the token
 (`Authorization: Bearer …`, `ccc api token`), so another program on the
 machine or a tailnet device of someone else can't use it. The database
 keeps only the token's SHA-256 (it's readable by other users of the
-machine), so the token is shown once, when it's made; it's checked
-against the database on every request, so a new one locks the old one
-out at once — open event streams too.
+machine), so the token is shown once, when it's made. Every device (a
+phone) has its own token; it's checked against the database on every
+request, so a device taken off the list is locked out at once — its
+open event stream too.
 
 Standard library only (http.server), like the ccc MCP server: no web
 framework to install for a handful of JSON endpoints.
@@ -40,6 +41,9 @@ GET  /api/v1/search?q=                    search every conversation
 POST /api/v1/update/check                 look for a new ccc version now; POST /api/v1/update applies it
 GET  /api/v1/waiting                      conversations that need you (Alt+N)
 GET  /api/v1/prompt-presets               the preset prompts (Alt+1 … 9)
+GET  /api/v1/devices                      the devices signed in; "current" marks the caller
+POST /api/v1/devices/{id}                 {"name"}: rename a device
+DELETE /api/v1/devices/{id}               sign a device out (the caller too)
 GET  /api/v1/launch-presets               New conversation presets and the last choice
 GET  /api/v1/sessions?path=               Claude Code sessions of a folder (to resume one)
 GET  /api/v1/mcp-servers?path=            names of the MCP servers configured for a folder (to choose from)
@@ -53,7 +57,6 @@ GET  /api/v1/events                       Server-Sent Events: "changed" with wha
 from __future__ import annotations
 
 import hashlib
-import hmac
 import json
 import logging
 import os
@@ -74,7 +77,7 @@ from ccc.api_common import ApiError, int_of, iso, route, task_line, text_of
 from ccc.api_views import ViewEndpoints
 from ccc.heartbeat import daemon_alive
 from ccc.i18n import _
-from ccc.models import ItemStatus, QueueStatus
+from ccc.models import Device, ItemStatus, QueueStatus
 from ccc.orchestrator import send_message, start_conversation
 from ccc.storage import Storage
 from ccc.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
@@ -82,7 +85,10 @@ from ccc.transcript import TranscriptEvent, find_transcript_path, parse_transcri
 logger = logging.getLogger(__name__)
 
 PREFIX = "/api/v1"
-TOKEN_KEY = "api_token_sha256"
+# A device's "last seen" is written at most this often (every request would write).
+SEEN_SECONDS = 30.0
+ORIGINAL_NAME = "Token"
+CALLER = "_device"  # the device making the request, put in the query by the handler
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8737
 MAX_BODY = 1024 * 1024
@@ -98,21 +104,29 @@ def _digest(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 
-def new_token(storage: Storage) -> str:
-    """A new API token; the old one stops working. Only its SHA-256 is
-    kept, so this is the one time it can be shown."""
+def add_device(storage: Storage, name: str) -> tuple[Device, str]:
+    """A device with a token of its own. Only the token's SHA-256 is kept,
+    so this is the one time it can be shown."""
     value = secrets.token_urlsafe(32)
-    storage.set_setting(TOKEN_KEY, _digest(value))
-    return value
+    return storage.add_device(name.strip() or ORIGINAL_NAME, _digest(value)), value
+
+
+def new_token(storage: Storage, name: str = ORIGINAL_NAME) -> str:
+    """A single new token: every device is signed out, this is the one left."""
+    storage.delete_all_devices()
+    return add_device(storage, name)[1]
 
 
 def has_token(storage: Storage) -> bool:
-    return bool(storage.get_setting(TOKEN_KEY))
+    return bool(storage.list_devices())
+
+
+def authenticate(storage: Storage, given: str) -> Device | None:
+    return storage.device_by_token(_digest(given)) if given else None
 
 
 def token_valid(storage: Storage, given: str) -> bool:
-    stored = storage.get_setting(TOKEN_KEY)
-    return bool(given) and bool(stored) and hmac.compare_digest(_digest(given), stored)
+    return authenticate(storage, given) is not None
 
 
 GIT_SECONDS = 15.0
@@ -187,6 +201,9 @@ class Api(AgentEndpoints, ViewEndpoints):
             ok(r"/launch-options", lambda ids, q, b: self.launch_options()),
             ok(r"/launch-presets", lambda ids, q, b: self.launch_presets()),
             ok(r"/prompt-presets", lambda ids, q, b: self.prompt_presets()),
+            ok(r"/devices", lambda ids, q, b: self.devices(int_of(q, CALLER))),
+            ok(r"/devices/(\d+)", lambda ids, q, b: self.rename_device(*ids, b), "POST"),
+            ok(r"/devices/(\d+)", lambda ids, q, b: self.remove_device(*ids), "DELETE"),
         ] + self._agent_routes() + self._view_routes()
 
     def route(self, method: str, path: str, query: dict[str, str], body: dict) -> tuple[HTTPStatus, object]:
@@ -213,6 +230,27 @@ class Api(AgentEndpoints, ViewEndpoints):
             "update": self._update(),
             "android_build": self._android_build(),
         }
+
+    def devices(self, caller: int | None) -> dict:
+        """Who is signed in: each device's name, when it was made and last
+        seen, from which address."""
+        return {"devices": [
+            {"id": d.id, "name": d.name, "created_at": iso(d.created_at), "last_seen_at": iso(d.last_seen_at),
+             "last_ip": d.last_ip, "current": d.id == caller}
+            for d in self.storage.list_devices()]}
+
+    def rename_device(self, device_id: int, body: dict) -> dict:
+        name = text_of(body, "name").strip()
+        if not name:
+            raise ApiError(HTTPStatus.BAD_REQUEST, _("The device needs a name."))
+        if not self.storage.rename_device(device_id, name):
+            raise ApiError(HTTPStatus.NOT_FOUND, _("No such device."))
+        return {"ok": True}
+
+    def remove_device(self, device_id: int) -> dict:
+        if not self.storage.delete_device(device_id):
+            raise ApiError(HTTPStatus.NOT_FOUND, _("No such device."))
+        return {"ok": True}
 
     def _update(self) -> dict | None:
         """A new version of ccc on origin/main (ccc.updates), as the daemon
@@ -873,7 +911,7 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _handle(self, method: str) -> None:
         url = urlsplit(self.path)
-        query = {k: v[-1] for k, v in parse_qs(url.query).items()}
+        query = {k: v[-1] for k, v in parse_qs(url.query).items() if k != CALLER}
         try:
             i18n.load(self.api.storage)  # follows the language set in the TUI
             if not self._authorized():
@@ -881,6 +919,7 @@ class _Handler(BaseHTTPRequestHandler):
             if method == "GET" and url.path == PREFIX + "/events":
                 self._events()
                 return
+            query[CALLER] = str(self._device.id)
             body = self._body() if method == "POST" else {}
             status, result = self.api.route(method, url.path, query, body)
         except ApiError as exc:
@@ -893,7 +932,14 @@ class _Handler(BaseHTTPRequestHandler):
     def _authorized(self) -> bool:
         header = self.headers.get("Authorization", "")
         self._token = header.removeprefix("Bearer ").strip() if header.startswith("Bearer ") else ""
-        return token_valid(self.api.storage, self._token)
+        device = authenticate(self.api.storage, self._token)
+        if device is None:
+            return False
+        self._device = device
+        seen = device.last_seen_at
+        if seen is None or (datetime.now() - seen).total_seconds() > SEEN_SECONDS:
+            self.api.storage.touch_device(device.id, self.client_address[0])
+        return True
 
     def _body(self) -> dict:
         try:
@@ -936,7 +982,7 @@ class _Handler(BaseHTTPRequestHandler):
             while True:
                 time.sleep(EVENTS_POLL_SECONDS)
                 if not token_valid(self.api.storage, self._token):
-                    return  # a new token was made: this one is out
+                    return  # the device was signed out
                 after = self.api.snapshot()
                 change = self.api.changes(before, after)
                 before = after

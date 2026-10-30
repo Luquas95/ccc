@@ -23,8 +23,10 @@ token.
 3. `ccc api token` makes the token the app signs in with and prints it
    — **only this once**: ccc keeps just its fingerprint (SHA-256), so
    nobody can read it from the database. Lost it, or lost the phone?
-   `ccc api token --new` makes a new one; the old one stops working at
-   once, open connections too.
+   `ccc api token --new` makes a new one; every device signed in before
+   is signed out at once, open connections too. Each device has a token
+   of its own and can be signed out alone: `ccc api devices` lists
+   them, `ccc api revoke ID` signs one out.
 4. In the app enter the address (just `<computer>.<tailnet>.ts.net`
    will do) and the token.
 
@@ -98,6 +100,7 @@ Every path starts with `/api/v1`; every request has the header
 | `GET /sessions?path=` | Claude Code sessions recorded in a folder, newest first (to resume one: `session_id` in `POST /conversations` with `session_resume`) |
 | `GET /launch-presets` | the New conversation presets and the last choice |
 | `GET /prompt-presets` | the preset prompts (Alt+1 … 9 in ccc) |
+| `GET /devices` | the devices signed in: name, made, last seen, address; `current` marks the caller. `POST /devices/{id}` `{"name"}` renames one, `DELETE /devices/{id}` signs it out at once (open connections too) |
 | `GET /groups` | the grouping and your own groups; `POST /groups/rename` `{"old", "new"}`, `POST /groups/delete` `{"name"}` |
 | `GET /search?q=` | search every conversation (archived too), newest first |
 | `GET /waiting` | conversations that need you, most urgent first (Alt+N in ccc) |
