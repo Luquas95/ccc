@@ -28,6 +28,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -53,6 +54,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -60,6 +62,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.journeyapps.barcodescanner.ScanContract
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import io.github.luquas95.ccc.data.PairingInvite
 import com.journeyapps.barcodescanner.ScanOptions
 import io.github.luquas95.ccc.data.Device
 import androidx.compose.ui.res.stringResource
@@ -460,7 +464,11 @@ fun SetupScreen(
     devices: List<Device>? = null,
     onDevices: () -> Unit = {},
     onSignOutDevice: (Device) -> Unit = {},
-    onScan: (String, (Boolean) -> Unit) -> Unit = { _, _ -> },
+    invite: PairingInvite? = null,
+    currentServer: String = "",
+    onScan: (String) -> Unit = {},
+    onPair: ((Boolean) -> Unit) -> Unit = {},
+    onInviteDismissed: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var address by rememberSaveable { mutableStateOf(server) }
@@ -468,10 +476,25 @@ fun SetupScreen(
     var busy by rememberSaveable { mutableStateOf(false) }
     // The QR code of `ccc api pair`: the library's own screen asks for the camera and reads it.
     val scan = rememberLauncherForActivityResult(ScanContract()) { result ->
-        result.contents?.let { text ->
-            busy = true
-            onScan(text) { busy = false }
-        }
+        result.contents?.let(onScan)
+    }
+    if (invite != null) {
+        val host = remember(invite) { invite.server.toHttpUrlOrNull()?.host ?: invite.server }
+        val other = signedIn && !currentServer.contains(host)
+        AlertDialog(
+            onDismissRequest = onInviteDismissed,
+            title = { Text(stringResource(R.string.pair_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.pair_text, host), fontWeight = FontWeight.Bold)
+                    if (other) Text(stringResource(R.string.pair_other, currentServer), color = CccColors.Error)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { busy = true; onPair { busy = false } }) { Text(stringResource(R.string.pair_yes)) }
+            },
+            dismissButton = { TextButton(onClick = onInviteDismissed) { Text(stringResource(R.string.cancel)) } },
+        )
     }
     LaunchedEffect(signedIn) { if (signedIn) onDevices() }
     // Android 13+ asks before an app may notify; on a yes, watching starts.
