@@ -231,7 +231,7 @@ def test_worktreeinclude_never_follows_symlinks(tmp_path, repo):
 
 def test_work_status_counts_uncommitted_lines_and_commits_against_the_base(repo):
     path = gitops.create_worktree(str(repo), "feature")
-    assert gitops.work_status(path) == gitops.WorkStatus(0, 0, 0, 0, _git(repo, "branch", "--show-current"))
+    assert gitops.work_status(path) == gitops.WorkStatus(0, 0, 0, 0, _git(repo, "branch", "--show-current"), "worktree-feature")
     (repo / ".claude/worktrees/feature/a.txt").write_text("one\ntwo\nthree\n")
     _git(path, "commit", "-qam", "more")
     (repo / ".claude/worktrees/feature/a.txt").write_text("ONE\ntwo\nthree\n")

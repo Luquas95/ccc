@@ -9,7 +9,10 @@ jen k dívání — s konverzací pracuješ v [Konverzacích](conversations.md).
 
 Horní řádek sčítá všechny konverzace: na kolika Claude pracuje
 (**běží**), kolik úkolů čeká v jejich frontách (**čeká**), kolik se jich
-zastavilo chybou (**zablokované**, červeně) a kolik tokenů dnes spotřebovaly.
+zastavilo chybou (**zablokované**, červeně), kolik jich **čeká na tebe**
+(žlutě: schválení nástroje, chyba, limit, dokončená odpověď, na kterou ses
+ještě nepodíval(a) — stejné, na které skáče klávesa Alt+N) a kolik tokenů
+dnes spotřebovaly.
 
 ## Tabulka
 
@@ -21,7 +24,13 @@ Jeden řádek na konverzaci (archivované jsou v [Archivu](archive.md)):
 | Stav | co dělá — viz tabulka níže |
 | Čeká | úkoly čekající v její [frontě](tasks.md) |
 | Tokeny dnes | tokeny, které dnes spotřebovala |
-| Cesta | složka projektu, ve které Claude pracuje |
+| Kontext | jak je plné její kontextové okno (žlutě / červeně podle prahů v Nastavení), jako v seznamu Konverzací; `–`, dokud není odpověď, ze které se dá přečíst |
+| Git | větev, neuložené řádky (`+12−3`) a commity před `↑` / za `↓` základní větví; `–` mimo git a u konverzace, kde Claude nesmí sám spouštět příkazy (ccc spouští git jen tam, viz [Git](git.md)) |
+| Cesta | složka projektu, ve které Claude pracuje, zkrácená zepředu — poslední složka je vidět vždy |
+
+**Které sloupce** — Nastavení → Přehled: jedna volba pro široké okno a
+jedna pro úzké (do 100 sloupců, např. telefon). Název je vidět vždy.
+Výchozí: široké okno ukáže všechno, úzké Stav a Kontext.
 
 **Značky** před názvem — stejné jako v seznamu Konverzací:
 

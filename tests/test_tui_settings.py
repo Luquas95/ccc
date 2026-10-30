@@ -387,3 +387,24 @@ async def test_failed_test_does_not_turn_the_connection_on(tmp_path, monkeypatch
         assert not app.storage.get_setting(DISCORD_WEBHOOK_KEY)
         assert "○ off" in modal.query_one("#telegram-state", Static).render().plain
         assert "○ off" in modal.query_one("#discord-state", Static).render().plain
+
+
+@pytest.mark.asyncio
+async def test_dashboard_columns_are_chosen_in_settings(tmp_path):
+    from textual.widgets import SelectionList
+
+    from ccc import dashboard_columns as dc
+
+    app = _app(tmp_path)
+    async with app.run_test(size=(140, 45)) as pilot:
+        modal = await _open_settings(pilot, app)
+        wide = modal.query_one("#settings-dashboard-wide", SelectionList)
+        narrow = modal.query_one("#settings-dashboard-narrow", SelectionList)
+        assert set(wide.selected) == set(dc.DEFAULT_WIDE) and set(narrow.selected) == set(dc.DEFAULT_NARROW)
+        narrow.deselect(dc.STATUS)
+        narrow.select(dc.GIT)
+        wide.deselect(dc.PATH)
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert dc.shown(app.storage, True) == [dc.CONTEXT, dc.GIT]
+        assert dc.PATH not in dc.shown(app.storage, False)

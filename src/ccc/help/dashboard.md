@@ -10,8 +10,10 @@ doing right now. It's only for looking — you work with a conversation in
 
 The top line counts all conversations: how many Claude is working on
 (**running**), how many tasks wait in their queues (**pending**), how
-many stopped on an error (**blocked**, red), and how many tokens they used
-today.
+many stopped on an error (**blocked**, red), how many **wait for you**
+(yellow: a tool approval, an error, a usage limit, a finished reply you
+haven't looked at — the same ones the Alt+N key jumps to), and how many
+tokens they used today.
 
 ## The table
 
@@ -23,7 +25,14 @@ One row per conversation (archived ones are in the [Archive](archive.md)):
 | Status | what it's doing — see the table below |
 | Pending | tasks waiting in its [queue](tasks.md) |
 | Today's tokens | tokens it used today |
-| Path | the project folder Claude works in |
+| Context | how full its context window is (yellow / red at the thresholds in Settings), as in the Conversations list; `–` until there is a reply to read it from |
+| Git | the branch, uncommitted lines (`+12−3`) and commits ahead `↑` / behind `↓` its base branch; `–` outside git, and for a conversation where Claude may not run commands itself (ccc runs git only there, see [Git](git.md)) |
+| Path | the project folder Claude works in, shortened from the front — the last folder is always shown |
+
+**Which columns** — Settings → Dashboard: one choice for a wide window and
+one for a narrow one (up to 100 columns, such as a phone). The name is
+always shown. By default a wide window shows everything and a narrow one
+Status and Context.
 
 **Markers** in front of the name — the same in the Conversations list:
 

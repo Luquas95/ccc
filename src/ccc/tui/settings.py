@@ -9,7 +9,7 @@ from rich.text import Text
 from textual import work
 from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import Button, DataTable, Input, Select, Static
+from textual.widgets import Button, DataTable, Input, Select, SelectionList, Static
 
 from ccc.backup import backup_now, default_backup_dir
 from ccc.notify import (
@@ -21,7 +21,7 @@ from ccc.notify import (
     send_telegram,
 )
 from ccc.analytics_archive import FOLDER_KEY as ARCHIVE_FOLDER_KEY, archive
-from ccc import context_fill, external_editor, groups, i18n, keymap
+from ccc import context_fill, dashboard_columns, external_editor, groups, i18n, keymap
 from ccc.reviews import MODEL_CHOICES as REVIEW_MODELS, MODEL_KEY as REVIEW_MODEL_KEY
 from ccc.i18n import N_, _
 from ccc.export_paths import (
@@ -84,6 +84,11 @@ class SettingsModal(ModalScreen):
     SettingsModal .settings-row Input, SettingsModal .settings-row Select {
         width: 1fr;
         margin-bottom: 0;
+    }
+    SettingsModal .settings-row SelectionList {
+        width: 1fr;
+        height: auto;
+        margin-bottom: 1;
     }
     SettingsModal .settings-hint {
         color: $text-muted;
@@ -257,6 +262,14 @@ class SettingsModal(ModalScreen):
             Static(_("Telegram / Discord message once when a conversation reaches the warning."),
                    classes="settings-hint"),
         )
+        dashboard = _section(
+            _("Dashboard"),
+            _row(_("Wide screen"), self._columns_list(False)),
+            _row(_("Narrow screen"), self._columns_list(True)),
+            Static(_("Columns of the Dashboard table; the conversation's name is always shown. Narrow: a window "
+                     "up to {width} columns wide, such as a phone."
+                     ).format(width=dashboard_columns.NARROW_COLUMNS), classes="settings-hint"),
+        )
         self._prompt_presets = load_prompt_presets(s)
         prompt_box = _section(
             _("Preset prompts"),
@@ -332,7 +345,7 @@ class SettingsModal(ModalScreen):
             Horizontal(Button(_("Back up now"), id="settings-backup"), classes="settings-actions"),
         )
         box = Container(
-            VerticalScroll(appearance, editor_box, telegram, discord, queues, context, prompt_box, preset_box, shortcuts, exports, archive_box, data,
+            VerticalScroll(appearance, editor_box, telegram, discord, queues, context, dashboard, prompt_box, preset_box, shortcuts, exports, archive_box, data,
                            id="settings-scroll"),
             Horizontal(
                 Static(_("Ctrl+S save  ·  Esc cancel"), classes="modal-hint"),
@@ -343,6 +356,13 @@ class SettingsModal(ModalScreen):
         )
         box.border_title = _("Settings")
         yield box
+
+    def _columns_list(self, narrow: bool) -> SelectionList:
+        shown = dashboard_columns.shown(self.storage, narrow)
+        return SelectionList(
+            *[(_(title), column, column in shown) for column, title in dashboard_columns.COLUMNS],
+            id="settings-dashboard-narrow" if narrow else "settings-dashboard-wide",
+        )
 
     def on_mount(self) -> None:
         self._refresh_prompt_presets()
@@ -647,6 +667,8 @@ class SettingsModal(ModalScreen):
         s.set_setting(context_fill.DANGER_KEY, str(self.query_one("#settings-context-danger", Select).value))
         notify = self.query_one("#settings-context-notify", Select).value
         s.set_setting(context_fill.NOTIFY_KEY, "" if notify == "on" else "off")
+        for narrow, list_id in ((False, "#settings-dashboard-wide"), (True, "#settings-dashboard-narrow")):
+            dashboard_columns.save(s, narrow, list(self.query_one(list_id, SelectionList).selected))
         save_prompt_presets(s, self._prompt_presets)
         s.set_setting(EXPORT_FOLDER_KEY, self._export_folder_value())
         send = self.query_one("#settings-export-send", Select).value

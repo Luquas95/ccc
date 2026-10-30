@@ -12,7 +12,7 @@ async def test_dashboard_lists_queues(tmp_path):
     add_command(db_path, str(project_dir), "do a thing")
 
     app = CCContinueApp(db_path)
-    async with app.run_test() as pilot:
+    async with app.run_test(size=(140, 40)) as pilot:
         await pilot.pause()
         table = app.screen.query_one("#dashboard-table")
         rendered_rows = [str(cell) for row_key in table.rows for cell in table.get_row(row_key)]
@@ -142,3 +142,89 @@ async def test_getting_started_until_the_first_conversation(tmp_path):
         app.screen.refresh_table()
         await pilot.pause()
         assert not welcome.display
+
+
+def test_shortened_path_always_keeps_the_last_folder():
+    from ccc.tui.dashboard import _shorten_path
+
+    assert _shorten_path("/home/you/shop", 48) == "/home/you/shop"
+    assert _shorten_path("/home/you/projects/work/shop-api", 20) == "…/work/shop-api"
+    assert _shorten_path("/home/you/projects/work/shop-api", 14) == "…/shop-api"
+    assert _shorten_path("/a/b/a-very-long-folder-name", 10) == "…lder-name"  # only then the last one is cut
+
+
+def _setup(tmp_path, monkeypatch):
+    from ccc import gitops
+    from ccc.context_fill import ContextFill
+    from ccc.models import PermissionRequest  # noqa: F401
+    from ccc.storage import Storage
+
+    db_path = str(tmp_path / "history.db")
+    project = tmp_path / "shop-api"
+    project.mkdir()
+    add_command(db_path, str(project), "do a thing")
+    storage = Storage(db_path)
+    queue = storage.list_queues()[0]
+    monkeypatch.setattr("ccc.context_fill.ContextTracker.fills",
+                        lambda self, st, queues: {q.id: ContextFill(124_000, 200_000) for q in queues})
+    monkeypatch.setattr("ccc.gitops.work_status",
+                        lambda cwd: gitops.WorkStatus(12, 3, 2, 0, "origin/main", "feature-x"))
+    return db_path, storage, queue
+
+
+def _cells(app):
+    table = app.screen.query_one("#dashboard-table")
+    headers = [str(column.label) for column in table.columns.values()]
+    rows = [[str(cell) for cell in table.get_row(key)] for key in table.rows]
+    return headers, rows
+
+
+@pytest.mark.asyncio
+async def test_dashboard_shows_context_and_git_and_what_waits_for_you(tmp_path, monkeypatch):
+    from ccc.models import QueueStatus
+    from textual.widgets import Static
+
+    db_path, storage, queue = _setup(tmp_path, monkeypatch)
+    storage.update_queue_status(queue.id, QueueStatus.BLOCKED_ERROR)  # an error needs you
+    app = CCContinueApp(db_path)
+    async with app.run_test(size=(160, 40)) as pilot:
+        await pilot.pause(0.5)
+        app.screen.refresh_table()
+        headers, rows = _cells(app)
+        assert headers == ["Project", "Status", "Pending", "Today's tokens", "Context", "Git", "Path"]
+        row = rows[0]
+        assert row[4] == "62%" and row[5] == "feature-x +12−3 ↑2" and row[6].endswith("shop-api")
+        assert "1 waiting for you" in app.screen.query_one("#dashboard-overview", Static).render().plain
+
+
+@pytest.mark.asyncio
+async def test_narrow_window_shows_the_narrow_choice_and_settings_change_it(tmp_path, monkeypatch):
+    from ccc import dashboard_columns
+
+    db_path, storage, _queue = _setup(tmp_path, monkeypatch)
+    app = CCContinueApp(db_path)
+    async with app.run_test(size=(80, 30)) as pilot:
+        await pilot.pause(0.5)
+        assert _cells(app)[0] == ["Project", "Status", "Context"]  # the phone default
+        dashboard_columns.save(storage, True, [dashboard_columns.GIT, dashboard_columns.PATH])
+        app.screen.refresh_table()
+        headers, rows = _cells(app)
+        assert headers == ["Project", "Git", "Path"]
+        assert rows[0][2].endswith("shop-api")
+    app = CCContinueApp(db_path)
+    async with app.run_test(size=(160, 30)) as pilot:
+        await pilot.pause(0.5)
+        assert len(_cells(app)[0]) == 7  # wide: everything, the narrow choice doesn't touch it
+
+
+def test_columns_choice_defaults_and_saves_in_table_order(tmp_path):
+    from ccc import dashboard_columns as dc
+    from ccc.storage import Storage
+
+    storage = Storage(str(tmp_path / "h.db"))
+    assert dc.shown(storage, False) == list(dc.IDS)
+    assert dc.shown(storage, True) == [dc.STATUS, dc.CONTEXT]
+    dc.save(storage, True, [dc.PATH, dc.STATUS])
+    assert dc.shown(storage, True) == [dc.STATUS, dc.PATH]
+    dc.save(storage, False, [])  # chosen: none — only the name
+    assert dc.shown(storage, False) == []
