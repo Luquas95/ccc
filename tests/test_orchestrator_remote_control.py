@@ -228,3 +228,19 @@ async def test_trust_dialog_confirmed_while_a_message_waits(storage, project_dir
         assert await _until(lambda: tmux.pasted == ["/model"], timeout=3)
 
     await _run_orch(storage, body)
+
+
+async def test_work_typed_into_claude_code_is_tracked_busy_then_unseen(storage, project_dir, tmux):
+    q = _rc(storage, project_dir)
+    storage.mark_seen(q.id)
+
+    async def body():
+        assert await _until(lambda: q.id in tmux.running)
+        tmux.status = "busy"  # you typed into the pane, no queued prompt
+        assert await _until(lambda: storage.get_queue(q.id).live_busy)
+        assert q.id not in storage.unseen_queue_ids()
+        tmux.status = "idle"
+        assert await _until(lambda: q.id in storage.unseen_queue_ids())
+        assert not storage.get_queue(q.id).live_busy
+
+    await _run_orch(storage, body)
