@@ -5,6 +5,29 @@ import kotlinx.serialization.Serializable
 
 /** Reviews, goals, workflows, questions, routines, live sessions, analytics and settings (src/ccc/api_agents.py, api_views.py). */
 
+/** The answer of POST /pair: the token of this phone's own device. */
+@Serializable
+data class PairResult(
+    val token: String,
+    @SerialName("device_id") val deviceId: Int,
+    val name: String = "",
+    val version: String = "",
+)
+
+/** A phone signed in to ccc's API (GET /devices); [current] is the one asking. */
+@Serializable
+data class Device(
+    val id: Int,
+    val name: String,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("last_seen_at") val lastSeenAt: String? = null,
+    @SerialName("last_ip") val lastIp: String = "",
+    val current: Boolean = false,
+)
+
+@Serializable
+data class Devices(val devices: List<Device> = emptyList())
+
 @Serializable
 data class Review(
     val id: Int,

@@ -28,11 +28,11 @@ class ApiException(val code: Int, message: String) : IOException(message)
 /**
  * ccc's HTTP API (src/ccc/api.py) at [server] — e.g.
  * https://computer.tailnet.ts.net, with or without /api/v1 — signed in
- * with [token] (`ccc api token`).
+ * with [token] (`ccc api token`, or the one POST /pair gave this phone).
  */
 class CccApi(
     server: String,
-    private val token: String,
+    private val token: String = "",
     private val client: OkHttpClient = defaultClient,
 ) {
     private val base: HttpUrl = baseUrl(server) ?: throw IllegalArgumentException(server)
@@ -40,6 +40,20 @@ class CccApi(
     private val streamClient = client.newBuilder().readTimeout(0, TimeUnit.SECONDS).build()
 
     suspend fun status(): Status = get("status")
+
+    /** Trade the one-time [code] of a QR code for a token of this phone's own (the one call that needs no token). */
+    suspend fun pair(code: String, name: String): PairResult = call(
+        Request.Builder().url(base.newBuilder().addPathSegments("pair").build())
+            .post(body("code" to JsonPrimitive(code), "name" to JsonPrimitive(name)).toRequestBody(JSON)).build(),
+    )
+
+    /** The phones signed in, this one marked [Device.current]. */
+    suspend fun devices(): List<Device> = get<Devices>("devices").devices
+
+    /** Sign a phone out at once (this one too). */
+    suspend fun removeDevice(id: Int) {
+        call<Unit>(request("devices/$id").delete().build())
+    }
 
     /** Update ccc (git pull, install, restart); an error says why not (a task is running …). */
     suspend fun applyUpdate(): UpdateResult = post("update", "{}")
