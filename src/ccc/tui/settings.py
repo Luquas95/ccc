@@ -9,7 +9,7 @@ from rich.text import Text
 from textual import work
 from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import Button, DataTable, Input, Select, SelectionList, Static
+from textual.widgets import Button, DataTable, Input, Select, SelectionList, Static, TabbedContent, TabPane
 
 from ccc.backup import backup_now, default_backup_dir
 from ccc.notify import (
@@ -62,7 +62,13 @@ class SettingsModal(ModalScreen):
         max-width: 110;
         height: 90%;
     }
-    SettingsModal #settings-scroll {
+    SettingsModal #settings-tabs {
+        height: 1fr;
+    }
+    SettingsModal TabPane {
+        padding: 1 0 0 0;
+    }
+    SettingsModal .settings-scroll {
         height: 1fr;
     }
     SettingsModal .settings-section {
@@ -363,18 +369,26 @@ class SettingsModal(ModalScreen):
             Static(_("Backed up automatically every day; the newest 14 copies are kept."), classes="settings-hint"),
             Horizontal(Button(_("Back up now"), id="settings-backup"), classes="settings-actions"),
         )
-        box = Container(
-            VerticalScroll(appearance, editor_box, telegram, discord, queues, context, dashboard, prompt_box, preset_box, shortcuts, exports, archive_box, update_box, devices_box, data,
-                           id="settings-scroll"),
-            Horizontal(
+        with Container() as box:
+            box.border_title = _("Settings")
+            # One tab per kind of setting, so each is found in one place; Save applies every tab.
+            with TabbedContent(id="settings-tabs"):
+                for key, title, sections in (
+                    ("general", N_("General"), (appearance, editor_box, dashboard, shortcuts)),
+                    ("queues", N_("Queues and context"), (queues, context)),
+                    ("notifications", N_("Notifications"), (telegram, discord)),
+                    ("presets", N_("Presets"), (prompt_box, preset_box)),
+                    ("data", N_("Data"), (exports, archive_box, data)),
+                    ("connection", N_("Connection and updates"), (devices_box, update_box)),
+                ):
+                    with TabPane(_(title), id=f"settings-tab-{key}"):
+                        yield VerticalScroll(*sections, classes="settings-scroll")
+            yield Horizontal(
                 Static(_("Ctrl+S save  ·  Esc cancel"), classes="modal-hint"),
                 Button(_("Cancel"), id="settings-cancel", classes="modal-cancel"),
                 Button(_("Save"), id="settings-save", classes="modal-submit"),
                 classes="modal-buttons",
-            ),
-        )
-        box.border_title = _("Settings")
-        yield box
+            )
 
     def _columns_list(self, narrow: bool) -> SelectionList:
         shown = dashboard_columns.shown(self.storage, narrow)
