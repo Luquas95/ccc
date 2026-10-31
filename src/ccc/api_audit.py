@@ -11,6 +11,7 @@ Logged: everything that changes something (not GET), every refusal (401 /
 hold secrets); only the path and, for a new conversation, its folder."""
 from __future__ import annotations
 
+import re
 import threading
 import time
 from http import HTTPStatus
@@ -30,11 +31,20 @@ def worth_logging(method: str, status: int) -> bool:
     return method != "GET" or status in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN)
 
 
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+
+def clean(text: str, limit: int = 300) -> str:
+    """Printable text only, and short: a path or a device name comes from outside and ends up in a terminal and in Rich markup."""
+    return _CONTROL.sub("?", text)[:limit]
+
+
 def record(storage, device, ip: str, method: str, path: str, status: int, detail: str = "") -> None:
     """Never raises: a full disk must not stop the API."""
     try:
         if worth_logging(method, status):
-            storage.add_audit(device.id if device else None, device.name if device else "", ip, method, path, int(status), detail[:300])
+            storage.add_audit(device.id if device else None, clean(device.name, 60) if device else "", clean(ip, 64), method,
+                              clean(path), int(status), clean(detail))
     except Exception:  # noqa: BLE001
         pass
 

@@ -139,7 +139,9 @@ class ActivityModal(ModalScreen):
         table.add_columns(_("When"), _("Device"), _("Request"), _("Result"), _("Address"))
         for e in self.storage.list_audit(200):
             request = f"{e['method']} {e['path']}" + (f"  {e['detail']}" if e["detail"] else "")
-            table.add_row(e["at"][:19].replace("T", " "), e["device_name"] or "—", request, str(e["status"]), e["ip"] or "—")
+            # Text: what a request carried is not markup.
+            table.add_row(Text(e["at"][:19].replace("T", " ")), Text(e["device_name"] or "—"), Text(request),
+                          Text(str(e["status"])), Text(e["ip"] or "—"))
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         event.stop()

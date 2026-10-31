@@ -1382,7 +1382,8 @@ class Storage:
             conn.commit()
         return bool(changed)
 
-    AUDIT_KEEP = 5000
+    AUDIT_KEEP = 5000  # entries of known devices
+    AUDIT_KEEP_STRANGERS = 1000  # entries without a device (wrong tokens, pairing): a scan must not push the rest out
 
     def add_audit(self, device_id: int | None, device_name: str, ip: str, method: str, path: str, status: int,
                   detail: str = "") -> None:
@@ -1391,7 +1392,12 @@ class Storage:
                 "INSERT INTO api_audit (at, device_id, device_name, ip, method, path, status, detail) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (datetime.now().isoformat(), device_id, device_name, ip, method, path, status, detail))
-            conn.execute("DELETE FROM api_audit WHERE id <= ?", (cursor.lastrowid - self.AUDIT_KEEP,))
+            if device_id is None:
+                keep, where = self.AUDIT_KEEP_STRANGERS, "device_id IS NULL"
+            else:
+                keep, where = self.AUDIT_KEEP, "device_id IS NOT NULL"
+            conn.execute(f"DELETE FROM api_audit WHERE {where} AND id NOT IN "
+                         f"(SELECT id FROM api_audit WHERE {where} ORDER BY id DESC LIMIT ?)", (keep,))
             conn.commit()
 
     def list_audit(self, limit: int = 100) -> list[dict]:

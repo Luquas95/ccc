@@ -1463,6 +1463,7 @@ CS: dict[str, str] = {
     "Alarms reach you through Telegram / Discord.": "Poplachy se k tobě dostanou přes Telegram / Discord.",
     "No Telegram / Discord is set, so a new device or a wrong token goes unnoticed (it is still in `ccc api log`).": "Není nastavený Telegram ani Discord, takže nové zařízení nebo špatný token zůstane nepovšimnuto (v `ccc api log` je ale vidět).",
     "That is not a session id.": "To není id relace.",
+    "That session belongs to a conversation in another folder.": "Ta relace patří konverzaci v jiné složce.",
     "A pull request is a number or a URL.": "Pull request je číslo nebo URL.",
     "ccc API: a wrong pairing code from {ip}.": "ccc API: špatný párovací kód z adresy {ip}.",
     "ccc API: a request with a wrong token from {ip}.": "ccc API: požadavek se špatným tokenem z adresy {ip}.",

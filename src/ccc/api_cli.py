@@ -6,7 +6,7 @@ import argparse
 import logging
 from pathlib import Path
 
-from ccc import api, api_scope, pairing
+from ccc import api, api_audit, api_scope, pairing
 from ccc.i18n import _
 from ccc.models import REVOKED_BY_COMPUTER, ROLES
 
@@ -63,6 +63,7 @@ def run(storage, db_path: str, args: argparse.Namespace) -> int:
     if args.api_command == "log":
         entries = storage.list_audit(args.n)
         for e in reversed(entries):
+            e = {k: api_audit.clean(str(v), 400) for k, v in e.items()}  # rows written before the cleaning, too
             who = f"{e['device_name']} ({e['device_id']})" if e["device_id"] is not None else "—"
             print(f"{e['at'][:19].replace('T', ' ')}  {e['status']}  {e['method']:<6} {e['path']}  {e['detail']}  ·  {who}  {e['ip']}".rstrip())
         if not entries:
