@@ -17,7 +17,9 @@ požadavek potřebuje token.
    `127.0.0.1:8737` — jen na tomto počítači.
 2. Vystav ho do tailnetu s HTTPS: `tailscale serve --bg 8737`. Pak je na
    `https://<počítač>.<tailnet>.ts.net/api/v1/` — adresu vypíše
-   `tailscale serve status`.
+   `tailscale serve status`. Proxy běží na tomto počítači, proto ccc
+   bere adresu telefonu pro *Zařízení* z její hlavičky `X-Forwarded-For`
+   (a jen ze spojení z loopbacku).
 3. `ccc api token` vytvoří token, kterým se aplikace přihlásí, a vypíše
    ho — **jen tentokrát**: ccc si drží jen jeho otisk (SHA-256), takže ho
    z databáze nikdo nepřečte. Je token pryč, nebo se ztratil telefon?

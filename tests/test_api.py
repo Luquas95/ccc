@@ -802,3 +802,20 @@ def test_cli_pair_prints_a_qr_for_the_address(storage, capsys):
     assert "█" in out or "▀" in out
     assert "https://x.ts.net:8737" in out
     assert storage.get_setting("api_pair_code")
+
+
+def test_client_ip_comes_from_the_proxy_only_when_the_proxy_is_on_this_computer():
+    assert api.client_ip("127.0.0.1", "100.64.0.7") == "100.64.0.7"
+    assert api.client_ip("::1", "10.0.0.1, 100.64.0.7") == "100.64.0.7"  # the proxy's own entry is the last
+    assert api.client_ip("127.0.0.1", "") == "127.0.0.1"
+    # Anyone else could write the header themselves.
+    assert api.client_ip("100.64.0.9", "1.2.3.4") == "100.64.0.9"
+
+
+def test_http_the_device_keeps_the_address_the_proxy_names(server, storage):
+    base, token = server
+    request = urllib.request.Request(f"{base}/api/v1/status")
+    request.add_header("Authorization", f"Bearer {token}")
+    request.add_header("X-Forwarded-For", "100.64.0.7")
+    urllib.request.urlopen(request, timeout=5).read()
+    assert storage.list_devices()[0].last_ip == "100.64.0.7"

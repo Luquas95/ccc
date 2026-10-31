@@ -122,6 +122,21 @@ def has_token(storage: Storage) -> bool:
     return bool(storage.list_devices())
 
 
+LOOPBACK = ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+
+
+def client_ip(peer: str, forwarded_for: str) -> str:
+    """The phone's address. Behind `tailscale serve` every connection comes
+    from the proxy on this computer (127.0.0.1), which names the phone in
+    X-Forwarded-For; that header counts only from a loopback peer (anyone else
+    could write whatever they like), and its last entry is the proxy's own."""
+    if peer in LOOPBACK:
+        last = forwarded_for.split(",")[-1].strip()
+        if last:
+            return last
+    return peer
+
+
 def authenticate(storage: Storage, given: str) -> Device | None:
     return storage.device_by_token(_digest(given)) if given else None
 
@@ -928,7 +943,7 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             i18n.load(self.api.storage)  # follows the language set in the TUI
             if method == "POST" and url.path == PREFIX + "/pair":
-                self._send(HTTPStatus.CREATED, self.api.pair(self._body(), self.client_address[0]))
+                self._send(HTTPStatus.CREATED, self.api.pair(self._body(), self._client_ip()))
                 return
             if not self._authorized():
                 raise ApiError(HTTPStatus.UNAUTHORIZED, _("Missing or wrong API token."))
@@ -945,6 +960,9 @@ class _Handler(BaseHTTPRequestHandler):
             status, result = HTTPStatus.INTERNAL_SERVER_ERROR, {"error": _("Something went wrong in ccc.")}
         self._send(status, result)
 
+    def _client_ip(self) -> str:
+        return client_ip(self.client_address[0], self.headers.get("X-Forwarded-For", ""))
+
     def _authorized(self) -> bool:
         header = self.headers.get("Authorization", "")
         self._token = header.removeprefix("Bearer ").strip() if header.startswith("Bearer ") else ""
@@ -954,7 +972,7 @@ class _Handler(BaseHTTPRequestHandler):
         self._device = device
         seen = device.last_seen_at
         if seen is None or (datetime.now() - seen).total_seconds() > SEEN_SECONDS:
-            self.api.storage.touch_device(device.id, self.client_address[0])
+            self.api.storage.touch_device(device.id, self._client_ip())
         return True
 
     def _body(self) -> dict:
