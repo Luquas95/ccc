@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/icons/ccc-256.png" alt="ccc logo" width="128"></p>
+
 # ccc
 
 **A terminal home for your Claude Code work that keeps going without you.**
@@ -132,7 +134,7 @@ it, writes two `systemd --user` units for this location — `ccc.service`
 alive in its own tmux session) — and enables and starts them. Options:
 `--no-tui` (daemon only), `--api` (also the [API for the Android
 app](src/ccc/help/android-api.md)), `--no-start`, `--no-systemd` (just the
-virtualenv).
+virtualenv). It also adds a "ccc" entry with the logo to your application menu.
 
 So the services keep running after you log out or close SSH, enable
 lingering once:
@@ -203,6 +205,7 @@ Your data (`~/.local/share/ccc/`: history, settings, backups) is kept.
 systemctl --user disable --now ccc ccc-tui
 rm ~/.config/systemd/user/ccc.service ~/.config/systemd/user/ccc-tui.service
 systemctl --user daemon-reload
+rm -f ~/.local/share/applications/ccc.desktop ~/.local/share/icons/hicolor/*/apps/ccc.*
 rm -rf ~/ccc                    # the checkout
 rm -rf ~/.local/share/ccc       # history, settings, backups (optional)
 ```
