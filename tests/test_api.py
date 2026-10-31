@@ -55,7 +55,7 @@ def test_every_device_has_its_own_token_and_is_signed_out_alone(storage):
     phone, phone_token = api.add_device(storage, "Phone")
     _tablet, tablet_token = api.add_device(storage, "Tablet")
     assert api.authenticate(storage, phone_token).id == phone.id
-    storage.delete_device(phone.id)
+    storage.revoke_device(phone.id, 'computer')
     assert not api.token_valid(storage, phone_token)
     assert api.token_valid(storage, tablet_token)
 
@@ -721,7 +721,7 @@ def test_http_events_stream_ends_when_its_device_is_signed_out(server, storage, 
     request = urllib.request.Request(f"{base}/api/v1/events", headers={"Authorization": f"Bearer {device_token}"})
     with urllib.request.urlopen(request, timeout=5) as stream:
         assert stream.readline() == b": connected\n"
-        storage.delete_device(device.id)
+        storage.revoke_device(device.id, 'computer')
         assert stream.read() == b"\n"
     assert _call(f"{base}/api/v1/status", token)[0] == 200
 
@@ -732,10 +732,15 @@ def test_cli_lists_and_signs_out_devices(storage, capsys):
     from ccc import api_cli
 
     device, _token = api.add_device(storage, "Phone")
-    api_cli.run(storage, "", Namespace(api_command="devices"))
+    api_cli.run(storage, "", Namespace(api_command="devices", all=False))
     assert "Phone" in capsys.readouterr().out
     assert api_cli.run(storage, "", Namespace(api_command="revoke", id=device.id)) == 0
     assert api_cli.run(storage, "", Namespace(api_command="revoke", id=device.id)) == 1
+    api_cli.run(storage, "", Namespace(api_command="devices", all=False))
+    assert "Phone" not in capsys.readouterr().out
+    api_cli.run(storage, "", Namespace(api_command="devices", all=True))
+    history = capsys.readouterr().out
+    assert "Phone" in history and "signed out on the computer" in history
 
 
 def test_pairing_code_is_good_once_and_only_until_it_runs_out(storage):
@@ -819,3 +824,51 @@ def test_http_the_device_keeps_the_address_the_proxy_names(server, storage):
     request.add_header("X-Forwarded-For", "100.64.0.7")
     urllib.request.urlopen(request, timeout=5).read()
     assert storage.list_devices()[0].last_ip == "100.64.0.7"
+
+
+def test_signing_out_keeps_the_device_as_read_only_history(storage):
+    phone, phone_token = api.add_device(storage, "Phone")
+    tablet, _tablet_token = api.add_device(storage, "Tablet")
+    assert storage.revoke_device(phone.id, "app")
+    assert not storage.revoke_device(phone.id, "computer")  # once: the first way stays
+    assert not api.token_valid(storage, phone_token)
+    assert not storage.rename_device(phone.id, "Renamed")
+    assert [d.name for d in storage.list_devices()] == ["Tablet"]
+    history = {d.name: d for d in storage.list_devices(include_revoked=True)}
+    assert history["Phone"].revoked_by == "app" and history["Phone"].revoked_at is not None
+    assert history["Tablet"].revoked_at is None
+    api.new_token(storage)
+    assert storage.revoke_device(tablet.id, "computer") is False  # already signed out by the new token
+    by = {d.name: d.revoked_by for d in storage.list_devices(include_revoked=True)}
+    assert by["Tablet"] == "token" and by["Phone"] == "app"
+
+
+def test_devices_added_columns_are_migrated_into_an_old_database(tmp_path):
+    import sqlite3
+
+    path = str(tmp_path / "old.db")
+    conn = sqlite3.connect(path)
+    conn.execute("CREATE TABLE devices (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, "
+                 "token_sha256 TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL, last_seen_at TEXT, "
+                 "last_ip TEXT NOT NULL DEFAULT '')")
+    conn.execute("INSERT INTO devices (name, token_sha256, created_at) VALUES ('Old', 'x', '2026-10-01T10:00:00')")
+    conn.commit()
+    conn.close()
+    storage = Storage(path)
+    Storage(path)  # a second start changes nothing
+    [old] = storage.list_devices()
+    assert old.name == "Old" and old.revoked_at is None
+    assert storage.revoke_device(old.id, "app")
+    assert storage.list_devices() == []
+
+
+def test_http_devices_history_is_listed_with_all_and_cannot_be_deleted_again(server, storage):
+    base, token = server
+    other, _other_token = api.add_device(storage, "Tablet")
+    assert _call(f"{base}/api/v1/devices/{other.id}", token, "DELETE")[0] == 200
+    assert [d["name"] for d in _call(f"{base}/api/v1/devices", token)[1]["devices"]] == ["Token"]
+    everyone = {d["name"]: d for d in _call(f"{base}/api/v1/devices?all=1", token)[1]["devices"]}
+    assert everyone["Tablet"]["revoked_by"] == "app" and everyone["Tablet"]["revoked_at"]
+    assert everyone["Token"]["revoked_at"] is None and everyone["Token"]["revoked_by"] is None
+    assert _call(f"{base}/api/v1/devices/{other.id}", token, "DELETE")[0] == 404
+    assert _call(f"{base}/api/v1/devices/{other.id}", token, "POST", {"name": "x"})[0] == 404

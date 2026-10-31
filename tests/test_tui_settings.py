@@ -488,6 +488,6 @@ async def test_devices_window_follows_a_sign_out_made_elsewhere(tmp_path):
         assert isinstance(app.screen, DevicesModal)
         table = app.screen.query_one("#devices-table", DataTable)
         assert table.row_count == 2
-        app.storage.delete_device(phone.id)  # `ccc api revoke`, or the app signing out
+        app.storage.revoke_device(phone.id, 'computer')  # `ccc api revoke`, or the app signing out
         await pilot.pause(3.5)
         assert table.row_count == 1

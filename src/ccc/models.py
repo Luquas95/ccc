@@ -324,6 +324,14 @@ class Device:
     created_at: datetime = field(default_factory=datetime.now)
     last_seen_at: datetime | None = None
     last_ip: str = ""
+    # Signed out: when, and how (REVOKED_BY_*). The row stays as history; its token no longer works.
+    revoked_at: datetime | None = None
+    revoked_by: str = ""
+
+
+REVOKED_BY_APP = "app"  # signed out from an app (this phone's own, or another one's)
+REVOKED_BY_COMPUTER = "computer"  # `ccc api revoke` or the Devices window
+REVOKED_BY_TOKEN = "token"  # `ccc api token --new`: every token before it stopped working
 
 
 @dataclass

@@ -7,6 +7,7 @@ import logging
 
 from ccc import api, pairing
 from ccc.i18n import _
+from ccc.models import REVOKED_BY_COMPUTER
 
 
 def add_parser(subparsers) -> None:
@@ -21,7 +22,8 @@ def add_parser(subparsers) -> None:
     token.add_argument("--new", action="store_true", help=_("make a new one; every device is signed out"))
     pair = sub.add_parser("pair", help=_("Show a QR code the app scans to sign in (good for 5 minutes)"))
     pair.add_argument("--server", help=_("the API's address, if ccc can't find it (https://…ts.net)"))
-    sub.add_parser("devices", help=_("List the devices signed in"))
+    devices = sub.add_parser("devices", help=_("List the devices signed in"))
+    devices.add_argument("--all", action="store_true", help=_("also the devices signed out (history, read only)"))
     revoke = sub.add_parser("revoke", help=_("Sign a device out"))
     revoke.add_argument("id", type=int, help=_("its number from `ccc api devices`"))
 
@@ -34,15 +36,18 @@ def run(storage, db_path: str, args: argparse.Namespace) -> int:
     if args.api_command == "pair":
         return _pair(storage, args.server)
     if args.api_command == "devices":
-        devices = storage.list_devices()
+        devices = storage.list_devices(include_revoked=args.all)
         for device in devices:
             seen = device.last_seen_at.strftime("%Y-%m-%d %H:%M") if device.last_seen_at else _("never")
-            print(f"{device.id:>3}  {device.name}  ·  {_('last seen')} {seen}  {device.last_ip}".rstrip())
+            line = f"{device.id:>3}  {device.name}  ·  {_('last seen')} {seen}  {device.last_ip}".rstrip()
+            if device.revoked_at:
+                line += f"  ·  {_('signed out')} {device.revoked_at.strftime('%Y-%m-%d %H:%M')} ({api.revoked_label(device)})"
+            print(line)
         if not devices:
             print(_("No device is signed in."))
         return 0
     if args.api_command == "revoke":
-        if not storage.delete_device(args.id):
+        if not storage.revoke_device(args.id, REVOKED_BY_COMPUTER):
             print(_("No such device."))
             return 1
         print(_("Signed out."))

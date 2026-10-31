@@ -42,9 +42,9 @@ POST /api/v1/update/check                 look for a new ccc version now; POST /
 GET  /api/v1/waiting                      conversations that need you (Alt+N)
 GET  /api/v1/prompt-presets               the preset prompts (Alt+1 … 9)
 POST /api/v1/pair                         {"code", "name"}: the one request without a token — trades a pairing code (ccc.pairing) for a device and its token
-GET  /api/v1/devices                      the devices signed in; "current" marks the caller
+GET  /api/v1/devices                      the devices signed in; "current" marks the caller; ?all=1 adds the signed-out ones (history, with revoked_at / revoked_by)
 POST /api/v1/devices/{id}                 {"name"}: rename a device
-DELETE /api/v1/devices/{id}               sign a device out (the caller too)
+DELETE /api/v1/devices/{id}               sign a device out (the caller too); the row stays as history
 GET  /api/v1/launch-presets               New conversation presets and the last choice
 GET  /api/v1/sessions?path=               Claude Code sessions of a folder (to resume one)
 GET  /api/v1/mcp-servers?path=            names of the MCP servers configured for a folder (to choose from)
@@ -78,7 +78,7 @@ from ccc.api_common import ApiError, int_of, iso, route, task_line, text_of
 from ccc.api_views import ViewEndpoints
 from ccc.heartbeat import daemon_alive
 from ccc.i18n import _
-from ccc.models import Device, ItemStatus, QueueStatus
+from ccc.models import REVOKED_BY_APP, REVOKED_BY_COMPUTER, REVOKED_BY_TOKEN, Device, ItemStatus, QueueStatus
 from ccc.orchestrator import send_message, start_conversation
 from ccc.storage import Storage
 from ccc.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
@@ -114,12 +114,21 @@ def add_device(storage: Storage, name: str) -> tuple[Device, str]:
 
 def new_token(storage: Storage, name: str = ORIGINAL_NAME) -> str:
     """A single new token: every device is signed out, this is the one left."""
-    storage.delete_all_devices()
+    storage.revoke_all_devices(REVOKED_BY_TOKEN)
     return add_device(storage, name)[1]
 
 
 def has_token(storage: Storage) -> bool:
     return bool(storage.list_devices())
+
+
+def revoked_label(device: Device) -> str:
+    """How a signed-out device was signed out, for the TUI and `ccc api devices --all`."""
+    return {
+        REVOKED_BY_APP: _("signed out in the app"),
+        REVOKED_BY_COMPUTER: _("signed out on the computer"),
+        REVOKED_BY_TOKEN: _("token replaced (ccc api token --new)"),
+    }.get(device.revoked_by, _("signed out"))
 
 
 LOOPBACK = ("127.0.0.1", "::1", "::ffff:127.0.0.1")
@@ -217,7 +226,7 @@ class Api(AgentEndpoints, ViewEndpoints):
             ok(r"/launch-options", lambda ids, q, b: self.launch_options()),
             ok(r"/launch-presets", lambda ids, q, b: self.launch_presets()),
             ok(r"/prompt-presets", lambda ids, q, b: self.prompt_presets()),
-            ok(r"/devices", lambda ids, q, b: self.devices(int_of(q, CALLER))),
+            ok(r"/devices", lambda ids, q, b: self.devices(int_of(q, CALLER), q.get("all") in ("1", "true"))),
             ok(r"/devices/(\d+)", lambda ids, q, b: self.rename_device(*ids, b), "POST"),
             ok(r"/devices/(\d+)", lambda ids, q, b: self.remove_device(*ids), "DELETE"),
         ] + self._agent_routes() + self._view_routes()
@@ -247,13 +256,16 @@ class Api(AgentEndpoints, ViewEndpoints):
             "android_build": self._android_build(),
         }
 
-    def devices(self, caller: int | None) -> dict:
+    def devices(self, caller: int | None, history: bool = False) -> dict:
         """Who is signed in: each device's name, when it was made and last
-        seen, from which address."""
+        seen, from which address. With history also the devices signed out
+        (read only): "revoked_at" and "revoked_by" ("app", "computer" or
+        "token") say when and how; both are null for a device still signed in."""
         return {"devices": [
             {"id": d.id, "name": d.name, "created_at": iso(d.created_at), "last_seen_at": iso(d.last_seen_at),
-             "last_ip": d.last_ip, "current": d.id == caller}
-            for d in self.storage.list_devices()]}
+             "last_ip": d.last_ip, "current": d.id == caller,
+             "revoked_at": iso(d.revoked_at), "revoked_by": d.revoked_by or None}
+            for d in self.storage.list_devices(include_revoked=history)]}
 
     def pair(self, body: dict, ip: str) -> dict:
         """A phone that scanned the QR: its code for a device of its own."""
@@ -276,7 +288,7 @@ class Api(AgentEndpoints, ViewEndpoints):
         return {"ok": True}
 
     def remove_device(self, device_id: int) -> dict:
-        if not self.storage.delete_device(device_id):
+        if not self.storage.revoke_device(device_id, REVOKED_BY_APP):
             raise ApiError(HTTPStatus.NOT_FOUND, _("No such device."))
         return {"ok": True}
 
