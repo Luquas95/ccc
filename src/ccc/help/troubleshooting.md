@@ -37,6 +37,25 @@ See [Usage limits & blocked queues](limits.md).
    `~/.local/share/ccc/history.db`.
 3. `systemctl --user start ccc ccc-tui`
 
+## Claude Code in ccc's own frame (experimental)
+
+By default Claude Code opens in a tmux pane next to ccc, so the lines
+around it are tmux's (straight corners, a 2-column offset in the title).
+With `CCC_EMBEDDED_TERMINAL=1` in the environment of `ccc-tui` ccc shows
+Claude Code itself: a rounded frame like the menu's, with the title,
+the conversations waiting for you, **⌨ typing here** and the preset
+prompts under it. tmux stays only as the window ccc lives in (it keeps
+running and you can attach from anywhere) and as the host of the
+conversations' sessions, so nothing changes for the daemon, the API or
+the phone app. The keys are the same: Alt+0 moves the keyboard between
+the list and Claude Code, Ctrl+] closes the frame (Claude keeps running).
+Drag with the mouse to select text — it goes to the clipboard when you
+let go; the wheel scrolls Claude's history.
+
+Turn it on: `systemctl --user edit ccc-tui`, add
+`[Service]` / `Environment=CCC_EMBEDDED_TERMINAL=1`, then
+`systemctl --user restart ccc-tui`. Remove the line to go back.
+
 ## How ccc works
 
 - **`ccc-daemon`** is the only thing that ever runs Claude. It's a

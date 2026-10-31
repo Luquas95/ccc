@@ -70,9 +70,31 @@ NARROW_COLUMNS = 100
 CCC_SOCKET = instance.TMUX_SOCKET
 
 
+def embedded() -> bool:
+    """Claude Code is shown by ccc itself (tui.claude_pane), in a frame ccc
+    draws, instead of a tmux pane next to ccc. Opt-in: CCC_EMBEDDED_TERMINAL=1."""
+    return os.environ.get("CCC_EMBEDDED_TERMINAL", "").lower() in ("1", "true", "yes", "on")
+
+
 def available() -> bool:
-    """True when ccc runs inside tmux, so it can split its window."""
-    return bool(os.environ.get("TMUX") and os.environ.get("TMUX_PANE"))
+    """True when ccc runs inside tmux, so it can split its window (and
+    isn't showing Claude Code itself, see embedded())."""
+    return not embedded() and bool(os.environ.get("TMUX") and os.environ.get("TMUX_PANE"))
+
+
+def hide_chrome() -> None:
+    """Embedded, on ccc's own tmux server: tmux is only the window ccc lives
+    in (so it survives and can be attached from anywhere) — no status line,
+    no pane titles; every line on screen is ccc's."""
+    if not (embedded() and os.environ.get("TMUX") and _on_ccc_server()):
+        return
+    _tmux("set-option", "-g", "status", "off")
+    _tmux("set-option", "-w", "pane-border-status", "off")
+    _tmux("set-option", "-w", "pane-border-lines", "single")
+    _tmux("set-option", "-t", os.environ.get("TMUX_PANE", ""), "mouse", "on")
+    for command in CLIPBOARD_COMMANDS:
+        _tmux(*command)
+    ensure_terminal_feature()
 
 
 def _own_pane() -> str:
@@ -84,9 +106,13 @@ def _tmux(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(["tmux", *args], capture_output=True, text=True, timeout=5)
 
 
-def attach_command(queue_id: int, keys: dict[str, str] | None = None) -> str:
+def attach_command_list(queue_id: int, keys: dict[str, str] | None = None) -> list[str]:
     detach = keymap.tmux_key((keys or keymap.defaults())["conversations.close_claude"])
-    return shlex.join([sys.executable, "-m", "ccc.attach_cli", str(queue_id), detach])
+    return [sys.executable, "-m", "ccc.attach_cli", str(queue_id), detach]
+
+
+def attach_command(queue_id: int, keys: dict[str, str] | None = None) -> str:
+    return shlex.join(attach_command_list(queue_id, keys))
 
 
 def _keys(db_path: str | None) -> dict[str, str]:

@@ -63,6 +63,9 @@ class CCContinueApp(App):
         # Same frame in every view (see cli_pane.style_window); there the
         # key list is the strip under the window (footer_strip).
         cli_pane.style_window(keymap.current(self.storage))
+        cli_pane.hide_chrome()
+        if cli_pane.embedded():
+            self.set_interval(WAITING_SECONDS, self.publish_waiting_embedded)
         if cli_pane.available():
             # A Claude Code pane left by the previous ccc process (killed,
             # restarted): no screen of this one owns it, so none would close
@@ -153,6 +156,31 @@ class CCContinueApp(App):
             subprocess.run(["tmux", "set-option", "-w", "-t", os.environ["TMUX_PANE"], FOOTER_OPTION, value],
                            capture_output=True)
 
+    def copy_to_clipboard_threadsafe(self, text: str) -> None:
+        """For the clipboard bridge's thread (tui.claude_pane)."""
+        self.call_from_thread(self.copy_to_clipboard, text)
+
+    def publish_waiting_embedded(self) -> None:
+        """The conversations that need you → the title of the Claude Code
+        frame ccc draws itself (see publish_waiting for the tmux pane)."""
+        pane = getattr(self.screen, "claude_pane", lambda: None)()
+        if pane is None:
+            return
+
+        def work() -> str:
+            from ccc import attention
+
+            return attention.summary(attention.waiting(self.storage, exclude=pane.queue_id), pane.waiting_room())
+
+        self.run_worker(work, thread=True, group="publish-waiting", exclusive=True, name="waiting-embedded")
+
+    def on_worker_state_changed(self, event) -> None:
+        worker = event.worker
+        if worker.name == "waiting-embedded" and worker.state.name == "SUCCESS":
+            pane = getattr(self.screen, "claude_pane", lambda: None)()
+            if pane is not None:
+                pane.set_waiting(worker.result or "")
+
     def publish_waiting(self) -> None:
         """The conversations that need you → the Claude Code pane's title
         bar (ccc.attention), in a thread: tmux and the database, never
@@ -177,6 +205,9 @@ class CCContinueApp(App):
         shown = cli_pane.find() if cli_pane.available() else None
         if shown is not None:
             return shown[1]
+        embedded = getattr(self.screen, "claude_pane", lambda: None)()
+        if embedded is not None:
+            return embedded.queue_id
         return getattr(self.screen, "_current_queue_id", None)
 
     def action_jump_waiting(self) -> None:

@@ -20,6 +20,7 @@ from ccc.prompt_presets import load_prompt_presets
 from ccc.storage import Storage
 from ccc.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
 from ccc.tui import cli_pane
+from ccc.tui.claude_pane import ClaudePane
 from ccc.tui.layout import (
     NEW_CONVERSATION_BUTTON,
     RETRY_BUTTON,
@@ -529,6 +530,9 @@ class ConversationsScreen(SidebarScreen):
         top, so that one gets the whole width."""
         queue = self.storage.find_queue(self._current_queue_id) if self._current_queue_id is not None else None
         self.set_class(self._shows_nothing(queue), "-no-conversation")
+        if cli_pane.embedded():
+            self._sync_embedded_pane()
+            return
         if not cli_pane.available():
             return
         queue = self._cli_queue()
@@ -557,12 +561,49 @@ class ConversationsScreen(SidebarScreen):
             self.set_class(want, "-cli-open")
             self.refresh_bindings()  # Alt+0 / Ctrl+] in the key strip
 
+    def claude_pane(self) -> ClaudePane | None:
+        """The Claude Code frame ccc draws itself (CCC_EMBEDDED_TERMINAL), if open."""
+        panes = self.query(ClaudePane)
+        return panes.first() if panes else None
+
+    def _sync_embedded_pane(self) -> None:
+        """Embedded (cli_pane.embedded): the conversation's Claude Code is a
+        ClaudePane in the place of the transcript, instead of a tmux pane
+        beside ccc. Closed while a dialog / Settings / another view is on top."""
+        queue = self._cli_queue()
+        want = queue is not None and self.app.screen is self and queue.id != self._cli_closed_for
+        pane = self.claude_pane()
+        if want and pane is not None and pane.queue_id == queue.id:
+            return
+        if pane is not None:
+            pane.remove()
+        if want:
+            self.add_class("-cli-open")
+            self.query_one("#main").parent.mount(ClaudePane(queue.id, queue.name, self.storage))
+        else:
+            self.remove_class("-cli-open")
+        self._cli_open_for = queue.id if want else None
+
+    def on_claude_pane_closed(self, message: ClaudePane.Closed) -> None:
+        # Ctrl+] (or the session ended): closed until Enter in the list.
+        message.stop()
+        self._cli_closed_for = message.queue_id
+        self._sync_cli_pane()
+        self.query_one("#conversation-queue-list").focus()
+
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action in ("focus_claude", "close_claude"):
             return self.has_class("-cli-open")
         return super().check_action(action, parameters)
 
     def action_focus_claude(self) -> None:
+        pane = self.claude_pane()
+        if pane is not None:
+            if pane.has_keyboard():
+                self.query_one("#conversation-queue-list").focus()
+            else:
+                pane.focus_terminal()
+            return
         cli_pane.focus()
 
     def action_close_claude(self) -> None:
@@ -577,7 +618,11 @@ class ConversationsScreen(SidebarScreen):
         if queue is None:
             return False
         self._cli_closed_for = None
-        if cli_pane.available():
+        if cli_pane.embedded():
+            self._sync_cli_pane()
+            if (pane := self.claude_pane()) is not None:
+                pane.focus_terminal()
+        elif cli_pane.available():
             self._sync_cli_pane()
             cli_pane.focus()
         else:
@@ -618,7 +663,10 @@ class ConversationsScreen(SidebarScreen):
         """Close the pane only if this screen opened it: going from Archive
         to Conversations, Archive is unmounted after Conversations opened
         its pane — closing it then looked like Ctrl+], and it stayed shut."""
-        if self._cli_open_for is not None and cli_pane.available():
+        if cli_pane.embedded():
+            if (pane := self.claude_pane()) is not None:
+                pane.remove()
+        elif self._cli_open_for is not None and cli_pane.available():
             cli_pane.close()
         self._cli_open_for = None
 

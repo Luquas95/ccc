@@ -38,6 +38,24 @@ Viz [Limity využití a zablokované fronty](limits.md).
    `~/.local/share/ccc/history.db`.
 3. `systemctl --user start ccc ccc-tui`
 
+## Claude Code ve vlastním rámu ccc (experimentální)
+
+Ve výchozím stavu se Claude Code otevírá v panelu tmuxu vedle ccc, takže
+čáry kolem něj kreslí tmux (rovné rohy, titulek odsazený o 2 sloupce).
+S `CCC_EMBEDDED_TERMINAL=1` v prostředí `ccc-tui` ukazuje Claude Code
+samo ccc: zaoblený rám jako u menu, s titulkem, konverzacemi, které na
+tebe čekají, značkou **⌨ typing here** a předvolbami pod ním. tmux zůstává
+jen jako okno, ve kterém ccc žije (běží dál a můžeš se k němu připojit
+odkudkoli), a jako hostitel sezení konverzací, takže se nic nemění pro
+daemon, API ani aplikaci v telefonu. Klávesy jsou stejné: Alt+0 přepíná
+klávesnici mezi seznamem a Claude Code, Ctrl+] rám zavře (Claude běží
+dál). Tažením myší vybereš text — po pustění jde do schránky; kolečko
+posouvá historii Clauda.
+
+Zapnutí: `systemctl --user edit ccc-tui`, přidej `[Service]` /
+`Environment=CCC_EMBEDDED_TERMINAL=1` a pak
+`systemctl --user restart ccc-tui`. Odebráním řádku se vrátíš zpět.
+
 ## Jak ccc funguje
 
 - **`ccc-daemon`** je jediný, kdo kdy spouští Clauda. Je to služba na
