@@ -256,6 +256,10 @@
     <string name="send_test">Send test message</string>
     <string name="settings_context">Context</string>
     <string name="settings_data">Data</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="tab_presets">Presets</string>
+    <string name="settings_connection">Connection</string>
+    <string name="settings_connection_hint">Signing in (scan a QR code), the phones signed in, this phone’s notifications and what the conversation list shows.</string>
     <string name="settings_discord">Discord notifications</string>
     <string name="settings_folders">Folders</string>
     <string name="settings_general">General</string>

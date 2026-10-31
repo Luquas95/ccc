@@ -36,13 +36,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -356,6 +359,7 @@ fun CccSettingsScreen(
     presets: List<PromptPreset>,
     snackbar: SnackbarHostState,
     actions: SettingsActions,
+    initialTab: Int = 0,
 ) {
     Scaffold(
         topBar = { Bar(stringResource(R.string.ccc_settings), null, actions.back) },
@@ -382,23 +386,34 @@ fun CccSettingsScreen(
         var webhook by rememberSaveable(state) { mutableStateOf("") }
         val off = stringResource(R.string.off)
         val auto = stringResource(R.string.auto)
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(12.dp),
+        // One tab per kind of setting, so each is found in one place; the values of all the tabs are
+        // kept together and one Save (on the tabs that have fields) sends them.
+        var tab by rememberSaveable { mutableIntStateOf(initialTab) }
+        val tabs = listOf(R.string.settings_general, R.string.settings_queues, R.string.settings_notifications,
+            R.string.tab_presets, R.string.settings_data, R.string.settings_connection)
+        Column(Modifier.fillMaxSize().padding(padding)) {
+        ScrollableTabRow(selectedTabIndex = tab, edgePadding = 12.dp, containerColor = CccColors.Background) {
+            tabs.forEachIndexed { i, label ->
+                Tab(selected = tab == i, onClick = { tab = i }, text = { Text(stringResource(label)) })
+            }
+        }
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            item {
+            if (tab == 0) item {
                 Section(stringResource(R.string.settings_general)) {
                     Picker(stringResource(R.string.language), language, state.languages.map { it.value to it.label }) { language = it }
                     Text(stringResource(R.string.language_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
                     Picker(stringResource(R.string.groups_in_list), groups, state.groupsChoices.map { it.value to it.label }) { groups = it }
                 }
             }
-            item {
+            if (tab == 1) item {
                 Section(stringResource(R.string.settings_queues)) {
                     OutlinedTextField(continueText, { continueText = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.continue_text)) })
                     Picker(stringResource(R.string.usage_reserve), reserve, listOf("" to off) + state.reserveChoices.map { "$it" to "$it %" }) { reserve = it }
                     Picker(stringResource(R.string.review_model), reviewModel, state.reviewModels.map { it.value to it.label }) { reviewModel = it }
                 }
             }
-            item {
+            if (tab == 1) item {
                 Section(stringResource(R.string.settings_context)) {
                     Picker(stringResource(R.string.context_window), window, listOf("" to auto) + state.windowChoices.map { "$it" to "${it / 1000}k" }) { window = it }
                     Picker(stringResource(R.string.context_warn), warn, state.thresholdChoices.map { "$it" to "$it %" }) { warn = it }
@@ -406,7 +421,7 @@ fun CccSettingsScreen(
                     CheckLine(stringResource(R.string.context_notify), notify) { notify = it }
                 }
             }
-            item {
+            if (tab == 2) item {
                 Section(stringResource(R.string.settings_telegram)) {
                     Text(stringResource(if (state.telegram.on) R.string.on else R.string.telegram_off_hint),
                         color = if (state.telegram.on) CccColors.Claude else CccColors.Waiting, style = MaterialTheme.typography.bodySmall)
@@ -422,7 +437,7 @@ fun CccSettingsScreen(
                     }
                 }
             }
-            item {
+            if (tab == 2) item {
                 Section(stringResource(R.string.settings_discord)) {
                     Text(stringResource(if (state.discord.on) R.string.on else R.string.discord_off_hint),
                         color = if (state.discord.on) CccColors.Claude else CccColors.Waiting, style = MaterialTheme.typography.bodySmall)
@@ -435,7 +450,7 @@ fun CccSettingsScreen(
                     }
                 }
             }
-            item {
+            if (tab == 4) item {
                 Section(stringResource(R.string.settings_folders)) {
                     OutlinedTextField(exportFolder, { exportFolder = it }, Modifier.fillMaxWidth(), singleLine = true,
                         label = { Text(stringResource(R.string.export_folder)) })
@@ -444,7 +459,34 @@ fun CccSettingsScreen(
                         label = { Text(stringResource(R.string.archive_folder)) })
                 }
             }
-            item {
+            if (tab == 3) item { PromptPresetsSection(presets, actions.savePresets) }
+            if (tab == 3) item {
+                Section(stringResource(R.string.launch_presets)) {
+                    if (state.launchPresets.isEmpty()) Text(stringResource(R.string.launch_presets_none), color = CccColors.Muted,
+                        style = MaterialTheme.typography.bodySmall)
+                    state.launchPresets.forEach { name ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(name, Modifier.weight(1f))
+                            IconButton(onClick = { actions.deleteLaunchPreset(name) }) {
+                                Icon(Icons.Filled.Delete, stringResource(R.string.delete), tint = CccColors.Error)
+                            }
+                        }
+                    }
+                }
+            }
+            if (tab == 4) item {
+                Section(stringResource(R.string.settings_data)) {
+                    Text(stringResource(R.string.backup_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
+                    OutlinedButton(onClick = actions.backup) { Text(stringResource(R.string.backup_now)) }
+                }
+            }
+            if (tab == 5) item {
+                Section(stringResource(R.string.settings_connection)) {
+                    Text(stringResource(R.string.settings_connection_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
+                    Button(onClick = actions.connection, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.connection)) }
+                }
+            }
+            if (tab != 3 && tab != 5) item {
                 Button(onClick = {
                     actions.save(buildMap {
                         put("language", JsonPrimitive(language))
@@ -465,28 +507,7 @@ fun CccSettingsScreen(
                     })
                 }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.save)) }
             }
-            item { PromptPresetsSection(presets, actions.savePresets) }
-            item {
-                Section(stringResource(R.string.launch_presets)) {
-                    if (state.launchPresets.isEmpty()) Text(stringResource(R.string.launch_presets_none), color = CccColors.Muted,
-                        style = MaterialTheme.typography.bodySmall)
-                    state.launchPresets.forEach { name ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(name, Modifier.weight(1f))
-                            IconButton(onClick = { actions.deleteLaunchPreset(name) }) {
-                                Icon(Icons.Filled.Delete, stringResource(R.string.delete), tint = CccColors.Error)
-                            }
-                        }
-                    }
-                }
-            }
-            item {
-                Section(stringResource(R.string.settings_data)) {
-                    Text(stringResource(R.string.backup_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
-                    OutlinedButton(onClick = actions.backup) { Text(stringResource(R.string.backup_now)) }
-                    OutlinedButton(onClick = actions.connection) { Text(stringResource(R.string.connection)) }
-                }
-            }
+        }
         }
     }
 }

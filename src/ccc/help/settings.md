@@ -9,6 +9,21 @@ now* act right away.
 
 ## Sections
 
+The window has a tab for each kind of setting (`←` `→` or a click switch
+between them); *Save* applies every tab at once:
+
+| Tab | Sections |
+|---|---|
+| General | Appearance, External editor, Dashboard, Keyboard shortcuts |
+| Queues and context | Queues, Context |
+| Notifications | Telegram, Discord |
+| Presets | Preset prompts, New-conversation presets |
+| Data | Exports, Monthly analytics archive, Data |
+| Connection and updates | Devices, Updates |
+
+The Android app's *ccc settings* has the same kinds of tabs (plus
+*Connection*, which opens the app's own sign-in and devices screen).
+
 | Section | |
 |---|---|
 | Appearance | language — *Auto* follows the system (`LANG`), saving another one restarts ccc's window |

@@ -431,6 +431,11 @@ CS: dict[str, str] = {
         "poznámku za měsíc s kalendářem a grafy a jednu za každý den. Prázdné = bez archivu.",
     "Archive finished months now": "Archivovat skončené měsíce hned",
     "Data": "Data",
+    "General": "Obecné",
+    "Queues and context": "Fronty a kontext",
+    "Notifications": "Notifikace",
+    "Presets": "Předvolby",
+    "Connection and updates": "Připojení a aktualizace",
     "Backed up automatically every day; the newest 14 copies are kept.":
         "Záloha se dělá automaticky každý den; ponechá se 14 nejnovějších.",
     "Back up now": "Zálohovat hned",
