@@ -10,7 +10,7 @@ from textual.containers import Container, Horizontal
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Static
 
-from ccc import keymap, pairing
+from ccc import api, keymap, pairing
 from ccc.i18n import _
 from ccc.models import REVOKED_BY_COMPUTER
 from ccc.storage import Storage
@@ -104,6 +104,10 @@ class PairModal(ModalScreen):
 
 class DevicesModal(ModalScreen):
     DEFAULT_CSS = MODAL_CSS.format(cls="DevicesModal") + """
+    DevicesModal > Container {
+        width: 112;
+        max-width: 100%;
+    }
     DevicesModal #devices-table {
         height: auto;
         max-height: 14;
@@ -125,6 +129,7 @@ class DevicesModal(ModalScreen):
     def __init__(self, storage: Storage):
         super().__init__()
         self.storage = storage
+        self._history = False  # showing the signed-out devices (read only) instead of the active ones
 
     def compose(self):
         box = Container(
@@ -133,6 +138,7 @@ class DevicesModal(ModalScreen):
             Horizontal(
                 Button(_("Pair a new device"), id="devices-pair", classes="modal-submit"),
                 Button(_("Sign out"), id="devices-revoke"),
+                Button(_("History"), id="devices-history"),
                 Button(_("Close"), id="devices-close", classes="modal-cancel"),
                 classes="modal-buttons",
             ),
@@ -141,10 +147,14 @@ class DevicesModal(ModalScreen):
         yield box
 
     def on_mount(self) -> None:
-        table = self.query_one("#devices-table", DataTable)
-        table.add_columns(_("Device"), _("Paired"), _("Last seen"), _("Address"))
+        self._columns()
         self._refresh()
         self.set_interval(3, self._refresh)  # a phone signed out elsewhere disappears by itself
+
+    def _columns(self) -> None:
+        table = self.query_one("#devices-table", DataTable)
+        table.clear(columns=True)
+        table.add_columns(_("Device"), _("Paired"), _("Last seen"), _("Address"), *([_("Signed out")] if self._history else []))
 
     @staticmethod
     def _when(moment: datetime | None) -> str:
@@ -156,25 +166,44 @@ class DevicesModal(ModalScreen):
         if select is None and table.row_count:
             select = int(table.coordinate_to_cell_key(table.cursor_coordinate).row_key.value)
         row = table.cursor_row
-        devices = self.storage.list_devices()
+        if self._history:
+            devices = [d for d in self.storage.list_devices(include_revoked=True) if d.revoked_at]
+            devices.sort(key=lambda d: d.revoked_at, reverse=True)
+        else:
+            devices = self.storage.list_devices()
         table.clear()
         for device in devices:
-            table.add_row(device.name, self._when(device.created_at), self._when(device.last_seen_at),
-                          device.last_ip or "—", key=str(device.id))
+            cells = [device.name, self._when(device.created_at), self._when(device.last_seen_at), device.last_ip or "—"]
+            if self._history:
+                cells.append(f"{self._when(device.revoked_at)}  {api.revoked_label(device, short=True)}")
+            table.add_row(*cells, key=str(device.id))
         ids = [d.id for d in devices]
         if ids:
             table.move_cursor(row=ids.index(select) if select in ids else min(row, len(ids) - 1))
-        self.query_one("#devices-revoke", Button).disabled = not devices
+        self.query_one("#devices-revoke", Button).disabled = self._history or not devices
+        self.query_one("#devices-pair", Button).disabled = self._history
         if not devices:
-            self._info(Text(_("No device is signed in yet — pair one."), style="dim"))
+            self._info(Text(_("No device has been signed out yet.") if self._history
+                            else _("No device is signed in yet — pair one."), style="dim"))
+        elif self._history:
+            self._info(Text(_("History of the signed-out devices — read only."), style="dim"))
 
     def _info(self, text: Text | str) -> None:
         self.query_one("#devices-info", Static).update(text)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         event.stop()
-        {"devices-pair": self._pair, "devices-revoke": self._revoke, "devices-close": self.action_close}.get(
+        {"devices-pair": self._pair, "devices-revoke": self._revoke, "devices-history": self._toggle_history,
+         "devices-close": self.action_close}.get(
             event.button.id or "", lambda: None)()
+
+    def _toggle_history(self) -> None:
+        """Switch between the devices signed in and the history of the signed-out ones."""
+        self._history = not self._history
+        self.query_one("#devices-history", Button).label = _("Active") if self._history else _("History")
+        self._columns()
+        self._info("")
+        self._refresh(select=-1)
 
     def _pair(self) -> None:
         self.app.push_screen(PairModal(self.storage), self._paired)

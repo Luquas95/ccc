@@ -491,3 +491,35 @@ async def test_devices_window_follows_a_sign_out_made_elsewhere(tmp_path):
         app.storage.revoke_device(phone.id, 'computer')  # `ccc api revoke`, or the app signing out
         await pilot.pause(3.5)
         assert table.row_count == 1
+
+
+@pytest.mark.asyncio
+async def test_devices_window_shows_the_history_of_signed_out_devices_read_only(tmp_path):
+    from textual.widgets import Button, DataTable
+
+    from ccc import api
+    from ccc.tui.devices import DevicesModal
+
+    app = _app(tmp_path)
+    phone, _token = api.add_device(app.storage, "Pixel")
+    api.add_device(app.storage, "Tablet")
+    async with app.run_test(size=(120, 30)) as pilot:
+        settings = await _open_settings(pilot, app)
+        settings.query_one("#settings-devices", Button).press()
+        await pilot.pause()
+        assert isinstance(app.screen, DevicesModal)
+        table = app.screen.query_one("#devices-table", DataTable)
+        app.screen.query_one("#devices-history", Button).press()
+        await pilot.pause()
+        assert table.row_count == 0
+        assert app.screen.query_one("#devices-revoke", Button).disabled
+        assert app.screen.query_one("#devices-pair", Button).disabled
+        app.storage.revoke_device(phone.id, "app")  # signed out in the app: the open history picks it up
+        await pilot.pause(3.5)
+        assert table.row_count == 1
+        assert [str(c) for c in table.get_row_at(0)][0] == "Pixel"
+        assert "in the app" in str(table.get_row_at(0)[-1])
+        app.screen.query_one("#devices-history", Button).press()  # back to the active ones
+        await pilot.pause()
+        assert table.row_count == 1 and str(table.get_row_at(0)[0]) == "Tablet"
+        assert not app.screen.query_one("#devices-pair", Button).disabled

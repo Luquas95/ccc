@@ -46,6 +46,9 @@ token.
    phone has paired it closes and the Devices window highlights the new
    device. That window lists every signed-in phone (name, when it paired,
    last seen, address), refreshes by itself, and *Sign out* removes one.
+   *History* switches to the devices signed out before (when, and how:
+   in the app, on the computer, by a new token) — read only, nothing can
+   be deleted from it.
    ccc finds the
    address in `tailscale serve status`; when it can't, give it with
    `ccc api pair --server https://<computer>.<tailnet>.ts.net`.
