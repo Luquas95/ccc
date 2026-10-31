@@ -12,7 +12,7 @@ from textual.widgets import Button, DataTable, Static
 
 from ccc import api, keymap, pairing
 from ccc.i18n import _
-from ccc.models import REVOKED_BY_COMPUTER
+from ccc.models import REVOKED_BY_COMPUTER, ROLES
 from ccc.storage import Storage
 from ccc.tui.layout import MODAL_CSS
 
@@ -137,6 +137,7 @@ class DevicesModal(ModalScreen):
             Static(id="devices-info"),
             Horizontal(
                 Button(_("Pair a new device"), id="devices-pair", classes="modal-submit"),
+                Button(_("Change role"), id="devices-role"),
                 Button(_("Sign out"), id="devices-revoke"),
                 Button(_("History"), id="devices-history"),
                 Button(_("Close"), id="devices-close", classes="modal-cancel"),
@@ -154,7 +155,7 @@ class DevicesModal(ModalScreen):
     def _columns(self) -> None:
         table = self.query_one("#devices-table", DataTable)
         table.clear(columns=True)
-        table.add_columns(_("Device"), _("Paired"), _("Last seen"), _("Address"), *([_("Signed out")] if self._history else []))
+        table.add_columns(_("Device"), _("Role"), _("Paired"), _("Last seen"), _("Address"), *([_("Signed out")] if self._history else []))
 
     @staticmethod
     def _when(moment: datetime | None) -> str:
@@ -173,7 +174,7 @@ class DevicesModal(ModalScreen):
             devices = self.storage.list_devices()
         table.clear()
         for device in devices:
-            cells = [device.name, self._when(device.created_at), self._when(device.last_seen_at), device.last_ip or "—"]
+            cells = [device.name, device.role, self._when(device.created_at), self._when(device.last_seen_at), device.last_ip or "—"]
             if self._history:
                 cells.append(f"{self._when(device.revoked_at)}  {api.revoked_label(device, short=True)}")
             table.add_row(*cells, key=str(device.id))
@@ -181,6 +182,7 @@ class DevicesModal(ModalScreen):
         if ids:
             table.move_cursor(row=ids.index(select) if select in ids else min(row, len(ids) - 1))
         self.query_one("#devices-revoke", Button).disabled = self._history or not devices
+        self.query_one("#devices-role", Button).disabled = self._history or not devices
         self.query_one("#devices-pair", Button).disabled = self._history
         if not devices:
             self._info(Text(_("No device has been signed out yet.") if self._history
@@ -193,7 +195,7 @@ class DevicesModal(ModalScreen):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         event.stop()
-        {"devices-pair": self._pair, "devices-revoke": self._revoke, "devices-history": self._toggle_history,
+        {"devices-pair": self._pair, "devices-role": self._next_role, "devices-revoke": self._revoke, "devices-history": self._toggle_history,
          "devices-close": self.action_close}.get(
             event.button.id or "", lambda: None)()
 
@@ -216,6 +218,20 @@ class DevicesModal(ModalScreen):
                 if device.name == name:
                     table.move_cursor(row=index)
             self._info(Text(_("Paired: {name}").format(name=name), style="green"))
+
+    def _next_role(self) -> None:
+        """read → operate → admin → read for the selected device (what each may do: api_roles)."""
+        table = self.query_one("#devices-table", DataTable)
+        if not table.row_count:
+            return
+        device_id = int(table.coordinate_to_cell_key(table.cursor_coordinate).row_key.value)
+        device = next((d for d in self.storage.list_devices() if d.id == device_id), None)
+        if device is None:
+            return
+        role = ROLES[(ROLES.index(device.role) + 1) % len(ROLES)] if device.role in ROLES else ROLES[0]
+        self.storage.set_device_role(device_id, role)
+        self._refresh(select=device_id)
+        self._info(Text(_("{name} is now {role}.").format(name=device.name, role=role), style="green"))
 
     def _revoke(self) -> None:
         table = self.query_one("#devices-table", DataTable)

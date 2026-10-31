@@ -75,6 +75,25 @@ aplikaci povol běh na pozadí, jinak ji systém zastaví.
 stav gitu, úkoly ve frontě a složku, každé zapnuté nebo vypnuté — pamatuje
 si to telefon, takže malá obrazovka může ukazovat méně.
 
+## Co smí zařízení (role)
+
+Každé zařízení má roli, aby ukradený telefon nebo token nebyl cestou do
+celého počítače:
+
+| Role | Smí |
+|---|---|
+| `read` | dívat se: každé `GET` (seznamy, konverzace, diffy, proud událostí) |
+| `operate` | i řídit existující konverzace: zprávy, schvalování, fronta, úkoly, revize, cíle, workflow |
+| `admin` | i zakládat konverzace (v jakékoli složce), psát do terminálu, posílat prompty živým relacím, rutiny, vrátit běh, nastavení, záloha, aktualizace ccc a sestavení appky, správa ostatních zařízení |
+
+Nově spárovaný telefon je `operate`; `ccc api pair --role admin` (nebo
+*Změnit roli* v okně Zařízení, nebo `ccc api role ID admin`) dá víc, `read`
+míň. Zařízení z doby před rolemi zůstávají `admin`. Požadavek nad rámec role
+dostane `403`; cesta, kterou pravidla neznají, vyžaduje `admin`. Ať má
+zařízení jakoukoli roli, smí se samo přejmenovat a odhlásit. `operate` stále
+dovolí telefonu schvalovat použití nástrojů v existující konverzaci — to je
+smysl jejího řízení.
+
 ## Endpointy
 
 Každá cesta začíná `/api/v1`; každý požadavek má hlavičku
@@ -130,7 +149,7 @@ jen to, co platí pro obě strany.
 | `GET /launch-presets` | předvolby okna Nová konverzace a poslední volba |
 | `GET /prompt-presets` | přednastavené prompty (Alt+1 … 9 v ccc) |
 | `POST /pair` | `{"code", "name"}` — bez tokenu: vymění párovací kód z QR za nové zařízení; vrátí `{"token", "device_id", "name", "version"}`, 401 při špatném, použitém nebo prošlém kódu |
-| `GET /devices` | přihlášená zařízení: jméno, vytvoření, naposledy vidět, adresa; `current` označí volajícího. `POST /devices/{id}` `{"name"}` jedno přejmenuje, `DELETE /devices/{id}` ho hned odhlásí (i otevřená spojení; řádek zůstane jako historie). `GET /devices?all=1` přidá odhlášená s `revoked_at` a `revoked_by` (`app`, `computer`, `token`) |
+| `GET /devices` | přihlášená zařízení: `role`, jméno, vytvoření, naposledy vidět, adresa; `current` označí volajícího. `POST /devices/{id}` `{"name"}` jedno přejmenuje, `DELETE /devices/{id}` ho hned odhlásí (i otevřená spojení; řádek zůstane jako historie). `GET /devices?all=1` přidá odhlášená s `revoked_at` a `revoked_by` (`app`, `computer`, `token`) |
 | `GET /groups` | seskupení a tvé vlastní skupiny; `POST /groups/rename` `{"old", "new"}`, `POST /groups/delete` `{"name"}` |
 | `GET /search?q=` | hledání ve všech konverzacích (i archivovaných), nejnovější první |
 | `GET /waiting` | konverzace, které tě potřebují, nejnaléhavější první (Alt+N v ccc) |

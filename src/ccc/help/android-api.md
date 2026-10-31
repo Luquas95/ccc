@@ -81,6 +81,25 @@ it.
 fill, the git state, the queued tasks and the folder, each on or off —
 kept on the phone, so a small screen can show less.
 
+## What a device may do (roles)
+
+Every device has a role, so a stolen phone or token is not a way into the
+whole computer:
+
+| Role | May |
+|---|---|
+| `read` | look: every `GET` (lists, conversations, diffs, the events stream) |
+| `operate` | also steer the conversations that exist: messages, approvals, queue, tasks, reviews, goals, workflows |
+| `admin` | also start conversations (any folder), type into a terminal, prompt live sessions, routines, revert a run, settings, backup, update ccc and build the app, manage other devices |
+
+A newly paired phone is `operate`; `ccc api pair --role admin` (or
+*Change role* in the Devices window, or `ccc api role ID admin`) gives it
+more, `read` less. Devices from before roles stay `admin`. A request beyond
+the role gets `403`; a path the rules don't know needs `admin`. Whatever its
+role, a device may rename and sign out itself. Note that `operate` still
+lets the phone approve tool use in a conversation that exists — that is
+what steering it means.
+
 ## Endpoints
 
 Every path starts with `/api/v1`; every request has the header
@@ -135,7 +154,7 @@ settings it shows are the ones that apply to both sides.
 | `GET /launch-presets` | the New conversation presets and the last choice |
 | `GET /prompt-presets` | the preset prompts (Alt+1 … 9 in ccc) |
 | `POST /pair` | `{"code", "name"}` — no token needed: trades a pairing code from the QR for a new device; answers `{"token", "device_id", "name", "version"}`, 401 when the code is wrong, used or run out |
-| `GET /devices` | the devices signed in: name, made, last seen, address; `current` marks the caller. `POST /devices/{id}` `{"name"}` renames one, `DELETE /devices/{id}` signs it out at once (open connections too; the row stays as history). `GET /devices?all=1` adds the signed-out ones with `revoked_at` and `revoked_by` (`app`, `computer`, `token`) |
+| `GET /devices` | the devices signed in: name, `role`, made, last seen, address; `current` marks the caller. `POST /devices/{id}` `{"name"}` renames one, `DELETE /devices/{id}` signs it out at once (open connections too; the row stays as history). `GET /devices?all=1` adds the signed-out ones with `revoked_at` and `revoked_by` (`app`, `computer`, `token`) |
 | `GET /groups` | the grouping and your own groups; `POST /groups/rename` `{"old", "new"}`, `POST /groups/delete` `{"name"}` |
 | `GET /search?q=` | search every conversation (archived too), newest first |
 | `GET /waiting` | conversations that need you, most urgent first (Alt+N in ccc) |
