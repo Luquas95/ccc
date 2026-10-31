@@ -10,6 +10,18 @@
     <string name="setup_connect">Připojit</string>
     <string name="setup_sign_out">Odhlásit</string>
     <string name="setup_connected_to">Připojeno k %1$s</string>
+    <string name="pair_title">Přihlásit se k tomuto ccc?</string>
+    <string name="pair_text">QR kód patří k %1$s. QR kód si může vytisknout kdokoli — pokračuj jen tehdy, je-li to tvůj počítač.</string>
+    <string name="pair_other">Teď jsi přihlášený k %1$s; tohle ho nahradí.</string>
+    <string name="pair_yes">Přihlásit</string>
+    <string name="scan_qr">Skenovat QR</string>
+    <string name="scan_hint">Na počítači: ccc api pair, nebo v Nastavení ccc → Zařízení… → Spárovat nové zařízení. Nic se nepíše.</string>
+    <string name="scan_prompt">Namiř kameru na QR kód, který ccc ukazuje</string>
+    <string name="setup_manual">Nebo zadej ručně</string>
+    <string name="devices">Zařízení</string>
+    <string name="devices_hint">Telefony přihlášené k ccc. Jeden odhlásíš tady, nebo na počítači (ccc api devices).</string>
+    <string name="device_this">%1$s (tento telefon)</string>
+    <string name="device_never">nikdy nevidět</string>
 
     <!-- Konverzace -->
     <string name="conversations_empty">Zatím žádné konverzace.</string>
@@ -79,7 +91,9 @@
 
     <!-- Chyby -->
     <string name="error_network">ccc není dostupné. Je počítač zapnutý a v tvém tailnetu?</string>
-    <string name="error_token">ccc token odmítlo. Vytvoř nový přes ccc api token --new.</string>
+    <string name="error_token">ccc token odmítlo — telefon mohl být odhlášen. Naskenuj nový QR kód (ccc api pair).</string>
+    <string name="error_qr">To není QR kód ccc. Použij ten z ccc api pair.</string>
+    <string name="error_pairing">QR kód je špatný, už použitý nebo vypršel. Vytvoř nový (ccc api pair).</string>
     <string name="error_server_address">To není adresa.</string>
 
     <!-- Kolo 1: správa konverzací -->

@@ -28,6 +28,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -46,18 +47,25 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import com.journeyapps.barcodescanner.ScanContract
+import io.github.luquas95.ccc.data.Pairing
+import io.github.luquas95.ccc.data.PairingInvite
+import com.journeyapps.barcodescanner.ScanOptions
+import io.github.luquas95.ccc.data.Device
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontFamily
@@ -422,6 +430,25 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
     }
 }
 
+/** A phone signed in to ccc: its name, when and from where it was last seen, and a way to sign it out. */
+@Composable
+private fun DeviceRow(device: Device, onSignOut: (Device) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                if (device.current) stringResource(R.string.device_this, device.name) else device.name,
+                fontWeight = if (device.current) FontWeight.Bold else FontWeight.Normal,
+            )
+            val seen = shortTime(device.lastSeenAt) ?: stringResource(R.string.device_never)
+            Text(listOf(seen, device.lastIp).filter { it.isNotBlank() }.joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
+        }
+        TextButton(onClick = { onSignOut(device) }) {
+            Text(stringResource(R.string.setup_sign_out), color = CccColors.Error)
+        }
+    }
+}
+
 @Composable
 fun SetupScreen(
     server: String,
@@ -434,15 +461,46 @@ fun SetupScreen(
     onConnect: (String, String, (Boolean) -> Unit) -> Unit,
     onNotifications: (Boolean) -> Unit,
     onSignOut: () -> Unit,
+    devices: List<Device>? = null,
+    onDevices: () -> Unit = {},
+    onSignOutDevice: (Device) -> Unit = {},
+    invite: PairingInvite? = null,
+    currentServer: String = "",
+    onScan: (String) -> Unit = {},
+    onPair: ((Boolean) -> Unit) -> Unit = {},
+    onInviteDismissed: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    var address by rememberSaveable { mutableStateOf(server) }
+    var token by rememberSaveable { mutableStateOf("") }
+    var busy by rememberSaveable { mutableStateOf(false) }
+    // The QR code of `ccc api pair`: the library's own screen asks for the camera and reads it.
+    val scan = rememberLauncherForActivityResult(ScanContract()) { result ->
+        result.contents?.let(onScan)
+    }
+    if (invite != null) {
+        val origin = remember(invite) { Pairing.origin(invite.server).orEmpty() }
+        val other = signedIn && Pairing.origin(currentServer) != origin
+        AlertDialog(
+            onDismissRequest = onInviteDismissed,
+            title = { Text(stringResource(R.string.pair_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.pair_text, origin), fontWeight = FontWeight.Bold)
+                    if (other) Text(stringResource(R.string.pair_other, currentServer), color = CccColors.Error)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { busy = true; onPair { busy = false } }) { Text(stringResource(R.string.pair_yes)) }
+            },
+            dismissButton = { TextButton(onClick = onInviteDismissed) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+    LaunchedEffect(signedIn) { if (signedIn) onDevices() }
     // Android 13+ asks before an app may notify; on a yes, watching starts.
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) onNotifications(true)
     }
-    var address by rememberSaveable { mutableStateOf(server) }
-    var token by rememberSaveable { mutableStateOf("") }
-    var busy by rememberSaveable { mutableStateOf(false) }
     Scaffold(
         topBar = { TopBar(stringResource(if (signedIn) R.string.connection else R.string.setup_title), onBack) },
         snackbarHost = { SnackbarHost(snackbar) },
@@ -462,6 +520,21 @@ fun SetupScreen(
                 Text(stringResource(R.string.setup_connected_to, server), color = CccColors.Muted)
             }
             Text(stringResource(R.string.setup_intro), style = MaterialTheme.typography.bodyMedium, color = CccColors.Muted)
+            Button(
+                onClick = {
+                    scan.launch(ScanOptions().apply {
+                        setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                        setPrompt(context.getString(R.string.scan_prompt))
+                        setBeepEnabled(false)
+                        setOrientationLocked(false)
+                    })
+                },
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+            ) { Text(stringResource(R.string.scan_qr)) }
+            Text(stringResource(R.string.scan_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
+            Text(stringResource(R.string.setup_manual), style = MaterialTheme.typography.titleSmall,
+                color = CccColors.Title, fontWeight = FontWeight.Bold)
             OutlinedTextField(
                 value = address,
                 onValueChange = { address = it },
@@ -492,6 +565,11 @@ fun SetupScreen(
                 if (busy) CircularProgressIndicator(Modifier.height(24.dp)) else Text(stringResource(R.string.setup_connect))
             }
             if (signedIn) {
+                Spacer(Modifier.height(16.dp))
+                Text(stringResource(R.string.devices), style = MaterialTheme.typography.titleSmall,
+                    color = CccColors.Title, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.devices_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
+                devices?.forEach { device -> DeviceRow(device, onSignOutDevice) }
                 Spacer(Modifier.height(16.dp))
                 Text(stringResource(R.string.notifications), style = MaterialTheme.typography.titleSmall,
                     color = CccColors.Title, fontWeight = FontWeight.Bold)

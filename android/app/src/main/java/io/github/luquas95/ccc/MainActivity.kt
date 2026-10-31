@@ -81,6 +81,8 @@ class MainActivity : ComponentActivity() {
 private fun App(model: AppViewModel) {
     val screens by model.screens.collectAsStateWithLifecycle()
     val home by model.home.collectAsStateWithLifecycle()
+    val devices by model.devices.collectAsStateWithLifecycle()
+    val invite by model.invite.collectAsStateWithLifecycle()
     val conversation by model.conversation.collectAsStateWithLifecycle()
     val newConversation by model.newConversation.collectAsStateWithLifecycle()
     val message by model.message.collectAsStateWithLifecycle()
@@ -133,6 +135,14 @@ private fun App(model: AppViewModel) {
             onConnect = model::connect,
             onNotifications = model::setNotifications,
             onSignOut = model::signOut,
+            devices = devices,
+            onDevices = model::loadDevices,
+            onSignOutDevice = model::signOutDevice,
+            invite = invite,
+            currentServer = model.currentServer,
+            onScan = model::scanned,
+            onPair = model::pair,
+            onInviteDismissed = model::inviteDismissed,
         )
         Screen.Conversations -> ConversationsScreen(
             state = home,

@@ -1,6 +1,7 @@
 package io.github.luquas95.ccc.ui
 
 import android.app.Application
+import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.luquas95.ccc.R
@@ -8,11 +9,14 @@ import io.github.luquas95.ccc.data.ApiException
 import io.github.luquas95.ccc.data.CccApi
 import io.github.luquas95.ccc.data.Conversation
 import io.github.luquas95.ccc.data.ConversationDetail
+import io.github.luquas95.ccc.data.Device
 import io.github.luquas95.ccc.data.Export
 import io.github.luquas95.ccc.data.LaunchOptions
 import io.github.luquas95.ccc.data.LaunchPresets
 import io.github.luquas95.ccc.data.Message
 import io.github.luquas95.ccc.data.NewConversation
+import io.github.luquas95.ccc.data.Pairing
+import io.github.luquas95.ccc.data.PairingInvite
 import io.github.luquas95.ccc.data.Permission
 import io.github.luquas95.ccc.data.PromptPreset
 import io.github.luquas95.ccc.data.SearchHit
@@ -277,12 +281,69 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private val _invite = MutableStateFlow<PairingInvite?>(null)
+    /** A scanned ccc QR code waiting for a yes: its host is shown first, since anyone can print one. */
+    val invite: StateFlow<PairingInvite?> = _invite.asStateFlow()
+
+    /** The server this phone is signed in to now (empty when none): a QR code for another one is flagged. */
+    val currentServer: String get() = settings.server
+
+    fun scanned(text: String) {
+        val invite = Pairing.parse(text)
+        if (invite == null) _message.value = text(R.string.error_qr) else _invite.value = invite
+    }
+
+    fun inviteDismissed() {
+        _invite.value = null
+    }
+
+    /** The yes to [invite]: it becomes a signed-in phone. */
+    fun pair(onDone: (Boolean) -> Unit) {
+        val invite = _invite.value ?: return
+        _invite.value = null
+        val unpaired = runCatching { CccApi(invite.server) }.getOrElse {
+            _message.value = text(R.string.error_server_address)
+            onDone(false)
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val paired = unpaired.pair(invite.code, Build.MODEL.orEmpty().ifBlank { "Android" })
+                connect(invite.server, paired.token, onDone)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                _message.value = if (e is ApiException && e.code == 401) text(R.string.error_pairing) else describe(e)
+                onDone(false)
+            }
+        }
+    }
+
+    private val _devices = MutableStateFlow<List<Device>?>(null)
+    /** The phones signed in to ccc (null until loaded), for the connection screen. */
+    val devices: StateFlow<List<Device>?> = _devices.asStateFlow()
+
+    fun loadDevices() {
+        val api = api ?: return
+        viewModelScope.launch { guard { _devices.value = api.devices() } }
+    }
+
+    /** Sign a phone out; this phone itself means signing out here too. */
+    fun signOutDevice(device: Device) {
+        val api = api ?: return
+        viewModelScope.launch {
+            if (!guard { api.removeDevice(device.id) }) return@launch
+            if (device.current) signOut() else loadDevices()
+        }
+    }
+
     fun signOut() {
         settings.clear()
         api = null
         events?.cancel()
         _home.value = HomeState()
         _conversation.value = null
+        _devices.value = null
         _screens.value = listOf(Screen.Setup)
         _notifications.value = false
         WatchService.sync(getApplication())
