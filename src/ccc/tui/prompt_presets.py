@@ -34,6 +34,11 @@ def mode_label(preset: PromptPreset) -> str:
     return f"{SEND_MARK} " + _("send") if preset.send_now else f"{INSERT_MARK} " + _("insert")
 
 
+def send_now_label(send_now: bool) -> str:
+    """The editor checkbox's text: says what the preset does in its current state."""
+    return _("The text is sent to the conversation") if send_now else _("The text is put into the text field")
+
+
 def preset_key(number: int, keys: dict[str, str] | None = None) -> str:
     """Preset `number`'s key as shown (Alt+1 by default)."""
     return keymap.pretty((keys or keymap.defaults())[f"conversations.preset{number}"])
@@ -84,8 +89,7 @@ class PromptPresetModal(ModalScreen):
             Input(self.preset.name, placeholder=_("e.g. Tests"), id="preset-name"),
             Static(_("Prompt"), classes="modal-label"),
             TextArea(self.preset.text, id="preset-text"),
-            Checkbox(_("Send right away (with Enter) — otherwise only put into the message box"),
-                     self.preset.send_now, id="preset-send-now"),
+            Checkbox(send_now_label(self.preset.send_now), self.preset.send_now, id="preset-send-now"),
             Static("", id="preset-error"),
             Static(_("Ctrl+S save  ·  Esc cancel"), classes="modal-hint"),
         )
@@ -94,6 +98,10 @@ class PromptPresetModal(ModalScreen):
 
     def on_mount(self) -> None:
         self.query_one("#preset-name", Input).focus()
+
+    def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
+        if event.checkbox.id == "preset-send-now":
+            event.checkbox.label = send_now_label(event.value)
 
     def action_save(self) -> None:
         name = self.query_one("#preset-name", Input).value.strip()
