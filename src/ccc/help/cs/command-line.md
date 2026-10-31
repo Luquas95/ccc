@@ -52,6 +52,6 @@ ccc-tui`); změněné v Nastavení platí hned.
 | `ccc asks [KONVERZACE]` | otázky mezi konverzacemi od nejnovější (`🤖` = ptal se Claude) |
 | `ccc api serve [--port N]` | spustí [API pro aplikaci pro Android](android-api.md) (normálně ho spouští `ccc-api.service`) |
 | `ccc api token [--new]` | vytvoří token, kterým se aplikace přihlásí (ukáže se jen tehdy); `--new` = nový, všechna zařízení se odhlásí |
-| `ccc api pair [--server URL]` | ukáže QR kód, kterým se aplikace přihlásí (platí 5 minut, jednou) |
+| `ccc api pair [--server URL] [--image [SOUBOR]]` | ukáže QR kód, kterým se aplikace přihlásí (platí 5 minut, jednou); `--image` ho uloží jako obrázek, když se kód z terminálu nečte |
 | `ccc api devices` / `ccc api revoke ID` | vypíše přihlášená zařízení (`--all`: i odhlášená, historie) / jedno odhlásí |
 | `ccc-daemon` | samotný daemon (normálně ho spouští `ccc.service`) |

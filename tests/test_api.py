@@ -786,6 +786,7 @@ def test_pairing_payload_and_qr(storage):
     assert len({len(line) for line in lines}) == 1  # a rectangle
     assert set("".join(lines)) <= set(" ▀▄█")
     assert len(lines[0]) > 20
+    assert not lines[0].strip() and not lines[-1].strip()  # the quiet zone is empty
 
 
 def test_server_address_is_the_one_set_else_tailscales(storage, monkeypatch):
@@ -872,3 +873,16 @@ def test_http_devices_history_is_listed_with_all_and_cannot_be_deleted_again(ser
     assert everyone["Token"]["revoked_at"] is None and everyone["Token"]["revoked_by"] is None
     assert _call(f"{base}/api/v1/devices/{other.id}", token, "DELETE")[0] == 404
     assert _call(f"{base}/api/v1/devices/{other.id}", token, "POST", {"name": "x"})[0] == 404
+
+
+def test_cli_pair_can_save_the_qr_as_a_picture(storage, monkeypatch, tmp_path, capsys):
+    from argparse import Namespace
+
+    from ccc import api_cli, pairing
+
+    monkeypatch.setattr(pairing, "tailscale_url", lambda: "https://xia.ts.net:8737")
+    target = tmp_path / "out" / "qr.png"
+    assert api_cli.run(storage, "", Namespace(api_command="pair", server=None, image=str(target))) == 0
+    assert target.read_bytes().startswith(b"\x89PNG")
+    assert str(target) in capsys.readouterr().out
+    assert storage.get_setting(pairing.CODE_KEY)

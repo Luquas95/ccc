@@ -10,6 +10,7 @@ import json
 import secrets
 import subprocess
 from datetime import datetime, timedelta
+from pathlib import Path
 from urllib.parse import quote
 
 import segno
@@ -21,7 +22,7 @@ from ccc.storage import Storage
 CODE_KEY = "api_pair_code"  # "<sha256 of the code>|<expires, ISO>": one code at a time
 SERVER_KEY = "api_public_url"
 TTL = timedelta(minutes=5)
-QUIET_ZONE = 2  # light modules around the code (the spec says 4; phones read 2 fine)
+QUIET_ZONE = 4  # light modules around the code, as the spec says (2 made some scanners miss it, #131)
 
 
 def _digest(code: str) -> str:
@@ -78,10 +79,16 @@ def payload(server: str, code: str) -> str:
     return f"ccc://pair?server={quote(server, safe='')}&code={quote(code, safe='')}"
 
 
+def save_png(text: str, path: str | Path, scale: int = 12) -> None:
+    """The QR as a PNG picture (black on white, with the quiet zone): big and crisp for a scanner,
+    unlike the terminal's half blocks."""
+    segno.make(text, error="l", micro=False).save(str(path), kind="png", scale=scale, border=QUIET_ZONE)
+
+
 def qr_lines(text: str) -> list[str]:
     """The QR as lines of half blocks for dark-on-light output (print them
     black on white): two module rows per line."""
-    rows = [list(map(bool, row)) for row in segno.make(text, error="m", micro=False).matrix]
+    rows = [list(map(bool, row)) for row in segno.make(text, error="l", micro=False).matrix]
     width = len(rows[0]) + 2 * QUIET_ZONE
     blank = [False] * width
     grid = [blank] * QUIET_ZONE + [[False] * QUIET_ZONE + row + [False] * QUIET_ZONE for row in rows] + [blank] * QUIET_ZONE

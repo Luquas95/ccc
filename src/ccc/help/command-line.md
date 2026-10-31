@@ -52,6 +52,6 @@ ccc-tui`); changed in Settings they work right away.
 | `ccc asks [CONVERSATION]` | questions between conversations, newest first (`🤖` = Claude asked) |
 | `ccc api serve [--port N]` | run the [API for the Android app](android-api.md) (normally run by `ccc-api.service`) |
 | `ccc api token [--new]` | make the token the app signs in with (shown only then); `--new` = a new one, every device is signed out |
-| `ccc api pair [--server URL]` | show a QR code the app scans to sign in (good for 5 minutes, once) |
+| `ccc api pair [--server URL] [--image [FILE]]` | show a QR code the app scans to sign in (good for 5 minutes, once); `--image` saves it as a picture instead, for when the terminal's drawing won't scan |
 | `ccc api devices` / `ccc api revoke ID` | list the devices signed in (`--all`: also the signed-out ones, history) / sign one out |
 | `ccc-daemon` | the daemon itself (normally run by `ccc.service`) |
