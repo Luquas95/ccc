@@ -73,7 +73,7 @@ phone via Remote Control.
 - **Approvals** — restricted conversations (*Auto-accept edits*, *Plan
   only*) ask you in the TUI instead of silently failing.
 - **Telegram / Discord** — notifications when a queue finishes, needs you, fails or
-  hits a limit.
+  hits a limit, a device is paired or signed out…; you choose which kinds each service gets.
 - **Git** — each successful task is committed (in *Skip all permission
   checks* conversations), with a diff viewer.
 - **Live sessions** — see every Claude Code session running on the machine

@@ -3,12 +3,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import signal
+import time
+from datetime import date
 
-from ccc import i18n
+from ccc import i18n, watch
 from ccc.i18n import _
 from ccc.backup import daily_backup, default_backup_dir
 from ccc.heartbeat import HEARTBEAT_SECONDS, beat
-from ccc.notify import Notifier
+from ccc.notify import CAT_CONTEXT, CAT_UPDATES, Notifier
 from ccc.analytics_archive import ARCHIVE_CHECK_SECONDS, archive, configured_folder
 from ccc.orchestrator import Orchestrator, RunFn
 from ccc.runner import execute
@@ -32,15 +34,21 @@ async def heartbeat_loop(storage: Storage, interval: float = HEARTBEAT_SECONDS) 
 BACKUP_CHECK_SECONDS = 3600.0
 
 
-async def backup_loop(db_path: str, out_dir, interval: float = BACKUP_CHECK_SECONDS) -> None:
-    """Check hourly; daily_backup itself makes at most one backup a day."""
+async def backup_loop(db_path: str, out_dir, interval: float = BACKUP_CHECK_SECONDS,
+                      notifier: Notifier | None = None) -> None:
+    """Check hourly; daily_backup itself makes at most one backup a day. A failure
+    is told (category Health) once a day, not every hour."""
+    told_on = None
     while True:
         try:
             path = await asyncio.to_thread(daily_backup, db_path, out_dir)
             if path is not None:
                 logger.info("database backed up to %s", path)
-        except Exception:
+        except Exception as exc:
             logger.exception("database backup failed")
+            if notifier is not None and told_on != date.today():
+                told_on = date.today()
+                await asyncio.to_thread(watch.backup_failed, notifier, exc)
         await asyncio.sleep(interval)
 
 
@@ -71,15 +79,19 @@ async def archive_loop(storage: Storage, interval: float = ARCHIVE_CHECK_SECONDS
 ROUTINE_CHECK_SECONDS = 20.0
 
 
-async def routines_loop(storage: Storage, interval: float = ROUTINE_CHECK_SECONDS) -> None:
+async def routines_loop(storage: Storage, interval: float = ROUTINE_CHECK_SECONDS,
+                        notifier: Notifier | None = None) -> None:
     """Queue the routines that are due (ccc.routines); the queues' own
     runtimes pick their tasks up."""
     from ccc import routines
 
     while True:
         try:
-            for routine, status in await asyncio.to_thread(routines.tick, storage):
+            fired = await asyncio.to_thread(routines.tick, storage)
+            for routine, status in fired:
                 logger.info("routine %d (%s): %s", routine.id, routine.name, status)
+            if notifier is not None and fired:
+                await asyncio.to_thread(watch.routines_tell, notifier, fired)
         except Exception:
             logger.exception("running routines failed")
         await asyncio.sleep(interval)
@@ -172,7 +184,7 @@ def context_tick(storage: Storage, notifier: Notifier, tracker) -> list[str]:
     """One check; returns the messages it sent (for tests)."""
     from ccc import context_fill
 
-    if not context_fill.notify_enabled(storage) or not notifier.configured():
+    if not context_fill.notify_enabled(storage) or not notifier.configured(CAT_CONTEXT):
         return []
     queues = {q.id: q for q in storage.list_queues() if not q.archived}
     fills = tracker.fills(storage, queues.values())
@@ -180,9 +192,30 @@ def context_tick(storage: Storage, notifier: Notifier, tracker) -> list[str]:
     for queue_id in context_fill.alerts(storage, fills):
         text = _("⚠️ {name}: context {percent} % full — consider /compact or a new conversation").format(
             name=queues[queue_id].name, percent=fills[queue_id].percent)
-        notifier.send_now(text)
+        notifier.send_now(text, CAT_CONTEXT)
         sent.append(text)
     return sent
+
+
+WATCH_CHECK_SECONDS = 30.0
+HEALTH_CHECK_SECONDS = 6 * 3600.0
+
+
+async def watch_loop(storage: Storage, notifier: Notifier, db_path: str, interval: float = WATCH_CHECK_SECONDS,
+                     health_interval: float = HEALTH_CHECK_SECONDS) -> None:
+    """Devices signed out / given another role, the doctor's new warnings and the daily
+    summary (ccc.watch)."""
+    next_health = 0.0
+    while True:
+        try:
+            await asyncio.to_thread(watch.devices_tick, storage, notifier)
+            await asyncio.to_thread(watch.digest_tick, storage, notifier)
+            if time.monotonic() >= next_health:
+                next_health = time.monotonic() + health_interval
+                await asyncio.to_thread(watch.health_tick, storage, notifier, db_path)
+        except Exception:
+            logger.exception("watching devices / health failed")
+        await asyncio.sleep(interval)
 
 
 UPDATE_FIRST_CHECK_SECONDS = 120.0
@@ -215,7 +248,7 @@ def update_tick(storage: Storage, notifier: Notifier, repo=None) -> str | None:
     text = updates.notice(state)
     state.notified_head = state.remote_head
     updates.save(storage, state)
-    notifier.send_now(text)
+    notifier.send_now(text, CAT_UPDATES)
     return text
 
 
@@ -233,16 +266,17 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
         loop.add_signal_handler(sig, stop_event.set)
 
     heartbeat = asyncio.create_task(heartbeat_loop(storage))
-    backups = asyncio.create_task(backup_loop(db_path, default_backup_dir(db_path)))
+    backups = asyncio.create_task(backup_loop(db_path, default_backup_dir(db_path), notifier=notifier))
     usage = asyncio.create_task(usage_loop(storage))
     archives = asyncio.create_task(archive_loop(storage))
-    scheduled = asyncio.create_task(routines_loop(storage))
+    scheduled = asyncio.create_task(routines_loop(storage, notifier=notifier))
     reviewing = asyncio.create_task(reviews_loop(storage, notifier))
     goal_loops = asyncio.create_task(goals_loop(storage, notifier))
     flows = asyncio.create_task(workflows_loop(storage, notifier))
     answers = asyncio.create_task(asks_loop(storage, notifier))
     contexts = asyncio.create_task(context_loop(storage, notifier))
     updating = asyncio.create_task(update_loop(storage, notifier))
+    watching = asyncio.create_task(watch_loop(storage, notifier, db_path))
     await stop_event.wait()
     logger.info("ccc daemon shutting down")
     heartbeat.cancel()
@@ -256,6 +290,7 @@ async def _run(db_path: str, run_fn: RunFn = execute) -> None:
     answers.cancel()
     contexts.cancel()
     updating.cancel()
+    watching.cancel()
     await orchestrator.stop_all()
 
 

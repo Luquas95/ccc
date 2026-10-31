@@ -21,6 +21,7 @@ import uuid
 from pathlib import Path
 from typing import Callable
 
+from ccc.i18n import N_
 from ccc.redact import redact
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,56 @@ DISCORD_MAX_FILE_BYTES = 20 * 1024 * 1024  # default per-file limit, 20 MiB
 # Discord (Cloudflare) rejects urllib's default "Python-urllib/x.y" agent.
 USER_AGENT = "ccc-notifier (https://github.com/Luquas95/ccc, 1.0)"
 _DISCORD_WEBHOOK_RE = re.compile(r"^https://(?:(?:ptb|canary)\.)?(?:discord|discordapp)\.com/api/webhooks/\S+$")
+
+# What can be switched on and off, per service (#146). A message belongs to one
+# category; `None` (a test message, an export) is never filtered.
+CAT_QUEUE, CAT_LIMITS, CAT_ATTENTION, CAT_RESULTS = "queue", "limits", "attention", "results"
+CAT_CONTEXT, CAT_UPDATES, CAT_STARTED, CAT_ROUTINES = "context", "updates", "started", "routines"
+CAT_DEVICES, CAT_SECURITY, CAT_HEALTH, CAT_DIGEST = "devices", "security", "health", "digest"
+# (key, label, what it covers, on until the user switches it on)
+CATEGORIES = (
+    (CAT_QUEUE, N_("Queue"), N_("a queue finished, or stopped on an error"), True),
+    (CAT_LIMITS, N_("Usage limits"), N_("waiting for the limit to reset, and continuing"), True),
+    (CAT_ATTENTION, N_("Needs you"), N_("a tool to approve, a workflow gate, an answer to a question"), True),
+    (CAT_RESULTS, N_("Results"), N_("a workflow, a goal or a review ended"), True),
+    (CAT_CONTEXT, N_("Context"), N_("a conversation's context is nearly full"), True),
+    (CAT_UPDATES, N_("Updates"), N_("a new ccc version is available"), True),
+    (CAT_STARTED, N_("Conversation started"), N_("a conversation starts working after a quiet time"), False),
+    (CAT_ROUTINES, N_("Routines"), N_("a routine started, or was skipped"), False),
+    (CAT_DEVICES, N_("Devices"), N_("a new device paired, signed out, or its role changed"), True),
+    (CAT_SECURITY, N_("Security"), N_("a wrong pairing code or token, a forbidden request"), True),
+    (CAT_HEALTH, N_("Health"), N_("a failed backup, a new warning in `ccc api doctor`"), False),
+    (CAT_DIGEST, N_("Daily summary"), N_("one message a day with what happened"), False),
+)
+CATEGORY_KEYS = tuple(c[0] for c in CATEGORIES)
+CHANNELS = ("telegram", "discord")
+
+
+def _channel_key(channel: str) -> str:
+    return f"notify_categories_{channel}"
+
+
+def category_states(storage, channel: str) -> dict[str, bool]:
+    """Every category -> on / off for the service; what was never set has its default."""
+    try:
+        saved = json.loads(storage.get_setting(_channel_key(channel)) or "{}")
+    except ValueError:
+        saved = {}
+    if not isinstance(saved, dict):
+        saved = {}
+    return {key: saved[key] if isinstance(saved.get(key), bool) else default
+            for key, _label, _hint, default in CATEGORIES}
+
+
+def set_category_states(storage, channel: str, states: dict[str, bool]) -> None:
+    """Only the known categories are kept."""
+    saved = {key: bool(states[key]) for key in CATEGORY_KEYS if key in states}
+    storage.set_setting(_channel_key(channel), json.dumps(saved, sort_keys=True))
+
+
+def category_enabled(storage, channel: str, category: str | None) -> bool:
+    return category is None or category_states(storage, channel).get(category, True)
+
 
 Sender = Callable[[str, str, str], None]
 DiscordSender = Callable[[str, str], None]
@@ -146,8 +197,10 @@ class Notifier:
     def discord_configured(self) -> bool:
         return self._discord_webhook() is not None
 
-    def configured(self) -> bool:
-        return self.telegram_configured() or self.discord_configured()
+    def configured(self, category: str | None = None) -> bool:
+        """At least one set-up service wants messages of the category (any, when None)."""
+        return ((self.telegram_configured() and category_enabled(self.storage, "telegram", category))
+                or (self.discord_configured() and category_enabled(self.storage, "discord", category)))
 
     def _clean(self, text: str) -> str:
         return redact(text, known_secrets(self.storage))
@@ -198,17 +251,17 @@ class Notifier:
             logger.warning("Discord file upload failed (%s)", type(exc).__name__)
             return False
 
-    def send_now(self, text: str) -> bool:
-        """Send to every configured channel; True if at least one got it."""
-        telegram = self.send_telegram_now(text)
-        discord = self.send_discord_now(text)
+    def send_now(self, text: str, category: str | None = None) -> bool:
+        """Send to every configured service that wants the category; True if at least one got it."""
+        telegram = category_enabled(self.storage, "telegram", category) and self.send_telegram_now(text)
+        discord = category_enabled(self.storage, "discord", category) and self.send_discord_now(text)
         return telegram or discord
 
-    def notify(self, text: str) -> None:
+    def notify(self, text: str, category: str | None = None) -> None:
         """Fire and forget from the daemon's event loop; never blocks it."""
-        if not self.configured():
+        if not self.configured(category):
             return
-        task = asyncio.get_running_loop().create_task(asyncio.to_thread(self.send_now, text))
+        task = asyncio.get_running_loop().create_task(asyncio.to_thread(self.send_now, text, category))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 

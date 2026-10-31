@@ -22,7 +22,7 @@ import threading
 import time
 
 from ccc.i18n import _
-from ccc.notify import Notifier
+from ccc.notify import CAT_ATTENTION, Notifier
 from ccc.storage import Storage
 
 SERVER_NAME = "ccc"
@@ -97,7 +97,8 @@ def decide(storage: Storage, queue_id: int, tool_name: str, tool_input: dict,
         name = queue.name if queue else _("queue {id}").format(id=queue_id)
         notifier.send_now(
             _("✋ {name} needs you: Claude wants to use {tool} — {preview}\n"
-              "Open the conversation in ccc and press p.").format(name=name, tool=tool_name, preview=_preview(tool_input))
+              "Open the conversation in ccc and press p.").format(name=name, tool=tool_name, preview=_preview(tool_input)),
+            CAT_ATTENTION,
         )
     while True:
         current = storage.get_permission_request(request.id)

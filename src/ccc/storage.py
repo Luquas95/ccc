@@ -1512,6 +1512,15 @@ class Storage:
             ).fetchall()
             return [(r[0], r[1] or 0) for r in rows]
 
+    def run_summary_since(self, since: datetime) -> dict:
+        """Tasks that finished since `since`: how many, in how many conversations, how many succeeded, the cost."""
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS runs, COUNT(DISTINCT queue_id) AS queues, "
+                "COALESCE(SUM(status = 'success'), 0) AS success, COALESCE(SUM(cost_usd), 0) AS cost "
+                "FROM prompt_runs WHERE finished_at >= ?", (since.isoformat(),)).fetchone()
+        return {"runs": row["runs"], "queues": row["queues"], "success": row["success"], "cost": row["cost"]}
+
     def runs_for_queue(self, queue_id: int) -> list[PromptRun]:
         with closing(self._connect()) as conn:
             rows = conn.execute(

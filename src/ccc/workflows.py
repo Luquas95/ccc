@@ -34,6 +34,7 @@ from pathlib import Path
 from ccc import gitops, goals, i18n, reviews
 from ccc.i18n import N_, _
 from ccc.limits import exhausted_until
+from ccc.notify import CAT_ATTENTION, CAT_RESULTS
 from ccc.models import (
     ItemStatus, PromptRun, Queue, Review, RunStatus, Verdict, WorkflowRun, WorkflowStatus,
 )
@@ -282,7 +283,7 @@ def _finish(storage, run: WorkflowRun, status: WorkflowStatus, reason: str, noti
         icon = {WorkflowStatus.PASSED: "✅", WorkflowStatus.FAILED: "⛔", WorkflowStatus.ERROR: "✖"}[status]
         notifier.notify(_("{icon} {name}: workflow “{workflow}” {status} — {reason}").format(
             icon=icon, name=queue.name if queue else "?", workflow=run.name, status=_(STATUS_LABELS[status]),
-            reason=reason[:300]))
+            reason=reason[:300]), CAT_RESULTS)
     return run
 
 
@@ -454,7 +455,7 @@ async def step_once(storage, run: WorkflowRun, run_fn=reviews.execute, notifier=
             storage.add_workflow_event(run.id, run.step, run.round, "gate", _(step.get("text") or "Approve?"), "waiting")
             if notifier is not None:
                 notifier.notify(_("⏸ {name}: the workflow “{workflow}” waits for your approval (w).").format(
-                    name=queue.name, workflow=run.name))
+                    name=queue.name, workflow=run.name), CAT_ATTENTION)
         return False
 
     if kind == "code":

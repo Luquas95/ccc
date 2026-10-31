@@ -118,10 +118,10 @@ class _Notifier:
     def __init__(self, configured=True):
         self._configured, self.sent = configured, []
 
-    def configured(self):
+    def configured(self, category=None):
         return self._configured
 
-    def send_now(self, text):
+    def send_now(self, text, category=None):
         self.sent.append(text)
         return True
 

@@ -141,6 +141,32 @@ URL nikomu nedávej: kdo ji má, může do kanálu psát. Tokeny a webhooky
 se ukládají v databázi ccc, zobrazují se zamaskované a nikdy se
 nelogují.
 
+## Které zprávy která služba dostane
+
+Pod každou službou v Nastavení (a v aplikaci: *Nastavení → Oznámení*)
+otevře *Vybrat zprávy…* okno se zaškrtávátkem pro každý druh zprávy.
+Telegram a Discord mají **každý svůj výběr**, takže jedna služba může
+dostávat všechno a druhá jen to, co potřebuje tebe. V aplikaci se ukládá
+tlačítkem *Uložit*, v terminálu hned (`Ctrl+S`).
+
+| Druh | O čem informuje | Výchozí |
+|---|---|---|
+| Fronta | fronta doběhla nebo se zastavila kvůli chybě | zapnuto |
+| Limity využití | čekání na obnovu limitu a pokračování | zapnuto |
+| Potřebuje tebe | nástroj ke schválení, brána workflow, odpověď na otázku | zapnuto |
+| Výsledky | workflow, cíl nebo review skončilo | zapnuto |
+| Kontext | kontext konverzace je skoro plný (vyžaduje i nastavení *Kontext*) | zapnuto |
+| Aktualizace | je dostupná nová verze ccc | zapnuto |
+| Konverzace začala | konverzace začne pracovat po 10 a více minutách klidu | vypnuto |
+| Rutiny | rutina se spustila nebo se přeskočila | vypnuto |
+| Zařízení | spárovalo se nové zařízení, odhlásilo se, nebo se změnila jeho role | zapnuto |
+| Zabezpečení | špatný párovací kód nebo token, zakázaný požadavek | zapnuto |
+| Zdraví | selhalá záloha, nové varování v `ccc api doctor` | vypnuto |
+| Denní souhrn | po 8:00, co za posledních 24 hodin běželo | vypnuto |
+
+Druh, který jsi nikdy nenastavil, má výchozí hodnotu, takže se nic
+nezmění, dokud něco nezaškrtneš nebo neodškrtneš.
+
 ## Tajemství se maskují
 
 Co z ccc odchází — každá zpráva na Telegram / Discord a každá exportovaná

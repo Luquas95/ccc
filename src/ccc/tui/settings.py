@@ -189,6 +189,7 @@ class SettingsModal(ModalScreen):
             ),
             Horizontal(
                 Button(_("Send test message"), id="settings-telegram-test"),
+                Button(_("Choose messages…"), id="settings-telegram-categories"),
                 Button(_("Turn off"), id="settings-telegram-off", classes="settings-danger"),
                 Static("", id="telegram-test-result", classes="settings-status"),
                 classes="settings-actions",
@@ -212,6 +213,7 @@ class SettingsModal(ModalScreen):
             ),
             Horizontal(
                 Button(_("Send test message"), id="settings-discord-test"),
+                Button(_("Choose messages…"), id="settings-discord-categories"),
                 Button(_("Turn off"), id="settings-discord-off", classes="settings-danger"),
                 Static("", id="discord-test-result", classes="settings-status"),
                 classes="settings-actions",
@@ -430,6 +432,8 @@ class SettingsModal(ModalScreen):
             "settings-telegram-off": self._telegram_off,
             "settings-discord-test": self._send_discord_test,
             "settings-discord-off": self._discord_off,
+            "settings-telegram-categories": lambda: self._choose_messages("telegram"),
+            "settings-discord-categories": lambda: self._choose_messages("discord"),
             "settings-preset-delete": self._delete_preset,
             "settings-backup": self._backup,
             "settings-keys": self._edit_keys,
@@ -443,6 +447,11 @@ class SettingsModal(ModalScreen):
         }.get(event.button.id or "")
         if handler:
             handler()
+
+    def _choose_messages(self, channel: str) -> None:
+        from ccc.tui.notify_categories import NotifyCategoriesModal
+
+        self.app.push_screen(NotifyCategoriesModal(self.storage, channel))
 
     def _show_devices_state(self) -> None:
         n = len(self.storage.list_devices())

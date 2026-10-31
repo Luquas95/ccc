@@ -17,6 +17,7 @@ import time
 from http import HTTPStatus
 
 from ccc.i18n import _
+from ccc.notify import CAT_DEVICES, CAT_SECURITY
 
 ALARM_GAP_SECONDS = 300.0  # one alarm of a kind per this long: a scan must not flood the phone
 _last_alarm: dict[str, float] = {}
@@ -49,7 +50,7 @@ def record(storage, device, ip: str, method: str, path: str, status: int, detail
         pass
 
 
-def alarm(storage, kind: str, text: str, now: float | None = None) -> bool:
+def alarm(storage, kind: str, text: str, now: float | None = None, category: str = CAT_SECURITY) -> bool:
     """Tell the notification channels, at most once per ALARM_GAP_SECONDS for the `kind`; True when sent.
     Sent in a thread of its own: a slow Telegram must not hold up a request."""
     from ccc.notify import Notifier
@@ -60,9 +61,9 @@ def alarm(storage, kind: str, text: str, now: float | None = None) -> bool:
             return False
         _last_alarm[kind] = moment
     notifier = Notifier(storage)
-    if not notifier.configured():
+    if not notifier.configured(category):
         return False
-    _spawn(notifier.send_now, text)
+    _spawn(notifier.send_now, text, category)
     return True
 
 
@@ -77,4 +78,4 @@ def alarm_for(storage, status: int, method: str, path: str, ip: str, device) -> 
             name=device.name, role=device.role, method=method, path=path))
     elif status == HTTPStatus.CREATED and path.endswith("/pair") and device is not None:
         alarm(storage, f"paired-{device.id}", _("ccc API: a new device was paired: {name} ({role}) from {ip}.").format(
-            name=device.name, role=device.role, ip=ip))
+            name=device.name, role=device.role, ip=ip), category=CAT_DEVICES)

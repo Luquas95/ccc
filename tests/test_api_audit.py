@@ -15,8 +15,8 @@ def _fresh_alarms():
 def sent(monkeypatch):
     """The texts the alarms send (the channels are faked, the thread is not used)."""
     texts = []
-    monkeypatch.setattr("ccc.notify.Notifier.configured", lambda self: True)
-    monkeypatch.setattr("ccc.notify.Notifier.send_now", lambda self, text: texts.append(text))
+    monkeypatch.setattr("ccc.notify.Notifier.configured", lambda self, category=None: True)
+    monkeypatch.setattr("ccc.notify.Notifier.send_now", lambda self, text, category=None: texts.append(text))
     monkeypatch.setattr("ccc.api_audit._spawn", lambda target, *args: target(*args))
     return texts
 

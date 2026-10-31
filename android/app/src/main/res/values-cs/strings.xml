@@ -289,6 +289,8 @@
     <string name="send_now_off">Text se vloží do textového pole</string>
     <string name="preset_send_title">Odeslat hned „%1$s“?</string>
     <string name="send_test">Poslat zkušební zprávu</string>
+    <string name="choose_messages">Vybrat zprávy…</string>
+    <string name="ok">OK</string>
     <string name="settings_context">Kontext</string>
     <string name="settings_data">Data</string>
     <string name="settings_notifications">Notifikace</string>

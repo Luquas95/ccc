@@ -1,0 +1,76 @@
+"""What Telegram / Discord are told (#146): one window per service with a
+tick for each category of message (ccc.notify.CATEGORIES). Opened from the
+service's section in Settings; saved at once with Ctrl+S."""
+from __future__ import annotations
+
+from textual.containers import Container, VerticalScroll
+from textual.screen import ModalScreen
+from textual.widgets import Checkbox, Static
+
+from ccc import keymap
+from ccc.i18n import _
+from ccc.notify import CATEGORIES, category_states, set_category_states
+from ccc.tui.layout import MODAL_CSS
+
+SERVICE_NAMES = {"telegram": "Telegram", "discord": "Discord"}
+
+
+class NotifyCategoriesModal(ModalScreen):
+    """Dismisses with True when saved, None when cancelled."""
+
+    DEFAULT_CSS = MODAL_CSS.format(cls="NotifyCategoriesModal") + """
+    NotifyCategoriesModal VerticalScroll {
+        height: auto;
+        max-height: 20;
+    }
+    NotifyCategoriesModal .modal-hint {
+        color: $text-muted;
+    }
+    NotifyCategoriesModal .category-hint {
+        color: $text-muted;
+        margin-left: 4;
+    }
+    /* Unticked: no faint X that reads as ticked; ticked: bright X. */
+    NotifyCategoriesModal Checkbox > .toggle--button {
+        color: $panel;
+    }
+    NotifyCategoriesModal Checkbox.-on > .toggle--button {
+        color: $text-success;
+        text-style: bold;
+    }
+    """
+
+    BINDINGS = [
+        keymap.binding("window.save", "save", _("Save"), priority=True),
+        keymap.binding("window.cancel", "cancel", _("Cancel"), priority=True),
+    ]
+
+    def __init__(self, storage, channel: str):
+        super().__init__()
+        self.storage = storage
+        self.channel = channel
+
+    def compose(self):
+        states = category_states(self.storage, self.channel)
+        rows = []
+        for key, label, hint, _default in CATEGORIES:
+            rows.append(Checkbox(_(label), states[key], id=f"notify-{key}"))
+            rows.append(Static(_(hint), classes="category-hint"))
+        box = Container(
+            Static(_("Which messages {service} gets:").format(service=SERVICE_NAMES[self.channel]), classes="modal-label"),
+            VerticalScroll(*rows),
+            Static(_("Each service has its own choice. Ctrl+S save  ·  Esc cancel"), classes="modal-hint"),
+        )
+        box.border_title = _("{service} notifications").format(service=SERVICE_NAMES[self.channel])
+        yield box
+
+    def on_mount(self) -> None:
+        self.query_one(Checkbox).focus()
+
+    def action_save(self) -> None:
+        set_category_states(self.storage, self.channel,
+                            {key: self.query_one(f"#notify-{key}", Checkbox).value for key, *_rest in CATEGORIES})
+        self.dismiss(True)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)

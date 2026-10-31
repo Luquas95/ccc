@@ -24,6 +24,7 @@ from datetime import datetime
 
 from ccc import gitops, reviews
 from ccc.i18n import N_, _
+from ccc.notify import CAT_RESULTS
 from ccc.models import Goal, GoalPhase, GoalStatus, ItemStatus, ReviewStatus, Verdict
 
 DEFAULT_ROUNDS = 5
@@ -102,7 +103,7 @@ def _finish(storage, goal: Goal, status: GoalStatus, reason: str, notifier=None)
         queue = storage.find_queue(goal.queue_id)
         notifier.notify(_("{icon} {name}: goal {status} after {n} round(s) — {reason}").format(
             icon=FINISHED_ICONS[status], name=queue.name if queue else "?", status=_(STATUS_LABELS[status]),
-            n=goal.round, reason=reason[:300]))
+            n=goal.round, reason=reason[:300]), CAT_RESULTS)
     return goal
 
 

@@ -234,7 +234,9 @@ class ViewEndpoints:
         """ccc's settings as the Settings window has them, with the choices for each."""
         from ccc.analytics_archive import FOLDER_KEY as ARCHIVE_FOLDER_KEY
         from ccc.export_paths import FOLDER_KEY as EXPORT_FOLDER_KEY, SEND_CHOICES, SEND_KEY as EXPORT_SEND_KEY
-        from ccc.notify import DISCORD_WEBHOOK_KEY, TELEGRAM_CHAT_KEY, TELEGRAM_TOKEN_KEY, is_discord_webhook
+        from ccc.notify import (
+            CATEGORIES, DISCORD_WEBHOOK_KEY, TELEGRAM_CHAT_KEY, TELEGRAM_TOKEN_KEY, category_states, is_discord_webhook,
+        )
         from ccc.orchestrator import DEFAULT_CONTINUE_TEXT, RESERVE_CHOICES, usage_reserve
         from ccc.presets import list_presets
         from ccc.reviews import MODEL_CHOICES, MODEL_KEY
@@ -268,6 +270,10 @@ class ViewEndpoints:
             # Secrets never leave ccc: only whether they're set.
             "telegram": {"token_set": token_set, "chat": chat, "on": token_set and bool(chat)},
             "discord": {"on": is_discord_webhook(s.get_setting(DISCORD_WEBHOOK_KEY) or "")},
+            # What each service is told (#146): the categories once, then on / off per service.
+            "notify_categories": [{"key": key, "label": _(label), "hint": _(hint)} for key, label, hint, _on in CATEGORIES],
+            "notify_telegram": category_states(s, "telegram"),
+            "notify_discord": category_states(s, "discord"),
             "launch_presets": sorted(list_presets(s)),
         }
 
@@ -275,7 +281,10 @@ class ViewEndpoints:
         """Any of the settings() keys (not the choices); secrets: "telegram_token", "discord_webhook"."""
         from ccc.analytics_archive import FOLDER_KEY as ARCHIVE_FOLDER_KEY
         from ccc.export_paths import FOLDER_KEY as EXPORT_FOLDER_KEY, SEND_CHOICES, SEND_KEY as EXPORT_SEND_KEY
-        from ccc.notify import DISCORD_WEBHOOK_KEY, TELEGRAM_CHAT_KEY, TELEGRAM_TOKEN_KEY, is_discord_webhook
+        from ccc.notify import (
+            CATEGORY_KEYS, DISCORD_WEBHOOK_KEY, TELEGRAM_CHAT_KEY, TELEGRAM_TOKEN_KEY, category_states,
+            is_discord_webhook, set_category_states,
+        )
         from ccc.orchestrator import DEFAULT_CONTINUE_TEXT, RESERVE_KEY
         from ccc.reviews import MODEL_CHOICES, MODEL_KEY
 
@@ -323,8 +332,21 @@ class ViewEndpoints:
                 raise ApiError(HTTPStatus.BAD_REQUEST,
                                _("That isn't a Discord webhook URL (https://discord.com/api/webhooks/…)."))
             changes[DISCORD_WEBHOOK_KEY] = webhook
+        shown: dict[str, dict[str, bool]] = {}
+        for channel in ("telegram", "discord"):
+            field = f"notify_{channel}"
+            if field not in body:
+                continue
+            given = body[field]
+            if not isinstance(given, dict) or any(k not in CATEGORY_KEYS or not isinstance(v, bool)
+                                                 for k, v in given.items()):
+                raise ApiError(HTTPStatus.BAD_REQUEST,
+                               _("{name} must map the notification categories to true or false.").format(name=field))
+            shown[channel] = {**category_states(s, channel), **given}
         for key, value in changes.items():
             s.set_setting(key, value)
+        for channel, states in shown.items():
+            set_category_states(s, channel, states)
         i18n.load(s)
         return self.settings()
 

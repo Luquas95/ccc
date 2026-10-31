@@ -599,11 +599,32 @@ async def test_deleted_queue_stops_its_runtime_quietly(storage, project_dir, fas
 
 
 class FakeNotifier:
-    def __init__(self):
+    def __init__(self, started=False):
         self.texts = []
+        self.started = started  # "a conversation started" is a category of its own (#146)
 
-    def notify(self, text):
+    def configured(self, category=None):
+        return category != "started" or self.started
+
+    def notify(self, text, category=None):
         self.texts.append(text)
+
+
+async def test_tells_when_a_conversation_starts_after_a_quiet_time(storage, project_dir, fast_poll):
+    notifier = FakeNotifier(started=True)
+
+    async def ok(project_path, session_id, prompt, resume, launch_flags=None, first_run_flags=None):
+        return RunResult(status=RunStatus.SUCCESS, result_text="")
+
+    queue = enqueue_prompt(storage, project_dir, "write the tests")
+    storage.add_queue_item(queue.id, "and run them")
+    orch = Orchestrator(storage, run_fn=ok, notifier=notifier)
+    await orch.start_all()
+    assert await _until(lambda: len(notifier.texts) >= 2)
+    await asyncio.sleep(0.1)
+    await orch.stop_all()
+    started = [t for t in notifier.texts if "starts working" in t]
+    assert len(started) == 1 and "write the tests" in started[0]  # the second task follows at once: no second notice
 
 
 async def test_notifies_queue_finished_with_reply(storage, project_dir, fast_poll):

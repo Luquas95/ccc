@@ -25,6 +25,7 @@ from ccc.launch_options import (
 )
 from ccc.limits import exhausted_until, retry_time_after_rate_limit
 from ccc.live_delivery import deliver_to_live_session
+from ccc.notify import CAT_ATTENTION, CAT_LIMITS, CAT_QUEUE, CAT_STARTED
 from ccc.models import DeliveryMode, ItemStatus, PromptRun, Queue, QueueItem, QueueStatus, RunStatus
 from ccc.retry import next_backoff_seconds, parse_reset_time
 from ccc.runner import LEGACY_FLAGS, RunResult, execute
@@ -42,6 +43,7 @@ RunFn = Callable[[str, str, str, bool, list[str] | None, list[str] | None], Awai
 # TUI, or `ccc add`) to enqueue a prompt or clear a blocked queue
 # without the daemon needing any cross-process signaling mechanism.
 POLL_INTERVAL_SECONDS = 5.0
+START_QUIET_SECONDS = 600.0  # "conversation started" only after this long without a task of it
 
 # Sent instead of repeating a prompt that a usage limit interrupted after
 # it had reached the conversation. Overridable via the "continue_text"
@@ -350,7 +352,7 @@ class QueueRuntime:
                     continue
                 self.storage.update_queue_status(queue.id, QueueStatus.IDLE)
                 if self.storage.next_pending_item(queue.id) is not None:
-                    self._notify(_("▶ {name}: usage limit reset — continuing.").format(name=queue.name))
+                    self._notify(_("▶ {name}: usage limit reset — continuing.").format(name=queue.name), CAT_LIMITS)
                 continue
 
             if self.storage.next_pending_item(queue.id) is None:
@@ -396,6 +398,7 @@ class QueueRuntime:
             if item is None:
                 continue
 
+            self._announce_start(queue, item)
             self.storage.update_queue_status(queue.id, QueueStatus.RUNNING)
 
             try:
@@ -411,9 +414,23 @@ class QueueRuntime:
                 )
                 self._record_error_run(queue, item, f"{type(exc).__name__}: {exc}")
 
-    def _notify(self, text: str) -> None:
+    def _notify(self, text: str, category: str | None = None) -> None:
         if self.notifier is not None:
-            self.notifier.notify(text)
+            self.notifier.notify(text, category)
+
+    def _announce_start(self, queue: Queue, item: QueueItem) -> None:
+        """Tell that a conversation starts working after a quiet time (START_QUIET_SECONDS);
+        a routine's task is told by the routine."""
+        if self.notifier is None or item.routine_id is not None \
+                or not self.notifier.configured(CAT_STARTED):
+            return
+        runs = self.storage.runs_for_queue(queue.id)
+        if runs:
+            last = runs[0].finished_at or runs[0].started_at
+            if (datetime.now() - last).total_seconds() < START_QUIET_SECONDS:
+                return
+        self._notify(_("▶ {name}: starts working — {prompt}").format(
+            name=queue.name, prompt=" ".join(item.prompt_text.split())[:120]), CAT_STARTED)
 
     def _hold_for_reserve(self, queue: Queue, until: datetime, reserve: int) -> None:
         """Usage is above the user's reserve: wait for the window's reset
@@ -423,7 +440,7 @@ class QueueRuntime:
         self.storage.update_queue_status(queue.id, QueueStatus.WAITING_RETRY, next_retry_at=until, last_error=note)
         if not already:
             self._notify(_("‖ {name}: usage above your {reserve}% reserve — waiting until {time}.").format(
-                name=queue.name, reserve=reserve, time=f"{until:%H:%M}"))
+                name=queue.name, reserve=reserve, time=f"{until:%H:%M}"), CAT_LIMITS)
 
     def _hold_for_limit(self, queue: Queue, until: datetime) -> None:
         """Usage limit: wait for the reset by itself (auto-continue) or
@@ -434,11 +451,12 @@ class QueueRuntime:
             return  # still the same wait (e.g. re-checked at reset time)
         if status == QueueStatus.WAITING_RETRY:
             self._notify(_("⏸ {name}: usage limit — waiting until {time}, then it continues by itself.").format(
-                name=queue.name, time=f"{until:%H:%M}"))
+                name=queue.name, time=f"{until:%H:%M}"), CAT_LIMITS)
         else:
             self._notify(
                 _("✋ {name} needs you: paused at the usage limit (resets {time}). "
-                  "Press r or send a message in ccc to continue.").format(name=queue.name, time=f"{until:%H:%M}")
+                  "Press r or send a message in ccc to continue.").format(name=queue.name, time=f"{until:%H:%M}"),
+                CAT_ATTENTION,
             )
 
     async def _process_item(self, queue: Queue, item: QueueItem) -> None:
@@ -522,7 +540,8 @@ class QueueRuntime:
             self._backoff_seconds = None
             if self.storage.next_pending_item(queue.id) is None:
                 reply = (result.result_text or "").strip()
-                self._notify(_("✅ {name}: queue finished.").format(name=queue.name) + (f"\n\n{reply[:300]}" if reply else ""))
+                self._notify(_("✅ {name}: queue finished.").format(name=queue.name) + (f"\n\n{reply[:300]}" if reply else ""),
+                             CAT_QUEUE)
             if queue.first_run_flags is not None:
                 self._adopt_session(queue, result.session_id or queue.session_id)
             return
@@ -735,7 +754,7 @@ class QueueRuntime:
         self.storage.set_item_status(item.id, ItemStatus.FAILED)
         self.storage.update_queue_status(queue.id, QueueStatus.BLOCKED_ERROR, last_error=error_text)
         self._notify(_("✖ {name}: stopped on an error — {error}").format(
-            name=queue.name, error=(error_text or _("unknown error"))[:300]))
+            name=queue.name, error=(error_text or _("unknown error"))[:300]), CAT_QUEUE)
 
     def _has_run_before(self) -> bool:
         return len(self.storage.runs_for_queue(self.queue.id)) > 0
