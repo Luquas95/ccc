@@ -309,7 +309,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             try {
-                val paired = unpaired.pair(invite.code, Build.MODEL.orEmpty().ifBlank { "Android" })
+                val paired = unpaired.pair(invite.code, deviceName())
                 connect(invite.server, paired.token, onDone)
             } catch (e: CancellationException) {
                 throw e
@@ -317,6 +317,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 _message.value = if (e is ApiException && e.code == 401) text(R.string.error_pairing) else describe(e)
                 onDone(false)
             }
+        }
+    }
+
+    /**
+     * What this phone is called in ccc's device list: the name the owner gave it (Settings → About phone →
+     * Device name, e.g. "Redmi Note 13 5G"), else the model code ("2312DRAABG") with the maker's name.
+     */
+    private fun deviceName(): String {
+        val given = runCatching {
+            android.provider.Settings.Global.getString(getApplication<Application>().contentResolver, "device_name")
+        }.getOrNull()?.trim().orEmpty()
+        if (given.isNotEmpty()) return given
+        val model = Build.MODEL.orEmpty().trim()
+        val maker = Build.MANUFACTURER.orEmpty().trim().replaceFirstChar { it.uppercase() }
+        return when {
+            model.isEmpty() -> "Android"
+            maker.isEmpty() || model.startsWith(maker, ignoreCase = true) -> model
+            else -> "$maker $model"
         }
     }
 

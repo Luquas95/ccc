@@ -25,7 +25,7 @@
     <string name="devices">Zařízení</string>
     <string name="devices_hint">Telefony přihlášené k ccc. Jeden odhlásíš tady, nebo na počítači (ccc api devices).</string>
     <string name="device_this">%1$s (tento telefon)</string>
-    <string name="device_never">nikdy nevidět</string>
+    <string name="device_never">nikdy neviděno</string>
 
     <!-- Konverzace -->
     <string name="conversations_empty">Zatím žádné konverzace.</string>
