@@ -303,6 +303,7 @@
     <!-- Kolo 4: oznámení, terminál -->
     <string name="terminal">Terminál Claude Code</string>
     <string name="terminal_hint">Text do Claude Code (odešle se Enterem)</string>
+    <string name="terminal_scroll_hint">Terminál má %1$d sloupců — zbytek řádku zobrazíš tažením do stran.</string>
     <string name="notifications">Oznámení</string>
     <string name="notifications_hint">Když je aplikace zavřená, drží spojení s ccc a dá ti vědět o schváleních (odpovíš přímo v oznámení), chybách, limitech využití a hotových odpovědích. Na Xiaomi / HyperOS aplikaci povol i běh na pozadí (baterie).</string>
     <string name="notifications_on">Oznamovat, i když je aplikace zavřená</string>

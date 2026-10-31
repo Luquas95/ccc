@@ -305,6 +305,7 @@
     <!-- Round 4: notifications, terminal -->
     <string name="terminal">Claude Code terminal</string>
     <string name="terminal_hint">Text into Claude Code (sent with Enter)</string>
+    <string name="terminal_scroll_hint">The terminal is %1$d columns wide — swipe sideways to see the rest of a line.</string>
     <string name="notifications">Notifications</string>
     <string name="notifications_hint">While the app is closed, it keeps a connection to ccc and tells you about approvals (answer them right in the notification), errors, usage limits and finished replies. On Xiaomi / HyperOS also allow the app to run in the background (battery).</string>
     <string name="notifications_on">Notify while the app is closed</string>
