@@ -264,8 +264,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 candidate.status()
+                // A new token replaces the old one on this phone: sign the old device out on ccc, so it
+                // doesn't stay in the list as a phone nobody uses (not when it is the same token).
+                val previous = api.takeIf { settings.token != token }
                 settings.save(server, token)
                 api = api(server, token)
+                previous?.let { signOutOwnDevice(it) }
                 _home.value = HomeState()
                 _screens.value = listOf(Screen.Conversations)
                 restartEvents()
@@ -279,6 +283,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 _message.value = if (e is ApiException && e.code == 401) text(R.string.error_token_wrong) else describe(e)
                 onDone(false)
             }
+        }
+    }
+
+    /** Sign this phone's own (now replaced) device out with the token it had; a failure changes nothing. */
+    private suspend fun signOutOwnDevice(old: CccApi) {
+        try {
+            old.devices().firstOrNull { it.current }?.let { old.removeDevice(it.id) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IOException) {
+            // The old token no longer works (or ccc is unreachable): nothing to sign out, or no way to.
         }
     }
 
