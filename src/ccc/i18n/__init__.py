@@ -128,6 +128,30 @@ def _(text: str) -> str:
     return CS.get(text, text)
 
 
+def retranslate(text: str | None) -> str | None:
+    """A text that was stored already translated (a run's result, an error) shown in the current language:
+    it was written in whichever language the daemon had then, so map a Czech one back to its English source
+    first. Anything that isn't a known message (Claude's own reply) comes back unchanged."""
+    if not text:
+        return text
+    from ccc.i18n.cs import CS
+
+    source = _reverse_cs().get(text, text)
+    return CS.get(source, source) if language() != "en" else source
+
+
+_REVERSE: dict[str, str] | None = None
+
+
+def _reverse_cs() -> dict[str, str]:
+    global _REVERSE
+    if _REVERSE is None:
+        from ccc.i18n.cs import CS
+
+        _REVERSE = {czech: english for english, czech in CS.items()}
+    return _REVERSE
+
+
 def N_(text: str) -> str:
     """Marks a string for translation where it's defined; _() translates
     it where it's shown (tables built once, the help generator's two
