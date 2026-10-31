@@ -21,7 +21,10 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
+      # No third-party action here: this job holds the signing key. The runner image
+      # has the Android SDK; only its licences need accepting.
+      - name: Android SDK licences
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
       - name: Release key
         run: echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/ccc-release.jks"
         env:
