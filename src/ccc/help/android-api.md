@@ -108,8 +108,8 @@ not the phone — decides where and how freely the app may start one:
 - **Folders:** `ccc api roots --add ~/DEV` allows a folder and everything
   inside it (`--remove` stops, no option lists). Until you set one, the app
   may use only the folders ccc already has conversations in — it cannot
-  walk to `~` or `/`. The check follows symlinks. It covers starting a
-  conversation, `GET /sessions` and `GET /mcp-servers`; a folder outside
+  walk to `~` or `/` (a conversation once started in `~` opens nothing). The check follows symlinks. It covers starting a
+  conversation, prompting a live session, `GET /sessions` and `GET /mcp-servers`; a folder outside
   gets `403`.
 - **Skip all permission checks:** refused (`403`) from the app until
   `ccc api skip-permissions on` (`off` takes it back). Meanwhile the app's

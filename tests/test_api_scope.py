@@ -119,3 +119,43 @@ def test_cli_roots_and_skip_permissions(closed, tmp_path, capsys):
     assert api_scope.skip_allowed(closed)
     api_cli.run(closed, "", Namespace(api_command="skip-permissions", state=None))
     assert api_scope.skip_allowed(closed)
+
+
+@pytest.mark.parametrize("body", [
+    {"session_id": "--dangerously-skip-permissions", "options": ["session_resume"]},
+    {"session_id": "-x", "options": ["session_resume", "fork"]},
+    {"pr": "--dangerously-skip-permissions", "options": ["session_from_pr"]},
+    {"pr": "12 --x", "options": ["session_from_pr"]},
+])
+def test_a_session_id_or_pull_request_cannot_smuggle_in_another_option(closed, tmp_path, body):
+    folder = tmp_path / "dev"
+    folder.mkdir()
+    api_scope.add_root(closed, str(folder))
+    with pytest.raises(api.ApiError) as error:
+        _create(closed, folder, **body)
+    assert error.value.status == 400
+    assert closed.list_queues() == []
+
+
+def test_a_known_folder_that_is_home_or_above_opens_nothing_beneath(closed, tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / "secret").mkdir(parents=True)
+    monkeypatch.setattr("pathlib.Path.home", lambda: home)
+    closed.create_queue("at home", str(home), "s1")
+    closed.create_queue("at root", "/", "s2")
+    with pytest.raises(api.ApiError):
+        api_scope.check_folder(closed, str(home / "secret"))
+    with pytest.raises(api.ApiError):
+        api_scope.check_folder(closed, "/etc")
+
+
+def test_prompting_a_live_session_outside_the_roots_is_refused(closed, tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    other = tmp_path / "other"
+    other.mkdir()
+    monkeypatch.setattr("ccc.session_discovery.discover_sessions",
+                        lambda: [SimpleNamespace(session_id="abc", cwd=str(other), name="x")])
+    with pytest.raises(api.ApiError) as error:
+        api.Api(closed).route("POST", "/api/v1/live-sessions/abc/prompt", {}, {"prompt": "hi"})
+    assert error.value.status == 403

@@ -54,10 +54,17 @@ def remove_root(storage, path: str) -> bool:
     return True
 
 
+def _too_wide(folder: Path) -> bool:
+    """/ and the home folder (and anything above it): allowing those allows the whole account."""
+    home = _real(Path.home())
+    return folder == home or folder in home.parents
+
+
 def allowed_folders(storage) -> list[Path]:
-    """Where a conversation may be started: the roots; when none is set, the folders of the conversations ccc has."""
+    """Where a conversation may be started: the roots; when none is set, the folders of the conversations ccc
+    has — except / and ~ (a conversation once started there must not open everything beneath)."""
     explicit = roots(storage)
-    return explicit or sorted({_real(q.project_path) for q in storage.list_queues()})
+    return explicit or sorted({f for f in (_real(q.project_path) for q in storage.list_queues()) if not _too_wide(f)})
 
 
 def check_folder(storage, path: str) -> str:

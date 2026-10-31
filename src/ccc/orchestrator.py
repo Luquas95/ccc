@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import logging
 import sqlite3
 import sys
@@ -115,6 +116,11 @@ def attach_to_session(
     return queue
 
 
+# What Claude Code is given as `--resume <id>` / `--from-pr <value>`: never something that reads as another option.
+SESSION_ID_RE = re.compile(r"[0-9A-Za-z][0-9A-Za-z_-]{0,99}")
+PULL_REQUEST_RE = re.compile(r"\d{1,9}|https?://[^\s]+")
+
+
 def start_conversation(
     storage, project_path, selection, *, name=None, session_id=None, pr=None, auto_continue=True,
     remote_control=False, interactive=True, worktree=False,
@@ -128,6 +134,10 @@ def start_conversation(
     if not Path(project_path).is_dir():
         raise ValueError(_("'{path}' is not an existing directory").format(path=project_path))
     mode = session_mode(selection)
+    if session_id and not SESSION_ID_RE.fullmatch(session_id):
+        raise ValueError(_("That is not a session id."))
+    if pr and pr.strip() and not PULL_REQUEST_RE.fullmatch(pr.strip()):
+        raise ValueError(_("A pull request is a number or a URL."))
     fork = FORK in selection and mode != SESSION_NEW
     flags = persistent_flags(selection)
     name = (name or "").strip() or Path(project_path).name or project_path
