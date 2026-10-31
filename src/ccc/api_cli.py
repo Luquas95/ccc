@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+from pathlib import Path
 
 from ccc import api, pairing
 from ccc.i18n import _
@@ -22,6 +23,8 @@ def add_parser(subparsers) -> None:
     token.add_argument("--new", action="store_true", help=_("make a new one; every device is signed out"))
     pair = sub.add_parser("pair", help=_("Show a QR code the app scans to sign in (good for 5 minutes)"))
     pair.add_argument("--server", help=_("the API's address, if ccc can't find it (https://…ts.net)"))
+    pair.add_argument("--image", nargs="?", const="", metavar="FILE",
+                      help=_("save the QR as a picture (default ~/Pictures/ccc-pair-qr.png) instead of drawing it in the terminal"))
     devices = sub.add_parser("devices", help=_("List the devices signed in"))
     devices.add_argument("--all", action="store_true", help=_("also the devices signed out (history, read only)"))
     revoke = sub.add_parser("revoke", help=_("Sign a device out"))
@@ -34,7 +37,7 @@ def run(storage, db_path: str, args: argparse.Namespace) -> int:
         api.serve(db_path, args.host, args.port)
         return 0
     if args.api_command == "pair":
-        return _pair(storage, args.server)
+        return _pair(storage, args.server, getattr(args, "image", None))
     if args.api_command == "devices":
         devices = storage.list_devices(include_revoked=args.all)
         for device in devices:
@@ -61,16 +64,22 @@ def run(storage, db_path: str, args: argparse.Namespace) -> int:
     return 0
 
 
-def _pair(storage, server: str | None) -> int:
+def _pair(storage, server: str | None, image: str | None = None) -> int:
     server = (server or "").strip().rstrip("/") or pairing.server_url(storage)
     if not server:
         print(_("ccc can't tell where the app reaches the API. Put it on the tailnet (tailscale serve --bg 8737) "
                 "or give the address: ccc api pair --server https://<computer>.<tailnet>.ts.net"))
         return 1
     code, expires = pairing.new_code(storage)
-    # Black on white whatever the terminal's colours: a scanner needs dark modules on a light ground.
-    for line in pairing.qr_lines(pairing.payload(server, code)):
-        print(f"\033[30;47m{line}\033[0m")
+    if image is not None:
+        path = Path(image).expanduser() if image else Path.home() / "Pictures" / "ccc-pair-qr.png"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        pairing.save_png(pairing.payload(server, code), path)
+        print(_("QR saved as a picture: {path}").format(path=path))
+    else:
+        # Black on white whatever the terminal's colours: a scanner needs dark modules on a light ground.
+        for line in pairing.qr_lines(pairing.payload(server, code)):
+            print(f"\033[30;47m{line}\033[0m")
     print(_("Scan it in the app (Connect → Scan QR). Good until {time}, once.").format(time=expires.strftime("%H:%M")))
     print(_("Address: {server}").format(server=server))
     return 0

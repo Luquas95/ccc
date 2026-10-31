@@ -1417,6 +1417,9 @@ CS: dict[str, str] = {
     "Device": "Zařízení",
     "Last seen": "Naposledy vidět",
     "Paired": "Spárováno",
+    "save the QR as a picture (default ~/Pictures/ccc-pair-qr.png) instead of drawing it in the terminal":
+        "uloží QR jako obrázek (výchozí ~/Pictures/ccc-pair-qr.png) místo kreslení v terminálu",
+    "QR saved as a picture: {path}": "QR uložen jako obrázek: {path}",
     "History": "Historie",
     "in the app": "v aplikaci",
     "on the computer": "na počítači",
