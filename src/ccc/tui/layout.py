@@ -242,10 +242,12 @@ SidebarScreen #sidebar {
     background: $ccc-sidebar;
     border: round $ccc-frame;
 }
-/* In ccc's tmux the frame is tmux's: one line between the menu and Claude
-   Code (none while Claude Code is open — tmux's line is the one). */
+/* In ccc's tmux the top and bottom of the frame are tmux's; the menu adds
+   its left line, and its right one — none while Claude Code is open, tmux's
+   line is the one. */
 SidebarScreen.-tmux-frame #sidebar {
     border: none;
+    border-left: solid $ccc-frame;
     border-right: solid $ccc-frame;
 }
 SidebarScreen.-tmux-frame.-cli-open #sidebar {

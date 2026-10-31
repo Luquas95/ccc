@@ -540,6 +540,12 @@ class ConversationsScreen(SidebarScreen):
             self._cli_closed_for = queue.id
             want = False
         if want:
+            if not self.has_class("-cli-open"):
+                # Hide the transcript at once and repaint: opening the pane
+                # takes a moment, and until then the old full-width look showed.
+                self.add_class("-cli-open")
+                self.call_after_refresh(self._sync_cli_pane)
+                return
             want = cli_pane.open(queue.id, queue.name, self.storage.db_path) is not None
         elif shown is not None or cli_pane.find_bar() is not None:
             # Also when Claude's pane ended by itself (archived: its

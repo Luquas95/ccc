@@ -24,13 +24,15 @@ async def test_menu_is_a_rounded_block_without_tmux_and_gives_way_to_its_frame(t
         assert {sidebar.styles.border_top[0], sidebar.styles.border_right[0],
                 sidebar.styles.border_bottom[0], sidebar.styles.border_left[0]} == {"round"}
         assert sidebar.styles.border_right[1] == green
-        # In ccc's tmux the frame is tmux's: one line to Claude Code…
+        # In ccc's tmux the top and bottom are tmux's; the menu adds its left
+        # line and a right one to Claude Code…
         app.screen.add_class("-tmux-frame")
         app.refresh_css(animate=False)
         await pilot.pause()
-        assert sidebar.styles.border_right[0] == "solid" and sidebar.styles.border_left[0] == ""
+        assert sidebar.styles.border_right[0] == "solid" and sidebar.styles.border_left[0] == "solid"
+        assert sidebar.styles.border_top[0] == "" and sidebar.styles.border_bottom[0] == ""
         # …and none while Claude Code is open (tmux draws that one).
         app.screen.add_class("-cli-open")
         app.refresh_css(animate=False)
         await pilot.pause()
-        assert sidebar.styles.border_right[0] == ""
+        assert sidebar.styles.border_right[0] == "" and sidebar.styles.border_left[0] == "solid"
