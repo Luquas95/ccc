@@ -6,7 +6,7 @@ import argparse
 import logging
 from pathlib import Path
 
-from ccc import api, api_scope, pairing
+from ccc import api, api_audit, api_scope, pairing
 from ccc.i18n import _
 from ccc.models import REVOKED_BY_COMPUTER, ROLES
 
@@ -36,6 +36,8 @@ def add_parser(subparsers) -> None:
     roots.add_argument("--remove", metavar="FOLDER", help=_("stop allowing this folder"))
     skip = sub.add_parser("skip-permissions", help=_("Whether the app may start conversations that skip every permission check"))
     skip.add_argument("state", choices=("on", "off"), nargs="?", help=_("leave out to show the state"))
+    log = sub.add_parser("log", help=_("What the devices did: changes, refusals and pairings (newest last)"))
+    log.add_argument("-n", type=int, default=50, help=_("how many entries (default 50)"))
     devices = sub.add_parser("devices", help=_("List the devices signed in"))
     devices.add_argument("--all", action="store_true", help=_("also the devices signed out (history, read only)"))
     revoke = sub.add_parser("revoke", help=_("Sign a device out"))
@@ -56,6 +58,15 @@ def run(storage, db_path: str, args: argparse.Namespace) -> int:
             api_scope.set_skip_allowed(storage, args.state == "on")
         print(_("The app may start conversations that skip permission checks: {state}.").format(
             state=_("yes") if api_scope.skip_allowed(storage) else _("no")))
+        return 0
+    if args.api_command == "log":
+        entries = storage.list_audit(args.n)
+        for e in reversed(entries):
+            e = {k: api_audit.clean(str(v), 400) for k, v in e.items()}  # rows written before the cleaning, too
+            who = f"{e['device_name']} ({e['device_id']})" if e["device_id"] is not None else "—"
+            print(f"{e['at'][:19].replace('T', ' ')}  {e['status']}  {e['method']:<6} {e['path']}  {e['detail']}  ·  {who}  {e['ip']}".rstrip())
+        if not entries:
+            print(_("Nothing logged yet."))
         return 0
     if args.api_command == "role":
         if not storage.set_device_role(args.id, args.role):

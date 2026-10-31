@@ -44,6 +44,7 @@ POST /api/v1/update/check                 look for a new ccc version now; POST /
 GET  /api/v1/waiting                      conversations that need you (Alt+N)
 GET  /api/v1/prompt-presets               the preset prompts (Alt+1 … 9)
 POST /api/v1/pair                         {"code", "name"}: the one request without a token — trades a pairing code (ccc.pairing) for a device and its token
+GET  /api/v1/audit                        what the devices did (admin): the newest first, ?limit= (100); changes, refusals and pairings only — see ccc.api_audit
 GET  /api/v1/devices                      the devices signed in; "current" marks the caller; ?all=1 adds the signed-out ones (history, with revoked_at / revoked_by)
 POST /api/v1/devices/{id}                 {"name"}: rename a device
 DELETE /api/v1/devices/{id}               sign a device out (the caller too); the row stays as history
@@ -77,7 +78,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from ccc import __version__, app_build, context_fill, groups, i18n, launch_options, mcp_servers, updates
 from ccc.api_agents import AgentEndpoints
-from ccc import api_roles, api_scope
+from ccc import api_audit, api_roles, api_scope
 from ccc.api_common import ApiError, int_of, iso, route, task_line, text_of
 from ccc.api_views import ViewEndpoints
 from ccc.heartbeat import daemon_alive
@@ -235,6 +236,7 @@ class Api(AgentEndpoints, ViewEndpoints):
             ok(r"/launch-options", lambda ids, q, b: self.launch_options()),
             ok(r"/launch-presets", lambda ids, q, b: self.launch_presets()),
             ok(r"/prompt-presets", lambda ids, q, b: self.prompt_presets()),
+            ok(r"/audit", lambda ids, q, b: self.audit(int_of(q, "limit") or 100)),
             ok(r"/devices", lambda ids, q, b: self.devices(int_of(q, CALLER), q.get("all") in ("1", "true"))),
             ok(r"/devices/(\d+)", lambda ids, q, b: self.rename_device(*ids, b), "POST"),
             ok(r"/devices/(\d+)", lambda ids, q, b: self.remove_device(*ids), "DELETE"),
@@ -275,6 +277,13 @@ class Api(AgentEndpoints, ViewEndpoints):
              "last_ip": d.last_ip, "current": d.id == caller, "role": d.role,
              "revoked_at": iso(d.revoked_at), "revoked_by": d.revoked_by or None}
             for d in self.storage.list_devices(include_revoked=history)]}
+
+    def audit(self, limit: int) -> dict:
+        """What the devices did (api_audit), the newest first."""
+        return {"entries": [
+            {"at": e["at"], "device_id": e["device_id"], "device": e["device_name"], "ip": e["ip"],
+             "method": e["method"], "path": e["path"], "status": e["status"], "detail": e["detail"]}
+            for e in self.storage.list_audit(max(1, min(limit, 1000)))]}
 
     def pair(self, body: dict, ip: str) -> dict:
         """A phone that scanned the QR: its code for a device of its own."""
@@ -970,10 +979,14 @@ class _Handler(BaseHTTPRequestHandler):
         # language set in the TUI, as before.
         asked = i18n.from_accept_language(self.headers.get("Accept-Language", ""))
         language_token = i18n.use_for_request(asked)
+        body: dict = {}
+        self._device = None
         try:
             i18n.load(self.api.storage)
             if method == "POST" and url.path == PREFIX + "/pair":
-                self._send(HTTPStatus.CREATED, self.api.pair(self._body(), self._client_ip()))
+                paired = self.api.pair(self._body(), self._client_ip())  # a refusal is logged below, once
+                self._audit(method, url.path, HTTPStatus.CREATED, device=self.api.storage.device_by_id(paired["device_id"]))
+                self._send(HTTPStatus.CREATED, paired)
                 return
             if not self._authorized():
                 raise ApiError(HTTPStatus.UNAUTHORIZED, _("Missing or wrong API token."))
@@ -995,7 +1008,21 @@ class _Handler(BaseHTTPRequestHandler):
             status, result = HTTPStatus.INTERNAL_SERVER_ERROR, {"error": _("Something went wrong in ccc.")}
         finally:
             i18n.end_request(language_token)
+        self._audit(method, url.path, status, detail=self._detail(method, url.path, body))
         self._send(status, result)
+
+    @staticmethod
+    def _detail(method: str, path: str, body: dict) -> str:
+        """The one thing worth keeping of a request's body: the folder of a new conversation."""
+        folder = body.get("path") if method == "POST" and path == PREFIX + "/conversations" else None
+        return folder if isinstance(folder, str) else ""
+
+    def _audit(self, method: str, path: str, status: int, detail: str = "", device=None) -> None:
+        """Log the request (api_audit) and raise the alarm for what is out of the ordinary."""
+        device = device or self._device
+        ip = self._client_ip()
+        api_audit.record(self.api.storage, device, ip, method, path, status, detail)
+        api_audit.alarm_for(self.api.storage, status, method, path, ip, device)
 
     def _check_role(self, method: str, path: str) -> None:
         """403 when the device's role is too weak for the request (api_roles)."""

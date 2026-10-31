@@ -115,6 +115,21 @@ not the phone — decides where and how freely the app may start one:
   `ccc api skip-permissions on` (`off` takes it back). Meanwhile the app's
   default is *Ask for everything*: you approve in the app.
 
+## Log and alarms
+
+If a token is ever misused you should be able to see it and hear of it.
+The API logs everything that changes something, every refusal (`401` /
+`403`) and every pairing — never the query, the body or typed keys, only
+the path and the folder of a new conversation. Read it with
+`ccc api log` (`-n` how many), in *Devices → Activity*, or `GET /audit`
+(admin). The newest 5000 entries are kept.
+
+Through your Telegram / Discord notifications ([Settings](settings.md))
+ccc also tells you at once about what is out of the ordinary: a new
+device paired, a wrong pairing code, a request with a wrong token, a
+device trying more than its role allows — each kind at most once in
+5 minutes.
+
 ## Endpoints
 
 Every path starts with `/api/v1`; every request has the header

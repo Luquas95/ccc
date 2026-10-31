@@ -108,6 +108,20 @@ a jak volně ji smí appka založit, rozhoduje počítač — ne telefon:
   nespustíš `ccc api skip-permissions on` (`off` to vrátí). Do té doby je
   výchozí volba v appce *Ptát se na všechno*: schvaluješ v appce.
 
+## Záznamy a poplachy
+
+Kdyby se token někdy zneužil, musíš to vidět a dozvědět se o tom. API
+zaznamenává všechno, co něco mění, každé odmítnutí (`401` / `403`)
+a každé párování — nikdy dotaz, tělo požadavku ani napsané klávesy, jen
+cestu a složku nové konverzace. Přečteš to přes `ccc api log` (`-n`
+kolik), v *Zařízení → Aktivita* nebo `GET /audit` (admin). Uchovává se
+posledních 5000 záznamů.
+
+Přes oznámení do Telegramu / Discordu ([Nastavení](settings.md)) ti ccc
+hned řekne i o neobvyklém: spárovalo se nové zařízení, špatný párovací
+kód, požadavek se špatným tokenem, zařízení zkouší víc, než jeho role
+dovoluje — každý druh nejvýš jednou za 5 minut.
+
 ## Endpointy
 
 Každá cesta začíná `/api/v1`; každý požadavek má hlavičku

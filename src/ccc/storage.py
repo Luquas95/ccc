@@ -269,6 +269,19 @@ CREATE TABLE IF NOT EXISTS devices (
     last_ip TEXT NOT NULL DEFAULT ''
 );
 
+-- What the API's devices did (ccc.api_audit): kept apart so an older ccc ignores it.
+CREATE TABLE IF NOT EXISTS api_audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    at TEXT NOT NULL,
+    device_id INTEGER,
+    device_name TEXT NOT NULL DEFAULT '',
+    ip TEXT NOT NULL DEFAULT '',
+    method TEXT NOT NULL,
+    path TEXT NOT NULL,
+    status INTEGER NOT NULL,
+    detail TEXT NOT NULL DEFAULT ''
+);
+
 CREATE TABLE IF NOT EXISTS conversation_groups (
     queue_id INTEGER PRIMARY KEY REFERENCES queues(id),
     name TEXT NOT NULL
@@ -1340,6 +1353,11 @@ class Storage:
             row = conn.execute("SELECT * FROM devices WHERE token_sha256 = ? AND revoked_at IS NULL", (token_sha256,)).fetchone()
         return self._row_to_device(row) if row else None
 
+    def device_by_id(self, device_id: int) -> Device | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT * FROM devices WHERE id = ?", (device_id,)).fetchone()
+        return self._row_to_device(row) if row else None
+
     def touch_device(self, device_id: int, ip: str) -> None:
         with closing(self._connect()) as conn:
             conn.execute("UPDATE devices SET last_seen_at = ?, last_ip = ? WHERE id = ?",
@@ -1351,6 +1369,30 @@ class Storage:
             changed = conn.execute("UPDATE devices SET name = ? WHERE id = ? AND revoked_at IS NULL", (name, device_id)).rowcount
             conn.commit()
         return bool(changed)
+
+    AUDIT_KEEP = 5000  # entries of known devices
+    AUDIT_KEEP_STRANGERS = 1000  # entries without a device (wrong tokens, pairing): a scan must not push the rest out
+
+    def add_audit(self, device_id: int | None, device_name: str, ip: str, method: str, path: str, status: int,
+                  detail: str = "") -> None:
+        with closing(self._connect()) as conn:
+            cursor = conn.execute(
+                "INSERT INTO api_audit (at, device_id, device_name, ip, method, path, status, detail) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (datetime.now().isoformat(), device_id, device_name, ip, method, path, status, detail))
+            if device_id is None:
+                keep, where = self.AUDIT_KEEP_STRANGERS, "device_id IS NULL"
+            else:
+                keep, where = self.AUDIT_KEEP, "device_id IS NOT NULL"
+            conn.execute(f"DELETE FROM api_audit WHERE {where} AND id NOT IN "
+                         f"(SELECT id FROM api_audit WHERE {where} ORDER BY id DESC LIMIT ?)", (keep,))
+            conn.commit()
+
+    def list_audit(self, limit: int = 100) -> list[dict]:
+        """The newest entries first."""
+        with closing(self._connect()) as conn:
+            rows = conn.execute("SELECT * FROM api_audit ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(row) for row in rows]
 
     def set_device_role(self, device_id: int, role: str) -> bool:
         with closing(self._connect()) as conn:

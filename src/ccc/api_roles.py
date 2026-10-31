@@ -21,6 +21,7 @@ from ccc.models import ROLE_ADMIN, ROLE_OPERATE, ROLE_READ, ROLES
 RULES: tuple[tuple[str, str, str], ...] = (
     ("*", r"/(app/build|update|update/check|backup)", ROLE_ADMIN),
     ("*", r"/settings(/.*)?", ROLE_ADMIN),
+    ("GET", r"/audit", ROLE_ADMIN),
     ("POST", r"/conversations", ROLE_ADMIN),
     ("*", r"/conversations/\d+/terminal", ROLE_ADMIN),
     ("POST", r"/live-sessions/[^/]+/prompt", ROLE_ADMIN),
