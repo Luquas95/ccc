@@ -82,9 +82,9 @@ celého počítače:
 
 | Role | Smí |
 |---|---|
-| `read` | dívat se: každé `GET` (seznamy, konverzace, diffy, proud událostí) |
+| `read` | dívat se: každé `GET` (seznamy, konverzace, diffy, proud událostí); bez odkazů, které konverzaci ovládají (`remote_control_url`) |
 | `operate` | i řídit existující konverzace: zprávy, schvalování, fronta, úkoly, revize, cíle, workflow |
-| `admin` | i zakládat konverzace (v jakékoli složce), psát do terminálu, posílat prompty živým relacím, rutiny, vrátit běh, nastavení, záloha, aktualizace ccc a sestavení appky, správa ostatních zařízení |
+| `admin` | i zakládat konverzace (v jakékoli složce), psát do terminálu, posílat prompty živým relacím, rutiny, vrátit běh, nastavení a presety, záloha, aktualizace ccc a sestavení appky, správa ostatních zařízení |
 
 Nově spárovaný telefon je `operate`; `ccc api pair --role admin` (nebo
 *Změnit roli* v okně Zařízení, nebo `ccc api role ID admin`) dá víc, `read`
