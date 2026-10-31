@@ -31,6 +31,15 @@ class ListFilterTest {
     }
 
     @Test
+    fun `picked states and typed words are kept apart - x is a word then`() {
+        val filter = ListFilter.of(setOf('?'), "x Api")
+        assertEquals(setOf('?'), filter.states)
+        assertEquals(listOf("x", "api"), filter.words)
+        assertTrue(ListFilter.of(emptySet(), "x").matches(conversation("xray")))
+        assertFalse(ListFilter.of(emptySet(), "x").matches(conversation("api")))
+    }
+
+    @Test
     fun `a mention is an at that starts a word`() {
         assertEquals(5 to "src/li", mentionAt("Look @src/li"))
         assertEquals(0 to "", mentionAt("@"))

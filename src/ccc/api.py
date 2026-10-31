@@ -66,7 +66,7 @@ import secrets
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -351,6 +351,7 @@ class Api(AgentEndpoints, ViewEndpoints):
             "paused": q.paused,
             "auto_continue": q.auto_continue,
             "pending": self.storage.count_pending_items(q.id),
+            "tokens_today": self.storage.queue_token_total(q.id, day=date.today()),
             "needs_approval": needs_approval,
             "unseen": unseen,
             "last_error": q.last_error,

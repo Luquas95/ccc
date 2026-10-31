@@ -22,7 +22,6 @@ import io.github.luquas95.ccc.ui.AgentsScreen
 import io.github.luquas95.ccc.ui.AnalyticsScreen
 import io.github.luquas95.ccc.ui.AppViewModel
 import io.github.luquas95.ccc.ui.CccSettingsScreen
-import io.github.luquas95.ccc.ui.LiveSessionsScreen
 import io.github.luquas95.ccc.ui.RoutinesActions
 import io.github.luquas95.ccc.ui.RoutinesScreen
 import io.github.luquas95.ccc.notify.WatchService
@@ -151,6 +150,7 @@ private fun App(model: AppViewModel) {
             listDetails = listDetails,
             appBuild = model.appBuild,
             snackbar = snackbar,
+            sessions = sessions,
             actions = ConversationsActions(
                 open = { model.open(Screen.Conversation(it)) },
                 approvals = { model.open(Screen.Approvals) },
@@ -158,14 +158,15 @@ private fun App(model: AppViewModel) {
                 new = { model.open(Screen.NewConversation) },
                 refresh = model::pullToRefresh,
                 search = { model.open(Screen.Search) },
-                showArchive = model::showArchive,
+                tab = model::showTab,
                 filter = model::setFilter,
+                filterState = model::toggleFilterState,
                 nextWaiting = model::openNextWaiting,
                 renameGroup = model::renameGroup,
                 deleteGroup = model::deleteGroup,
                 routines = { model.open(Screen.Routines) },
-                sessions = { model.open(Screen.LiveSessions) },
                 analytics = { model.open(Screen.Analytics) },
+                promptSession = { id, prompt -> model.more.promptSession(id, prompt, context.getString(R.string.prompt_queued)) },
                 applyUpdate = model::applyUpdate,
             ),
         )
@@ -263,13 +264,6 @@ private fun App(model: AppViewModel) {
                 enable = model.more::enableRoutine,
                 run = model.more::runRoutine,
             ),
-        )
-        Screen.LiveSessions -> LiveSessionsScreen(
-            sessions = sessions,
-            snackbar = snackbar,
-            onBack = model::back,
-            onRefresh = model.more::loadSessions,
-            onPrompt = { id, prompt -> model.more.promptSession(id, prompt, context.getString(R.string.prompt_queued)) },
         )
         Screen.Analytics -> AnalyticsScreen(
             state = analytics,

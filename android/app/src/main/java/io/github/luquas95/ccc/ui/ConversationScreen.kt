@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -172,7 +171,7 @@ fun ConversationScreen(
         },
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
-            Column(Modifier.imePadding().padding(8.dp)) {
+            Column(Modifier.bottomBarInsets().padding(8.dp)) {
                 if (archived) {
                     Button(onClick = { actions.archive(false) }, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.restore))

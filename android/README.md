@@ -37,12 +37,17 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
 - **Updates** — a banner when ccc finds new commits on `origin/main`,
   with an *Update* button (after asking: it shows the commits and, if
   ccc can't update now, why) and a notification when the app is closed;
-  and a note when this app's build is older than the one in ccc's
+  and "A new version of the app is available" when this app's build is older than the one in ccc's
   checkout (the app is built by hand). Details:
   [Settings → Updating ccc](../src/ccc/help/settings.md#updating-ccc).
-- **Filter** — name or folder, and the state chips `! working`,
-  `? approval`, `x error`, `* new` — the same as `f` in ccc.
-- **Search** (the magnifier) — every conversation's messages, archived
+- **Tabs** — Dashboard, Conversations, Archive and Live sessions.
+  **Dashboard** is ccc's: the overview (conversations, running, queued,
+  blocked, waiting for you, tokens today) and every conversation with its
+  state, queue, tokens today, context, git and folder.
+- **Search** (the field on the list) — name or folder; the filter icon
+  next to it picks the states `! working`, `? approval`, `x error`,
+  `* new` — the same as `f` in ccc.
+- **Message search** (the magnifier) — every conversation's messages, archived
   ones too.
 - **Archive** — the second tab; a conversation's menu archives it,
   restores it or deletes it from ccc.
@@ -67,7 +72,7 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
   start / stop a goal loop; start a workflow, approve or reject it at
   its gate, see what every agent said; ask another conversation — `v`,
   `g`, `w`, `k` in ccc.
-- **Routines, live sessions, analytics, ccc settings** (⋮ on the list)
+- **Routines, live sessions, analytics, ccc settings** (live sessions is a tab, the rest ⋮ on the list)
   — add, change, turn on / off, run and delete routines; send a prompt
   to a Claude Code session running on the computer; a month's tokens
   per day, model and conversation; and ccc's own settings (the ones
@@ -86,7 +91,7 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
   system stops it.
 - **Approvals** — Allow, Always (this tool in this conversation) or
   Deny, right in the conversation or all of them behind the bell.
-- **New conversation** — a folder (recently used ones offered), the same
+- **New conversation** — a folder (the recently used ones, as in ccc, to tap), the same
   options as ccc's New conversation window, starting from your last
   choice, with your presets; resume a session of the folder, from a pull
   request, remote control, auto-continue and a first message.

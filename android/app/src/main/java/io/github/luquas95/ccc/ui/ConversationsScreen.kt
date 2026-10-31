@@ -1,10 +1,23 @@
 package io.github.luquas95.ccc.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.materialIcon
+import androidx.compose.material.icons.materialPath
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.PrimaryScrollableTabRow
+import androidx.compose.ui.graphics.vector.ImageVector
+import io.github.luquas95.ccc.data.LiveSession
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,8 +29,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Notifications
@@ -32,13 +43,11 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -79,14 +88,16 @@ class ConversationsActions(
     val new: () -> Unit,
     val refresh: () -> Unit,
     val search: () -> Unit,
-    val showArchive: (Boolean) -> Unit,
+    val tab: (HomeTab) -> Unit,
     val filter: (String) -> Unit,
+    val filterState: (Char) -> Unit,
     val nextWaiting: () -> Unit,
     val renameGroup: (String, String) -> Unit,
     val deleteGroup: (String) -> Unit,
     val routines: () -> Unit,
-    val sessions: () -> Unit,
     val analytics: () -> Unit,
+    /** A prompt for the live session (id, text). */
+    val promptSession: (String, String) -> Unit = { _, _ -> },
     val applyUpdate: () -> Unit = {},
 )
 
@@ -100,6 +111,7 @@ fun ConversationsScreen(
     appBuild: Int,
     snackbar: SnackbarHostState,
     actions: ConversationsActions,
+    sessions: List<LiveSession>? = null,
 ) {
     var groupMenu by remember { mutableStateOf<String?>(null) }
     Scaffold(
@@ -123,7 +135,6 @@ fun ConversationsScreen(
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         listOf(
                             R.string.routines to actions.routines,
-                            R.string.live_sessions to actions.sessions,
                             R.string.analytics to actions.analytics,
                             R.string.ccc_settings to actions.settings,
                         ).forEach { (label, go) ->
@@ -135,7 +146,7 @@ fun ConversationsScreen(
             )
         },
         floatingActionButton = {
-            if (!state.showArchive) {
+            if (state.tab == HomeTab.DASHBOARD || state.tab == HomeTab.CONVERSATIONS) {
                 ExtendedFloatingActionButton(
                     onClick = actions.new,
                     icon = { Icon(Icons.Filled.Add, null) },
@@ -148,22 +159,31 @@ fun ConversationsScreen(
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            PrimaryTabRow(
-                selectedTabIndex = if (state.showArchive) 1 else 0,
+            PrimaryScrollableTabRow(
+                selectedTabIndex = state.tab.ordinal,
                 containerColor = CccColors.Background,
                 contentColor = CccColors.Title,
+                edgePadding = 0.dp,
             ) {
-                Tab(selected = !state.showArchive, onClick = { actions.showArchive(false) },
-                    text = { Text("${stringResource(R.string.conversations)} (${state.conversations.size})") })
-                Tab(selected = state.showArchive, onClick = { actions.showArchive(true) },
-                    text = { Text("${stringResource(R.string.archive)} (${state.archived.size})") })
+                listOf(
+                    HomeTab.DASHBOARD to stringResource(R.string.dashboard),
+                    HomeTab.CONVERSATIONS to "${stringResource(R.string.conversations)} (${state.conversations.size})",
+                    HomeTab.ARCHIVE to "${stringResource(R.string.archive)} (${state.archived.size})",
+                    HomeTab.SESSIONS to stringResource(R.string.live_sessions),
+                ).forEach { (tab, title) ->
+                    Tab(selected = state.tab == tab, onClick = { actions.tab(tab) }, text = { Text(title, maxLines = 1) })
+                }
             }
             PullToRefreshBox(
                 isRefreshing = state.refreshing,
                 onRefresh = actions.refresh,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                ConversationList(state, listDetails, appBuild, actions) { groupMenu = it }
+                when (state.tab) {
+                    HomeTab.DASHBOARD -> Dashboard(state, appBuild, actions)
+                    HomeTab.SESSIONS -> LiveSessionsList(sessions, actions.promptSession)
+                    else -> ConversationList(state, listDetails, appBuild, actions) { groupMenu = it }
+                }
             }
         }
     }
@@ -178,33 +198,15 @@ private fun ConversationList(
     actions: ConversationsActions,
     onGroupMenu: (String) -> Unit,
 ) {
-    val filter = ListFilter.parse(state.filter)
+    val filter = ListFilter.of(state.filterStates, state.filter)
     val shown = (if (state.showArchive) state.archived else state.conversations).filter(filter::matches)
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (!state.showArchive) {
-            state.usage?.let { usage ->
-                item(key = "usage") {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = CccColors.Surface),
-                        border = BorderStroke(1.dp, CccColors.Line),
-                    ) { UsageCard(usage, Modifier.padding(12.dp)) }
-                }
-            }
-            if (state.waiting.isNotEmpty()) {
-                item(key = "waiting") { WaitingBanner(state, actions.nextWaiting) }
-            }
-            state.status?.update?.takeIf { it.available }?.let { update ->
-                item(key = "update") { UpdateBanner(update, actions.applyUpdate) }
-            }
-            state.status?.androidBuild?.takeIf { appBuild in 1 until it }?.let { newest ->
-                item(key = "app-older") { AppOlderBanner(appBuild, newest) }
-            }
-        }
-        item(key = "filter") { FilterField(state.filter, actions.filter) }
+        if (!state.showArchive) banners(state, appBuild, actions)
+        item(key = "filter") { SearchField(state.filter, state.filterStates, actions.filter, actions.filterState) }
         if (state.loaded && shown.isEmpty()) {
             item(key = "empty") {
                 Text(
@@ -228,6 +230,134 @@ private fun ConversationList(
             }
             group = heading?.key
             item(key = conversation.id) { ConversationRow(conversation, listDetails) { actions.open(conversation.id) } }
+        }
+    }
+}
+
+/** What may need you above the lists: the limits, who waits, a new ccc, a new app. */
+private fun LazyListScope.banners(state: HomeState, appBuild: Int, actions: ConversationsActions) {
+    state.usage?.let { usage ->
+        item(key = "usage") {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = CccColors.Surface),
+                border = BorderStroke(1.dp, CccColors.Line),
+            ) { UsageCard(usage, Modifier.padding(12.dp)) }
+        }
+    }
+    if (state.waiting.isNotEmpty()) {
+        item(key = "waiting") { WaitingBanner(state, actions.nextWaiting) }
+    }
+    state.status?.update?.takeIf { it.available }?.let { update ->
+        item(key = "update") { UpdateBanner(update, actions.applyUpdate) }
+    }
+    state.status?.androidBuild?.takeIf { appBuild in 1 until it }?.let {
+        item(key = "app-newer") { NewAppBanner() }
+    }
+}
+
+/** The TUI's Dashboard: the overview line, then every conversation with its status, queue, tokens today, context, git and folder. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Dashboard(state: HomeState, appBuild: Int, actions: ConversationsActions) {
+    val all = state.conversations
+    val blocked = all.count { it.state == ConversationStatus.BLOCKED_ERROR }
+    val running = all.count { it.state == ConversationStatus.RUNNING }
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        banners(state, appBuild, actions)
+        item(key = "overview") {
+            Card(
+                Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = CccColors.Surface),
+                border = BorderStroke(1.dp, CccColors.Line),
+            ) {
+                FlowRow(
+                    Modifier.padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Stat(all.size.toString(), stringResource(R.string.dashboard_conversations), MaterialTheme.colorScheme.onSurface)
+                    Stat(running.toString(), stringResource(R.string.dashboard_running),
+                        if (running > 0) CccColors.Running else CccColors.Muted)
+                    Stat(all.sumOf { it.pending }.toString(), stringResource(R.string.dashboard_pending), MaterialTheme.colorScheme.onSurface)
+                    Stat(blocked.toString(), stringResource(R.string.dashboard_blocked),
+                        if (blocked > 0) CccColors.Error else CccColors.Muted)
+                    Stat(state.waiting.size.toString(), stringResource(R.string.dashboard_waiting),
+                        if (state.waiting.isNotEmpty()) CccColors.Waiting else CccColors.Muted)
+                    Stat(tokenText(all.sumOf { it.tokensToday }), stringResource(R.string.dashboard_tokens), MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        }
+        if (state.loaded && all.isEmpty()) {
+            item(key = "empty") {
+                Text(stringResource(R.string.conversations_empty), Modifier.fillMaxWidth().padding(32.dp), color = CccColors.Muted)
+            }
+        }
+        items(all, key = { "dash:${it.id}" }) { conversation -> DashboardRow(conversation) { actions.open(conversation.id) } }
+    }
+}
+
+@Composable
+private fun Stat(value: String, label: String, color: Color) {
+    Column {
+        Text(value, style = MaterialTheme.typography.titleLarge, color = color, fontWeight = FontWeight.Bold)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = CccColors.Muted)
+    }
+}
+
+/** 1 234 -> "1.2k", 3 400 000 -> "3.4M". */
+internal fun tokenText(tokens: Long): String = when {
+    tokens >= 1_000_000 -> "%.1fM".format(java.util.Locale.ROOT, tokens / 1_000_000.0)
+    tokens >= 1_000 -> "%.1fk".format(java.util.Locale.ROOT, tokens / 1_000.0)
+    else -> tokens.toString()
+}
+
+@Composable
+private fun DashboardRow(conversation: Conversation, onClick: () -> Unit) {
+    val state = conversation.state
+    val color = statusColor(state, conversation.needsApproval)
+    Card(
+        Modifier.fillMaxWidth().clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = CccColors.Surface),
+        border = BorderStroke(1.dp, if (conversation.needsApproval) CccColors.Approval else CccColors.Line),
+    ) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                StatusDot(color)
+                Spacer(Modifier.width(10.dp))
+                Text(conversation.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (conversation.needsApproval) stringResource(R.string.needs_approval) else statusLabel(state),
+                    style = MaterialTheme.typography.labelMedium, color = color,
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.pending_count, conversation.pending), style = MaterialTheme.typography.bodySmall,
+                    color = CccColors.Muted)
+                Text(stringResource(R.string.tokens_today_short, tokenText(conversation.tokensToday)),
+                    style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
+                conversation.context?.let { context ->
+                    Text(
+                        stringResource(R.string.context_short, context.text),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = when (context.level) {
+                            "danger" -> CccColors.Error
+                            "warn" -> CccColors.Waiting
+                            else -> CccColors.Muted
+                        },
+                    )
+                }
+            }
+            conversation.git?.text?.takeIf { it.isNotEmpty() }?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = CccColors.Title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Text(shortPath(conversation.path), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted, maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -296,13 +426,13 @@ private fun UpdateBanner(update: UpdateInfo, onUpdate: () -> Unit) {
 
 /** The installed app is older than the ccc it talks to (ccc's checkout has newer app sources). */
 @Composable
-private fun AppOlderBanner(build: Int, newest: Int) {
+private fun NewAppBanner() {
     Card(
         Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = CccColors.Surface),
         border = BorderStroke(1.dp, CccColors.Title),
     ) {
-        Text(stringResource(R.string.app_older, build, newest), Modifier.padding(12.dp), color = CccColors.Title,
+        Text(stringResource(R.string.app_new_version), Modifier.padding(12.dp), color = CccColors.Title,
             style = MaterialTheme.typography.bodyMedium)
     }
 }
@@ -333,43 +463,56 @@ private fun WaitingBanner(state: HomeState, onNext: () -> Unit) {
     }
 }
 
+/**
+ * The search over the list (name and folder; case and diacritics don't matter) with, to its right, the
+ * filter by state (ListFilter's markers).
+ */
 @Composable
-private fun FilterField(text: String, onChange: (String) -> Unit) {
-    Column {
+private fun SearchField(words: String, states: Set<Char>, onChange: (String) -> Unit, onState: (Char) -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(
-            value = text,
+            value = words,
             onValueChange = onChange,
             placeholder = { Text(stringResource(R.string.filter_hint)) },
+            leadingIcon = { Icon(Icons.Filled.Search, null) },
             trailingIcon = {
-                if (text.isNotEmpty()) {
-                    IconButton(onClick = { onChange("") }) { Icon(Icons.Filled.Clear, stringResource(R.string.clear)) }
+                if (words.isNotEmpty()) {
+                    IconButton(onClick = { onChange("") }) {
+                        Icon(Icons.Filled.Clear, stringResource(R.string.clear))
+                    }
                 }
             },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.weight(1f),
         )
-        val parsed = ListFilter.parse(text)
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            MARKERS.zip(listOf(R.string.filter_working, R.string.filter_approval, R.string.filter_error, R.string.filter_unseen))
-                .forEach { (marker, label) ->
-                    FilterChip(
-                        selected = marker in parsed.states,
-                        onClick = { onChange(toggleMarker(text, marker)) },
-                        label = { Text("$marker ${stringResource(label)}") },
-                    )
+        Box {
+            IconButton(onClick = { menu = true }) {
+                BadgedBox(badge = { if (states.isNotEmpty()) Badge { Text(states.size.toString()) } }) {
+                    Icon(FilterListIcon, stringResource(R.string.filter_by_state),
+                        tint = if (states.isNotEmpty()) CccColors.Title else LocalContentColor.current)
                 }
+            }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                MARKERS.zip(listOf(R.string.filter_working, R.string.filter_approval, R.string.filter_error, R.string.filter_unseen))
+                    .forEach { (marker, label) ->
+                        DropdownMenuItem(
+                            text = { Text("$marker ${stringResource(label)}") },
+                            leadingIcon = { if (marker in states) Icon(Icons.Filled.Check, null, tint = CccColors.Title) },
+                            onClick = { onState(marker) },
+                        )
+                    }
+            }
         }
     }
 }
 
-/** The filter text with [marker] added to / taken from its markers at the start. */
-internal fun toggleMarker(text: String, marker: Char): String {
-    val states = ListFilter.parse(text).states
-    val markers = if (marker in states) states - marker else states + marker
-    val words = text.split(Regex("\\s+")).filter { it.isNotEmpty() }
-        .dropWhile { token -> token.lowercase().all { it in MARKERS } }
-    val prefix = MARKERS.filter { it in markers }.joinToString("")
-    return (listOf(prefix).filter { it.isNotEmpty() } + words).joinToString(" ")
+private val FilterListIcon: ImageVector = materialIcon("Filled.FilterList") {
+    materialPath {
+        moveTo(10f, 18f); horizontalLineToRelative(4f); verticalLineToRelative(-2f); horizontalLineToRelative(-4f); close()
+        moveTo(3f, 6f); verticalLineToRelative(2f); horizontalLineToRelative(18f); verticalLineTo(6f); horizontalLineTo(3f); close()
+        moveTo(6f, 13f); horizontalLineToRelative(12f); verticalLineToRelative(-2f); horizontalLineTo(6f); close()
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)

@@ -36,6 +36,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -195,15 +196,21 @@ fun NewConversationScreen(
                 textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
             )
             if (state.projects.isNotEmpty()) {
+                // As the TUI's "Recent directories": whole paths, one tap fills the folder.
                 Text(stringResource(R.string.recent_folders), style = MaterialTheme.typography.labelMedium, color = CccColors.Muted)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column {
                     state.projects.forEach { project ->
-                        FilterChip(
-                            selected = path == project,
-                            onClick = { path = project },
-                            label = { Text(project.substringAfterLast('/').ifEmpty { project }) },
-                            colors = chipColors(),
+                        Text(
+                            project,
+                            Modifier.fillMaxWidth().clickable { path = project }.padding(vertical = 8.dp, horizontal = 4.dp),
+                            fontFamily = FontFamily.Monospace,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (path == project) CccColors.Title else MaterialTheme.colorScheme.onSurface,
+                            fontWeight = if (path == project) FontWeight.Bold else FontWeight.Normal,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
                         )
+                        HorizontalDivider(color = CccColors.Line)
                     }
                 }
             }
