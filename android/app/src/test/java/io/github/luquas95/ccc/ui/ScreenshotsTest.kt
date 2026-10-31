@@ -14,6 +14,7 @@ import io.github.luquas95.ccc.data.Analytics
 import io.github.luquas95.ccc.data.CccSettings
 import io.github.luquas95.ccc.data.Choice
 import io.github.luquas95.ccc.data.ContextFill
+import io.github.luquas95.ccc.data.AppRelease
 import io.github.luquas95.ccc.data.Conversation
 import io.github.luquas95.ccc.data.GitState
 import io.github.luquas95.ccc.data.ListDetail
@@ -83,12 +84,12 @@ open class ScreenshotsTest {
 
     @Test
     fun conversations() = shot("conversations", "shop-api") {
-        ConversationsScreen(home, ListDetail.DEFAULT, 4, SnackbarHostState(), listActions)
+        ConversationsScreen(home, ListDetail.DEFAULT, null, SnackbarHostState(), listActions)
     }
 
     @Test
     fun dashboard() = shot("dashboard", "shop-api") {
-        ConversationsScreen(home.copy(tab = HomeTab.DASHBOARD), ListDetail.DEFAULT, 4, SnackbarHostState(), listActions)
+        ConversationsScreen(home.copy(tab = HomeTab.DASHBOARD), ListDetail.DEFAULT, null, SnackbarHostState(), listActions)
     }
 
     @Test
@@ -99,13 +100,13 @@ open class ScreenshotsTest {
                 "5c4b3a2 Dashboard: context fill and git state"),
         )
         val status = home.status!!.copy(update = update, androidBuild = 6)
-        ConversationsScreen(home.copy(status = status, waiting = emptyList(), usage = null), ListDetail.DEFAULT, 4,
-            SnackbarHostState(), listActions)
+        ConversationsScreen(home.copy(status = status, waiting = emptyList(), usage = null), ListDetail.DEFAULT,
+            AppRelease("1.2.0", "", ""), SnackbarHostState(), listActions)
     }
 
     @Test
     fun archive() = shot("archive", "old-prototype") {
-        ConversationsScreen(home.copy(tab = HomeTab.ARCHIVE, filter = "proto"), ListDetail.DEFAULT, 4, SnackbarHostState(), listActions)
+        ConversationsScreen(home.copy(tab = HomeTab.ARCHIVE, filter = "proto"), ListDetail.DEFAULT, null, SnackbarHostState(), listActions)
     }
 
     @Test
@@ -163,7 +164,7 @@ open class ScreenshotsTest {
 
     @Test
     fun liveSessions() = shot("live_sessions", "refactor-auth") {
-        ConversationsScreen(home.copy(tab = HomeTab.SESSIONS), ListDetail.DEFAULT, 4, SnackbarHostState(), listActions,
+        ConversationsScreen(home.copy(tab = HomeTab.SESSIONS), ListDetail.DEFAULT, null, SnackbarHostState(), listActions,
             listOf(LiveSession("a1", "refactor-auth", "/home/you/projects/shop-api", "interactive", "busy"),
                 LiveSession("b2", "nightly-etl", "/home/you/projects/data-pipeline", "background", "idle")))
     }

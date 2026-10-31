@@ -69,7 +69,11 @@ o schválení — odpovíš přímo v oznámení —, chybě, limitu využití n
 hotové odpovědi. Žádný push server se nepoužívá; na Xiaomi / HyperOS
 aplikaci povol běh na pozadí, jinak ji systém zastaví.
 
-**Aktualizace:** `GET /status` má `update` (nové commity nalezené na `origin/main`, `can_apply`, proč ne) a `android_build`; `POST /update/check` zjistí hned, `POST /update` aktualizuje ccc (pull, instalace, restart; 409 s důvodem, když to nejde) — viz [Nastavení](settings.md#aktualizace-ccc). Aplikace ukáže banner s tlačítkem *Aktualizovat* a řekne, když je starší než ccc (`android_build`), s tlačítkem *Aktualizovat aplikaci*: `POST /app/build` nechá ccc aplikaci sestavit (Gradle, na pozadí), `GET /app` říká `ready` / `building` / `error`, `GET /app.apk` je soubor; proud událostí hlásí `update`, když se objeví nová verze.
+**Aktualizace:** `GET /status` má `update` (nové commity nalezené na `origin/main`, `can_apply`, proč ne) a `android_build`; `POST /update/check` zjistí hned, `POST /update` aktualizuje ccc (pull, instalace, restart; 409 s důvodem, když to nejde) — viz [Nastavení](settings.md#aktualizace-ccc). Aplikace ukáže banner s tlačítkem *Aktualizovat*; proud událostí hlásí `update`, když se objeví nová verze.
+
+## Aktualizace aplikace
+
+Aplikace se aktualizuje podle verze, ne přes ccc: push tagu `vX.Y.Z` spustí GitHub Actions, které aplikaci sestaví, podepíší vydávacím klíčem a přiloží k vydání jako `ccc.apk`. Aplikace se GitHubu ptá na nejnovější vydání (když přijde do popředí, nejvýš jednou za šest hodin; žádný token se neposílá) a když má nižší verzi, ukáže „K dispozici je nová verze aplikace: X“ s tlačítkem *Stáhnout a nainstalovat*. Stažení jde do instalátoru Androidu, který se nejdřív zeptá — a poprvé také na povolení instalace z aplikace. Sestavení vytvořené ručně má verzi `0.0.0-dev` a nikdy se neptá. Vydání (zde): `~/Documents/CC/bin/ccc-android-release.sh 0.2.0`.
 
 **Co seznam ukazuje** (Připojení → *Seznam konverzací*): zaplnění kontextu,
 stav gitu, úkoly ve frontě a složku, každé zapnuté nebo vypnuté — pamatuje

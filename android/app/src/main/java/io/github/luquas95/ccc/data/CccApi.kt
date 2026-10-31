@@ -65,38 +65,6 @@ class CccApi(
     /** Update ccc (git pull, install, restart); an error says why not (a task is running …). */
     suspend fun applyUpdate(): UpdateResult = post("update", "{}")
 
-    /** The app as ccc has built it: [AppBuild.ready] when it can be downloaded. */
-    suspend fun appBuild(): AppBuild = get("app")
-
-    /** Have ccc build the app (in the background; ask [appBuild] until it is ready). */
-    suspend fun buildApp(): AppBuild = post("app/build", "{}")
-
-    /** Download the built app into [target]; [progress] gets the share (0..1) as it comes. */
-    suspend fun downloadApp(target: java.io.File, progress: (Float) -> Unit = {}) = withContext(Dispatchers.IO) {
-        val request = request("app.apk").build()
-        client.newBuilder().readTimeout(60, TimeUnit.SECONDS).build().newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw error(response.code, response.body?.string().orEmpty())
-            val body = response.body ?: throw IOException("empty")
-            val total = body.contentLength().coerceAtLeast(1)
-            target.parentFile?.mkdirs()
-            val part = java.io.File(target.path + ".part")
-            body.byteStream().use { input ->
-                part.outputStream().use { output ->
-                    val buffer = ByteArray(64 * 1024)
-                    var done = 0L
-                    while (true) {
-                        val n = input.read(buffer)
-                        if (n < 0) break
-                        output.write(buffer, 0, n)
-                        done += n
-                        progress((done.toFloat() / total).coerceAtMost(1f))
-                    }
-                }
-            }
-            if (!part.renameTo(target)) throw IOException("rename")
-        }
-    }
-
     suspend fun conversations(archived: Boolean = false): List<Conversation> =
         get("conversations", if (archived) mapOf("archived" to "1") else emptyMap())
 

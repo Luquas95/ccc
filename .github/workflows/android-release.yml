@@ -1,0 +1,41 @@
+# A tag vX.Y.Z builds the Android app, signed with the release key (secrets
+# ANDROID_KEYSTORE_B64 / _PASSWORD / ANDROID_KEY_ALIAS), and attaches it to the
+# GitHub release as ccc.apk — the app looks there for new versions.
+name: Android release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # the build number counts commits
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: Release key
+        run: echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/ccc-release.jks"
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+      - name: Build
+        working-directory: android
+        run: ./gradlew --no-daemon testDebugUnitTest assembleRelease -Pccc.version="${GITHUB_REF_NAME}"
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/ccc-release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      - name: Publish
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk ccc.apk
+          gh release create "$GITHUB_REF_NAME" ccc.apk --title "ccc $GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

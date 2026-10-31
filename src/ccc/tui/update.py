@@ -68,7 +68,7 @@ class UpdateModal(ModalScreen):
             if state.behind > len(state.commits):
                 text.append("  …\n", style="dim")
             if state.android:
-                text.append(_("The Android app changed too — build and install it.") + "\n", style="cyan")
+                text.append(_("The Android app changed too — the phone gets it with the next release.") + "\n", style="cyan")
         elif state.checked_at:
             text.append(_("ccc is up to date.") + "\n", style="green")
         else:

@@ -6,6 +6,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.luquas95.ccc.R
 import io.github.luquas95.ccc.data.ApiException
+import io.github.luquas95.ccc.data.AppRelease
+import io.github.luquas95.ccc.data.ReleaseApi
+import io.github.luquas95.ccc.data.Versions
+import io.github.luquas95.ccc.notify.ApkInstaller
 import io.github.luquas95.ccc.data.CccApi
 import io.github.luquas95.ccc.data.Conversation
 import io.github.luquas95.ccc.data.ConversationDetail
@@ -59,12 +63,15 @@ sealed interface Screen {
     data class Terminal(val id: Int) : Screen
 }
 
-/** Updating this app from ccc: ccc builds it, the phone downloads it, the system installs it. */
+/** Updating this app from its newest GitHub release: [phase] while it downloads. */
 data class AppUpdateState(val phase: Phase = Phase.IDLE, val progress: Float = 0f) {
-    enum class Phase { IDLE, BUILDING, DOWNLOADING }
+    enum class Phase { IDLE, DOWNLOADING }
 
     val busy: Boolean get() = phase != Phase.IDLE
 }
+
+/** How often the app looks for a new release when it comes to the foreground. */
+private const val RELEASE_CHECK_MS = 6 * 60 * 60 * 1000L
 
 /** The tabs of the main screen. */
 enum class HomeTab { DASHBOARD, CONVERSATIONS, ARCHIVE, SESSIONS }
@@ -204,11 +211,37 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _listDetails.value = next
     }
 
-    /** This app's build number (gradle: commits that changed its sources), to compare with ccc's. */
-    val appBuild: Int = runCatching {
+    /** The version this app has (its versionName; "0.0.0-dev" for a build made by hand). */
+    private val appVersion: String = runCatching {
         val app = getApplication<Application>()
-        app.packageManager.getPackageInfo(app.packageName, 0).longVersionCode.toInt()
-    }.getOrDefault(0)
+        app.packageManager.getPackageInfo(app.packageName, 0).versionName.orEmpty()
+    }.getOrDefault("")
+
+    private val releases = ReleaseApi()
+    private var releaseChecked = 0L
+
+    /** A release newer than this app, or null. */
+    private val _newVersion = MutableStateFlow<AppRelease?>(null)
+    val newVersion: StateFlow<AppRelease?> = _newVersion.asStateFlow()
+
+    /** Look for a newer release on GitHub (at most every few hours unless [force]). */
+    fun checkNewVersion(force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!force && now - releaseChecked < RELEASE_CHECK_MS) return
+        if (Versions.parse(appVersion) == null) return
+        releaseChecked = now
+        viewModelScope.launch {
+            val latest = try {
+                releases.latest()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                releaseChecked = 0
+                null
+            }
+            _newVersion.value = latest?.takeIf { Versions.isNewer(it.version, appVersion) }
+        }
+    }
 
     /** Update ccc (it pulls, installs, restarts); what it answers goes to the snackbar. */
     fun applyUpdate() {
@@ -233,35 +266,28 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _install.value = null
     }
 
-    /** Have ccc build the new app (it takes a few minutes), download it, then offer it to the installer. */
+    /** Download the new version; the activity then installs it. */
     fun updateApp() {
-        val client = api ?: return
+        val release = _newVersion.value ?: return
         if (_appUpdate.value.busy) return
         viewModelScope.launch {
             try {
-                guard {
-                    _appUpdate.value = AppUpdateState(AppUpdateState.Phase.BUILDING)
-                    var info = client.buildApp()
-                    var waited = 0
-                    while (!info.ready) {
-                        if (!info.building) {
-                            _message.value = info.error ?: getApplication<Application>().getString(R.string.app_build_failed)
-                            return@guard
-                        }
-                        delay(3_000)
-                        waited += 3
-                        if (waited > 30 * 60) return@guard
-                        info = client.appBuild()
-                    }
-                    _appUpdate.value = AppUpdateState(AppUpdateState.Phase.DOWNLOADING)
-                    val file = java.io.File(getApplication<Application>().cacheDir, "app-update/ccc.apk")
-                    client.downloadApp(file) { _appUpdate.value = AppUpdateState(AppUpdateState.Phase.DOWNLOADING, it) }
-                    _install.value = file
-                }
+                _appUpdate.value = AppUpdateState(AppUpdateState.Phase.DOWNLOADING)
+                val file = java.io.File(getApplication<Application>().cacheDir, "app-update/ccc.apk")
+                releases.download(release.apkUrl, file) { _appUpdate.value = AppUpdateState(AppUpdateState.Phase.DOWNLOADING, it) }
+                _install.value = file
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                _message.value = describe(e)
             } finally {
                 _appUpdate.value = AppUpdateState()
             }
         }
+    }
+
+    init {
+        viewModelScope.launch { ApkInstaller.problem.collect { text -> text?.let { _message.value = it; ApkInstaller.problem.value = null } } }
     }
 
     private var events: Job? = null
@@ -467,6 +493,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Keep the events stream open only while the app is seen. */
     fun setForeground(value: Boolean) {
+        if (value) checkNewVersion()
         foreground = value
         if (value) restartEvents() else events?.cancel()
     }

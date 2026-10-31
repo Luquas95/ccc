@@ -195,6 +195,6 @@ def notice(state: UpdateState) -> str:
     lines = [_("⬆️ ccc update available: {n} new commit(s) on {branch}.").format(n=state.behind, branch=BRANCH)]
     lines += [f"• {commit}" for commit in state.commits[:5]]
     if state.android:
-        lines.append(_("The Android app changed too — build and install it."))
+        lines.append(_("The Android app changed too — the phone gets it with the next release."))
     lines.append(_("Update it in ccc (Update window) or from the phone."))
     return "\n".join(lines)

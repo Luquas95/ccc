@@ -37,11 +37,12 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
 - **Updates** — a banner when ccc finds new commits on `origin/main`,
   with an *Update* button (after asking: it shows the commits and, if
   ccc can't update now, why) and a notification when the app is closed;
-  and "A new version of the app is available" when this app's build is older than the one in ccc's
-  checkout, with an *Update app* button: ccc builds the new app, the phone
-  downloads it over its pairing and opens the installer (Android asks
-  once to allow installing from the app). Details:
-  [Settings → Updating ccc](../src/ccc/help/settings.md#updating-ccc).
+  and — separately, by version — "A new version of the app is available"
+  when GitHub has a newer release (`vX.Y.Z` tag → CI builds the signed
+  `ccc.apk`), with a *Download and install* button (Android asks first,
+  and once to allow installing from the app). Details:
+  [Settings → Updating ccc](../src/ccc/help/settings.md#updating-ccc),
+  [Updating the app](../src/ccc/help/android-api.md#updating-the-app).
 - **Tabs** — Dashboard, Conversations, Archive and Live sessions.
   **Dashboard** is ccc's: the overview (conversations, running, queued,
   blocked, waiting for you, tokens today) and every conversation with its

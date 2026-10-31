@@ -174,12 +174,11 @@ whatever was pushed to `origin/main`. It refuses — and says why — when the
 checkout is not on `main`, has uncommitted or unpushed changes, or a task is
 running. The install's output is in `~/.local/share/ccc/update.log`.
 
-The Update window also says when the new commits change the Android app —
-the app is older than ccc until it is rebuilt. The app itself tells you
-when it is older, and its *Update app* button has ccc build the new one
-(Gradle, in ccc's checkout), downloads it over the phone's own pairing and
-opens the installer; the first time Android asks to allow installing from
-the app. Needs the Android SDK and Java on the computer ccc runs on.
+The Update window also says when the new commits change the Android app.
+The app is updated separately, by version: a new release on GitHub
+([Android app & API](android-api.md#updating-the-app)) makes the app show
+"A new version of the app is available" with a button that downloads and
+installs it.
 
 *Settings → Updates → Look for updates* turns the looking (and these
 messages) off; the repository must be reachable without a password prompt
