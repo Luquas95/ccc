@@ -373,6 +373,7 @@ def _recorded(monkeypatch, *ids):
     from datetime import datetime
     monkeypatch.setattr("ccc.orchestrator.list_sessions_for_directory",
                         lambda path: [SessionSummary(i, datetime.now(), "hi", 2) for i in ids])
+    monkeypatch.setattr("ccc.orchestrator.session_recorded_in", lambda session_id, path: session_id in ids)
 
 
 def test_resume_reuses_existing_queue_unless_fork(storage, project_dir, monkeypatch):
@@ -390,6 +391,7 @@ def test_continue_picks_latest_session_of_directory(storage, project_dir, monkey
     from datetime import datetime
     monkeypatch.setattr("ccc.orchestrator.list_sessions_for_directory",
                         lambda path: [SessionSummary("newest", datetime.now(), "hi", 2)])
+    monkeypatch.setattr("ccc.orchestrator.session_recorded_in", lambda session_id, path: True)
     q = start_conversation(storage, str(project_dir), toggle(DEFAULT_SELECTION, SESSION_CONTINUE, True), interactive=False)
     assert q.session_id == "newest"
     monkeypatch.setattr("ccc.orchestrator.list_sessions_for_directory", lambda path: [])

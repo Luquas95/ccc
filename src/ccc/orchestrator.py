@@ -30,7 +30,7 @@ from ccc.retry import next_backoff_seconds, parse_reset_time
 from ccc.runner import LEGACY_FLAGS, RunResult, execute
 from ccc.session_discovery import discover_sessions, session_ready_for_input
 from ccc.storage import Storage
-from ccc.transcript import find_transcript_path, last_human_text, list_sessions_for_directory
+from ccc.transcript import find_transcript_path, last_human_text, list_sessions_for_directory, session_recorded_in
 from ccc.usage_api import get_pro_usage
 
 logger = logging.getLogger(__name__)
@@ -185,8 +185,9 @@ def start_conversation(
     if not SESSION_ID_RE.fullmatch(session_id):  # also one found on disk (SESSION_CONTINUE)
         raise ValueError(_("That is not a session id."))
     # A session is resumed only from the folder Claude Code recorded it in: not by naming an id from elsewhere.
-    if session_id not in {s.session_id for s in list_sessions_for_directory(project_path)} and \
-            storage.get_queue_by_session_id(session_id) is None:
+    if storage.get_queue_by_session_id(session_id) is None and not (
+            session_id in {s.session_id for s in list_sessions_for_directory(project_path)}
+            and session_recorded_in(session_id, project_path)):
         raise ValueError(_("That session wasn't recorded in this folder."))
 
     if fork:
