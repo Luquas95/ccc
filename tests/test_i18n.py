@@ -117,3 +117,13 @@ def test_month_and_weekday_names(czech):
 
     assert i18n.month_title(2026, 10) == "říjen 2026"
     assert i18n.weekday_short(date(2026, 10, 19)) == "po"
+
+
+def test_retranslate_shows_a_stored_text_in_the_current_language(czech):
+    english = "Delivered to the interactive session — the reply is in the transcript."
+    assert i18n.retranslate(CS[english]) == CS[english]
+    assert i18n.retranslate(english) == CS[english]
+    assert i18n.retranslate("Claude's own reply") == "Claude's own reply"
+    assert i18n.retranslate(None) is None
+    i18n.set_language("en")
+    assert i18n.retranslate(CS[english]) == english

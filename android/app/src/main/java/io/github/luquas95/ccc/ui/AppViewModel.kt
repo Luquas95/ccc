@@ -30,6 +30,8 @@ import io.github.luquas95.ccc.notify.WatchService
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -66,6 +68,10 @@ data class AppUpdateState(val phase: Phase = Phase.IDLE, val progress: Float = 0
 
 /** The tabs of the main screen. */
 enum class HomeTab { DASHBOARD, CONVERSATIONS, ARCHIVE, SESSIONS }
+
+private data class Seven<A, B, C, D, E, F, G>(
+    val a: A, val b: B, val c: C, val d: D, val e: E, val f: F, val g: G,
+)
 
 data class HomeState(
     val status: Status? = null,
@@ -521,22 +527,29 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun refresh() {
         val client = api ?: return
         guard {
-            val status = client.status()
-            val conversations = client.conversations()
-            val permissions = client.permissions()
-            val archived = client.conversations(archived = true)
-            val waiting = client.waiting()
-            val groups = client.groups()
-            val presets = client.promptPresets()
+            // All at once: one after another a refresh took the sum of seven round trips, so the list
+            // changed a second after a tap (archive, delete group). Usage comes from Anthropic through
+            // ccc — slower, and not worth an error or a wait.
+            val (status, conversations, permissions, archived, waiting, groups, presets) = coroutineScope {
+                val a = async { client.status() }
+                val b = async { client.conversations() }
+                val c = async { client.permissions() }
+                val d = async { client.conversations(archived = true) }
+                val e = async { client.waiting() }
+                val f = async { client.groups() }
+                val g = async { client.promptPresets() }
+                Seven(a.await(), b.await(), c.await(), d.await(), e.await(), f.await(), g.await())
+            }
             _home.update {
                 it.copy(
                     status = status, conversations = conversations, permissions = permissions, archived = archived,
                     waiting = waiting, ownGroups = groups.own, promptPresets = presets, loaded = true,
                 )
             }
-            // The usage comes from Anthropic through ccc: slower, and not worth an error.
-            val usage = runCatching { client.usage() }.getOrNull()
-            _home.update { it.copy(usage = usage) }
+            viewModelScope.launch {
+                val usage = runCatching { client.usage() }.getOrNull()
+                _home.update { it.copy(usage = usage) }
+            }
         }
     }
 
@@ -685,12 +698,26 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     // --- one conversation: archive, delete, group, export, presets, @-mentions -------------------
 
     fun archive(id: Int, archived: Boolean) = action {
+        // Move it between the lists at once; the refresh below corrects it if the server disagrees.
+        _home.update { home ->
+            val moved = (home.conversations + home.archived).firstOrNull { c -> c.id == id }
+            if (moved == null) home else home.copy(
+                conversations = home.conversations.filterNot { c -> c.id == id } +
+                    listOfNotNull(moved.copy(archived = archived).takeIf { !archived }),
+                archived = home.archived.filterNot { c -> c.id == id } +
+                    listOfNotNull(moved.copy(archived = archived).takeIf { archived }),
+            )
+        }
         it.archive(id, archived)
         refresh()
         if (_conversation.value?.id == id) reloadConversation(id)
     }
 
     fun delete(id: Int) = action {
+        _home.update { home ->
+            home.copy(conversations = home.conversations.filterNot { c -> c.id == id },
+                archived = home.archived.filterNot { c -> c.id == id })
+        }
         it.delete(id)
         _screens.update { stack -> stack.filterNot { s -> s is Screen.Conversation && s.id == id } }
         if (_conversation.value?.id == id) _conversation.value = null

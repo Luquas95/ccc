@@ -105,6 +105,8 @@ fun ConversationScreen(
     var draft by rememberSaveable(state.id, stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
     var menu by remember { mutableStateOf(false) }
     var dialog by remember { mutableStateOf<String?>(null) }
+    // A "send at once" preset is only sent after this confirmation (a stray tap must not send).
+    var confirmPreset by remember { mutableStateOf<PromptPreset?>(null) }
     val archived = detail?.archived == true
     val list = rememberLazyListState()
     // reverseLayout: item 0 is the newest, at the bottom; keep it in view when one arrives.
@@ -200,7 +202,7 @@ fun ConversationScreen(
                         presets.forEach { preset ->
                             AssistChip(
                                 onClick = {
-                                    actions.usePreset(preset) { text ->
+                                    if (preset.sendNow) confirmPreset = preset else actions.usePreset(preset) { text ->
                                         val joined = if (draft.text.isBlank()) text else draft.text.trimEnd() + " " + text
                                         draft = TextFieldValue(joined, TextRange(joined.length))
                                     }
@@ -265,6 +267,19 @@ fun ConversationScreen(
                 item(key = "header") { Header(header) }
             }
         }
+    }
+    confirmPreset?.let { preset ->
+        AlertDialog(
+            onDismissRequest = { confirmPreset = null },
+            title = { Text(stringResource(R.string.preset_send_title, preset.name)) },
+            text = { Text(preset.text) },
+            confirmButton = {
+                TextButton(onClick = { confirmPreset = null; actions.usePreset(preset) {} }) {
+                    Text(stringResource(R.string.send))
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmPreset = null }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
     when (dialog) {
         "group" -> GroupPicker(detail?.group?.title, ownGroups, actions.setGroup) { dialog = null }
