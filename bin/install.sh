@@ -58,6 +58,21 @@ say "Installing ccc into the virtualenv"
 "$CCC_DIR/.venv/bin/pip" install --quiet --upgrade pip
 "$CCC_DIR/.venv/bin/pip" install --quiet -e "$CCC_DIR"
 
+# --- launcher entry (icon) ------------------------------------------------------
+# An application-menu entry with the ccc logo that opens the TUI in a terminal.
+if [ "$UNITS_DIR" = "$DEFAULT_UNITS_DIR" ]; then
+    DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+    mkdir -p "$DATA_HOME/applications"
+    for size in 16 32 48 64 128 256 512; do
+        mkdir -p "$DATA_HOME/icons/hicolor/${size}x${size}/apps"
+        cp "$CCC_DIR/assets/icons/ccc-$size.png" "$DATA_HOME/icons/hicolor/${size}x${size}/apps/ccc.png"
+    done
+    mkdir -p "$DATA_HOME/icons/hicolor/scalable/apps"
+    cp "$CCC_DIR/assets/icons/ccc.svg" "$DATA_HOME/icons/hicolor/scalable/apps/ccc.svg"
+    sed "s#@CCC_DIR@#$CCC_DIR#g" "$CCC_DIR/deploy/desktop/ccc.desktop" > "$DATA_HOME/applications/ccc.desktop"
+    say "Wrote the launcher entry $DATA_HOME/applications/ccc.desktop"
+fi
+
 if [ "$SYSTEMD" = 0 ]; then
     say "Done. Start the daemon with $CCC_DIR/.venv/bin/ccc-daemon and open ccc with $CCC_DIR/.venv/bin/ccc"
     exit 0
