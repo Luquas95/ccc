@@ -79,7 +79,11 @@ si to telefon, takže malá obrazovka může ukazovat méně.
 
 Každá cesta začíná `/api/v1`; každý požadavek má hlavičku
 `Authorization: Bearer <token>`. Odpovědi jsou JSON; chyba je
-`{"error": "…"}` v jazyce ccc.
+`{"error": "…"}`. Texty, které ccc posílá (chyby, popisky, volby
+nastavení), přicházejí v jazyce hlavičky `Accept-Language` — aplikace
+posílá jazyk telefonu; česky nebo anglicky, jiný jazyk dostane
+angličtinu. Bez hlavičky (starší aplikace) se řídí jazykem samotného
+ccc, nastaveným v TUI.
 
 | | |
 |---|---|

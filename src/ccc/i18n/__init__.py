@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from contextvars import ContextVar, Token
 from pathlib import Path
 
 LANGUAGE_KEY = "language"
@@ -24,6 +25,9 @@ LANGUAGES: list[tuple[str, str]] = [("en", "English"), ("cs", "Čeština")]
 _CODES = {code for code, _name in LANGUAGES}
 
 _current: str | None = None
+# The language of the request being answered (the API: the phone's, from Accept-Language). It wins over
+# the setting but only in the thread/context that set it, so requests don't change each other's texts.
+_request: ContextVar[str | None] = ContextVar("ccc_request_language", default=None)
 
 
 def system_language() -> str:
@@ -61,6 +65,9 @@ def _setting_from_default_db() -> str | None:
 
 
 def language() -> str:
+    requested = _request.get()
+    if requested:
+        return requested
     global _current
     if _current is None:
         forced = os.environ.get("CCC_LANG", "")
@@ -71,6 +78,40 @@ def language() -> str:
 def set_language(code: str) -> None:
     global _current
     _current = code if code in _CODES else "en"
+
+
+def from_accept_language(header: str) -> str | None:
+    """The ccc language an Accept-Language header asks for: the first language in it (by q, then order)
+    that ccc has, else "en" (the source language) when the header names only others; None without a header."""
+    entries = []
+    for order, part in enumerate(header.split(",")):
+        tag, _sep, params = part.strip().partition(";")
+        tag = tag.strip().lower()
+        if not tag or tag == "*":
+            continue
+        quality = 1.0
+        if params.strip().startswith("q="):
+            try:
+                quality = float(params.strip()[2:])
+            except ValueError:
+                quality = 0.0
+        if quality > 0:
+            entries.append((-quality, order, tag.split("-")[0]))
+    if not entries:
+        return None
+    for _q, _order, primary in sorted(entries):
+        if primary in _CODES:
+            return primary
+    return "en"
+
+
+def use_for_request(code: str | None) -> Token:
+    """Answer this request in `code` (None: the setting's language); give the token to end_request()."""
+    return _request.set(code if code in _CODES else None)
+
+
+def end_request(token: Token) -> None:
+    _request.reset(token)
 
 
 def load(storage) -> str:

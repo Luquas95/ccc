@@ -887,3 +887,37 @@ def test_cli_pair_can_save_the_qr_as_a_picture(storage, monkeypatch, tmp_path, c
     assert target.stat().st_mode & 0o777 == 0o600  # it holds a one-time code
     assert str(target) in capsys.readouterr().out
     assert storage.get_setting(pairing.CODE_KEY)
+
+
+def test_accept_language_picks_the_language_ccc_has():
+    from ccc import i18n
+
+    assert i18n.from_accept_language("cs-CZ,cs;q=0.9,en;q=0.8") == "cs"
+    assert i18n.from_accept_language("de,en;q=0.5") == "en"
+    assert i18n.from_accept_language("en;q=0.2, cs;q=0.9") == "cs"
+    assert i18n.from_accept_language("de-DE, fr;q=0.8") == "en"  # none of ccc's: the source language
+    assert i18n.from_accept_language("*") is None
+    assert i18n.from_accept_language("") is None
+
+
+def test_http_texts_follow_the_phone_language_not_the_tui_one(server, storage, monkeypatch):
+    monkeypatch.delenv("CCC_LANG", raising=False)  # tests force English through it
+    base, token = server
+    storage.set_setting("language", "en")
+
+    def error_for(language):
+        request = urllib.request.Request(f"{base}/api/v1/devices/999", method="DELETE")
+        request.add_header("Authorization", f"Bearer {token}")
+        if language:
+            request.add_header("Accept-Language", language)
+        try:
+            urllib.request.urlopen(request, timeout=5)
+        except urllib.error.HTTPError as exc:
+            return json.loads(exc.read())["error"]
+
+    assert error_for("cs-CZ") == "Takové zařízení neexistuje."
+    assert error_for("en-US") == "No such device."
+    assert error_for(None) == "No such device."  # no header: the TUI's language (English here)
+    storage.set_setting("language", "cs")
+    assert error_for("en-US") == "No such device."  # the phone wins
+    assert error_for(None) == "Takové zařízení neexistuje."

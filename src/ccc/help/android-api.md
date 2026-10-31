@@ -85,7 +85,10 @@ kept on the phone, so a small screen can show less.
 
 Every path starts with `/api/v1`; every request has the header
 `Authorization: Bearer <token>`. Answers are JSON; an error is
-`{"error": "…"}` in ccc's language.
+`{"error": "…"}`. Texts ccc sends (errors, labels, settings choices) come
+in the language of the `Accept-Language` header — the app sends the
+phone's; English or Czech, any other language gets English. Without the
+header (an older app) they follow ccc's own language, set in the TUI.
 
 | | |
 |---|---|
