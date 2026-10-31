@@ -73,22 +73,6 @@ class CccApiTest {
     }
 
     @Test
-    fun `asks ccc to build the app and downloads it with the token`() = runBlocking {
-        answers["app/build"] = 200 to """{"build": 9, "ready": false, "building": true, "error": null, "size": 0}"""
-        answers["app.apk"] = 200 to "APKBYTES"
-        val api = api()
-
-        assertEquals(true, api.buildApp().building)
-        val file = java.io.File.createTempFile("ccc", ".apk").apply { delete() }
-        api.downloadApp(file)
-
-        assertEquals("APKBYTES", file.readText())
-        assertEquals("Bearer secret", seen.last { it.uri.endsWith("app.apk") }.auth)
-        file.delete()
-        Unit
-    }
-
-    @Test
     fun `reads the update a new ccc version brings and applies it`() = runBlocking {
         answers["status"] = 200 to """{"version": "0.1.0", "language": "en", "daemon_running": true, "conversations": 1,
             "running": 0, "needs_approval": 0, "android_build": 7,

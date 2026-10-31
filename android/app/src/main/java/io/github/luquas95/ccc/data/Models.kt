@@ -16,18 +16,8 @@ data class Status(
     @SerialName("needs_approval") val needsApproval: Int,
     /** A new ccc version on origin/main; null when ccc isn't looking. */
     val update: UpdateInfo? = null,
-    /** The app build ccc's checkout has; the installed app is older when its own is lower. */
+    /** Kept for older apps: ccc's checkout's app build (the app now looks at GitHub's releases). */
     @SerialName("android_build") val androidBuild: Int = 0,
-)
-
-/** The app built by ccc (src/ccc/app_build.py). */
-@Serializable
-data class AppBuild(
-    val build: Int = 0,
-    val ready: Boolean = false,
-    val building: Boolean = false,
-    val error: String? = null,
-    val size: Long = 0,
 )
 
 @Serializable

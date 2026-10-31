@@ -3,7 +3,7 @@ package io.github.luquas95.ccc
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
-import androidx.core.content.FileProvider
+import io.github.luquas95.ccc.notify.ApkInstaller
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -107,6 +107,7 @@ private fun App(model: AppViewModel) {
     val listDetails by model.listDetails.collectAsStateWithLifecycle()
     val appUpdate by model.appUpdate.collectAsStateWithLifecycle()
     val install by model.install.collectAsStateWithLifecycle()
+    val newVersion by model.newVersion.collectAsStateWithLifecycle()
     val nameOf = { id: Int -> (home.conversations + home.archived).firstOrNull { it.id == id }?.name.orEmpty() }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -132,11 +133,7 @@ private fun App(model: AppViewModel) {
                 context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}")))
                 return@let
             }
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", apk)
-            context.startActivity(
-                Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
+            ApkInstaller.install(context, apk)
         }
     }
     LaunchedEffect(message) {
@@ -174,7 +171,7 @@ private fun App(model: AppViewModel) {
         Screen.Conversations -> ConversationsScreen(
             state = home,
             listDetails = listDetails,
-            appBuild = model.appBuild,
+            newVersion = newVersion,
             snackbar = snackbar,
             sessions = sessions,
             appUpdate = appUpdate,

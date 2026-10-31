@@ -179,12 +179,11 @@ pushnul na `origin/main`. Odmítne — a řekne proč —, když checkout není 
 `main`, má neuložené nebo nepushnuté změny, nebo běží úkol. Výstup instalace
 je v `~/.local/share/ccc/update.log`.
 
-Okno Aktualizace také řekne, když nové commity mění Android aplikaci — ta se
-je starší než ccc, dokud se nesestaví znovu. Aplikace sama oznámí, že je
-starší, a tlačítko *Aktualizovat aplikaci* nechá ccc sestavit novou
-(Gradle, v checkoutu ccc), stáhne ji přes spárování telefonu a otevře
-instalátor; poprvé se Android zeptá, zda aplikaci instalaci povolit.
-Na počítači s ccc musí být Android SDK a Java.
+Okno Aktualizace také řekne, když nové commity mění Android aplikaci.
+Aplikace se aktualizuje zvlášť, podle verze: nové vydání na GitHubu
+([Aplikace pro Android a API](android-api.md#aktualizace-aplikace)) způsobí,
+že aplikace ukáže „K dispozici je nová verze aplikace“ s tlačítkem, které ji
+stáhne a nainstaluje.
 
 *Nastavení → Aktualizace → Hledat aktualizace* hledání (i tyto zprávy)
 vypne; repozitář musí být dostupný bez dotazu na heslo (credential helper

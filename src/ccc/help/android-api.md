@@ -75,7 +75,11 @@ usage limit or a finished reply. No push server is involved; on Xiaomi
 / HyperOS allow the app to run in the background, or the system stops
 it.
 
-**Updates:** `GET /status` has `update` (new commits found on `origin/main`, `can_apply`, why not) and `android_build`; `POST /update/check` looks now, `POST /update` updates ccc (pull, install, restart; 409 with the reason when it can't) — see [Settings](settings.md#updating-ccc). The app shows a banner with an *Update* button and tells you when it is older than ccc (`android_build`), with an *Update app* button: `POST /app/build` has ccc build the app (Gradle, in the background), `GET /app` says `ready` / `building` / `error`, `GET /app.apk` is the file; the events stream says `update` when a new version appears.
+**Updates:** `GET /status` has `update` (new commits found on `origin/main`, `can_apply`, why not) and `android_build`; `POST /update/check` looks now, `POST /update` updates ccc (pull, install, restart; 409 with the reason when it can't) — see [Settings](settings.md#updating-ccc). The app shows a banner with an *Update* button; the events stream says `update` when a new version appears.
+
+## Updating the app
+
+The app is updated by version, not through ccc: pushing a tag `vX.Y.Z` makes GitHub Actions build the app, sign it with the release key and attach it to the release as `ccc.apk`. The app asks GitHub for the newest release (when it comes to the foreground, at most every six hours; no token is sent), and when its version is lower it shows "A new version of the app is available: X" with a *Download and install* button. The download goes to Android's installer, which asks first — and the first time asks to allow installing from the app. A build made by hand has the version `0.0.0-dev` and never asks. Release (here): `~/Documents/CC/bin/ccc-android-release.sh 0.2.0`.
 
 **What the list shows** (Connection → *Conversation list*): the context
 fill, the git state, the queued tasks and the folder, each on or off —

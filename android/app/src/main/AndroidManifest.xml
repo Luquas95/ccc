@@ -11,7 +11,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- Installing the new app version ccc built (Settings asks once: "install unknown apps"). -->
+    <!-- Installing the new app version from GitHub (Settings asks once: "install unknown apps"). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- No backup: the token stays on this phone. -->
@@ -52,16 +52,10 @@
                 android:value="Keeps the connection to the user's own ccc server (over Tailscale) to notify about approvals and conversations that need the user; there is no push server." />
         </service>
 
-        <!-- The downloaded APK, handed to the installer. -->
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.files"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
+        <!-- The outcome of installing the downloaded app (notify.ApkInstaller). -->
+        <receiver
+            android:name=".notify.InstallResultReceiver"
+            android:exported="false" />
 
         <receiver
             android:name=".notify.ApprovalReceiver"
