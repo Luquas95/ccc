@@ -523,3 +523,27 @@ async def test_devices_window_shows_the_history_of_signed_out_devices_read_only(
         await pilot.pause()
         assert table.row_count == 1 and str(table.get_row_at(0)[0]) == "Tablet"
         assert not app.screen.query_one("#devices-pair", Button).disabled
+
+
+@pytest.mark.asyncio
+async def test_each_service_has_a_window_for_the_messages_it_gets(tmp_path):
+    from textual.widgets import Checkbox
+
+    from ccc.notify import CAT_DIGEST, CAT_QUEUE, category_states
+    from ccc.tui.notify_categories import NotifyCategoriesModal
+
+    app = _app(tmp_path)
+    async with app.run_test(size=(140, 50)) as pilot:
+        settings = await _open_settings(pilot, app)
+        settings.query_one("#settings-discord-categories").press()
+        await pilot.pause()
+        assert isinstance(app.screen, NotifyCategoriesModal)
+        app.screen.query_one(f"#notify-{CAT_QUEUE}", Checkbox).value = False
+        app.screen.query_one(f"#notify-{CAT_DIGEST}", Checkbox).value = True
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert isinstance(app.screen, SettingsModal)
+    storage = Storage(str(tmp_path / "history.db"))
+    assert category_states(storage, "discord")[CAT_QUEUE] is False
+    assert category_states(storage, "discord")[CAT_DIGEST] is True
+    assert category_states(storage, "telegram")[CAT_QUEUE] is True  # the other service keeps its own

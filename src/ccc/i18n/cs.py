@@ -1557,4 +1557,42 @@ CS: dict[str, str] = {
     "on the phone, and in Telegram / Discord. Updating asks first.":
         "Každých pár hodin ccc hledá nové commity na origin/main a dá ti vědět tady (klávesa {key}), "
         "v telefonu a v Telegramu / Discordu. Aktualizace se před spuštěním ptá.",
+    # --- notification categories (#146) ---------------------------------------
+    "{name} must map the notification categories to true or false.":
+        "{name} musí přiřadit kategoriím oznámení true nebo false.",
+    "a queue finished, or stopped on an error": "fronta doběhla nebo se zastavila kvůli chybě",
+    "Usage limits": "Limity využití",
+    "waiting for the limit to reset, and continuing": "čekání na obnovu limitu a pokračování",
+    "Needs you": "Potřebuje tebe",
+    "a tool to approve, a workflow gate, an answer to a question":
+        "nástroj ke schválení, brána workflow, odpověď na otázku",
+    "Results": "Výsledky",
+    "a workflow, a goal or a review ended": "workflow, cíl nebo review skončilo",
+    "a conversation's context is nearly full": "kontext konverzace je skoro plný",
+    "a new ccc version is available": "je dostupná nová verze ccc",
+    "Conversation started": "Konverzace začala",
+    "a conversation starts working after a quiet time": "konverzace začne pracovat po delším klidu",
+    "a routine started, or was skipped": "rutina se spustila nebo se přeskočila",
+    "a new device paired, signed out, or its role changed":
+        "spárovalo se nové zařízení, odhlásilo se, nebo se změnila jeho role",
+    "Security": "Zabezpečení",
+    "a wrong pairing code or token, a forbidden request": "špatný párovací kód nebo token, zakázaný požadavek",
+    "Health": "Zdraví",
+    "a failed backup, a new warning in `ccc api doctor`": "selhalá záloha, nové varování v `ccc api doctor`",
+    "Daily summary": "Denní souhrn",
+    "one message a day with what happened": "jedna zpráva denně o tom, co se stalo",
+    "▶ {name}: starts working — {prompt}": "▶ {name}: začíná pracovat — {prompt}",
+    "Each service has its own choice. Ctrl+S save  ·  Esc cancel":
+        "Každá služba má svůj vlastní výběr. Ctrl+S uložit  ·  Esc zrušit",
+    "{service} notifications": "Oznámení na {service}",
+    "Which messages {service} gets:": "Které zprávy dostane {service}:",
+    "Choose messages…": "Vybrat zprávy…",
+    "💾 The daily database backup failed ({error}).": "💾 Denní záloha databáze selhala ({error}).",
+    "🩺 ccc check-up:": "🩺 Kontrola ccc:",
+    "📋 ccc, the last 24 hours: {runs} task(s) in {queues} conversation(s), {ok} done, {failed} failed, ${cost:.2f}.":
+        "📋 ccc za posledních 24 hodin: {runs} úkolů v {queues} konverzacích, {ok} hotových, {failed} selhalo, ${cost:.2f}.",
+    "🔁 Routine “{name}”: {what}.": "🔁 Rutina „{name}“: {what}.",
+    "… and {n} more (ccc api doctor).": "… a dalších {n} (ccc api doctor).",
+    "ccc API: {name} was signed out ({how}).": "ccc API: {name} byl odhlášen ({how}).",
+    "ccc API: the role of {name} changed from {old} to {new}.": "ccc API: role zařízení {name} se změnila z {old} na {new}.",
 }

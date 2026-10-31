@@ -26,7 +26,7 @@ def test_waits_until_user_decides(tmp_path):
     notes = []
 
     class N:
-        def send_now(self, text):
+        def send_now(self, text, category=None):
             notes.append(text)
 
     def approve_later():

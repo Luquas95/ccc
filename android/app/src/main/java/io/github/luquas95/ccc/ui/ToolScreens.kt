@@ -67,6 +67,7 @@ import io.github.luquas95.ccc.data.Analytics
 import io.github.luquas95.ccc.data.CccSettings
 import io.github.luquas95.ccc.data.Conversation
 import io.github.luquas95.ccc.data.LiveSession
+import io.github.luquas95.ccc.data.NotifyCategory
 import io.github.luquas95.ccc.data.PromptPreset
 import io.github.luquas95.ccc.data.Routine
 import io.github.luquas95.ccc.data.Routines
@@ -74,6 +75,7 @@ import io.github.luquas95.ccc.ui.theme.CccColors
 import java.time.YearMonth
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 private fun tokens(n: Long): String = "%,d".format(n)
@@ -373,6 +375,10 @@ fun CccSettingsScreen(
         var chat by rememberSaveable(state) { mutableStateOf(state.telegram.chat) }
         var token by rememberSaveable(state) { mutableStateOf("") }
         var webhook by rememberSaveable(state) { mutableStateOf("") }
+        // What each service is told: the keys of the ticked categories, kept in the form until Save.
+        var telegramOn by rememberSaveable(state) { mutableStateOf(state.notifyTelegram.filterValues { it }.keys.joinToString(",")) }
+        var discordOn by rememberSaveable(state) { mutableStateOf(state.notifyDiscord.filterValues { it }.keys.joinToString(",")) }
+        var choosing by rememberSaveable { mutableStateOf("") }
         val off = stringResource(R.string.off)
         val auto = stringResource(R.string.auto)
         // One tab per kind of setting, so each is found in one place; the values of all the tabs are
@@ -380,6 +386,18 @@ fun CccSettingsScreen(
         var tab by rememberSaveable { mutableIntStateOf(initialTab) }
         val tabs = listOf(R.string.settings_general, R.string.settings_queues, R.string.settings_notifications,
             R.string.tab_presets, R.string.settings_data, R.string.settings_connection)
+        if (choosing != "") {
+            val on = if (choosing == "telegram") telegramOn else discordOn
+            NotifyCategoriesDialog(
+                title = stringResource(if (choosing == "telegram") R.string.settings_telegram else R.string.settings_discord),
+                categories = state.notifyCategories, ticked = on.split(",").filter { it.isNotEmpty() }.toSet(),
+                onDone = { keys ->
+                    if (choosing == "telegram") telegramOn = keys.joinToString(",") else discordOn = keys.joinToString(",")
+                    choosing = ""
+                },
+                onDismiss = { choosing = "" },
+            )
+        }
         Column(Modifier.fillMaxSize().padding(padding)) {
         ScrollableTabRow(selectedTabIndex = tab, edgePadding = 12.dp, containerColor = CccColors.Background) {
             tabs.forEachIndexed { i, label ->
@@ -420,6 +438,7 @@ fun CccSettingsScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), label = { Text(stringResource(R.string.telegram_chat)) })
                     Row {
                         TextButton(onClick = { actions.action("telegram-test") }) { Text(stringResource(R.string.send_test)) }
+                        TextButton(onClick = { choosing = "telegram" }) { Text(stringResource(R.string.choose_messages)) }
                         TextButton(onClick = { actions.action("telegram-off") }) { Text(stringResource(R.string.turn_off), color = CccColors.Error) }
                     }
                 }
@@ -433,6 +452,7 @@ fun CccSettingsScreen(
                         placeholder = { Text(stringResource(if (state.discord.on) R.string.secret_saved else R.string.discord_webhook_hint)) })
                     Row {
                         TextButton(onClick = { actions.action("discord-test") }) { Text(stringResource(R.string.send_test)) }
+                        TextButton(onClick = { choosing = "discord" }) { Text(stringResource(R.string.choose_messages)) }
                         TextButton(onClick = { actions.action("discord-off") }) { Text(stringResource(R.string.turn_off), color = CccColors.Error) }
                     }
                 }
@@ -490,6 +510,8 @@ fun CccSettingsScreen(
                         put("telegram_chat", JsonPrimitive(chat))
                         if (token.isNotBlank()) put("telegram_token", JsonPrimitive(token))
                         if (webhook.isNotBlank()) put("discord_webhook", JsonPrimitive(webhook))
+                        put("notify_telegram", notifyJson(state.notifyCategories, telegramOn))
+                        put("notify_discord", notifyJson(state.notifyCategories, discordOn))
                     })
                 }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.save)) }
             }
@@ -549,4 +571,41 @@ private fun PromptPresetsSection(presets: List<PromptPreset>, onSave: (List<Prom
             dismissButton = { TextButton(onClick = { editing = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
+}
+
+/** The categories as the settings call wants them: every one, ticked or not. */
+private fun notifyJson(categories: List<NotifyCategory>, on: String): JsonObject {
+    val ticked = on.split(",").filter { it.isNotEmpty() }.toSet()
+    return JsonObject(categories.associate { it.key to JsonPrimitive(it.key in ticked) })
+}
+
+/** Which messages one service gets — a tick for each kind; applied to the form, saved with Save. */
+@Composable
+private fun NotifyCategoriesDialog(
+    title: String,
+    categories: List<NotifyCategory>,
+    ticked: Set<String>,
+    onDone: (Set<String>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var chosen by remember { mutableStateOf(ticked) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            LazyColumn {
+                items(categories) { category ->
+                    Column(Modifier.padding(bottom = 6.dp)) {
+                        CheckLine(category.label, category.key in chosen) { on ->
+                            chosen = if (on) chosen + category.key else chosen - category.key
+                        }
+                        Text(category.hint, Modifier.padding(start = 48.dp), color = CccColors.Muted,
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onDone(chosen) }) { Text(stringResource(R.string.ok)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }

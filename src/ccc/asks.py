@@ -23,6 +23,7 @@ from datetime import datetime
 
 from ccc import reviews
 from ccc.i18n import N_, _
+from ccc.notify import CAT_ATTENTION
 from ccc.models import Ask, AskStatus, ItemStatus, Queue
 from ccc.transcript import reply_after
 
@@ -182,7 +183,7 @@ async def collect(storage, found: Ask, notifier=None) -> Ask:
         storage.add_queue_item(asker.id, answer_prompt(found, target))
     if notifier is not None and asker is not None:
         notifier.notify(_("💬 {target} answered {asker}: {answer}").format(
-            target=target.name, asker=asker.name, answer=found.answer[:300]))
+            target=target.name, asker=asker.name, answer=found.answer[:300]), CAT_ATTENTION)
     return found
 
 

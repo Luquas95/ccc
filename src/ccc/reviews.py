@@ -28,6 +28,7 @@ from datetime import datetime, timedelta
 from ccc import gitops, i18n
 from ccc.i18n import N_, _
 from ccc.limits import exhausted_until, retry_time_after_rate_limit
+from ccc.notify import CAT_RESULTS
 from ccc.models import (
     PromptRun, Queue, QueueItem, QueueStatus, Review, ReviewStatus, RunStatus, Verdict,
 )
@@ -255,7 +256,7 @@ def _record_run(storage, queue: Queue, review: Review, result: RunResult, starte
 def _notify(notifier, text: str, review: Review | None = None) -> None:
     # A goal loop's reviews are its rounds: the goal tells how it ended (ccc.goals).
     if notifier is not None and (review is None or review.goal_id is None):
-        notifier.notify(text)
+        notifier.notify(text, CAT_RESULTS)
 
 
 STATUS_LABELS = {

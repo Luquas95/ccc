@@ -127,7 +127,7 @@ class _Notifier:
     def __init__(self):
         self.sent = []
 
-    def send_now(self, text):
+    def send_now(self, text, category=None):
         self.sent.append(text)
         return True
 

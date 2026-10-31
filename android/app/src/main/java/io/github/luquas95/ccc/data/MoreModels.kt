@@ -216,6 +216,10 @@ data class Terminal(
 @Serializable
 data class Choice(val value: String, val label: String)
 
+/** One kind of message Telegram / Discord can be told about (ccc.notify.CATEGORIES). */
+@Serializable
+data class NotifyCategory(val key: String, val label: String, val hint: String = "")
+
 @Serializable
 data class TelegramState(@SerialName("token_set") val tokenSet: Boolean = false, val chat: String = "", val on: Boolean = false)
 
@@ -246,5 +250,8 @@ data class CccSettings(
     @SerialName("archive_folder") val archiveFolder: String = "",
     val telegram: TelegramState = TelegramState(),
     val discord: DiscordState = DiscordState(),
+    @SerialName("notify_categories") val notifyCategories: List<NotifyCategory> = emptyList(),
+    @SerialName("notify_telegram") val notifyTelegram: Map<String, Boolean> = emptyMap(),
+    @SerialName("notify_discord") val notifyDiscord: Map<String, Boolean> = emptyMap(),
     @SerialName("launch_presets") val launchPresets: List<String> = emptyList(),
 )

@@ -291,6 +291,8 @@
     <string name="send_now_off">The text is put into the text field</string>
     <string name="preset_send_title">Send “%1$s” now?</string>
     <string name="send_test">Send test message</string>
+    <string name="choose_messages">Choose messages…</string>
+    <string name="ok">OK</string>
     <string name="settings_context">Context</string>
     <string name="settings_data">Data</string>
     <string name="settings_notifications">Notifications</string>
