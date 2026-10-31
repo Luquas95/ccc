@@ -142,7 +142,8 @@ def start_conversation(
     fork = FORK in selection and mode != SESSION_NEW
     flags = persistent_flags(selection)
     # A name goes to Claude Code as an argument (--remote-control NAME): never one that reads as another option.
-    name = ((name or "").strip() or Path(project_path).name or project_path).lstrip("-").strip() or "conversation"
+    name = ((name or "").strip() or Path(project_path).name or project_path)
+    name = re.sub(r"^[\s-]+", "", name).strip() or "conversation"
     if worktree:
         # Claude Code keeps sessions per folder: an earlier one can't be
         # continued from a new worktree.
@@ -183,6 +184,10 @@ def start_conversation(
         raise ValueError(_("Select a conversation to resume."))
     if not SESSION_ID_RE.fullmatch(session_id):  # also one found on disk (SESSION_CONTINUE)
         raise ValueError(_("That is not a session id."))
+    # A session is resumed only from the folder Claude Code recorded it in: not by naming an id from elsewhere.
+    if session_id not in {s.session_id for s in list_sessions_for_directory(project_path)} and \
+            storage.get_queue_by_session_id(session_id) is None:
+        raise ValueError(_("That session wasn't recorded in this folder."))
 
     if fork:
         return storage.create_queue(

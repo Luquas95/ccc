@@ -1,7 +1,7 @@
 """The agents and views parts of the HTTP API (ccc.api_agents, ccc.api_views)."""
 import pytest
 
-from ccc import api
+from ccc import api, api_scope
 from ccc.models import ReviewStatus, Verdict
 from ccc.session_discovery import DiscoveredSession
 from ccc.storage import Storage
@@ -125,6 +125,7 @@ def test_routines_add_edit_toggle_run_delete(storage, tmp_path):
 def test_live_sessions_and_a_prompt_for_one(storage, tmp_path, monkeypatch):
     session = DiscoveredSession("1b2c-3d", "refactor-auth", str(tmp_path), "interactive", "idle")
     monkeypatch.setattr("ccc.session_discovery.discover_sessions", lambda: [session])
+    api_scope.add_root(storage, str(tmp_path))
     endpoint = api.Api(storage)
 
     assert endpoint.live_sessions()[0]["name"] == "refactor-auth"

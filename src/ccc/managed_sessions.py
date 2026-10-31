@@ -56,7 +56,7 @@ def build_interactive_command(queue: Queue, has_transcript: bool, extra: list[st
         session = ["--resume", queue.session_id]
     else:
         session = ["--session-id", queue.session_id]
-    remote = ["--remote-control", queue.name] if queue.delivery_mode == DeliveryMode.REMOTE_CONTROL else []
+    remote = ["--remote-control", queue.name.lstrip("- \t") or "conversation"] if queue.delivery_mode == DeliveryMode.REMOTE_CONTROL else []
     launch = mcp_servers.resolve_flags(queue.launch_flags, queue.project_path) or []
     return ["claude", *session, *remote, *launch, *(extra or [])]
 
