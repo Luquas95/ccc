@@ -234,20 +234,6 @@ Button:disabled {
 """
 
 SHARED_CSS = """
-/* The key list as repo-doctor draws it: a key on a mint cap, then its
-   description, dimmed. */
-Footer {
-    background: $ccc-background;
-}
-FooterKey .footer-key--key {
-    background: $ccc-title;
-    color: $ccc-background;
-    text-style: bold;
-}
-FooterKey .footer-key--description {
-    color: #8a8a8a;
-    background: $ccc-background;
-}
 SidebarScreen {
     background: $ccc-background;
 }
