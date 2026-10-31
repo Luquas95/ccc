@@ -89,6 +89,9 @@ Every path starts with `/api/v1`; every request has the header
 in the language of the `Accept-Language` header — the app sends the
 phone's; English or Czech, any other language gets English. Without the
 header (an older app) they follow ccc's own language, set in the TUI.
+That language and the TUI's look are the computer's own: the app does
+not show or change them (its language and look follow the phone); the
+settings it shows are the ones that apply to both sides.
 
 | | |
 |---|---|

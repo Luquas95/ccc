@@ -70,8 +70,8 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
 - **Routines, live sessions, analytics, ccc settings** (⋮ on the list)
   — add, change, turn on / off, run and delete routines; send a prompt
   to a Claude Code session running on the computer; a month's tokens
-  per day, model and conversation; and ccc's own settings (language,
-  queues, context, Telegram / Discord with a test message, folders,
+  per day, model and conversation; and ccc's own settings (the ones
+  that apply to both sides — queues, context, Telegram / Discord with a test message, folders,
   preset prompts, presets, backup).
 - **Claude Code's terminal** (a conversation's menu, interactive
   conversations) — what its Claude Code shows, live, in colour; keys for
