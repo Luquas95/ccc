@@ -289,6 +289,17 @@ class Storage:
             self._migrate_queues_unique_key(conn)
             self._migrate_add_always_resume_column(conn)
             self._migrate_api_token_to_device(conn)
+            self._migrate_devices_history(conn)
+
+    def _migrate_devices_history(self, conn: sqlite3.Connection) -> None:
+        """Signing a device out keeps its row (history) instead of deleting it.
+        Only adds two columns, so an older ccc still runs on the same file
+        (it would just list the signed-out rows too, with their dead tokens)."""
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(devices)")}
+        if "revoked_at" not in columns:
+            conn.execute("ALTER TABLE devices ADD COLUMN revoked_at TEXT")
+            conn.execute("ALTER TABLE devices ADD COLUMN revoked_by TEXT NOT NULL DEFAULT ''")
+            conn.commit()
 
     def _migrate_api_token_to_device(self, conn: sqlite3.Connection) -> None:
         """The single API token of before devices existed becomes a device,
@@ -1294,6 +1305,8 @@ class Storage:
             created_at=datetime.fromisoformat(row["created_at"]),
             last_seen_at=datetime.fromisoformat(row["last_seen_at"]) if row["last_seen_at"] else None,
             last_ip=row["last_ip"],
+            revoked_at=datetime.fromisoformat(row["revoked_at"]) if row["revoked_at"] else None,
+            revoked_by=row["revoked_by"] or "",
         )
 
     def add_device(self, name: str, token_sha256: str) -> Device:
@@ -1306,14 +1319,16 @@ class Storage:
             row = conn.execute("SELECT * FROM devices WHERE id = ?", (cursor.lastrowid,)).fetchone()
         return self._row_to_device(row)
 
-    def list_devices(self) -> list[Device]:
+    def list_devices(self, include_revoked: bool = False) -> list[Device]:
+        """The devices signed in; with include_revoked also the signed-out ones (history)."""
+        where = "" if include_revoked else "WHERE revoked_at IS NULL"
         with closing(self._connect()) as conn:
-            rows = conn.execute("SELECT * FROM devices ORDER BY id").fetchall()
+            rows = conn.execute(f"SELECT * FROM devices {where} ORDER BY id").fetchall()
         return [self._row_to_device(row) for row in rows]
 
     def device_by_token(self, token_sha256: str) -> Device | None:
         with closing(self._connect()) as conn:
-            row = conn.execute("SELECT * FROM devices WHERE token_sha256 = ?", (token_sha256,)).fetchone()
+            row = conn.execute("SELECT * FROM devices WHERE token_sha256 = ? AND revoked_at IS NULL", (token_sha256,)).fetchone()
         return self._row_to_device(row) if row else None
 
     def touch_device(self, device_id: int, ip: str) -> None:
@@ -1324,19 +1339,25 @@ class Storage:
 
     def rename_device(self, device_id: int, name: str) -> bool:
         with closing(self._connect()) as conn:
-            changed = conn.execute("UPDATE devices SET name = ? WHERE id = ?", (name, device_id)).rowcount
+            changed = conn.execute("UPDATE devices SET name = ? WHERE id = ? AND revoked_at IS NULL", (name, device_id)).rowcount
             conn.commit()
         return bool(changed)
 
-    def delete_device(self, device_id: int) -> bool:
+    def revoke_device(self, device_id: int, by: str) -> bool:
+        """Sign an active device out: the row stays (when and how: `by`), the
+        token stops working and is overwritten. False when there is no such active device."""
         with closing(self._connect()) as conn:
-            deleted = conn.execute("DELETE FROM devices WHERE id = ?", (device_id,)).rowcount
+            changed = conn.execute(
+                "UPDATE devices SET revoked_at = ?, revoked_by = ?, token_sha256 = 'revoked-' || id "
+                "WHERE id = ? AND revoked_at IS NULL", (datetime.now().isoformat(), by, device_id)).rowcount
             conn.commit()
-        return bool(deleted)
+        return bool(changed)
 
-    def delete_all_devices(self) -> None:
+    def revoke_all_devices(self, by: str) -> None:
         with closing(self._connect()) as conn:
-            conn.execute("DELETE FROM devices")
+            conn.execute(
+                "UPDATE devices SET revoked_at = ?, revoked_by = ?, token_sha256 = 'revoked-' || id "
+                "WHERE revoked_at IS NULL", (datetime.now().isoformat(), by))
             conn.commit()
 
     def set_item_status(self, item_id: int, status: ItemStatus) -> None:

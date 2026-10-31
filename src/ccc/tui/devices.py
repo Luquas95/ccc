@@ -12,6 +12,7 @@ from textual.widgets import Button, DataTable, Static
 
 from ccc import keymap, pairing
 from ccc.i18n import _
+from ccc.models import REVOKED_BY_COMPUTER
 from ccc.storage import Storage
 from ccc.tui.layout import MODAL_CSS
 
@@ -192,7 +193,7 @@ class DevicesModal(ModalScreen):
         if not table.row_count:
             return
         device_id = int(table.coordinate_to_cell_key(table.cursor_coordinate).row_key.value)
-        self.storage.delete_device(device_id)
+        self.storage.revoke_device(device_id, REVOKED_BY_COMPUTER)
         self._refresh()
         if table.row_count:
             self._info(Text(_("Signed out."), style="green"))

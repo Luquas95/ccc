@@ -28,7 +28,10 @@ token.
    `ccc api token --new` makes a new one; every device signed in before
    is signed out at once, open connections too. Each device has a token
    of its own and can be signed out alone: `ccc api devices` lists
-   them, `ccc api revoke ID` signs one out. An app whose token was
+   them, `ccc api revoke ID` signs one out. Signing out never deletes the
+   row: it stays as read-only history (`ccc api devices --all`) with when
+   and how the device was signed out — in the app, on the computer, or
+   by a new token — and its token stops working. An app whose token was
    revoked notices on its next request (the open events stream ends too):
    it forgets the token, stops asking and shows the sign-in screen.
 4. In the app enter the address (just `<computer>.<tailnet>.ts.net`
@@ -120,7 +123,7 @@ Every path starts with `/api/v1`; every request has the header
 | `GET /launch-presets` | the New conversation presets and the last choice |
 | `GET /prompt-presets` | the preset prompts (Alt+1 … 9 in ccc) |
 | `POST /pair` | `{"code", "name"}` — no token needed: trades a pairing code from the QR for a new device; answers `{"token", "device_id", "name", "version"}`, 401 when the code is wrong, used or run out |
-| `GET /devices` | the devices signed in: name, made, last seen, address; `current` marks the caller. `POST /devices/{id}` `{"name"}` renames one, `DELETE /devices/{id}` signs it out at once (open connections too) |
+| `GET /devices` | the devices signed in: name, made, last seen, address; `current` marks the caller. `POST /devices/{id}` `{"name"}` renames one, `DELETE /devices/{id}` signs it out at once (open connections too; the row stays as history). `GET /devices?all=1` adds the signed-out ones with `revoked_at` and `revoked_by` (`app`, `computer`, `token`) |
 | `GET /groups` | the grouping and your own groups; `POST /groups/rename` `{"old", "new"}`, `POST /groups/delete` `{"name"}` |
 | `GET /search?q=` | search every conversation (archived too), newest first |
 | `GET /waiting` | conversations that need you, most urgent first (Alt+N in ccc) |
