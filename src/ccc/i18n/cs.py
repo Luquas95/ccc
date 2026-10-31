@@ -1444,6 +1444,7 @@ CS: dict[str, str] = {
     "The app could not be built: {why}": "Appku se nepodařilo sestavit: {why}",
     "Role": "Role",
     "That is not a session id.": "To není id relace.",
+    "That session belongs to a conversation in another folder.": "Ta relace patří konverzaci v jiné složce.",
     "A pull request is a number or a URL.": "Pull request je číslo nebo URL.",
     "ccc API: a wrong pairing code from {ip}.": "ccc API: špatný párovací kód z adresy {ip}.",
     "ccc API: a request with a wrong token from {ip}.": "ccc API: požadavek se špatným tokenem z adresy {ip}.",

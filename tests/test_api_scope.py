@@ -159,3 +159,22 @@ def test_prompting_a_live_session_outside_the_roots_is_refused(closed, tmp_path,
     with pytest.raises(api.ApiError) as error:
         api.Api(closed).route("POST", "/api/v1/live-sessions/abc/prompt", {}, {"prompt": "hi"})
     assert error.value.status == 403
+
+
+def test_a_name_cannot_start_like_an_option(closed, tmp_path):
+    folder = tmp_path / "dev"
+    folder.mkdir()
+    api_scope.add_root(closed, str(folder))
+    status, result = _create(closed, folder, name="--dangerously-skip-permissions")
+    assert status == 201 and not closed.get_queue(result["id"]).name.startswith("-")
+
+
+def test_resuming_a_session_of_a_conversation_in_another_folder_is_refused(closed, tmp_path):
+    allowed, elsewhere = tmp_path / "dev", tmp_path / "elsewhere"
+    allowed.mkdir()
+    elsewhere.mkdir()
+    closed.create_queue("x", str(elsewhere), "abc-123")
+    api_scope.add_root(closed, str(allowed))
+    with pytest.raises(api.ApiError) as error:
+        _create(closed, allowed, session_id="abc-123", options=["session_resume"])
+    assert error.value.status == 400

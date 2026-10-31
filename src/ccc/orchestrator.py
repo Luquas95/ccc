@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 import logging
 import sqlite3
@@ -140,7 +141,8 @@ def start_conversation(
         raise ValueError(_("A pull request is a number or a URL."))
     fork = FORK in selection and mode != SESSION_NEW
     flags = persistent_flags(selection)
-    name = (name or "").strip() or Path(project_path).name or project_path
+    # A name goes to Claude Code as an argument (--remote-control NAME): never one that reads as another option.
+    name = ((name or "").strip() or Path(project_path).name or project_path).lstrip("-").strip() or "conversation"
     if worktree:
         # Claude Code keeps sessions per folder: an earlier one can't be
         # continued from a new worktree.
@@ -179,6 +181,8 @@ def start_conversation(
         session_id = sessions[0].session_id
     if not session_id:
         raise ValueError(_("Select a conversation to resume."))
+    if not SESSION_ID_RE.fullmatch(session_id):  # also one found on disk (SESSION_CONTINUE)
+        raise ValueError(_("That is not a session id."))
 
     if fork:
         return storage.create_queue(
@@ -188,6 +192,9 @@ def start_conversation(
         )
     existing = storage.get_queue_by_session_id(session_id)
     if existing is not None:
+        if os.path.realpath(existing.project_path) != os.path.realpath(project_path):
+            # The folder was checked, the session lives elsewhere: not a way round the folder check (#160).
+            raise ValueError(_("That session belongs to a conversation in another folder."))
         return existing
     return storage.create_queue(
         name, project_path, session_id, always_resume=True, launch_flags=flags, auto_continue=auto_continue,
