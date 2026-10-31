@@ -21,6 +21,7 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import Static
 
 from ccc import keymap
+from ccc.tui import theme
 
 FOOTER_OPTION = "@ccc-footer"
 POLL_SECONDS = 0.3
@@ -58,13 +59,14 @@ def decode(value: str) -> list[list[str]]:
 
 
 def wrap(items: list[list[str]], width: int) -> list[list[list[str]]]:
-    """Items split into rows no wider than `width` (an item is its key, a
-    space, its description and a cell of padding either side), so the
+    """Items split into rows no wider than `width` (an item is its key on a
+    cap — a space either side —, a space, its description and a cell of
+    padding either side), so the
     whole key list stays readable in a narrow window."""
     rows: list[list[list[str]]] = [[]]
     used = 0
     for item in items:
-        cost = cell_len(f"{item[0]} {item[1]}") + 2
+        cost = cell_len(f"{item[0]} {item[1]}") + 4
         if rows[-1] and used + cost > width:
             rows.append([])
             used = 0
@@ -81,7 +83,7 @@ def _tmux(*args: str) -> subprocess.CompletedProcess:
 class FooterStrip(App):
     CSS = """
     Screen {
-        background: $footer-background;
+        background: #121212;  /* theme.VARIABLES["ccc-background"] */
     }
     #strip-items {
         height: auto;
@@ -94,8 +96,7 @@ class FooterStrip(App):
         padding: 0 1;
     }
     .strip-item.-hover {
-        background: $footer-item-background;
-        text-style: reverse;
+        background: #303030;
     }
     """
     ENABLE_COMMAND_PALETTE = False
@@ -154,7 +155,8 @@ class FooterStrip(App):
         await column.remove_children()
         await column.mount_all(
             Horizontal(*(
-                Static(Text.assemble((shown, "bold yellow"), " ", description),
+                Static(Text.assemble((f" {shown} ", f"bold {theme.CAP_TEXT} on {theme.ACCENT}"), " ",
+                                     (description, theme.MUTED)),
                        classes="strip-item", name=key)
                 for shown, description, key in row
             ), classes="strip-row")

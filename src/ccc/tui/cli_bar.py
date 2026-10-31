@@ -46,6 +46,7 @@ class CliBar(App):
         super().__init__()
         self.storage = Storage(db_path)
         self._shown: list | None = None
+        self.register_theme(theme.THEME)
         self.theme = theme.NAME
 
     def compose(self):
