@@ -61,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import io.github.luquas95.ccc.PortraitCaptureActivity
 import com.journeyapps.barcodescanner.ScanContract
 import io.github.luquas95.ccc.data.Pairing
 import io.github.luquas95.ccc.data.PairingInvite
@@ -526,7 +527,8 @@ fun SetupScreen(
                         setDesiredBarcodeFormats(ScanOptions.QR_CODE)
                         setPrompt(context.getString(R.string.scan_prompt))
                         setBeepEnabled(false)
-                        setOrientationLocked(false)
+                        setOrientationLocked(true)
+                        setCaptureActivity(PortraitCaptureActivity::class.java)
                     })
                 },
                 enabled = !busy,
