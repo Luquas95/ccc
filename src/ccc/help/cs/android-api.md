@@ -29,7 +29,9 @@ požadavek potřebuje token.
    odhlásí jedno. Odhlášení řádek nemaže: zůstane jako historie jen ke
    čtení (`ccc api devices --all`) s údajem, kdy a jak bylo zařízení
    odhlášeno — v aplikaci, na počítači, nebo novým tokenem — a jeho token
-   přestane platit. Aplikace ukazuje stejnou historii v *Připojení →
+   přestane platit. Připojí-li se přihlášená aplikace jiným tokenem (nový QR kód nebo
+   ručně), nejdřív odhlásí své staré zařízení, aby se tentýž telefon
+   v seznamu nehromadil. Aplikace ukazuje stejnou historii v *Připojení →
    Zařízení → Historie*. Aplikace se zneplatněným tokenem to pozná při dalším
    požadavku (skončí i otevřený proud událostí): token zapomene,
    přestane se ptát a ukáže přihlašovací obrazovku.

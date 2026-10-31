@@ -31,7 +31,9 @@ token.
    them, `ccc api revoke ID` signs one out. Signing out never deletes the
    row: it stays as read-only history (`ccc api devices --all`) with when
    and how the device was signed out — in the app, on the computer, or
-   by a new token — and its token stops working. The app shows the same
+   by a new token — and its token stops working. When an app that is signed in connects with another token
+   (a new QR code, or a typed one), it signs its old device out first, so
+   the same phone doesn't pile up in the list. The app shows the same
    history under *Connection → Devices → History*. An app whose token was
    revoked notices on its next request (the open events stream ends too):
    it forgets the token, stops asking and shows the sign-in screen.
