@@ -100,6 +100,21 @@ role, a device may rename and sign out itself. Note that `operate` still
 lets the phone approve tool use in a conversation that exists — that is
 what steering it means.
 
+## Folders and permission checks
+
+A conversation is Claude Code running as you in a folder, so the computer —
+not the phone — decides where and how freely the app may start one:
+
+- **Folders:** `ccc api roots --add ~/DEV` allows a folder and everything
+  inside it (`--remove` stops, no option lists). Until you set one, the app
+  may use only the folders ccc already has conversations in — it cannot
+  walk to `~` or `/`. The check follows symlinks. It covers starting a
+  conversation, `GET /sessions` and `GET /mcp-servers`; a folder outside
+  gets `403`.
+- **Skip all permission checks:** refused (`403`) from the app until
+  `ccc api skip-permissions on` (`off` takes it back). Meanwhile the app's
+  default is *Ask for everything*: you approve in the app.
+
 ## Endpoints
 
 Every path starts with `/api/v1`; every request has the header

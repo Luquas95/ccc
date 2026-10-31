@@ -77,7 +77,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from ccc import __version__, app_build, context_fill, groups, i18n, launch_options, mcp_servers, updates
 from ccc.api_agents import AgentEndpoints
-from ccc import api_roles
+from ccc import api_roles, api_scope
 from ccc.api_common import ApiError, int_of, iso, route, task_line, text_of
 from ccc.api_views import ViewEndpoints
 from ccc.heartbeat import daemon_alive
@@ -790,8 +790,10 @@ class Api(AgentEndpoints, ViewEndpoints):
         """Claude Code sessions recorded in a folder, newest first (to resume one)."""
         from ccc.transcript import list_sessions_for_directory
 
-        folder = os.path.expanduser(path.strip())
-        if not folder or not os.path.isdir(folder):
+        if not path.strip():
+            return []
+        folder = api_scope.check_folder(self.storage, path)
+        if not os.path.isdir(folder):
             return []
         return [
             {"session_id": s.session_id, "modified": iso(s.modified), "first_prompt": s.first_prompt,
@@ -802,7 +804,7 @@ class Api(AgentEndpoints, ViewEndpoints):
     def mcp_servers(self, path: str) -> list[str]:
         """Names (never the definitions — they can hold tokens) of the MCP
         servers Claude Code would load in a folder."""
-        return mcp_servers.names(os.path.expanduser(path.strip())) if path.strip() else []
+        return mcp_servers.names(api_scope.check_folder(self.storage, path)) if path.strip() else []
 
     def launch_presets(self) -> dict:
         """The New conversation window's presets and the last choice."""
@@ -831,7 +833,7 @@ class Api(AgentEndpoints, ViewEndpoints):
                 }
                 for group in launch_options.GROUPS
             ],
-            "default": sorted(launch_options.DEFAULT_SELECTION),
+            "default": sorted(api_scope.default_selection(self.storage, launch_options.DEFAULT_SELECTION)),
         }
 
     def create(self, body: dict) -> dict:
@@ -841,10 +843,12 @@ class Api(AgentEndpoints, ViewEndpoints):
         path = body.get("path")
         if not isinstance(path, str) or not path.strip():
             raise ApiError(HTTPStatus.BAD_REQUEST, _("Choose a directory."))
+        folder = api_scope.check_folder(self.storage, path.strip())
         selection = self._selection(body.get("options"))
+        api_scope.check_selection(self.storage, selection)
         try:
             queue = start_conversation(
-                self.storage, os.path.expanduser(path.strip()), selection,
+                self.storage, folder, selection,
                 name=text_of(body, "name"), session_id=text_of(body, "session_id") or None, pr=text_of(body, "pr"),
                 auto_continue=bool(body.get("auto_continue", True)),
                 remote_control=bool(body.get("remote_control", False)),
@@ -862,10 +866,10 @@ class Api(AgentEndpoints, ViewEndpoints):
             send_message(self.storage, queue.id, prompt)
         return self.conversation(queue.id)
 
-    @staticmethod
-    def _selection(options) -> frozenset[str]:
+    def _selection(self, options) -> frozenset[str]:
+        defaults = api_scope.default_selection(self.storage, launch_options.DEFAULT_SELECTION)
         if options is None:
-            return launch_options.DEFAULT_SELECTION
+            return defaults
         if not isinstance(options, list) or not all(isinstance(o, str) for o in options):
             raise ApiError(HTTPStatus.BAD_REQUEST, _("options must be a list of option keys."))
         selection = set(options)
@@ -875,7 +879,7 @@ class Api(AgentEndpoints, ViewEndpoints):
                 raise ApiError(HTTPStatus.BAD_REQUEST,
                                _("Choose one of: {options}.").format(options=", ".join(sorted(chosen))))
             if group.required and not chosen:
-                selection |= {o.key for o in group.options} & launch_options.DEFAULT_SELECTION
+                selection |= {o.key for o in group.options} & defaults
         known = {o.key for g in launch_options.GROUPS for o in g.options}
         unknown = {k for k in selection - known if not launch_options.is_mcp_server(k)}
         if unknown:
