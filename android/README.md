@@ -109,7 +109,8 @@ Or copy `app-debug.apk` to the phone and open it there. Then sign in
 with a **QR code**: on the computer run `ccc api pair` (or ccc's
 *Settings → Devices… → Pair a new device*) and tap *Scan QR code* in the
 app. The code is good for 5 minutes and one phone; the phone gets a token
-of its own, which *Connection → Devices* lists and can sign out. The
+of its own, which *Connection → Devices* lists and can sign out; the phones signed
+out before stay there as a read-only *History* (when, and how). The
 scanner is ZXing, so nothing needs Google Play services.
 
 Or enter the address (`tailscale serve status` on the computer prints it,

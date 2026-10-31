@@ -434,6 +434,30 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
     }
 }
 
+/** A phone signed out before: when it joined and was last seen, and when and how it was signed out. Read only. */
+@Composable
+private fun DeviceHistoryRow(device: Device) {
+    val how = stringResource(
+        when (device.revokedBy) {
+            "app" -> R.string.revoked_app
+            "computer" -> R.string.revoked_computer
+            "token" -> R.string.revoked_token
+            else -> R.string.revoked_unknown
+        },
+    )
+    val seen = shortTime(device.lastSeenAt) ?: stringResource(R.string.device_never)
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(device.name)
+        Text(stringResource(R.string.history_signed_out, shortTime(device.revokedAt).orEmpty(), how),
+            style = MaterialTheme.typography.bodySmall, color = CccColors.Error)
+        Text(
+            stringResource(R.string.history_joined, shortTime(device.createdAt).orEmpty()) + " · " +
+                listOf(seen, device.lastIp).filter { it.isNotBlank() }.joinToString(" · "),
+            style = MaterialTheme.typography.bodySmall, color = CccColors.Muted,
+        )
+    }
+}
+
 /** A phone signed in to ccc: its name, when and from where it was last seen, and a way to sign it out. */
 @Composable
 private fun DeviceRow(device: Device, onSignOut: (Device) -> Unit) {
@@ -466,6 +490,7 @@ fun SetupScreen(
     onNotifications: (Boolean) -> Unit,
     onSignOut: () -> Unit,
     devices: List<Device>? = null,
+    deviceHistory: List<Device> = emptyList(),
     onDevices: () -> Unit = {},
     onSignOutDevice: (Device) -> Unit = {},
     invite: PairingInvite? = null,
@@ -612,6 +637,15 @@ fun SetupScreen(
                     color = CccColors.Title, fontWeight = FontWeight.Bold)
                 Text(stringResource(R.string.devices_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
                 devices?.forEach { device -> DeviceRow(device) { signOutAsk = it } }
+                var showHistory by rememberSaveable { mutableStateOf(false) }
+                TextButton(onClick = { showHistory = !showHistory }) {
+                    Text(stringResource(if (showHistory) R.string.history_hide else R.string.history_show, deviceHistory.size))
+                }
+                if (showHistory) {
+                    Text(stringResource(R.string.history_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
+                    if (deviceHistory.isEmpty()) Text(stringResource(R.string.history_empty), color = CccColors.Muted)
+                    deviceHistory.forEach { DeviceHistoryRow(it) }
+                }
                 Spacer(Modifier.height(16.dp))
                 Text(stringResource(R.string.notifications), style = MaterialTheme.typography.titleSmall,
                     color = CccColors.Title, fontWeight = FontWeight.Bold)

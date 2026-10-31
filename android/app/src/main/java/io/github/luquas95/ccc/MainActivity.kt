@@ -82,6 +82,7 @@ private fun App(model: AppViewModel) {
     val screens by model.screens.collectAsStateWithLifecycle()
     val home by model.home.collectAsStateWithLifecycle()
     val devices by model.devices.collectAsStateWithLifecycle()
+    val deviceHistory by model.deviceHistory.collectAsStateWithLifecycle()
     val invite by model.invite.collectAsStateWithLifecycle()
     val conversation by model.conversation.collectAsStateWithLifecycle()
     val newConversation by model.newConversation.collectAsStateWithLifecycle()
@@ -136,6 +137,7 @@ private fun App(model: AppViewModel) {
             onNotifications = model::setNotifications,
             onSignOut = model::signOut,
             devices = devices,
+            deviceHistory = deviceHistory,
             onDevices = model::loadDevices,
             onSignOutDevice = model::signOutDevice,
             invite = invite,

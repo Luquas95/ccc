@@ -168,6 +168,21 @@ class CccApiTest {
     }
 
     @Test
+    fun `reads the history of the signed out devices with when and how`() = runBlocking {
+        answers["devices"] = 200 to """{"devices": [{"id": 1, "name": "Pixel", "current": true, "revoked_at": null, "revoked_by": null},
+            {"id": 2, "name": "Tablet", "revoked_at": "2026-10-31T11:00:00", "revoked_by": "computer"}]}"""
+
+        val devices = api().devices(history = true)
+
+        assertTrue(seen.last().uri.contains("all=1"))
+        assertNull(devices[0].revokedAt)
+        assertEquals("2026-10-31T11:00:00", devices[1].revokedAt)
+        assertEquals("computer", devices[1].revokedBy)
+        api().devices()
+        assertEquals(false, seen.last().uri.contains("all=1"))
+    }
+
+    @Test
     fun `messages ask for what is new`() = runBlocking {
         answers["conversations/7/messages"] = 200 to """{"total": 3, "messages": [
             {"index": 2, "kind": "assistant_text", "text": "Done", "time": "2026-10-21T10:00:00+00:00"}]}"""
