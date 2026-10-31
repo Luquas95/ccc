@@ -35,7 +35,9 @@ token.
    code holds the API's address and a one-time pairing code, good for 5
    minutes and for one phone; the app trades it for a token of its own
    (`POST /pair`, the one request that needs no token), so nothing is
-   typed and the token never goes through the picture. ccc finds the
+   typed and the token never goes through the picture. Once the phone has
+   paired, the Devices window drops the QR and highlights the new device.
+   ccc finds the
    address in `tailscale serve status`; when it can't, give it with
    `ccc api pair --server https://<computer>.<tailnet>.ts.net`.
    *Settings → Devices…* also lists the phones signed in and signs one

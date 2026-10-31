@@ -2,6 +2,8 @@
 that pairs a new one by QR code (ccc.pairing), and signing one out."""
 from __future__ import annotations
 
+from datetime import datetime
+
 from rich.text import Text
 from textual import work
 from textual.containers import Container, Horizontal
@@ -42,6 +44,9 @@ class DevicesModal(ModalScreen):
     def __init__(self, storage: Storage):
         super().__init__()
         self.storage = storage
+        self._waiting: str | None = None  # the stored pairing code while its QR is on screen
+        self._expires = None
+        self._known: set[int] = set()
 
     def compose(self):
         box = Container(
@@ -62,6 +67,7 @@ class DevicesModal(ModalScreen):
         table = self.query_one("#devices-table", DataTable)
         table.add_columns(_("Device"), _("Last seen"), _("Address"))
         self._refresh()
+        self.set_interval(1.5, self._watch_pairing)
 
     def _refresh(self, keep: int | None = None) -> None:
         table = self.query_one("#devices-table", DataTable)
@@ -94,7 +100,8 @@ class DevicesModal(ModalScreen):
         shown = None
         if server:
             code, expires = pairing.new_code(self.storage)
-            shown = (pairing.qr_lines(pairing.payload(server, code)), server, expires)
+            shown = (pairing.qr_lines(pairing.payload(server, code)), server, expires,
+                     self.storage.get_setting(pairing.CODE_KEY), {d.id for d in self.storage.list_devices()})
         self.app.call_from_thread(self._paired, shown)
 
     def _paired(self, shown) -> None:
@@ -104,10 +111,34 @@ class DevicesModal(ModalScreen):
             self._info(Text(_("ccc can't tell where the app reaches the API. Put it on the tailnet "
                               "(tailscale serve --bg 8737) or run: ccc api pair --server https://…"), style="yellow"))
             return
-        lines, server, expires = shown
+        lines, server, expires, stored, known = shown
+        self._waiting, self._expires, self._known = stored, expires, known
         qr.update(Text("\n".join(lines), style="black on white", no_wrap=True))
         self._info(Text(_("Scan it in the app (Connect → Scan QR). Good until {time}, once.").format(
             time=expires.strftime("%H:%M")) + "\n" + _("Address: {server}").format(server=server), style="green"))
+
+    def _watch_pairing(self) -> None:
+        """While the QR is shown: once the phone has used the code, drop the QR and show the new device."""
+        if self._waiting is None:
+            return
+        if self.storage.get_setting(pairing.CODE_KEY) == self._waiting:
+            if datetime.now() > self._expires:
+                self._waiting = None
+                self.query_one("#devices-qr", Static).update("")
+                self._info(Text(_("The code has run out. Pair again for a new one."), style="yellow"))
+            return
+        self._waiting = None
+        self.query_one("#devices-qr", Static).update("")
+        self._refresh()
+        new = [d for d in self.storage.list_devices() if d.id not in self._known]
+        if new:
+            self.query_one("#devices-table", DataTable).move_cursor(row=self._row_of(new[-1].id))
+            self._info(Text(_("Paired: {name}").format(name=new[-1].name), style="green"))
+        else:  # replaced by another code (e.g. `ccc api pair`)
+            self._info(Text(""))
+
+    def _row_of(self, device_id: int) -> int:
+        return self.query_one("#devices-table", DataTable).get_row_index(str(device_id))
 
     def _revoke(self) -> None:
         table = self.query_one("#devices-table", DataTable)
