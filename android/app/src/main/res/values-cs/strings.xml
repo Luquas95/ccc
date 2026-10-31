@@ -9,6 +9,15 @@
     <string name="setup_token_hint">Z ccc api token na počítači</string>
     <string name="setup_connect">Připojit</string>
     <string name="setup_sign_out">Odhlásit</string>
+    <string name="setup_disconnect">Odpojit</string>
+    <string name="connection_connected">Připojeno k ccc</string>
+    <string name="connection_device">Tento telefon</string>
+    <string name="connection_since">Připojeno od</string>
+    <string name="connection_last_seen">Naposledy viděn</string>
+    <string name="connection_ip">Adresa</string>
+    <string name="app_language">Jazyk</string>
+    <string name="app_language_hint">Jazyk jen této aplikace — nezávislý na telefonu i na ccc v počítači.</string>
+    <string name="language_system">Podle telefonu</string>
     <string name="sign_out_title">Odhlásit?</string>
     <string name="sign_out_other">Zařízení %1$s bude hned odhlášeno a jeho token přestane platit.</string>
     <string name="sign_out_this">%1$s je tento telefon. Bude odhlášen a bude nutné ho znovu spárovat.</string>

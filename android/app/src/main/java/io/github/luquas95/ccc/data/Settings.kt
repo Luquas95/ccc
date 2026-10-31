@@ -18,6 +18,11 @@ class Settings(context: Context) {
         get() = prefs.getBoolean(NOTIFICATIONS, false)
         set(value) = prefs.edit().putBoolean(NOTIFICATIONS, value).apply()
 
+    /** The app's own language: "" = follow the phone, otherwise a language tag ("en", "cs"); not the computer's or ccc's. */
+    var language: String
+        get() = prefs.getString(LANGUAGE, "").orEmpty()
+        set(value) = prefs.edit().putString(LANGUAGE, value).apply()
+
     /** What the conversation list shows besides the name and state (ListDetail keys). */
     var listDetails: Set<String>
         get() = prefs.getStringSet(LIST_DETAILS, null) ?: ListDetail.DEFAULT
@@ -33,7 +38,9 @@ class Settings(context: Context) {
     }
 
     fun clear() {
-        prefs.edit().clear().apply()
+        // The language is the app's own choice, not part of the connection: it stays.
+        val language = language
+        prefs.edit().clear().putString(LANGUAGE, language).apply()
     }
 
     private companion object {
@@ -42,6 +49,7 @@ class Settings(context: Context) {
         const val NOTIFICATIONS = "notifications"
         const val SHOWN = "shown_alerts"
         const val LIST_DETAILS = "list_details"
+        const val LANGUAGE = "language"
     }
 }
 

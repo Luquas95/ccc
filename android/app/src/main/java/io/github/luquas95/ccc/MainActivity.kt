@@ -42,12 +42,15 @@ import io.github.luquas95.ccc.ui.TasksActions
 import io.github.luquas95.ccc.ui.TasksScreen
 import io.github.luquas95.ccc.ui.NewConversationScreen
 import io.github.luquas95.ccc.ui.Screen
+import io.github.luquas95.ccc.data.Language
 import io.github.luquas95.ccc.ui.SearchScreen
 import io.github.luquas95.ccc.ui.SetupScreen
 import io.github.luquas95.ccc.ui.theme.CccTheme
 
 class MainActivity : ComponentActivity() {
     private val model: AppViewModel by viewModels()
+
+    override fun attachBaseContext(newBase: android.content.Context) = super.attachBaseContext(Language.wrap(newBase))
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -154,6 +157,8 @@ private fun App(model: AppViewModel) {
             snackbar = snackbar,
             onBack = if (screens.size > 1) model::back else null,
             onConnect = model::connect,
+            language = model.language,
+            onLanguage = { model.setLanguage(it); (context as? android.app.Activity)?.recreate() },
             onNotifications = model::setNotifications,
             onSignOut = model::signOut,
             devices = devices,
@@ -175,6 +180,7 @@ private fun App(model: AppViewModel) {
             appUpdate = appUpdate,
             actions = ConversationsActions(
                 open = { model.open(Screen.Conversation(it)) },
+                openQueue = { model.open(Screen.Tasks(it)) },
                 approvals = { model.open(Screen.Approvals) },
                 settings = { model.open(Screen.CccSettings) },
                 new = { model.open(Screen.NewConversation) },

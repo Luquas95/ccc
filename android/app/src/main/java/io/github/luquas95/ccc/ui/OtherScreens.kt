@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -42,6 +43,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -70,6 +73,7 @@ import io.github.luquas95.ccc.data.Pairing
 import io.github.luquas95.ccc.data.PairingInvite
 import com.journeyapps.barcodescanner.ScanOptions
 import io.github.luquas95.ccc.data.Device
+import io.github.luquas95.ccc.data.Language
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontFamily
@@ -484,6 +488,52 @@ private fun DeviceRow(device: Device, onSignOut: (Device) -> Unit) {
     }
 }
 
+/** Where this phone is connected: the computer's address and what ccc knows of this phone, with the way out. */
+@Composable
+private fun ConnectionCard(server: String, device: Device?, onDisconnect: () -> Unit) {
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = CccColors.Surface),
+        border = BorderStroke(1.dp, CccColors.Line),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(R.string.connection_connected), color = CccColors.Title, fontWeight = FontWeight.Bold)
+            Text(server, style = MaterialTheme.typography.bodyLarge)
+            if (device != null) {
+                val never = stringResource(R.string.device_never)
+                listOf(
+                    R.string.connection_device to device.name,
+                    R.string.connection_since to (shortTime(device.createdAt) ?: never),
+                    R.string.connection_last_seen to (shortTime(device.lastSeenAt) ?: never),
+                    R.string.connection_ip to device.lastIp,
+                ).filter { it.second.isNotBlank() }.forEach { (label, value) ->
+                    Row {
+                        Text(stringResource(label), Modifier.width(110.dp), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
+                        Text(value, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+            OutlinedButton(onClick = onDisconnect, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                Text(stringResource(R.string.setup_disconnect), color = CccColors.Error)
+            }
+        }
+    }
+}
+
+/** The app's own language, apart from the phone's, the computer's and ccc's. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LanguageChoice(language: String, onLanguage: (String) -> Unit) {
+    Text(stringResource(R.string.app_language), style = MaterialTheme.typography.titleSmall,
+        color = CccColors.Title, fontWeight = FontWeight.Bold)
+    Text(stringResource(R.string.app_language_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        (listOf("" to stringResource(R.string.language_system)) + Language.CHOICES).forEach { (tag, label) ->
+            FilterChip(selected = language == tag, onClick = { if (language != tag) onLanguage(tag) }, label = { Text(label) })
+        }
+    }
+}
+
 @Composable
 fun SetupScreen(
     server: String,
@@ -505,6 +555,8 @@ fun SetupScreen(
     onScan: (String) -> Unit = {},
     onPair: ((Boolean) -> Unit) -> Unit = {},
     onInviteDismissed: () -> Unit = {},
+    language: String = "",
+    onLanguage: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     var address by rememberSaveable { mutableStateOf(server) }
@@ -592,8 +644,10 @@ fun SetupScreen(
             if (!signedIn) {
                 Text("ccc", style = MaterialTheme.typography.displaySmall, color = CccColors.Accent, fontWeight = FontWeight.Bold)
             } else {
-                Text(stringResource(R.string.setup_connected_to, server), color = CccColors.Muted)
+                ConnectionCard(server, devices?.firstOrNull { it.current }) { signOutSelfAsk = true }
             }
+            LanguageChoice(language, onLanguage)
+            if (!signedIn) {
             Text(stringResource(R.string.setup_intro), style = MaterialTheme.typography.bodyMedium, color = CccColors.Muted)
             Button(
                 onClick = {
@@ -637,6 +691,7 @@ fun SetupScreen(
                 modifier = Modifier.fillMaxWidth().height(52.dp),
             ) {
                 if (busy) CircularProgressIndicator(Modifier.height(24.dp)) else Text(stringResource(R.string.setup_connect))
+            }
             }
             if (signedIn) {
                 Spacer(Modifier.height(16.dp))
@@ -684,10 +739,6 @@ fun SetupScreen(
                         Text(stringResource(label), Modifier.weight(1f))
                         Switch(checked = key in listDetails, onCheckedChange = { on -> onListDetail(key, on) })
                     }
-                }
-                Spacer(Modifier.height(24.dp))
-                OutlinedButton(onClick = { signOutSelfAsk = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.setup_sign_out), color = CccColors.Error)
                 }
             }
         }

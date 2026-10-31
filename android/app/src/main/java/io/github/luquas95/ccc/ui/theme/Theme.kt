@@ -5,16 +5,16 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-/** ccc's colours, as in the TUI (src/ccc/tui/theme.py): green and mint on black. */
+/** ccc's colours, as in the TUI (src/ccc/tui/theme.py): green (#00aa00) on black. */
 object CccColors {
     val Background = Color(0xFF000000)
     val Surface = Color(0xFF0E0E0E)
     val SurfaceHigh = Color(0xFF1A1A1A)
     val Line = Color(0xFF3A3A3A)
-    val Title = Color(0xFF5FD7AF)
+    val Title = Color(0xFF00AA00)
     val Selection = Color(0xFF1E4D2B)
     val Accent = Color(0xFFFFA62B)
-    val Human = Color(0xFF5F87AF)
+    val Human = Color(0xFF00AA00)
     val Claude = Color(0xFF5FAF5F)
     val Muted = Color(0xFF9E9E9E)
     val Running = Color(0xFF5FAF5F)
