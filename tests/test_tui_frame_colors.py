@@ -36,3 +36,9 @@ async def test_menu_is_a_rounded_block_without_tmux_and_gives_way_to_its_frame(t
         app.refresh_css(animate=False)
         await pilot.pause()
         assert sidebar.styles.border_right[0] == "" and sidebar.styles.border_left[0] == "solid"
+
+
+def test_key_list_keeps_textuals_blue_on_the_black_theme():
+    variables = theme.THEME.to_color_system().generate()
+    assert variables["footer-background"].upper() == "#242F38"
+    assert variables["background"] == "#000000" and variables["surface"] == "#000000"

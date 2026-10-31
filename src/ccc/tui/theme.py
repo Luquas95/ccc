@@ -14,9 +14,11 @@ from textual.theme import BUILTIN_THEMES
 
 NAME = "ccc"
 # Textual's dark theme on a black ground, so that every widget (tables,
-# lists, dialogs) sits on the same colour as the page. The panel colour
-# (the key list at the bottom) stays Textual's.
-THEME = dataclasses.replace(BUILTIN_THEMES["textual-dark"], name=NAME, background="#000000", surface="#000000")
+# lists, dialogs) sits on the same colour as the page. The panel colour —
+# the blue key list at the bottom — is Textual's own, set here because it
+# would otherwise be derived from the (now black) surface and turn black.
+THEME = dataclasses.replace(
+    BUILTIN_THEMES["textual-dark"], name=NAME, background="#000000", surface="#000000", panel="#242F38")
 
 VARIABLES = {
     "ccc-background": "#000000",  # the page behind the panels
