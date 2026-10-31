@@ -93,7 +93,8 @@
 
     <!-- Errors -->
     <string name="error_network">ccc can\'t be reached. Is the computer on and in your tailnet?</string>
-    <string name="error_token">ccc refused the token — this phone may have been signed out. Scan a new QR code (ccc api pair).</string>
+    <string name="error_token">This phone was signed out on the computer. Scan a new QR code (ccc api pair).</string>
+    <string name="error_token_wrong">ccc refused this token. Check it (ccc api token) or scan a QR code.</string>
     <string name="error_qr">That is not a ccc QR code. Use the one from ccc api pair.</string>
     <string name="error_pairing">The QR code is wrong, used or has run out. Make a new one (ccc api pair).</string>
     <string name="error_server_address">That isn\'t an address.</string>

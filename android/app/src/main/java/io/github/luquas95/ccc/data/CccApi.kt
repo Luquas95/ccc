@@ -34,6 +34,8 @@ class CccApi(
     server: String,
     private val token: String = "",
     private val client: OkHttpClient = defaultClient,
+    /** Called (on any thread) when ccc refuses the token with 401: this phone was signed out on the computer. */
+    private val onUnauthorized: () -> Unit = {},
 ) {
     private val base: HttpUrl = baseUrl(server) ?: throw IllegalArgumentException(server)
     // The events stream stays open: no read timeout (ccc sends a keepalive every 15 s).
@@ -345,6 +347,7 @@ class CccApi(
 
     private fun error(code: Int, body: String): ApiException {
         val message = runCatching { json.decodeFromString(ErrorBody.serializer(), body).error }.getOrNull()
+        if (code == 401 && token.isNotEmpty()) onUnauthorized()
         return ApiException(code, message ?: "HTTP $code")
     }
 

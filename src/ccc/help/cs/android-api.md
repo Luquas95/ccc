@@ -24,7 +24,9 @@ požadavek potřebuje token.
    `ccc api token --new` vytvoří nový; všechna dosavadní zařízení se
    odhlásí hned, i otevřená spojení. Každé zařízení má vlastní token a dá
    se odhlásit samo: `ccc api devices` je vypíše, `ccc api revoke ID`
-   odhlásí jedno.
+   odhlásí jedno. Aplikace se zneplatněným tokenem to pozná při dalším
+   požadavku (skončí i otevřený proud událostí): token zapomene,
+   přestane se ptát a ukáže přihlašovací obrazovku.
 4. V aplikaci zadej adresu (stačí `<počítač>.<tailnet>.ts.net`) a token
    — nebo kroky 3 a 4 přeskoč a **spáruj telefon QR kódem**:
 
