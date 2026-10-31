@@ -102,6 +102,53 @@ class PairModal(ModalScreen):
         self.dismiss(None)
 
 
+class ActivityModal(ModalScreen):
+    """What the devices did (ccc.api_audit): changes, refusals and pairings, the newest first."""
+
+    DEFAULT_CSS = MODAL_CSS.format(cls="ActivityModal") + """
+    ActivityModal > Container {
+        width: 120;
+        max-width: 100%;
+    }
+    ActivityModal #activity-table {
+        height: auto;
+        max-height: 24;
+        margin-bottom: 1;
+    }
+    ActivityModal .modal-buttons {
+        height: 3;
+    }
+    """
+
+    BINDINGS = [keymap.binding("window.cancel", "close", _("Close"))]
+
+    def __init__(self, storage: Storage):
+        super().__init__()
+        self.storage = storage
+
+    def compose(self):
+        box = Container(
+            DataTable(id="activity-table", cursor_type="row", zebra_stripes=True),
+            Horizontal(Button(_("Close"), id="activity-close", classes="modal-cancel"), classes="modal-buttons"),
+        )
+        box.border_title = _("Device activity")
+        yield box
+
+    def on_mount(self) -> None:
+        table = self.query_one("#activity-table", DataTable)
+        table.add_columns(_("When"), _("Device"), _("Request"), _("Result"), _("Address"))
+        for e in self.storage.list_audit(200):
+            request = f"{e['method']} {e['path']}" + (f"  {e['detail']}" if e["detail"] else "")
+            table.add_row(e["at"][:19].replace("T", " "), e["device_name"] or "—", request, str(e["status"]), e["ip"] or "—")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        event.stop()
+        self.action_close()
+
+    def action_close(self) -> None:
+        self.dismiss(None)
+
+
 class DevicesModal(ModalScreen):
     DEFAULT_CSS = MODAL_CSS.format(cls="DevicesModal") + """
     DevicesModal > Container {
@@ -140,6 +187,7 @@ class DevicesModal(ModalScreen):
                 Button(_("Change role"), id="devices-role"),
                 Button(_("Sign out"), id="devices-revoke"),
                 Button(_("History"), id="devices-history"),
+                Button(_("Activity"), id="devices-activity"),
                 Button(_("Close"), id="devices-close", classes="modal-cancel"),
                 classes="modal-buttons",
             ),
@@ -196,6 +244,7 @@ class DevicesModal(ModalScreen):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         event.stop()
         {"devices-pair": self._pair, "devices-role": self._next_role, "devices-revoke": self._revoke, "devices-history": self._toggle_history,
+         "devices-activity": lambda: self.app.push_screen(ActivityModal(self.storage)),
          "devices-close": self.action_close}.get(
             event.button.id or "", lambda: None)()
 
