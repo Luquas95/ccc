@@ -884,5 +884,6 @@ def test_cli_pair_can_save_the_qr_as_a_picture(storage, monkeypatch, tmp_path, c
     target = tmp_path / "out" / "qr.png"
     assert api_cli.run(storage, "", Namespace(api_command="pair", server=None, image=str(target))) == 0
     assert target.read_bytes().startswith(b"\x89PNG")
+    assert target.stat().st_mode & 0o777 == 0o600  # it holds a one-time code
     assert str(target) in capsys.readouterr().out
     assert storage.get_setting(pairing.CODE_KEY)

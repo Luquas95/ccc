@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import secrets
 import subprocess
 from datetime import datetime, timedelta
@@ -82,7 +83,11 @@ def payload(server: str, code: str) -> str:
 def save_png(text: str, path: str | Path, scale: int = 12) -> None:
     """The QR as a PNG picture (black on white, with the quiet zone): big and crisp for a scanner,
     unlike the terminal's half blocks."""
-    segno.make(text, error="l", micro=False).save(str(path), kind="png", scale=scale, border=QUIET_ZONE)
+    # The picture holds a one-time pairing code: only its owner may read the file (also an older one it replaces).
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as handle:
+        os.fchmod(handle.fileno(), 0o600)
+        segno.make(text, error="l", micro=False).save(handle, kind="png", scale=scale, border=QUIET_ZONE)
 
 
 def qr_lines(text: str) -> list[str]:
