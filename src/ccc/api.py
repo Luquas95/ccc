@@ -77,11 +77,12 @@ from urllib.parse import parse_qs, urlsplit
 
 from ccc import __version__, app_build, context_fill, groups, i18n, launch_options, mcp_servers, updates
 from ccc.api_agents import AgentEndpoints
+from ccc import api_roles
 from ccc.api_common import ApiError, int_of, iso, route, task_line, text_of
 from ccc.api_views import ViewEndpoints
 from ccc.heartbeat import daemon_alive
 from ccc.i18n import _
-from ccc.models import REVOKED_BY_APP, REVOKED_BY_COMPUTER, REVOKED_BY_TOKEN, Device, ItemStatus, QueueStatus
+from ccc.models import ROLE_ADMIN, REVOKED_BY_APP, REVOKED_BY_COMPUTER, REVOKED_BY_TOKEN, Device, ItemStatus, QueueStatus
 from ccc.orchestrator import send_message, start_conversation
 from ccc.storage import Storage
 from ccc.transcript import TranscriptEvent, find_transcript_path, parse_transcript_events
@@ -108,11 +109,11 @@ def _digest(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 
-def add_device(storage: Storage, name: str) -> tuple[Device, str]:
-    """A device with a token of its own. Only the token's SHA-256 is kept,
-    so this is the one time it can be shown."""
+def add_device(storage: Storage, name: str, role: str = ROLE_ADMIN) -> tuple[Device, str]:
+    """A device with a token of its own and a role (models.ROLES). Only the
+    token's SHA-256 is kept, so this is the one time it can be shown."""
     value = secrets.token_urlsafe(32)
-    return storage.add_device(name.strip() or ORIGINAL_NAME, _digest(value)), value
+    return storage.add_device(name.strip() or ORIGINAL_NAME, _digest(value), role), value
 
 
 def new_token(storage: Storage, name: str = ORIGINAL_NAME) -> str:
@@ -271,7 +272,7 @@ class Api(AgentEndpoints, ViewEndpoints):
         "token") say when and how; both are null for a device still signed in."""
         return {"devices": [
             {"id": d.id, "name": d.name, "created_at": iso(d.created_at), "last_seen_at": iso(d.last_seen_at),
-             "last_ip": d.last_ip, "current": d.id == caller,
+             "last_ip": d.last_ip, "current": d.id == caller, "role": d.role,
              "revoked_at": iso(d.revoked_at), "revoked_by": d.revoked_by or None}
             for d in self.storage.list_devices(include_revoked=history)]}
 
@@ -978,9 +979,11 @@ class _Handler(BaseHTTPRequestHandler):
             if method == "GET" and url.path == PREFIX + "/app.apk":
                 self._app()
                 return
+            self._check_role(method, url.path)
             query[CALLER] = str(self._device.id)
             body = self._body() if method == "POST" else {}
             status, result = self.api.route(method, url.path, query, body)
+            result = api_roles.strip_for(self._device.role, result)
         except ApiError as exc:
             status, result = exc.status, {"error": exc.message}
         except Exception:
@@ -989,6 +992,14 @@ class _Handler(BaseHTTPRequestHandler):
         finally:
             i18n.end_request(language_token)
         self._send(status, result)
+
+    def _check_role(self, method: str, path: str) -> None:
+        """403 when the device's role is too weak for the request (api_roles)."""
+        needed = api_roles.required_role(method, path.removeprefix(PREFIX), self._device.id)
+        if not api_roles.allows(self._device.role, needed):
+            logger.warning("device %s (%s) refused %s %s: needs %s", self._device.id, self._device.role, method, path, needed)
+            raise ApiError(HTTPStatus.FORBIDDEN, _("This device may not do that: it is {role}, this needs {needed}.").format(
+                role=self._device.role, needed=needed))
 
     def _client_ip(self) -> str:
         return client_ip(self.client_address[0], self.headers.get("X-Forwarded-For", ""))
