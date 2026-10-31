@@ -222,3 +222,18 @@ def test_terminal_of_an_interactive_conversation(storage, tmp_path, monkeypatch)
 
     monkeypatch.setattr(managed_sessions, "is_running", lambda queue_id: False)
     assert _error(lambda: endpoint.terminal(q.id)).status == 409
+
+
+def test_live_session_words_follow_the_request_language():
+    from ccc import i18n
+    from ccc.api_views import _session_word
+
+    token = i18n.use_for_request("cs")
+    try:
+        assert [_session_word(w) for w in ("interactive", "idle", "blocked", "background")] == [
+            "interaktivní", "nečinná", "blokovaná", "na pozadí"]
+        assert _session_word("something new") == "something new"  # not known: as Claude Code wrote it
+        assert _session_word(None) is None
+    finally:
+        i18n.end_request(token)
+    assert _session_word("idle") == "idle"

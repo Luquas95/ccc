@@ -116,7 +116,7 @@ jen to, co platí pro obě strany.
 | `GET /conversations/{id}/workflows` | její běhy workflow, každý s kroky a tím, co řekl každý agent; `POST` jeden spustí `{"template", "task", "check", "rounds"}`; `POST …/workflows/answer` `{"approve", "note"}` u schvalovacího kroku; `POST …/workflows/stop` |
 | `GET /conversations/{id}/asks` | [otázky](asking.md) od ní a pro ni; `POST` se zeptá jiné `{"to", "question", "deliver"}`; `POST /asks/{id}/cancel` |
 | `GET /routines` | všechny [rutiny](routines.md) a druhy plánu; `POST` přidá `{"conversation_id", "name", "prompt", "kind", "value", "fresh"}`; `POST /routines/{id}` ji změní, `DELETE` smaže; `POST …/enabled` `{"enabled"}`, `POST …/run` |
-| `GET /live-sessions` | [relace Claude Code](live-sessions.md) běžící na počítači; `POST /live-sessions/{id}/prompt` `{"prompt"}` |
+| `GET /live-sessions` | [relace Claude Code](live-sessions.md) běžící na počítači (`kind`, `status`, `state` tak, jak je pojmenoval Claude Code, a `kind_label`, `status_label`, `state_label` v jazyce požadavku); `POST /live-sessions/{id}/prompt` `{"prompt"}` |
 | `GET /analytics?year=&month=` | tokeny měsíce po dnech, modelech a konverzacích, měsíce s daty ([Analytika](analytics.md)); `POST /analytics/archive` archivuje skončené měsíce hned |
 | `GET /settings` | [nastavení](settings.md) ccc s možnostmi u každého (tajné údaje jen jako nastaveno / nenastaveno); `POST` některá změní; `POST /settings/telegram-test`, `telegram-off`, `discord-test`, `discord-off` |
 | `POST /prompt-presets` | `{"presets": [{"name", "text", "send_now"}]}` — všechny, v pořadí; `POST /launch-presets` uloží předvolbu nové konverzace, `POST /launch-presets/delete` `{"name"}` |
