@@ -19,7 +19,9 @@ token.
    `127.0.0.1:8737` — on this computer only.
 2. Put it on your tailnet with HTTPS: `tailscale serve --bg 8737`. It's
    then at `https://<computer>.<tailnet>.ts.net/api/v1/` — `tailscale
-   serve status` prints the address.
+   serve status` prints the address. The proxy sits on this computer, so
+   ccc takes the phone's own address for *Devices* from its
+   `X-Forwarded-For` header (and only from a loopback connection).
 3. `ccc api token` makes the token the app signs in with and prints it
    — **only this once**: ccc keeps just its fingerprint (SHA-256), so
    nobody can read it from the database. Lost it, or lost the phone?
