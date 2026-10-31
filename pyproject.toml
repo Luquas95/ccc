@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "textual>=0.60",
     "segno>=1.6",
+    "pyte>=0.8.2",
 ]
 
 [project.optional-dependencies]
