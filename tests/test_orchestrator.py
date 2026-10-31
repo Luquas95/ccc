@@ -367,7 +367,16 @@ def test_start_rejects_missing_directory(storage, tmp_path):
         start_conversation(storage, str(tmp_path / "nope"), DEFAULT_SELECTION, interactive=False)
 
 
-def test_resume_reuses_existing_queue_unless_fork(storage, project_dir):
+def _recorded(monkeypatch, *ids):
+    """Claude Code has recorded these sessions in the folder (a session is resumed only from there, #160)."""
+    from ccc.transcript import SessionSummary
+    from datetime import datetime
+    monkeypatch.setattr("ccc.orchestrator.list_sessions_for_directory",
+                        lambda path: [SessionSummary(i, datetime.now(), "hi", 2) for i in ids])
+
+
+def test_resume_reuses_existing_queue_unless_fork(storage, project_dir, monkeypatch):
+    _recorded(monkeypatch, "abc")
     sel = toggle(DEFAULT_SELECTION, SESSION_RESUME, True)
     first = start_conversation(storage, str(project_dir), sel, session_id="abc", interactive=False)
     assert first.always_resume and first.session_id == "abc"
@@ -396,7 +405,8 @@ def test_from_pr_needs_value(storage, project_dir):
     assert q.first_run_flags == ["--from-pr", "42"]
 
 
-async def test_first_run_adopts_returned_session_id(storage, project_dir):
+async def test_first_run_adopts_returned_session_id(storage, project_dir, monkeypatch):
+    _recorded(monkeypatch, "orig")
     q = start_conversation(storage, str(project_dir),
                            toggle(toggle(DEFAULT_SELECTION, SESSION_RESUME, True), FORK, True), session_id="orig", interactive=False)
     storage.add_queue_item(q.id, "hello")
@@ -852,3 +862,10 @@ async def test_retry_runs_the_failed_task_again_first(storage, project_dir, monk
 
     assert calls == ["flaky", "flaky", "next"]
     assert storage.get_queue(queue.id).status == QueueStatus.IDLE
+
+
+def test_a_session_not_recorded_in_the_folder_is_not_resumed(storage, project_dir, monkeypatch):
+    _recorded(monkeypatch)
+    with pytest.raises(ValueError):
+        start_conversation(storage, str(project_dir), toggle(DEFAULT_SELECTION, SESSION_RESUME, True),
+                           session_id="from-elsewhere", interactive=False)
