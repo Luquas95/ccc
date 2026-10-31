@@ -1421,6 +1421,8 @@ CS: dict[str, str] = {
     "Sign out": "Odhlásit",
     "No device is signed in yet — pair one.": "Zatím není přihlášené žádné zařízení — spáruj nějaké.",
     "Looking for the API's address…": "Hledám adresu API…",
+    "The code has run out. Pair again for a new one.": "Kód vypršel. Spáruj znovu a dostaneš nový.",
+    "Paired: {name}": "Spárováno: {name}",
     "ccc can't tell where the app reaches the API. Put it on the tailnet "
     "(tailscale serve --bg 8737) or run: ccc api pair --server https://…":
         "ccc nezjistí, kde aplikace API zasáhne. Dej ho na tailnet "

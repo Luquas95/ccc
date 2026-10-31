@@ -439,3 +439,34 @@ async def test_devices_window_pairs_by_qr_and_signs_a_device_out(tmp_path, monke
         await pilot.press("escape")
         await pilot.pause()
         assert str(app.screen.query_one("#settings-devices-state").render()) == "1 signed in"
+
+
+@pytest.mark.asyncio
+async def test_devices_window_drops_the_qr_once_the_phone_has_paired(tmp_path, monkeypatch):
+    from textual.widgets import Button, DataTable, Static
+
+    from ccc import pairing
+    from ccc.tui.devices import DevicesModal
+
+    monkeypatch.setattr(pairing, "tailscale_url", lambda: "https://xia.ts.net:8737")
+    app = _app(tmp_path)
+    async with app.run_test(size=(120, 50)) as pilot:
+        settings = await _open_settings(pilot, app)
+        settings.query_one("#settings-devices", Button).press()
+        await pilot.pause()
+        assert isinstance(app.screen, DevicesModal)
+        app.screen.query_one("#devices-pair", Button).press()
+        await pilot.pause(0.5)
+        assert str(app.screen.query_one("#devices-qr", Static).render()).strip()
+        code = app.screen._waiting
+        assert code
+        # The phone scans: the code is traded for a device.
+        stored_code = app.storage.get_setting(pairing.CODE_KEY)
+        assert stored_code == code
+        app.storage.delete_setting_if(pairing.CODE_KEY, stored_code)
+        from ccc import api
+        api.add_device(app.storage, "Redmi")
+        await pilot.pause(2)
+        assert not str(app.screen.query_one("#devices-qr", Static).render()).strip()
+        assert app.screen.query_one("#devices-table", DataTable).row_count == 1
+        assert "Paired: Redmi" in str(app.screen.query_one("#devices-info").render())
