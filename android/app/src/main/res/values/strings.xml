@@ -28,6 +28,16 @@
     <string name="devices_hint">Phones signed in to ccc. Sign one out here, or on the computer (ccc api devices).</string>
     <string name="device_this">%1$s (this phone)</string>
     <string name="device_never">never seen</string>
+    <string name="history_show">History of signed-out phones (%1$d)</string>
+    <string name="history_hide">Hide the history (%1$d)</string>
+    <string name="history_hint">Every phone that was ever signed in to ccc and later signed out. Read only: nothing can be deleted here.</string>
+    <string name="history_empty">No phone has been signed out yet.</string>
+    <string name="history_signed_out">Signed out %1$s · %2$s</string>
+    <string name="history_joined">Joined %1$s</string>
+    <string name="revoked_app">in the app</string>
+    <string name="revoked_computer">on the computer</string>
+    <string name="revoked_token">a new token replaced it</string>
+    <string name="revoked_unknown">signed out</string>
 
     <!-- Conversations -->
     <string name="conversations_empty">No conversations yet.</string>

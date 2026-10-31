@@ -31,7 +31,8 @@ token.
    them, `ccc api revoke ID` signs one out. Signing out never deletes the
    row: it stays as read-only history (`ccc api devices --all`) with when
    and how the device was signed out — in the app, on the computer, or
-   by a new token — and its token stops working. An app whose token was
+   by a new token — and its token stops working. The app shows the same
+   history under *Connection → Devices → History*. An app whose token was
    revoked notices on its next request (the open events stream ends too):
    it forgets the token, stops asking and shows the sign-in screen.
 4. In the app enter the address (just `<computer>.<tailnet>.ts.net`

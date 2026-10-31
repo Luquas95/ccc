@@ -49,8 +49,12 @@ class CccApi(
             .post(body("code" to JsonPrimitive(code), "name" to JsonPrimitive(name)).toRequestBody(JSON)).build(),
     )
 
-    /** The phones signed in, this one marked [Device.current]. */
-    suspend fun devices(): List<Device> = get<Devices>("devices").devices
+    /**
+     * The phones signed in, this one marked [Device.current]; with [history] also the signed-out ones
+     * ([Device.revokedAt] set; an older ccc without the history just sends none).
+     */
+    suspend fun devices(history: Boolean = false): List<Device> =
+        get<Devices>("devices", if (history) mapOf("all" to "1") else emptyMap()).devices
 
     /** Sign a phone out at once (this one too). */
     suspend fun removeDevice(id: Int) {

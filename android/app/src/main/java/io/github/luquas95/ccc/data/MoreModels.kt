@@ -23,6 +23,9 @@ data class Device(
     @SerialName("last_seen_at") val lastSeenAt: String? = null,
     @SerialName("last_ip") val lastIp: String = "",
     val current: Boolean = false,
+    /** Set once the phone was signed out (only in the history, GET /devices?all=1): when, and how ("app", "computer", "token"). */
+    @SerialName("revoked_at") val revokedAt: String? = null,
+    @SerialName("revoked_by") val revokedBy: String? = null,
 )
 
 @Serializable

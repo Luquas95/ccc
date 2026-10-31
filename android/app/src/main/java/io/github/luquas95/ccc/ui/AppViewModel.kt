@@ -342,9 +342,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     /** The phones signed in to ccc (null until loaded), for the connection screen. */
     val devices: StateFlow<List<Device>?> = _devices.asStateFlow()
 
+    private val _deviceHistory = MutableStateFlow<List<Device>>(emptyList())
+    /** The phones signed out before, newest first (read only). */
+    val deviceHistory: StateFlow<List<Device>> = _deviceHistory.asStateFlow()
+
     fun loadDevices() {
         val api = api ?: return
-        viewModelScope.launch { guard { _devices.value = api.devices() } }
+        viewModelScope.launch {
+            guard {
+                val all = api.devices(history = true)
+                _devices.value = all.filter { it.revokedAt == null }
+                _deviceHistory.value = all.filter { it.revokedAt != null }.sortedByDescending { it.revokedAt }
+            }
+        }
     }
 
     /** Sign a phone out; this phone itself means signing out here too. */
@@ -363,6 +373,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _home.value = HomeState()
         _conversation.value = null
         _devices.value = null
+        _deviceHistory.value = emptyList()
         _screens.value = listOf(Screen.Setup)
         _notifications.value = false
         WatchService.sync(getApplication())

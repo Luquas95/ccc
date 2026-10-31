@@ -26,6 +26,16 @@
     <string name="devices_hint">Telefony přihlášené k ccc. Jeden odhlásíš tady, nebo na počítači (ccc api devices).</string>
     <string name="device_this">%1$s (tento telefon)</string>
     <string name="device_never">nikdy neviděno</string>
+    <string name="history_show">Historie odhlášených telefonů (%1$d)</string>
+    <string name="history_hide">Skrýt historii (%1$d)</string>
+    <string name="history_hint">Každý telefon, který byl někdy přihlášen k ccc a pak odhlášen. Jen ke čtení: nic tu nejde smazat.</string>
+    <string name="history_empty">Zatím nebyl odhlášen žádný telefon.</string>
+    <string name="history_signed_out">Odhlášeno %1$s · %2$s</string>
+    <string name="history_joined">Připojeno %1$s</string>
+    <string name="revoked_app">v aplikaci</string>
+    <string name="revoked_computer">na počítači</string>
+    <string name="revoked_token">nahrazen novým tokenem</string>
+    <string name="revoked_unknown">odhlášeno</string>
 
     <!-- Konverzace -->
     <string name="conversations_empty">Zatím žádné konverzace.</string>
