@@ -51,12 +51,14 @@ sealed interface Screen {
     /** A conversation's reviews, goals, workflows and questions; [tab] 0 … 3. */
     data class Agents(val id: Int, val tab: Int = 0) : Screen
     data object Routines : Screen
-    data object LiveSessions : Screen
     data object Analytics : Screen
     data object CccSettings : Screen
     /** A conversation's Claude Code, live. */
     data class Terminal(val id: Int) : Screen
 }
+
+/** The tabs of the main screen. */
+enum class HomeTab { DASHBOARD, CONVERSATIONS, ARCHIVE, SESSIONS }
 
 data class HomeState(
     val status: Status? = null,
@@ -64,10 +66,12 @@ data class HomeState(
     val permissions: List<Permission> = emptyList(),
     val usage: Usage? = null,
     val archived: List<Conversation> = emptyList(),
-    /** The Archive tab instead of the conversations. */
-    val showArchive: Boolean = false,
-    /** The list filter as typed (see ListFilter). */
+    /** The tab of the main screen. */
+    val tab: HomeTab = HomeTab.CONVERSATIONS,
+    /** The search field as typed: words matched against name and folder (see ListFilter). */
     val filter: String = "",
+    /** The states picked in the filter menu (ListFilter's markers); empty = all. */
+    val filterStates: Set<Char> = emptySet(),
     /** Conversations that need you, most urgent first. */
     val waiting: List<Waiting> = emptyList(),
     val ownGroups: List<String> = emptyList(),
@@ -76,7 +80,9 @@ data class HomeState(
     val refreshing: Boolean = false,
     /** The events stream is open: what the app shows is current. */
     val live: Boolean = false,
-)
+) {
+    val showArchive: Boolean get() = tab == HomeTab.ARCHIVE
+}
 
 data class ConversationState(
     val id: Int,
@@ -221,7 +227,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
             is Screen.Agents -> more.openAgents(screen.id)
             Screen.Routines -> more.loadRoutines()
-            Screen.LiveSessions -> more.loadSessions()
             Screen.Analytics -> more.loadAnalytics()
             Screen.CccSettings -> more.loadSettings()
             is Screen.Terminal -> more.openTerminal(screen.id, { api }, { foreground && _screens.value.lastOrNull() == screen })
@@ -599,12 +604,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     // --- the list: archive, filter, groups, what needs you -------------------------------------
 
-    fun showArchive(value: Boolean) {
-        _home.update { it.copy(showArchive = value) }
+    fun showTab(tab: HomeTab) {
+        _home.update { it.copy(tab = tab) }
+        if (tab == HomeTab.SESSIONS) more.loadSessions()
     }
 
     fun setFilter(text: String) {
         _home.update { it.copy(filter = text) }
+    }
+
+    fun toggleFilterState(marker: Char) {
+        _home.update { it.copy(filterStates = if (marker in it.filterStates) it.filterStates - marker else it.filterStates + marker) }
     }
 
     /** Open the conversation that needs you most (Alt+N in ccc). */

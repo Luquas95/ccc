@@ -87,6 +87,11 @@ open class ScreenshotsTest {
     }
 
     @Test
+    fun dashboard() = shot("dashboard", "shop-api") {
+        ConversationsScreen(home.copy(tab = HomeTab.DASHBOARD), ListDetail.DEFAULT, 4, SnackbarHostState(), listActions)
+    }
+
+    @Test
     fun updateBanner() = shot("update", "shop-api") {
         val update = UpdateInfo(
             available = true, behind = 3, remoteHead = "a1b2c3d", android = true, canApply = true,
@@ -100,7 +105,7 @@ open class ScreenshotsTest {
 
     @Test
     fun archive() = shot("archive", "old-prototype") {
-        ConversationsScreen(home.copy(showArchive = true, filter = "proto"), ListDetail.DEFAULT, 4, SnackbarHostState(), listActions)
+        ConversationsScreen(home.copy(tab = HomeTab.ARCHIVE, filter = "proto"), ListDetail.DEFAULT, 4, SnackbarHostState(), listActions)
     }
 
     @Test
@@ -158,8 +163,9 @@ open class ScreenshotsTest {
 
     @Test
     fun liveSessions() = shot("live_sessions", "refactor-auth") {
-        LiveSessionsScreen(listOf(LiveSession("a1", "refactor-auth", "/home/you/projects/shop-api", "interactive", "busy"),
-            LiveSession("b2", "nightly-etl", "/home/you/projects/data-pipeline", "background", "idle")), SnackbarHostState(), {}, {}, { _, _ -> })
+        ConversationsScreen(home.copy(tab = HomeTab.SESSIONS), ListDetail.DEFAULT, 4, SnackbarHostState(), listActions,
+            listOf(LiveSession("a1", "refactor-auth", "/home/you/projects/shop-api", "interactive", "busy"),
+                LiveSession("b2", "nightly-etl", "/home/you/projects/data-pipeline", "background", "idle")))
     }
 
     @Test
@@ -218,7 +224,7 @@ open class ScreenshotsTest {
     }
 
     private companion object {
-        val listActions = ConversationsActions({}, {}, {}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {})
+        val listActions = ConversationsActions({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {}, {})
         val conversationActions = ConversationActions(
             {}, { _, _ -> }, {}, {}, { _, _ -> }, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {}, {},
         )

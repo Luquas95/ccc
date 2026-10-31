@@ -25,6 +25,10 @@ data class ListFilter(val states: Set<Char> = emptySet(), val words: List<String
         const val UNSEEN = '*'
         private val MARKERS = setOf(WORKING, APPROVAL, ERROR, UNSEEN)
 
+        /** The search [text] (words only — "x" is a word here) with the state markers picked in the filter menu. */
+        fun of(states: Set<Char>, text: String): ListFilter =
+            ListFilter(states, text.split(Regex("\\s+")).filter { it.isNotEmpty() }.map(::fold))
+
         fun parse(text: String): ListFilter {
             val tokens = text.split(Regex("\\s+")).filter { it.isNotEmpty() }.toMutableList()
             val states = mutableSetOf<Char>()

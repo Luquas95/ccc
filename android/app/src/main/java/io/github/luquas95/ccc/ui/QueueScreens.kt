@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -370,7 +369,7 @@ fun DiffScreen(
                 Button(
                     onClick = onSend,
                     enabled = !state.sending,
-                    modifier = Modifier.fillMaxWidth().imePadding().padding(8.dp),
+                    modifier = Modifier.fillMaxWidth().bottomBarInsets().padding(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = CccColors.Claude, contentColor = Color.Black),
                 ) { Text(stringResource(R.string.comments_send, state.comments.size)) }
             }

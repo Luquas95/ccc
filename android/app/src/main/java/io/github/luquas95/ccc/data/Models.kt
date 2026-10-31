@@ -59,6 +59,7 @@ data class Conversation(
     val paused: Boolean = false,
     @SerialName("auto_continue") val autoContinue: Boolean = true,
     val pending: Int = 0,
+    @SerialName("tokens_today") val tokensToday: Long = 0,
     @SerialName("needs_approval") val needsApproval: Boolean = false,
     val unseen: Boolean = false,
     @SerialName("last_error") val lastError: String? = null,

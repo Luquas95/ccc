@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -103,7 +102,7 @@ fun TerminalScreen(state: TerminalState, name: String, snackbar: SnackbarHostSta
         topBar = { Bar(stringResource(R.string.terminal), name, actions.back) },
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
-            Column(Modifier.imePadding().padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(Modifier.bottomBarInsets().padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     KEYS.forEach { (label, key) -> AssistChip(onClick = { actions.keys(listOf(key)) }, label = { Text(label) }) }
                     ANSWERS.forEach { answer -> AssistChip(onClick = { actions.type(answer) }, label = { Text(answer) }) }

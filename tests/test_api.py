@@ -84,6 +84,7 @@ def test_conversations_list_with_state(storage, tmp_path):
 
     assert [c["name"] for c in listed] == ["shop"]
     assert listed[0]["pending"] == 1
+    assert listed[0]["tokens_today"] == 0
     assert listed[0]["needs_approval"] is True
     assert listed[0]["status"] == "idle"
     assert [c["name"] for c in api.Api(storage).conversations(archived=True)] == ["old"]

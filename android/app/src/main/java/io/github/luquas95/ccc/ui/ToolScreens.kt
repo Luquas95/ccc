@@ -187,40 +187,29 @@ private fun RoutineDialog(
 
 // --- live sessions -------------------------------------------------------------------------------
 
-/** Claude Code sessions running on the computer (s in ccc); a prompt for one is typed in once it's idle. */
+/** Claude Code sessions running on the computer (s in ccc), a tab of the main screen; a prompt for one is typed in once it's idle. */
 @Composable
-fun LiveSessionsScreen(
+fun LiveSessionsList(
     sessions: List<LiveSession>?,
-    snackbar: SnackbarHostState,
-    onBack: () -> Unit,
-    onRefresh: () -> Unit,
     onPrompt: (String, String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var target by remember { mutableStateOf<LiveSession?>(null) }
-    Scaffold(
-        topBar = {
-            Bar(stringResource(R.string.live_sessions), null, onBack) {
-                IconButton(onClick = onRefresh) { Icon(Icons.Filled.Refresh, stringResource(R.string.refresh)) }
-            }
-        },
-        snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (sessions == null) {
-                item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                return@LazyColumn
-            }
-            item { Text(stringResource(R.string.live_sessions_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted) }
-            if (sessions.isEmpty()) item { Text(stringResource(R.string.live_sessions_empty), color = CccColors.Muted) }
-            items(sessions, key = { it.sessionId }) { session ->
-                Column(Modifier.clickable { target = session }) {
-                    Section(session.name) {
-                        Text(listOfNotNull(session.kindLabel ?: session.kind, session.statusLabel ?: session.status, session.stateLabel ?: session.state).joinToString(" · "),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (session.status == "idle") CccColors.Claude else CccColors.Waiting)
-                        Text(session.cwd, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
-                    }
+    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (sessions == null) {
+            item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+            return@LazyColumn
+        }
+        item { Text(stringResource(R.string.live_sessions_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted) }
+        if (sessions.isEmpty()) item { Text(stringResource(R.string.live_sessions_empty), color = CccColors.Muted) }
+        items(sessions, key = { it.sessionId }) { session ->
+            Column(Modifier.clickable { target = session }) {
+                Section(session.name) {
+                    Text(listOfNotNull(session.kindLabel ?: session.kind, session.statusLabel ?: session.status, session.stateLabel ?: session.state).joinToString(" · "),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (session.status == "idle") CccColors.Claude else CccColors.Waiting)
+                    Text(session.cwd, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
                 }
             }
         }

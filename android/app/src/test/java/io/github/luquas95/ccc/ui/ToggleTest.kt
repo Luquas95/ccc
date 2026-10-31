@@ -45,14 +45,3 @@ class ToggleTest {
         assertEquals(listOf("session_new"), toggle(mcp, two, "mcp_select", groups))
     }
 }
-
-class FilterMarkerTest {
-    @Test
-    fun `a marker chip adds or takes its marker, words stay`() {
-        assertEquals("! api", toggleMarker("api", '!'))
-        assertEquals("!? api", toggleMarker("! api", '?'))
-        assertEquals("? api", toggleMarker("!? api", '!'))
-        assertEquals("api", toggleMarker("? api", '?'))
-        assertEquals("x", toggleMarker("", 'x'))
-    }
-}
