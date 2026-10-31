@@ -19,6 +19,7 @@ def default_db_path() -> Path:
     if old_dir.is_dir() and not data_dir.exists():
         old_dir.rename(data_dir)  # carry history over from the old name
     data_dir.mkdir(parents=True, exist_ok=True)
+    data_dir.chmod(0o700)  # the database, the app build and the backups in it are the owner's alone (#160)
     return data_dir / "history.db"
 
 

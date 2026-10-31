@@ -130,6 +130,38 @@ device paired, a wrong pairing code, a request with a wrong token, a
 device trying more than its role allows — each kind at most once in
 5 minutes.
 
+## Securing the connection
+
+`ccc api doctor` checks the lot at once and says what to do: the API
+listens on this computer only (the tailnet reaches it through
+`tailscale serve`), nothing is on the public internet (`tailscale funnel`),
+the database is private (mode 600 in a 700 folder — ccc sets it itself), how
+many devices may do everything, which have not been seen for 90 days, the
+limits and whether alarms can reach you. It exits with 1 when something is
+wrong. The `ccc-api` service also runs hardened (no new privileges, only
+TCP and unix sockets, files private to you).
+
+**Tailscale ACL** — by default every device on the tailnet reaches every
+other. Tag the computer and the phone and let only the phone reach the
+API's HTTPS port (Tailscale admin console → Access controls; tag the
+devices there or with `tailscale up --advertise-tags=tag:ccc-server`):
+
+```json
+{
+  "tagOwners": {
+    "tag:ccc-server": ["autogroup:admin"],
+    "tag:ccc-phone":  ["autogroup:admin"]
+  },
+  "acls": [
+    {"action": "accept", "src": ["tag:ccc-phone"], "dst": ["tag:ccc-server:443"]}
+  ]
+}
+```
+
+Keep your other rules next to it (the example replaces the default
+allow-all, so add what else you need). Also worth turning on: device
+approval and a short key expiry for the phone, and *Tailnet Lock*.
+
 ## Endpoints
 
 Every path starts with `/api/v1`; every request has the header

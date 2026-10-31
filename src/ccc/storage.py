@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from contextlib import closing
 from datetime import datetime
@@ -293,6 +294,16 @@ def _dump_flags(flags: list[str] | None) -> str | None:
     return json.dumps(flags) if flags is not None else None
 
 
+def make_private(db_path: str | Path) -> None:
+    """The database holds the devices' token fingerprints, the Telegram token and Discord webhook, and every
+    conversation: only its owner may read it (#160). Also its journal files, when there are any."""
+    for suffix in ("", "-wal", "-shm", "-journal"):
+        try:
+            os.chmod(f"{db_path}{suffix}", 0o600)
+        except OSError:
+            pass  # not there (or not ours): nothing to tighten
+
+
 class Storage:
     def __init__(self, db_path: str | Path):
         self.db_path = str(db_path)
@@ -304,6 +315,7 @@ class Storage:
             self._migrate_api_token_to_device(conn)
             self._migrate_devices_history(conn)
             self._migrate_devices_role(conn)
+        make_private(self.db_path)
 
     def _migrate_devices_role(self, conn: sqlite3.Connection) -> None:
         """A device's role (models.ROLES). The devices there already are keep the full rights they had: "admin"."""

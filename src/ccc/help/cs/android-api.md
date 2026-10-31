@@ -122,6 +122,38 @@ hned řekne i o neobvyklém: spárovalo se nové zařízení, špatný párovac�
 kód, požadavek se špatným tokenem, zařízení zkouší víc, než jeho role
 dovoluje — každý druh nejvýš jednou za 5 minut.
 
+## Zabezpečení spojení
+
+`ccc api doctor` zkontroluje všechno najednou a řekne, co udělat: API
+poslouchá jen na tomto počítači (tailnet k němu vede přes
+`tailscale serve`), nic není na veřejném internetu (`tailscale funnel`),
+databáze je soukromá (práva 600 ve složce 700 — nastaví si je ccc samo),
+kolik zařízení smí všechno, která nebyla vidět 90 dní, omezení a jestli se
+k tobě dostanou poplachy. Při nálezu problému skončí s kódem 1. Služba
+`ccc-api` také běží zpřísněná (žádné nové oprávnění, jen TCP a unixové
+sokety, soubory soukromé jen pro tebe).
+
+**Tailscale ACL** — ve výchozím stavu se všechna zařízení tailnetu vidí
+navzájem. Označ počítač a telefon tagy a nech k HTTPS portu API jen telefon
+(Tailscale admin konzole → Access controls; tagy nastav tam nebo přes
+`tailscale up --advertise-tags=tag:ccc-server`):
+
+```json
+{
+  "tagOwners": {
+    "tag:ccc-server": ["autogroup:admin"],
+    "tag:ccc-phone":  ["autogroup:admin"]
+  },
+  "acls": [
+    {"action": "accept", "src": ["tag:ccc-phone"], "dst": ["tag:ccc-server:443"]}
+  ]
+}
+```
+
+Své ostatní pravidla nech vedle (příklad nahrazuje výchozí „povol
+vše“, takže přidej, co ještě potřebuješ). Vyplatí se i schvalování zařízení
+a krátká platnost klíče telefonu a *Tailnet Lock*.
+
 ## Endpointy
 
 Každá cesta začíná `/api/v1`; každý požadavek má hlavičku
