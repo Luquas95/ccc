@@ -362,13 +362,16 @@ private fun Header(detail: io.github.luquas95.ccc.data.ConversationDetail) {
 private fun MessageItem(message: Message) {
     when (message.kind) {
         "human" -> Bubble(stringResource(R.string.you), message.text, shortTime(message.time), CccColors.Human, end = true)
-        "assistant_text" -> Bubble(stringResource(R.string.claude), message.text, shortTime(message.time), CccColors.Claude)
+        "assistant_text" -> Bubble(stringResource(R.string.claude), message.text, shortTime(message.time), CccColors.Claude, markdown = true)
         else -> ToolLine(message)
     }
 }
 
 @Composable
-private fun Bubble(who: String, text: String, time: String?, color: androidx.compose.ui.graphics.Color, end: Boolean = false) {
+private fun Bubble(
+    who: String, text: String, time: String?, color: androidx.compose.ui.graphics.Color, end: Boolean = false,
+    markdown: Boolean = false,
+) {
     Box(Modifier.fillMaxWidth(), contentAlignment = if (end) Alignment.CenterEnd else Alignment.CenterStart) {
         Card(
             modifier = Modifier.fillMaxWidth(if (end) 0.88f else 1f),
@@ -384,7 +387,9 @@ private fun Bubble(who: String, text: String, time: String?, color: androidx.com
                         Text(it, style = MaterialTheme.typography.labelMedium, color = CccColors.Muted)
                     }
                 }
-                SelectionContainer { Text(text, style = MaterialTheme.typography.bodyMedium) }
+                SelectionContainer {
+                    if (markdown) MarkdownText(text) else Text(text, style = MaterialTheme.typography.bodyMedium)
+                }
             }
         }
     }
