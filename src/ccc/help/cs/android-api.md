@@ -84,6 +84,9 @@ nastavení), přicházejí v jazyce hlavičky `Accept-Language` — aplikace
 posílá jazyk telefonu; česky nebo anglicky, jiný jazyk dostane
 angličtinu. Bez hlavičky (starší aplikace) se řídí jazykem samotného
 ccc, nastaveným v TUI.
+Tento jazyk a vzhled TUI patří počítači: aplikace je neukazuje ani
+nemění (její jazyk a vzhled se řídí telefonem); v nastavení ukazuje
+jen to, co platí pro obě strany.
 
 | | |
 |---|---|

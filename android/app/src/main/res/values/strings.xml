@@ -224,8 +224,6 @@
     <string name="goal_text">The goal, specific enough to check</string>
     <string name="groups_in_list">Groups in the list</string>
     <string name="check_command">Check command (optional, e.g. pytest -q)</string>
-    <string name="language">Language</string>
-    <string name="language_hint">ccc\'s window takes a new language when it starts again.</string>
     <string name="launch_presets_none">No presets saved (save them in ccc\'s New conversation window).</string>
     <string name="live_sessions">Live sessions</string>
     <string name="live_sessions_empty">No Claude Code session is running on the computer.</string>

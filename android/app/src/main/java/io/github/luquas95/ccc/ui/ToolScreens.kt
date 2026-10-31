@@ -369,7 +369,7 @@ fun CccSettingsScreen(
             LinearProgressIndicator(Modifier.fillMaxWidth().padding(padding))
             return@Scaffold
         }
-        var language by rememberSaveable(state) { mutableStateOf(state.language) }
+        // The computer's language and look (the TUI's) are not set here: the app follows the phone.
         var groups by rememberSaveable(state) { mutableStateOf(state.groups) }
         var continueText by rememberSaveable(state) { mutableStateOf(state.continueText) }
         var reserve by rememberSaveable(state) { mutableStateOf(state.usageReserve?.toString() ?: "") }
@@ -401,8 +401,6 @@ fun CccSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (tab == 0) item {
                 Section(stringResource(R.string.settings_general)) {
-                    Picker(stringResource(R.string.language), language, state.languages.map { it.value to it.label }) { language = it }
-                    Text(stringResource(R.string.language_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
                     Picker(stringResource(R.string.groups_in_list), groups, state.groupsChoices.map { it.value to it.label }) { groups = it }
                 }
             }
@@ -489,7 +487,6 @@ fun CccSettingsScreen(
             if (tab != 3 && tab != 5) item {
                 Button(onClick = {
                     actions.save(buildMap {
-                        put("language", JsonPrimitive(language))
                         put("groups", JsonPrimitive(groups))
                         put("continue_text", JsonPrimitive(continueText))
                         put("usage_reserve", reserve.toIntOrNull()?.let { JsonPrimitive(it) } ?: JsonNull)

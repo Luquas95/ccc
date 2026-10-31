@@ -222,8 +222,6 @@
     <string name="goal_text">Cíl, dost konkrétní na to, aby šel ověřit</string>
     <string name="groups_in_list">Skupiny v seznamu</string>
     <string name="check_command">Kontrolní příkaz (nepovinný, např. pytest -q)</string>
-    <string name="language">Jazyk</string>
-    <string name="language_hint">Okno ccc převezme nový jazyk při dalším spuštění.</string>
     <string name="launch_presets_none">Žádné uložené předvolby (ukládají se v okně Nová konverzace v ccc).</string>
     <string name="live_sessions">Živé relace</string>
     <string name="live_sessions_empty">Na počítači neběží žádná relace Claude Code.</string>
