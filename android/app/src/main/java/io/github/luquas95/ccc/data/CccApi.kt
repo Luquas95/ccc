@@ -46,6 +46,7 @@ class CccApi(
     /** Trade the one-time [code] of a QR code for a token of this phone's own (the one call that needs no token). */
     suspend fun pair(code: String, name: String): PairResult = call(
         Request.Builder().url(base.newBuilder().addPathSegments("pair").build())
+            .header("Accept-Language", phoneLanguage())
             .post(body("code" to JsonPrimitive(code), "name" to JsonPrimitive(name)).toRequestBody(JSON)).build(),
     )
 
@@ -343,8 +344,11 @@ class CccApi(
         val url = base.newBuilder().addPathSegments(path).apply {
             query.forEach { (name, value) -> addQueryParameter(name, value) }
         }.build()
-        return Request.Builder().url(url).header("Authorization", "Bearer $token")
+        return Request.Builder().url(url).header("Authorization", "Bearer $token").header("Accept-Language", phoneLanguage())
     }
+
+    /** The phone's language: ccc answers its texts (errors, labels, settings) in it, not in the computer's. */
+    private fun phoneLanguage(): String = java.util.Locale.getDefault().toLanguageTag()
 
     private fun body(vararg fields: Pair<String, JsonElement>): String =
         json.encodeToString(JsonObject.serializer(), JsonObject(mapOf(*fields)))

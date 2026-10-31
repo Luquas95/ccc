@@ -955,8 +955,12 @@ class _Handler(BaseHTTPRequestHandler):
     def _handle(self, method: str) -> None:
         url = urlsplit(self.path)
         query = {k: v[-1] for k, v in parse_qs(url.query).items() if k != CALLER}
+        # The phone's language (Accept-Language) for this request only; an app that doesn't say gets the
+        # language set in the TUI, as before.
+        asked = i18n.from_accept_language(self.headers.get("Accept-Language", ""))
+        language_token = i18n.use_for_request(asked)
         try:
-            i18n.load(self.api.storage)  # follows the language set in the TUI
+            i18n.load(self.api.storage)
             if method == "POST" and url.path == PREFIX + "/pair":
                 self._send(HTTPStatus.CREATED, self.api.pair(self._body(), self._client_ip()))
                 return
@@ -973,6 +977,8 @@ class _Handler(BaseHTTPRequestHandler):
         except Exception:
             logger.exception("API request %s %s failed", method, url.path)
             status, result = HTTPStatus.INTERNAL_SERVER_ERROR, {"error": _("Something went wrong in ccc.")}
+        finally:
+            i18n.end_request(language_token)
         self._send(status, result)
 
     def _client_ip(self) -> str:

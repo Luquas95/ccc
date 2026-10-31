@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#262338"/><stop offset="1" stop-color="#14121f"/></linearGradient>
+    <linearGradient id="cor" gradientUnits="userSpaceOnUse" x1="0" y1="152" x2="0" y2="388"><stop offset="0" stop-color="#ffc09e"/><stop offset=".5" stop-color="#ff9a6b"/><stop offset="1" stop-color="#d9602f"/></linearGradient>
+    <linearGradient id="teal" gradientUnits="userSpaceOnUse" x1="0" y1="360" x2="0" y2="396"><stop offset="0" stop-color="#a6f5ea"/><stop offset=".5" stop-color="#5fe3d0"/><stop offset="1" stop-color="#1fa896"/></linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5a5680"/><stop offset=".5" stop-color="#2c2942"/><stop offset="1" stop-color="#1a1829"/></linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb08a"/><stop offset="1" stop-color="#b784ff"/></linearGradient>
+    <linearGradient id="pin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff2d2"/><stop offset=".5" stop-color="#d9bf8a"/><stop offset="1" stop-color="#a0834f"/></linearGradient>
+    <linearGradient id="die" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb08a"/><stop offset=".5" stop-color="#ff8f8f"/><stop offset="1" stop-color="#a874f5"/></linearGradient>
+    <linearGradient id="bevel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".55"/></linearGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <g transform="translate(0 -24.0)">
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <g stroke="#000" stroke-opacity=".5" stroke-width="36" filter="url(#sh)" transform="translate(6 16)"><path d="M112 170l120 100-120 100"/><path d="M290 378h120"/></g>
+      <g stroke-width="36" transform="translate(0 12)"><path d="M112 170l120 100-120 100" stroke="#8f3d17"/><path d="M290 378h120" stroke="#0e6b5e"/></g>
+      <g stroke-width="36"><path d="M112 170l120 100-120 100" stroke="url(#cor)"/><path d="M290 378h120" stroke="url(#teal)"/></g>
+      <g stroke="#fff" stroke-opacity=".45" stroke-width="6" transform="translate(-1 -9)"><path d="M112 170l120 100-120 100"/><path d="M290 378h120"/></g>
+    </g>
+    <!-- stín čipu -->
+    <g transform="translate(4 10)" filter="url(#sh)" opacity=".6"><g transform="rotate(45 350.0 250.0)" fill="#000">
+      <rect x="300" y="200" width="100" height="100" rx="14"/><rect x="312" y="176" width="10" height="26" rx="2"/>
+      <rect x="312" y="298" width="10" height="26" rx="2"/>
+      <rect x="276" y="212" width="26" height="10" rx="2"/>
+      <rect x="398" y="212" width="26" height="10" rx="2"/>
+      <rect x="334" y="176" width="10" height="26" rx="2"/>
+      <rect x="334" y="298" width="10" height="26" rx="2"/>
+      <rect x="276" y="234" width="26" height="10" rx="2"/>
+      <rect x="398" y="234" width="26" height="10" rx="2"/>
+      <rect x="356" y="176" width="10" height="26" rx="2"/>
+      <rect x="356" y="298" width="10" height="26" rx="2"/>
+      <rect x="276" y="256" width="26" height="10" rx="2"/>
+      <rect x="398" y="256" width="26" height="10" rx="2"/>
+      <rect x="378" y="176" width="10" height="26" rx="2"/>
+      <rect x="378" y="298" width="10" height="26" rx="2"/>
+      <rect x="276" y="278" width="26" height="10" rx="2"/>
+      <rect x="398" y="278" width="26" height="10" rx="2"/></g></g>
+    <!-- horní strana čipu -->
+    <g transform="rotate(45 350.0 250.0)">
+      <g fill="url(#pin)" stroke="#7a6238" stroke-width="1.5"><rect x="312" y="176" width="10" height="26" rx="2"/>
+      <rect x="312" y="298" width="10" height="26" rx="2"/>
+      <rect x="276" y="212" width="26" height="10" rx="2"/>
+      <rect x="398" y="212" width="26" height="10" rx="2"/>
+      <rect x="334" y="176" width="10" height="26" rx="2"/>
+      <rect x="334" y="298" width="10" height="26" rx="2"/>
+      <rect x="276" y="234" width="26" height="10" rx="2"/>
+      <rect x="398" y="234" width="26" height="10" rx="2"/>
+      <rect x="356" y="176" width="10" height="26" rx="2"/>
+      <rect x="356" y="298" width="10" height="26" rx="2"/>
+      <rect x="276" y="256" width="26" height="10" rx="2"/>
+      <rect x="398" y="256" width="26" height="10" rx="2"/>
+      <rect x="378" y="176" width="10" height="26" rx="2"/>
+      <rect x="378" y="298" width="10" height="26" rx="2"/>
+      <rect x="276" y="278" width="26" height="10" rx="2"/>
+      <rect x="398" y="278" width="26" height="10" rx="2"/></g>
+      <g fill="#fff" fill-opacity=".5"><rect x="312" y="176" width="10" height="3" rx="1.5"/><rect x="334" y="176" width="10" height="3" rx="1.5"/><rect x="356" y="176" width="10" height="3" rx="1.5"/><rect x="378" y="176" width="10" height="3" rx="1.5"/></g>
+      <rect x="300" y="200" width="100" height="100" rx="14" fill="url(#body)" stroke="url(#edge)" stroke-width="4"/>
+      <rect x="306" y="206" width="88" height="88" rx="9" fill="none" stroke="url(#bevel)" stroke-width="3"/>
+      <rect x="327" y="227" width="46" height="46" rx="8" fill="#0e0c18" opacity=".6" transform="translate(0 3)"/>
+      <rect x="327" y="227" width="46" height="46" rx="8" fill="url(#die)"/>
+      <rect x="327" y="227" width="46" height="46" rx="8" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="2"/>
+      <circle cx="314" cy="214" r="4" fill="#fff" fill-opacity=".6"/>
+    </g>
+  </g>
+</svg>
