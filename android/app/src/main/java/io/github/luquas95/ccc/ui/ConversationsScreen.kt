@@ -101,6 +101,8 @@ class ConversationsActions(
     val promptSession: (String, String) -> Unit = { _, _ -> },
     val applyUpdate: () -> Unit = {},
     val updateApp: () -> Unit = {},
+    /** The queue (tasks) of a conversation: what Enter on the TUI Dashboard opens. */
+    val openQueue: (Int) -> Unit = {},
 )
 
 private val MARKERS = listOf(ListFilter.WORKING, ListFilter.APPROVAL, ListFilter.ERROR, ListFilter.UNSEEN)
@@ -300,7 +302,7 @@ private fun Dashboard(state: HomeState, appBuild: Int, actions: ConversationsAct
                 Text(stringResource(R.string.conversations_empty), Modifier.fillMaxWidth().padding(32.dp), color = CccColors.Muted)
             }
         }
-        items(all, key = { "dash:${it.id}" }) { conversation -> DashboardRow(conversation) { actions.open(conversation.id) } }
+        items(all, key = { "dash:${it.id}" }) { conversation -> DashboardRow(conversation) { actions.openQueue(conversation.id) } }
     }
 }
 

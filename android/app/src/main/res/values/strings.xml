@@ -11,6 +11,15 @@
     <string name="setup_token_hint">From ccc api token on the computer</string>
     <string name="setup_connect">Connect</string>
     <string name="setup_sign_out">Sign out</string>
+    <string name="setup_disconnect">Disconnect</string>
+    <string name="connection_connected">Connected to ccc</string>
+    <string name="connection_device">This phone</string>
+    <string name="connection_since">Connected since</string>
+    <string name="connection_last_seen">Last seen</string>
+    <string name="connection_ip">Address</string>
+    <string name="app_language">Language</string>
+    <string name="app_language_hint">The language of this app only — independent of the phone and of ccc on the computer.</string>
+    <string name="language_system">Follow the phone</string>
     <string name="sign_out_title">Sign out?</string>
     <string name="sign_out_other">%1$s will be signed out at once and its token stops working.</string>
     <string name="sign_out_this">%1$s is this phone. It will be signed out and you will have to pair it again.</string>

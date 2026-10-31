@@ -45,7 +45,10 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
 - **Tabs** — Dashboard, Conversations, Archive and Live sessions.
   **Dashboard** is ccc's: the overview (conversations, running, queued,
   blocked, waiting for you, tokens today) and every conversation with its
-  state, queue, tokens today, context, git and folder.
+  state, queue, tokens today, context, git and folder; a tap opens the
+  conversation's queue, like Enter in ccc.
+- **Connection** (⋮) — where the phone is connected and since when, with
+  Disconnect; the app's own language (follow the phone, English, Czech).
 - **Search** (the field on the list) — name or folder; the filter icon
   next to it picks the states `! working`, `? approval`, `x error`,
   `* new` — the same as `f` in ccc.

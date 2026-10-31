@@ -63,6 +63,8 @@ class WatchService : Service() {
         scope.launch { watch() }
     }
 
+    override fun attachBaseContext(newBase: Context) = super.attachBaseContext(io.github.luquas95.ccc.data.Language.wrap(newBase))
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
     override fun onDestroy() {

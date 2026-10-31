@@ -16,6 +16,7 @@
 
     <!-- No backup: the token stays on this phone. -->
     <application
+        android:name=".CccApp"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"

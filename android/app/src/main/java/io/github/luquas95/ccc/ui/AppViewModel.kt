@@ -177,6 +177,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     val server: String get() = settings.server
 
+    /** The app's own language ("" = the phone's): a change takes effect when the screen is recreated. */
+    val language: String get() = settings.language
+    fun setLanguage(tag: String) {
+        settings.language = tag
+        io.github.luquas95.ccc.data.Language.apply(getApplication())
+    }
+
     private val _notifications = MutableStateFlow(settings.notifications)
     /** Notifications while the app is closed (notify.WatchService). */
     val notifications: StateFlow<Boolean> = _notifications.asStateFlow()
