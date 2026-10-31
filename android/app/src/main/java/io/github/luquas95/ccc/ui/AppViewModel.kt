@@ -769,9 +769,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun text(id: Int): String = getApplication<Application>().getString(id)
 
-    /** The client of the signed-in phone: a 401 from it means the token was revoked on the computer. */
-    private fun api(server: String, token: String) =
-        CccApi(server, token, onUnauthorized = { viewModelScope.launch { tokenRevoked() } })
+    /**
+     * The client of the signed-in phone: a 401 from it means the token was revoked on the computer.
+     * The callback is bound to this very client: a late 401 of an old one (an in-flight request from
+     * before a sign-out or a new pairing) must not sign out the session that replaced it.
+     */
+    private fun api(server: String, token: String): CccApi {
+        lateinit var client: CccApi
+        client = CccApi(server, token, onUnauthorized = { viewModelScope.launch { if (api === client) tokenRevoked() } })
+        return client
+    }
 
     /** ccc refused our token: forget it, show the sign-in screen with the reason, stop asking. */
     private fun tokenRevoked() {
