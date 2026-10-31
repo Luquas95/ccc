@@ -126,12 +126,18 @@ fun TerminalScreen(state: TerminalState, name: String, snackbar: SnackbarHostSta
                 if (state.error == null) LinearProgressIndicator(Modifier.fillMaxWidth())
                 return@Column
             }
+            val sideways = rememberScrollState()
+            // The terminal is wider than the phone: say so (the lines are cut at the edge, not wrapped).
+            if (sideways.maxValue > 0) {
+                Text(stringResource(R.string.terminal_scroll_hint, shown.width), color = CccColors.Muted,
+                    style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
+            }
             Box(
                 Modifier
                     .fillMaxSize()
                     .background(CccColors.Background)
                     .verticalScroll(vertical)
-                    .horizontalScroll(rememberScrollState())
+                    .horizontalScroll(sideways)
                     .padding(6.dp),
             ) {
                 Text(
