@@ -984,11 +984,7 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             i18n.load(self.api.storage)
             if method == "POST" and url.path == PREFIX + "/pair":
-                try:
-                    paired = self.api.pair(self._body(), self._client_ip())
-                except ApiError as exc:
-                    self._audit(method, url.path, exc.status)
-                    raise
+                paired = self.api.pair(self._body(), self._client_ip())  # a refusal is logged below, once
                 self._audit(method, url.path, HTTPStatus.CREATED, device=self.api.storage.device_by_id(paired["device_id"]))
                 self._send(HTTPStatus.CREATED, paired)
                 return

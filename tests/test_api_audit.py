@@ -71,7 +71,7 @@ def test_an_alarm_of_a_kind_is_sent_once_in_a_while(storage, sent):  # noqa: F81
 def test_the_log_keeps_only_the_newest(storage, monkeypatch):  # noqa: F811
     monkeypatch.setattr(type(storage), "AUDIT_KEEP", 5)
     for n in range(9):
-        storage.add_audit(None, "", "1.1.1.1", "POST", f"/x{n}", 200)
+        storage.add_audit(1, "P", "1.1.1.1", "POST", f"/x{n}", 200)
     assert [e["path"] for e in storage.list_audit(100)] == [f"/x{n}" for n in range(8, 3, -1)]
 
 
@@ -93,3 +93,30 @@ def test_cli_log(storage, capsys):  # noqa: F811
     api_cli.run(storage, "", Namespace(api_command="log", n=10))
     out = capsys.readouterr().out
     assert "403" in out and "Pixel" in out and "100.1.1.1" in out
+
+
+def test_what_a_request_carried_is_made_harmless_and_short(storage, capsys):  # noqa: F811
+    from argparse import Namespace
+    from ccc import api_cli
+
+    api_audit.record(storage, None, "1.2.3.4", "POST", "/api/v1/x\x1b[31m[red]" + "a" * 500, 401)
+    entry = storage.list_audit(1)[0]
+    assert "\x1b" not in entry["path"] and len(entry["path"]) <= 300
+    storage.add_audit(None, "", "1.1.1.1", "POST", "/old\x1b[2J", 401)  # written before the cleaning
+    api_cli.run(storage, "", Namespace(api_command="log", n=5))
+    assert "\x1b" not in capsys.readouterr().out
+
+
+def test_strangers_cannot_push_the_known_devices_entries_out(storage, monkeypatch):  # noqa: F811
+    monkeypatch.setattr(type(storage), "AUDIT_KEEP_STRANGERS", 3)
+    storage.add_audit(7, "Phone", "1.1.1.1", "POST", "/mine", 200)
+    for n in range(10):
+        storage.add_audit(None, "", "6.6.6.6", "GET", f"/scan{n}", 401)
+    paths = [e["path"] for e in storage.list_audit(100)]
+    assert "/mine" in paths and len([p for p in paths if p.startswith("/scan")]) == 3
+
+
+def test_a_wrong_pairing_code_is_logged_once(server, storage):  # noqa: F811
+    base, _ = server
+    _call(f"{base}/api/v1/pair", None, "POST", {"code": "wrong", "name": "x"})
+    assert len(storage.list_audit()) == 1
