@@ -57,6 +57,13 @@ sealed interface Screen {
     data class Terminal(val id: Int) : Screen
 }
 
+/** Updating this app from ccc: ccc builds it, the phone downloads it, the system installs it. */
+data class AppUpdateState(val phase: Phase = Phase.IDLE, val progress: Float = 0f) {
+    enum class Phase { IDLE, BUILDING, DOWNLOADING }
+
+    val busy: Boolean get() = phase != Phase.IDLE
+}
+
 /** The tabs of the main screen. */
 enum class HomeTab { DASHBOARD, CONVERSATIONS, ARCHIVE, SESSIONS }
 
@@ -198,6 +205,48 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 _message.value = result.message
                 delay(3_000)
                 refresh()
+            }
+        }
+    }
+
+    private val _appUpdate = MutableStateFlow(AppUpdateState())
+    val appUpdate: StateFlow<AppUpdateState> = _appUpdate.asStateFlow()
+
+    /** The downloaded app, to be handed to the installer (the activity does it, then calls [installStarted]). */
+    private val _install = MutableStateFlow<java.io.File?>(null)
+    val install: StateFlow<java.io.File?> = _install.asStateFlow()
+
+    fun installStarted() {
+        _install.value = null
+    }
+
+    /** Have ccc build the new app (it takes a few minutes), download it, then offer it to the installer. */
+    fun updateApp() {
+        val client = api ?: return
+        if (_appUpdate.value.busy) return
+        viewModelScope.launch {
+            try {
+                guard {
+                    _appUpdate.value = AppUpdateState(AppUpdateState.Phase.BUILDING)
+                    var info = client.buildApp()
+                    var waited = 0
+                    while (!info.ready) {
+                        if (!info.building) {
+                            _message.value = info.error ?: getApplication<Application>().getString(R.string.app_build_failed)
+                            return@guard
+                        }
+                        delay(3_000)
+                        waited += 3
+                        if (waited > 30 * 60) return@guard
+                        info = client.appBuild()
+                    }
+                    _appUpdate.value = AppUpdateState(AppUpdateState.Phase.DOWNLOADING)
+                    val file = java.io.File(getApplication<Application>().cacheDir, "app-update/ccc.apk")
+                    client.downloadApp(file) { _appUpdate.value = AppUpdateState(AppUpdateState.Phase.DOWNLOADING, it) }
+                    _install.value = file
+                }
+            } finally {
+                _appUpdate.value = AppUpdateState()
             }
         }
     }

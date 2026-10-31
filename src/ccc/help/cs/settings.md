@@ -180,8 +180,11 @@ pushnul na `origin/main`. Odmítne — a řekne proč —, když checkout není 
 je v `~/.local/share/ccc/update.log`.
 
 Okno Aktualizace také řekne, když nové commity mění Android aplikaci — ta se
-sestavuje a instaluje ručně, takže zůstane stará, dokud to neuděláš.
-Aplikace sama oznámí, že je starší než ccc.
+je starší než ccc, dokud se nesestaví znovu. Aplikace sama oznámí, že je
+starší, a tlačítko *Aktualizovat aplikaci* nechá ccc sestavit novou
+(Gradle, v checkoutu ccc), stáhne ji přes spárování telefonu a otevře
+instalátor; poprvé se Android zeptá, zda aplikaci instalaci povolit.
+Na počítači s ccc musí být Android SDK a Java.
 
 *Nastavení → Aktualizace → Hledat aktualizace* hledání (i tyto zprávy)
 vypne; repozitář musí být dostupný bez dotazu na heslo (credential helper

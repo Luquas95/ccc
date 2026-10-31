@@ -55,6 +55,11 @@
     <string name="update_confirm_hint">ccc pulls the new commits and restarts. Interactive conversations keep running.</string>
     <string name="update_notification_title">ccc update available</string>
     <string name="update_notification_text">%1$d new commit(s) on origin/main</string>
+    <string name="app_building">ccc is building the new app…</string>
+    <string name="app_downloading">Downloading…</string>
+    <string name="app_update_button">Update app</string>
+    <string name="app_allow_install">Allow installing from this app, then tap Update app again.</string>
+    <string name="app_build_failed">ccc could not build the app.</string>
     <string name="app_new_version">A new version of the app is available.</string>
     <string name="context_short">context %1$s</string>
     <string name="list_details">Conversation list</string>

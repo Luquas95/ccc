@@ -925,3 +925,14 @@ def test_http_texts_follow_the_phone_language_not_the_tui_one(server, storage, m
     storage.set_setting("language", "cs")
     assert error_for("en-US") == "No such device."  # the phone wins
     assert error_for(None) == "Takové zařízení neexistuje."
+
+
+def test_app_endpoints_report_and_send_the_built_app(storage, monkeypatch):
+    from ccc import app_build
+
+    monkeypatch.setattr("ccc.updates.android_build", lambda *a, **k: 3)
+    service = api.Api(storage)
+    assert service.route("GET", "/api/v1/app", {}, {})[1]["ready"] is False
+    (tmp := app_build.apk_path(storage, 3)).write_bytes(b"apk")
+    state = service.route("GET", "/api/v1/app", {}, {})[1]
+    assert state["ready"] is True and state["build"] == 3 and tmp.read_bytes() == b"apk"

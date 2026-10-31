@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.materialIcon
 import androidx.compose.material.icons.materialPath
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -99,6 +100,7 @@ class ConversationsActions(
     /** A prompt for the live session (id, text). */
     val promptSession: (String, String) -> Unit = { _, _ -> },
     val applyUpdate: () -> Unit = {},
+    val updateApp: () -> Unit = {},
 )
 
 private val MARKERS = listOf(ListFilter.WORKING, ListFilter.APPROVAL, ListFilter.ERROR, ListFilter.UNSEEN)
@@ -112,6 +114,7 @@ fun ConversationsScreen(
     snackbar: SnackbarHostState,
     actions: ConversationsActions,
     sessions: List<LiveSession>? = null,
+    appUpdate: AppUpdateState = AppUpdateState(),
 ) {
     var groupMenu by remember { mutableStateOf<String?>(null) }
     Scaffold(
@@ -180,9 +183,9 @@ fun ConversationsScreen(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 when (state.tab) {
-                    HomeTab.DASHBOARD -> Dashboard(state, appBuild, actions)
+                    HomeTab.DASHBOARD -> Dashboard(state, appBuild, actions, appUpdate)
                     HomeTab.SESSIONS -> LiveSessionsList(sessions, actions.promptSession)
-                    else -> ConversationList(state, listDetails, appBuild, actions) { groupMenu = it }
+                    else -> ConversationList(state, listDetails, appBuild, actions, appUpdate) { groupMenu = it }
                 }
             }
         }
@@ -196,6 +199,7 @@ private fun ConversationList(
     listDetails: Set<String>,
     appBuild: Int,
     actions: ConversationsActions,
+    appUpdate: AppUpdateState,
     onGroupMenu: (String) -> Unit,
 ) {
     val filter = ListFilter.of(state.filterStates, state.filter)
@@ -205,7 +209,7 @@ private fun ConversationList(
         contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (!state.showArchive) banners(state, appBuild, actions)
+        if (!state.showArchive) banners(state, appBuild, actions, appUpdate)
         item(key = "filter") { SearchField(state.filter, state.filterStates, actions.filter, actions.filterState) }
         if (state.loaded && shown.isEmpty()) {
             item(key = "empty") {
@@ -235,7 +239,7 @@ private fun ConversationList(
 }
 
 /** What may need you above the lists: the limits, who waits, a new ccc, a new app. */
-private fun LazyListScope.banners(state: HomeState, appBuild: Int, actions: ConversationsActions) {
+private fun LazyListScope.banners(state: HomeState, appBuild: Int, actions: ConversationsActions, appUpdate: AppUpdateState) {
     state.usage?.let { usage ->
         item(key = "usage") {
             Card(
@@ -251,14 +255,14 @@ private fun LazyListScope.banners(state: HomeState, appBuild: Int, actions: Conv
         item(key = "update") { UpdateBanner(update, actions.applyUpdate) }
     }
     state.status?.androidBuild?.takeIf { appBuild in 1 until it }?.let {
-        item(key = "app-newer") { NewAppBanner() }
+        item(key = "app-newer") { NewAppBanner(appUpdate, actions.updateApp) }
     }
 }
 
 /** The TUI's Dashboard: the overview line, then every conversation with its status, queue, tokens today, context, git and folder. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Dashboard(state: HomeState, appBuild: Int, actions: ConversationsActions) {
+private fun Dashboard(state: HomeState, appBuild: Int, actions: ConversationsActions, appUpdate: AppUpdateState) {
     val all = state.conversations
     val blocked = all.count { it.state == ConversationStatus.BLOCKED_ERROR }
     val running = all.count { it.state == ConversationStatus.RUNNING }
@@ -267,7 +271,7 @@ private fun Dashboard(state: HomeState, appBuild: Int, actions: ConversationsAct
         contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        banners(state, appBuild, actions)
+        banners(state, appBuild, actions, appUpdate)
         item(key = "overview") {
             Card(
                 Modifier.fillMaxWidth(),
@@ -424,16 +428,36 @@ private fun UpdateBanner(update: UpdateInfo, onUpdate: () -> Unit) {
     }
 }
 
-/** The installed app is older than the ccc it talks to (ccc's checkout has newer app sources). */
+/** The installed app is older than the ccc it talks to: ccc builds the new one, the phone installs it. */
 @Composable
-private fun NewAppBanner() {
+private fun NewAppBanner(update: AppUpdateState, onUpdate: () -> Unit) {
     Card(
         Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = CccColors.Surface),
         border = BorderStroke(1.dp, CccColors.Title),
     ) {
-        Text(stringResource(R.string.app_new_version), Modifier.padding(12.dp), color = CccColors.Title,
-            style = MaterialTheme.typography.bodyMedium)
+        Column(Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.app_new_version), color = CccColors.Title, style = MaterialTheme.typography.bodyMedium)
+                    when (update.phase) {
+                        AppUpdateState.Phase.BUILDING ->
+                            Text(stringResource(R.string.app_building), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
+                        AppUpdateState.Phase.DOWNLOADING ->
+                            Text(stringResource(R.string.app_downloading), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
+                        AppUpdateState.Phase.IDLE -> Unit
+                    }
+                }
+                TextButton(onClick = onUpdate, enabled = !update.busy) { Text(stringResource(R.string.app_update_button)) }
+            }
+            when (update.phase) {
+                AppUpdateState.Phase.BUILDING -> LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp), color = CccColors.Title)
+                AppUpdateState.Phase.DOWNLOADING ->
+                    LinearProgressIndicator(progress = { update.progress }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        color = CccColors.Title)
+                AppUpdateState.Phase.IDLE -> Unit
+            }
+        }
     }
 }
 

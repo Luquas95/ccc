@@ -1,6 +1,9 @@
 package io.github.luquas95.ccc
 
 import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.core.content.FileProvider
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -99,6 +102,8 @@ private fun App(model: AppViewModel) {
     val terminal by model.more.terminal.collectAsStateWithLifecycle()
     val notifications by model.notifications.collectAsStateWithLifecycle()
     val listDetails by model.listDetails.collectAsStateWithLifecycle()
+    val appUpdate by model.appUpdate.collectAsStateWithLifecycle()
+    val install by model.install.collectAsStateWithLifecycle()
     val nameOf = { id: Int -> (home.conversations + home.archived).firstOrNull { it.id == id }?.name.orEmpty() }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -113,6 +118,22 @@ private fun App(model: AppViewModel) {
                 putExtra(Intent.EXTRA_TEXT, export.markdown)
             }
             context.startActivity(Intent.createChooser(send, export.filename))
+        }
+    }
+    // The downloaded app: to the system installer — which first needs the one-time "install unknown apps" allowance.
+    LaunchedEffect(install) {
+        install?.let { apk ->
+            model.installStarted()
+            if (!context.packageManager.canRequestPackageInstalls()) {
+                snackbar.showSnackbar(context.getString(R.string.app_allow_install))
+                context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}")))
+                return@let
+            }
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", apk)
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
         }
     }
     LaunchedEffect(message) {
@@ -151,6 +172,7 @@ private fun App(model: AppViewModel) {
             appBuild = model.appBuild,
             snackbar = snackbar,
             sessions = sessions,
+            appUpdate = appUpdate,
             actions = ConversationsActions(
                 open = { model.open(Screen.Conversation(it)) },
                 approvals = { model.open(Screen.Approvals) },
@@ -161,6 +183,7 @@ private fun App(model: AppViewModel) {
                 tab = model::showTab,
                 filter = model::setFilter,
                 filterState = model::toggleFilterState,
+                updateApp = model::updateApp,
                 nextWaiting = model::openNextWaiting,
                 renameGroup = model::renameGroup,
                 deleteGroup = model::deleteGroup,
