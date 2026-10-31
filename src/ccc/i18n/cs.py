@@ -1444,6 +1444,7 @@ CS: dict[str, str] = {
     "The app could not be built: {why}": "Appku se nepodařilo sestavit: {why}",
     "Role": "Role",
     "That is not a session id.": "To není id relace.",
+    "That session belongs to a conversation in another folder.": "Ta relace patří konverzaci v jiné složce.",
     "A pull request is a number or a URL.": "Pull request je číslo nebo URL.",
     "The API may not use this folder. Allow it on the computer: ccc api roots --add {path}": "API tuhle složku nesmí použít. Povol ji na počítači: ccc api roots --add {path}",
     "Starting a conversation that skips every permission check is not allowed from the app. Allow it on the computer: ccc api skip-permissions on": "Z appky se nesmí zakládat konverzace, které přeskočí všechny kontroly oprávnění. Povol to na počítači: ccc api skip-permissions on",
