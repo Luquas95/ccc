@@ -38,7 +38,9 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
   with an *Update* button (after asking: it shows the commits and, if
   ccc can't update now, why) and a notification when the app is closed;
   and "A new version of the app is available" when this app's build is older than the one in ccc's
-  checkout (the app is built by hand). Details:
+  checkout, with an *Update app* button: ccc builds the new app, the phone
+  downloads it over its pairing and opens the installer (Android asks
+  once to allow installing from the app). Details:
   [Settings → Updating ccc](../src/ccc/help/settings.md#updating-ccc).
 - **Tabs** — Dashboard, Conversations, Archive and Live sessions.
   **Dashboard** is ccc's: the overview (conversations, running, queued,

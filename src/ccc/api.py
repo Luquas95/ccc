@@ -38,6 +38,8 @@ POST /api/v1/runs/{id}/comments           {"comments": [{"index", "text"}]} sent
 POST /api/v1/runs/{id}/revert             {"tell": bool}: undo the commit
 GET  /api/v1/groups                       grouping mode and own groups; POST groups/rename, groups/delete
 GET  /api/v1/search?q=                    search every conversation
+GET  /api/v1/app                          the Android app built by ccc: build, ready, building, error; POST /api/v1/app/build builds it
+GET  /api/v1/app.apk                      the built app (a file, not JSON) — the phone installs it
 POST /api/v1/update/check                 look for a new ccc version now; POST /api/v1/update applies it
 GET  /api/v1/waiting                      conversations that need you (Alt+N)
 GET  /api/v1/prompt-presets               the preset prompts (Alt+1 … 9)
@@ -63,6 +65,7 @@ import logging
 import os
 import re
 import secrets
+import shutil
 import threading
 import time
 from dataclasses import dataclass, field
@@ -72,7 +75,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from ccc import __version__, context_fill, groups, i18n, launch_options, mcp_servers, updates
+from ccc import __version__, app_build, context_fill, groups, i18n, launch_options, mcp_servers, updates
 from ccc.api_agents import AgentEndpoints
 from ccc.api_common import ApiError, int_of, iso, route, task_line, text_of
 from ccc.api_views import ViewEndpoints
@@ -190,6 +193,8 @@ class Api(AgentEndpoints, ViewEndpoints):
         ok = route
         return [
             ok(r"/status", lambda ids, q, b: self.status()),
+            ok(r"/app", lambda ids, q, b: app_build.status(self.storage)),
+            ok(r"/app/build", lambda ids, q, b: app_build.start(self.storage), "POST"),
             ok(r"/update/check", lambda ids, q, b: self.update_check(), "POST"),
             ok(r"/update", lambda ids, q, b: self.update_apply(), "POST"),
             ok(r"/conversations", lambda ids, q, b: self.conversations(archived=q.get("archived") in ("1", "true"))),
@@ -970,6 +975,9 @@ class _Handler(BaseHTTPRequestHandler):
             if method == "GET" and url.path == PREFIX + "/events":
                 self._events()
                 return
+            if method == "GET" and url.path == PREFIX + "/app.apk":
+                self._app()
+                return
             query[CALLER] = str(self._device.id)
             body = self._body() if method == "POST" else {}
             status, result = self.api.route(method, url.path, query, body)
@@ -1020,6 +1028,18 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    def _app(self) -> None:
+        """The built app as a file; 404 until it is built (POST /app/build)."""
+        apk = app_build.apk_path(self.api.storage)
+        if not apk.exists():
+            raise ApiError(HTTPStatus.NOT_FOUND, _("The app isn't built yet."))
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/vnd.android.package-archive")
+        self.send_header("Content-Length", str(apk.stat().st_size))
+        self.end_headers()
+        with apk.open("rb") as file:
+            shutil.copyfileobj(file, self.wfile)
 
     def _events(self) -> None:
         """Server-Sent Events: "changed" whenever a conversation changes

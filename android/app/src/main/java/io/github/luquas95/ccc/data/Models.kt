@@ -20,6 +20,16 @@ data class Status(
     @SerialName("android_build") val androidBuild: Int = 0,
 )
 
+/** The app built by ccc (src/ccc/app_build.py). */
+@Serializable
+data class AppBuild(
+    val build: Int = 0,
+    val ready: Boolean = false,
+    val building: Boolean = false,
+    val error: String? = null,
+    val size: Long = 0,
+)
+
 @Serializable
 data class UpdateInfo(
     val available: Boolean = false,
