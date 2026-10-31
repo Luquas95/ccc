@@ -3,6 +3,7 @@ tick for each category of message (ccc.notify.CATEGORIES). Opened from the
 service's section in Settings; saved at once with Ctrl+S."""
 from __future__ import annotations
 
+from rich.text import Text
 from textual.containers import Container, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Checkbox, Static
@@ -19,16 +20,27 @@ class NotifyCategoriesModal(ModalScreen):
     """Dismisses with True when saved, None when cancelled."""
 
     DEFAULT_CSS = MODAL_CSS.format(cls="NotifyCategoriesModal") + """
+    NotifyCategoriesModal > Container {
+        width: 100;
+    }
     NotifyCategoriesModal VerticalScroll {
         height: auto;
-        max-height: 20;
+        max-height: 18;
+        margin-bottom: 1;
+    }
+    /* One line per kind; focus is shown by the label, not a frame. */
+    NotifyCategoriesModal Checkbox {
+        height: 1;
+        border: none;
+        padding: 0;
+        background: transparent;
+    }
+    NotifyCategoriesModal Checkbox:focus {
+        border: none;
+        background: $boost;
     }
     NotifyCategoriesModal .modal-hint {
         color: $text-muted;
-    }
-    NotifyCategoriesModal .category-hint {
-        color: $text-muted;
-        margin-left: 4;
     }
     /* Unticked: no faint X that reads as ticked; ticked: bright X. */
     NotifyCategoriesModal Checkbox > .toggle--button {
@@ -54,8 +66,8 @@ class NotifyCategoriesModal(ModalScreen):
         states = category_states(self.storage, self.channel)
         rows = []
         for key, label, hint, _default in CATEGORIES:
-            rows.append(Checkbox(_(label), states[key], id=f"notify-{key}"))
-            rows.append(Static(_(hint), classes="category-hint"))
+            rows.append(Checkbox(Text.assemble((_(label), "bold"), ("  " + _(hint), "dim")), states[key],
+                                 id=f"notify-{key}"))
         box = Container(
             Static(_("Which messages {service} gets:").format(service=SERVICE_NAMES[self.channel]), classes="modal-label"),
             VerticalScroll(*rows),
