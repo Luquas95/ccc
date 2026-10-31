@@ -408,3 +408,34 @@ async def test_dashboard_columns_are_chosen_in_settings(tmp_path):
         await pilot.pause()
         assert dc.shown(app.storage, True) == [dc.CONTEXT, dc.GIT]
         assert dc.PATH not in dc.shown(app.storage, False)
+
+
+@pytest.mark.asyncio
+async def test_devices_window_pairs_by_qr_and_signs_a_device_out(tmp_path, monkeypatch):
+    from textual.widgets import Button, DataTable
+
+    from ccc import api, pairing
+    from ccc.tui.devices import DevicesModal
+
+    monkeypatch.setattr(pairing, "tailscale_url", lambda: "https://xia.ts.net:8737")
+    app = _app(tmp_path)
+    phone, _token = api.add_device(app.storage, "Pixel")
+    api.add_device(app.storage, "Tablet")
+    async with app.run_test(size=(120, 50)) as pilot:
+        settings = await _open_settings(pilot, app)
+        settings.query_one("#settings-devices", Button).press()
+        await pilot.pause()
+        assert isinstance(app.screen, DevicesModal)
+        table = app.screen.query_one("#devices-table", DataTable)
+        assert table.row_count == 2
+        app.screen.query_one("#devices-pair", Button).press()
+        await pilot.pause(0.5)
+        assert app.storage.get_setting(pairing.CODE_KEY)
+        assert "Address: https://xia.ts.net:8737" in str(app.screen.query_one("#devices-info").render())
+        app.screen.query_one("#devices-revoke", Button).press()
+        await pilot.pause()
+        assert [d.name for d in app.storage.list_devices()] == ["Tablet"]
+        assert phone.id not in [d.id for d in app.storage.list_devices()]
+        await pilot.press("escape")
+        await pilot.pause()
+        assert str(app.screen.query_one("#settings-devices-state").render()) == "1 signed in"

@@ -28,7 +28,18 @@ token.
    of its own and can be signed out alone: `ccc api devices` lists
    them, `ccc api revoke ID` signs one out.
 4. In the app enter the address (just `<computer>.<tailnet>.ts.net`
-   will do) and the token.
+   will do) and the token — or skip steps 3 and 4 and **pair by QR code**:
+
+   *Settings → Devices… → Pair a new device* (or `ccc api pair` in a
+   shell) shows a QR code; in the app choose *Connect → Scan QR*. The
+   code holds the API's address and a one-time pairing code, good for 5
+   minutes and for one phone; the app trades it for a token of its own
+   (`POST /pair`, the one request that needs no token), so nothing is
+   typed and the token never goes through the picture. ccc finds the
+   address in `tailscale serve status`; when it can't, give it with
+   `ccc api pair --server https://<computer>.<tailnet>.ts.net`.
+   *Settings → Devices…* also lists the phones signed in and signs one
+   out.
 
 Without the service, `ccc api serve` runs it in the terminal
 (`--port` for another port).
@@ -100,6 +111,7 @@ Every path starts with `/api/v1`; every request has the header
 | `GET /sessions?path=` | Claude Code sessions recorded in a folder, newest first (to resume one: `session_id` in `POST /conversations` with `session_resume`) |
 | `GET /launch-presets` | the New conversation presets and the last choice |
 | `GET /prompt-presets` | the preset prompts (Alt+1 … 9 in ccc) |
+| `POST /pair` | `{"code", "name"}` — no token needed: trades a pairing code from the QR for a new device; answers `{"token", "device_id", "name", "version"}`, 401 when the code is wrong, used or run out |
 | `GET /devices` | the devices signed in: name, made, last seen, address; `current` marks the caller. `POST /devices/{id}` `{"name"}` renames one, `DELETE /devices/{id}` signs it out at once (open connections too) |
 | `GET /groups` | the grouping and your own groups; `POST /groups/rename` `{"old", "new"}`, `POST /groups/delete` `{"name"}` |
 | `GET /search?q=` | search every conversation (archived too), newest first |

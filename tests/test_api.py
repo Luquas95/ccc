@@ -736,3 +736,69 @@ def test_cli_lists_and_signs_out_devices(storage, capsys):
     assert "Phone" in capsys.readouterr().out
     assert api_cli.run(storage, "", Namespace(api_command="revoke", id=device.id)) == 0
     assert api_cli.run(storage, "", Namespace(api_command="revoke", id=device.id)) == 1
+
+
+def test_pairing_code_is_good_once_and_only_until_it_runs_out(storage):
+    from ccc import pairing
+
+    code, expires = pairing.new_code(storage)
+    assert code not in storage.get_setting(pairing.CODE_KEY)
+    assert pairing.redeem(storage, "wrong", "Phone") is None
+    device, token = pairing.redeem(storage, code, "Phone")
+    assert api.authenticate(storage, token).id == device.id
+    assert pairing.redeem(storage, code, "Phone") is None
+    late, _ = pairing.new_code(storage)
+    assert pairing.redeem(storage, late, "Phone", now=expires + timedelta(hours=1)) is None
+    newer, _ = pairing.new_code(storage)
+    other, _ = pairing.new_code(storage)
+    assert pairing.redeem(storage, newer, "Phone") is None  # only the last code counts
+
+
+def test_http_pair_needs_no_token_but_a_good_code(server, storage):
+    from ccc import pairing
+
+    base, _token = server
+    code, _ = pairing.new_code(storage)
+    assert _call(f"{base}/api/v1/pair", None, "POST", {"code": "nope", "name": "Phone"})[0] == 401
+    status, result = _call(f"{base}/api/v1/pair", None, "POST", {"code": code, "name": "Pixel"})
+    assert status == 201
+    assert result["name"] == "Pixel"
+    assert _call(f"{base}/api/v1/status", result["token"])[0] == 200
+    assert _call(f"{base}/api/v1/pair", None, "POST", {"code": code, "name": "Pixel"})[0] == 401
+    assert _call(f"{base}/api/v1/status")[0] == 401  # everything else still wants a token
+
+
+def test_pairing_payload_and_qr(storage):
+    from urllib.parse import parse_qs, urlsplit
+
+    from ccc import pairing
+
+    payload = pairing.payload("https://xia.tail0ffcfb.ts.net:8737", "abc_-123")
+    query = parse_qs(urlsplit(payload).query)
+    assert payload.startswith("ccc://pair?")
+    assert query == {"server": ["https://xia.tail0ffcfb.ts.net:8737"], "code": ["abc_-123"]}
+    lines = pairing.qr_lines(payload)
+    assert len({len(line) for line in lines}) == 1  # a rectangle
+    assert set("".join(lines)) <= set(" ▀▄█")
+    assert len(lines[0]) > 20
+
+
+def test_server_address_is_the_one_set_else_tailscales(storage, monkeypatch):
+    from ccc import pairing
+
+    monkeypatch.setattr(pairing, "tailscale_url", lambda: "https://found.ts.net:8737")
+    assert pairing.server_url(storage) == "https://found.ts.net:8737"
+    storage.set_setting(pairing.SERVER_KEY, "https://mine.example/")
+    assert pairing.server_url(storage) == "https://mine.example"
+
+
+def test_cli_pair_prints_a_qr_for_the_address(storage, capsys):
+    from argparse import Namespace
+
+    from ccc import api_cli
+
+    assert api_cli.run(storage, "", Namespace(api_command="pair", server="https://x.ts.net:8737")) == 0
+    out = capsys.readouterr().out
+    assert "█" in out or "▀" in out
+    assert "https://x.ts.net:8737" in out
+    assert storage.get_setting("api_pair_code")

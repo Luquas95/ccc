@@ -23,6 +23,7 @@ změny zahodí. Tlačítka jako *Poslat testovací zprávu*, *Vypnout* nebo
 | Exporty | složka pro exportované konverzace (`e`) a snímky obrazovky (`Alt+S`); volitelně posílat každý export na Telegram / Discord |
 | Měsíční archiv analytiky | viz [Analytika](analytics.md) |
 | Aktualizace | hledání nových verzí ccc, zapnuto / vypnuto — viz níže |
+| Zařízení | telefony přihlášené k API pro aplikaci pro Android; spárování nového QR kódem, odhlášení jednoho — viz [Aplikace pro Android a API](android-api.md) |
 | Data | kde je databáze a její denní zálohy, *Zálohovat hned* |
 
 Stejné hodnoty se dají nastavit i z příkazové řádky, viz

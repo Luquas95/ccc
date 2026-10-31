@@ -1393,8 +1393,38 @@ CS: dict[str, str] = {
     "Unknown options: {options}.": "Neznámé volby: {options}.",
     "Something went wrong in ccc.": "V ccc se něco pokazilo.",
     "Choose one of: {options}.": "Vyber jen jedno z: {options}.",
-    "HTTP API for the Android app (serve, token, devices)":
-        "HTTP API pro aplikaci pro Android (serve, token, devices)",
+    "HTTP API for the Android app (serve, token, pair, devices)":
+        "HTTP API pro aplikaci pro Android (serve, token, pair, devices)",
+    "Show a QR code the app scans to sign in (good for 5 minutes)":
+        "Ukázat QR kód, který aplikace naskenuje a přihlásí se (platí 5 minut)",
+    "the API's address, if ccc can't find it (https://…ts.net)":
+        "adresa API, pokud ji ccc nenajde (https://…ts.net)",
+    "ccc can't tell where the app reaches the API. Put it on the tailnet (tailscale serve --bg 8737) "
+    "or give the address: ccc api pair --server https://<computer>.<tailnet>.ts.net":
+        "ccc nezjistí, kde aplikace API zzasáhne. Dej ho na tailnet (tailscale serve --bg 8737) "
+        "nebo zadej adresu: ccc api pair --server https://<počítač>.<tailnet>.ts.net",
+    "Scan it in the app (Connect → Scan QR). Good until {time}, once.":
+        "Naskenuj ho v aplikaci (Připojení → Skenovat QR). Platí do {time}, jednou.",
+    "Address: {server}": "Adresa: {server}",
+    "Phone": "Telefon",
+    "The pairing code is wrong, used or has run out.": "Párovací kód je špatný, už použitý nebo vypršel.",
+    "Devices": "Zařízení",
+    "Device": "Zařízení",
+    "Last seen": "Naposledy vidět",
+    "Address": "Adresa",
+    "Pair a new device": "Spárovat nové zařízení",
+    "Sign out": "Odhlásit",
+    "No device is signed in yet — pair one.": "Zatím není přihlášené žádné zařízení — spáruj nějaké.",
+    "Looking for the API's address…": "Hledám adresu API…",
+    "ccc can't tell where the app reaches the API. Put it on the tailnet "
+    "(tailscale serve --bg 8737) or run: ccc api pair --server https://…":
+        "ccc nezjistí, kde aplikace API zasáhne. Dej ho na tailnet "
+        "(tailscale serve --bg 8737) nebo spusť: ccc api pair --server https://…",
+    "Phones signed in to the Android app's API. Pair a new one by QR code, or sign one out.":
+        "Telefony přihlášené k API pro aplikaci pro Android. Nový spáruješ QR kódem, nebo jeden odhlásíš.",
+    "Devices…": "Zařízení…",
+    "{n} signed in": "přihlášeno: {n}",
+    "none": "žádné",
     "Run the API (what the ccc-api service runs)": "Spustit API (to, co spouští služba ccc-api)",
     "Make the token the app signs in with (shown once)": "Vytvořit token, kterým se aplikace přihlásí (ukáže se jen jednou)",
     "A token is set. ccc keeps only its fingerprint, so it can't show it again — "

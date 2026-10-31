@@ -1279,6 +1279,14 @@ class Storage:
             )
             conn.commit()
 
+    def delete_setting_if(self, key: str, value: str) -> bool:
+        """Delete a setting only while it still has this value; True when this call did.
+        Of two processes trying at once, exactly one gets True."""
+        with closing(self._connect()) as conn:
+            deleted = conn.execute("DELETE FROM settings WHERE key = ? AND value = ?", (key, value)).rowcount
+            conn.commit()
+        return bool(deleted)
+
     @staticmethod
     def _row_to_device(row: sqlite3.Row) -> Device:
         return Device(
