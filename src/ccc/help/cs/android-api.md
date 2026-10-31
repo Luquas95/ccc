@@ -43,7 +43,9 @@ požadavek potřebuje token.
    neprochází. QR kód má vlastní okno; jakmile se telefon spáruje, samo se zavře
    a okno Zařízení nové zařízení zvýrazní. Okno vypisuje všechny
    přihlášené telefony (název, kdy se spároval, naposledy vidět, adresa),
-   samo se obnovuje a *Odhlásit* jeden odebere. Adresu ccc najde v `tailscale serve status`; když ne,
+   samo se obnovuje a *Odhlásit* jeden odebere. *Historie* přepne na dřív odhlášená zařízení
+   (kdy a jak: v aplikaci, na počítači, novým tokenem) — jen ke čtení,
+   nic z ní nejde smazat. Adresu ccc najde v `tailscale serve status`; když ne,
    zadej ji: `ccc api pair --server https://<počítač>.<tailnet>.ts.net`.
    *Nastavení → Zařízení…* také vypíše přihlášené telefony a jeden
    odhlásí.
