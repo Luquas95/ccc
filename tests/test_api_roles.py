@@ -26,6 +26,10 @@ from test_api import _call, server, storage  # noqa: F401  (fixtures)
     ("GET", "/settings", ROLE_ADMIN),
     ("POST", "/settings", ROLE_ADMIN),
     ("POST", "/update", ROLE_ADMIN),
+    ("POST", "/prompt-presets", ROLE_ADMIN),
+    ("POST", "/launch-presets", ROLE_ADMIN),
+    ("POST", "/launch-presets/delete", ROLE_ADMIN),
+    ("GET", "/launch-presets", ROLE_READ),
     ("POST", "/app/build", ROLE_ADMIN),
     ("POST", "/backup", ROLE_ADMIN),
     ("DELETE", "/conversations/3", ROLE_ADMIN),
@@ -97,3 +101,9 @@ def test_cli_changes_a_role(storage, capsys):  # noqa: F811
     assert api_cli.run(storage, "", Namespace(api_command="role", id=device.id, role=ROLE_READ)) == 0
     assert storage.list_devices()[0].role == ROLE_READ
     assert api_cli.run(storage, "", Namespace(api_command="role", id=99, role=ROLE_READ)) == 1
+
+
+def test_a_device_that_only_looks_does_not_get_the_links_that_control_a_conversation():
+    answer = {"id": 1, "remote_control_url": "https://x", "list": [{"remote_control_url": "https://y", "name": "a"}]}
+    assert api_roles.strip_for(ROLE_READ, answer) == {"id": 1, "list": [{"name": "a"}]}
+    assert api_roles.strip_for(ROLE_OPERATE, answer) == answer

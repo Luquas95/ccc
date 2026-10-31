@@ -987,6 +987,7 @@ class _Handler(BaseHTTPRequestHandler):
             query[CALLER] = str(self._device.id)
             body = self._body() if method == "POST" else {}
             status, result = self.api.route(method, url.path, query, body)
+            result = api_roles.strip_for(self._device.role, result)
         except ApiError as exc:
             status, result = exc.status, {"error": exc.message}
         except Exception:

@@ -88,9 +88,9 @@ whole computer:
 
 | Role | May |
 |---|---|
-| `read` | look: every `GET` (lists, conversations, diffs, the events stream) |
+| `read` | look: every `GET` (lists, conversations, diffs, the events stream); without the links that control a conversation (`remote_control_url`) |
 | `operate` | also steer the conversations that exist: messages, approvals, queue, tasks, reviews, goals, workflows |
-| `admin` | also start conversations (any folder), type into a terminal, prompt live sessions, routines, revert a run, settings, backup, update ccc and build the app, manage other devices |
+| `admin` | also start conversations (any folder), type into a terminal, prompt live sessions, routines, revert a run, settings and presets, backup, update ccc and build the app, manage other devices |
 
 A newly paired phone is `operate`; `ccc api pair --role admin` (or
 *Change role* in the Devices window, or `ccc api role ID admin`) gives it
