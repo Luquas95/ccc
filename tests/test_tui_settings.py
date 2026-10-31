@@ -415,7 +415,7 @@ async def test_devices_window_pairs_by_qr_and_signs_a_device_out(tmp_path, monke
     from textual.widgets import Button, DataTable
 
     from ccc import api, pairing
-    from ccc.tui.devices import DevicesModal
+    from ccc.tui.devices import DevicesModal, PairModal
 
     monkeypatch.setattr(pairing, "tailscale_url", lambda: "https://xia.ts.net:8737")
     app = _app(tmp_path)
@@ -430,8 +430,12 @@ async def test_devices_window_pairs_by_qr_and_signs_a_device_out(tmp_path, monke
         assert table.row_count == 2
         app.screen.query_one("#devices-pair", Button).press()
         await pilot.pause(0.5)
+        assert isinstance(app.screen, PairModal)
         assert app.storage.get_setting(pairing.CODE_KEY)
-        assert "Address: https://xia.ts.net:8737" in str(app.screen.query_one("#devices-info").render())
+        assert "Address: https://xia.ts.net:8737" in str(app.screen.query_one("#pair-info").render())
+        await pilot.press("escape")
+        await pilot.pause()
+        assert isinstance(app.screen, DevicesModal)
         app.screen.query_one("#devices-revoke", Button).press()
         await pilot.pause()
         assert [d.name for d in app.storage.list_devices()] == ["Tablet"]
@@ -442,31 +446,48 @@ async def test_devices_window_pairs_by_qr_and_signs_a_device_out(tmp_path, monke
 
 
 @pytest.mark.asyncio
-async def test_devices_window_drops_the_qr_once_the_phone_has_paired(tmp_path, monkeypatch):
+async def test_pair_window_closes_by_itself_once_the_phone_has_paired(tmp_path, monkeypatch):
     from textual.widgets import Button, DataTable, Static
 
-    from ccc import pairing
-    from ccc.tui.devices import DevicesModal
+    from ccc import api, pairing
+    from ccc.tui.devices import DevicesModal, PairModal
 
     monkeypatch.setattr(pairing, "tailscale_url", lambda: "https://xia.ts.net:8737")
     app = _app(tmp_path)
-    async with app.run_test(size=(120, 50)) as pilot:
+    async with app.run_test(size=(100, 30)) as pilot:
+        settings = await _open_settings(pilot, app)
+        settings.query_one("#settings-devices", Button).press()
+        await pilot.pause()
+        app.screen.query_one("#devices-pair", Button).press()
+        await pilot.pause(0.5)
+        assert isinstance(app.screen, PairModal)
+        assert str(app.screen.query_one("#pair-qr", Static).render()).strip()
+        # The phone scans: the code is traded for a device.
+        app.storage.delete_setting_if(pairing.CODE_KEY, app.storage.get_setting(pairing.CODE_KEY))
+        api.add_device(app.storage, "Redmi")
+        await pilot.pause(2)
+        assert isinstance(app.screen, DevicesModal)
+        assert app.screen.query_one("#devices-table", DataTable).row_count == 1
+        assert "Paired: Redmi" in str(app.screen.query_one("#devices-info").render())
+
+
+@pytest.mark.asyncio
+async def test_devices_window_follows_a_sign_out_made_elsewhere(tmp_path):
+    from textual.widgets import Button, DataTable
+
+    from ccc import api
+    from ccc.tui.devices import DevicesModal
+
+    app = _app(tmp_path)
+    phone, _token = api.add_device(app.storage, "Pixel")
+    api.add_device(app.storage, "Tablet")
+    async with app.run_test(size=(100, 30)) as pilot:
         settings = await _open_settings(pilot, app)
         settings.query_one("#settings-devices", Button).press()
         await pilot.pause()
         assert isinstance(app.screen, DevicesModal)
-        app.screen.query_one("#devices-pair", Button).press()
-        await pilot.pause(0.5)
-        assert str(app.screen.query_one("#devices-qr", Static).render()).strip()
-        code = app.screen._waiting
-        assert code
-        # The phone scans: the code is traded for a device.
-        stored_code = app.storage.get_setting(pairing.CODE_KEY)
-        assert stored_code == code
-        app.storage.delete_setting_if(pairing.CODE_KEY, stored_code)
-        from ccc import api
-        api.add_device(app.storage, "Redmi")
-        await pilot.pause(2)
-        assert not str(app.screen.query_one("#devices-qr", Static).render()).strip()
-        assert app.screen.query_one("#devices-table", DataTable).row_count == 1
-        assert "Paired: Redmi" in str(app.screen.query_one("#devices-info").render())
+        table = app.screen.query_one("#devices-table", DataTable)
+        assert table.row_count == 2
+        app.storage.delete_device(phone.id)  # `ccc api revoke`, or the app signing out
+        await pilot.pause(3.5)
+        assert table.row_count == 1

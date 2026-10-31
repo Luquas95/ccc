@@ -1416,6 +1416,7 @@ CS: dict[str, str] = {
     "Devices": "Zařízení",
     "Device": "Zařízení",
     "Last seen": "Naposledy vidět",
+    "Paired": "Spárováno",
     "Address": "Adresa",
     "Pair a new device": "Spárovat nové zařízení",
     "Sign out": "Odhlásit",

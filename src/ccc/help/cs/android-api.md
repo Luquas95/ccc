@@ -33,8 +33,10 @@ požadavek potřebuje token.
    Kód obsahuje adresu API a jednorázový párovací kód, platný 5 minut a
    pro jeden telefon; aplikace ho vymění za vlastní token (`POST /pair`,
    jediný požadavek bez tokenu), takže se nic nepíše a token obrázkem
-   neprochází. Jakmile se telefon spáruje, okno Zařízení QR kód schová
-   a nové zařízení zvýrazní. Adresu ccc najde v `tailscale serve status`; když ne,
+   neprochází. QR kód má vlastní okno; jakmile se telefon spáruje, samo se zavře
+   a okno Zařízení nové zařízení zvýrazní. Okno vypisuje všechny
+   přihlášené telefony (název, kdy se spároval, naposledy vidět, adresa),
+   samo se obnovuje a *Odhlásit* jeden odebere. Adresu ccc najde v `tailscale serve status`; když ne,
    zadej ji: `ccc api pair --server https://<počítač>.<tailnet>.ts.net`.
    *Nastavení → Zařízení…* také vypíše přihlášené telefony a jeden
    odhlásí.
