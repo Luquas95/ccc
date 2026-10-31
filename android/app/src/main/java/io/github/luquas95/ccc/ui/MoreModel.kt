@@ -205,6 +205,9 @@ class MoreModel(
 
     // --- settings -----------------------------------------------------------------------------------
 
+    /** So an earlier visit's values aren't shown while the current ones load. */
+    fun clearSettings() { _settings.value = null }
+
     fun loadSettings() = go { api -> _settings.value = api.settings() }
 
     fun changeSettings(changes: Map<String, JsonElement>, done: String) = go { api ->

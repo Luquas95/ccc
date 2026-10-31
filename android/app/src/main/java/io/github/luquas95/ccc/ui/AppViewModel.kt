@@ -316,7 +316,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             is Screen.Agents -> more.openAgents(screen.id)
             Screen.Routines -> more.loadRoutines()
             Screen.Analytics -> more.loadAnalytics()
-            Screen.CccSettings -> more.loadSettings()
+            Screen.CccSettings -> { more.clearSettings(); more.loadSettings() }
             is Screen.Terminal -> more.openTerminal(screen.id, { api }, { foreground && _screens.value.lastOrNull() == screen })
             is Screen.Diff -> {
                 _diff.value = DiffState(screen.runId)
@@ -495,6 +495,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun setForeground(value: Boolean) {
         if (value) checkNewVersion()
         foreground = value
+        // ccc's settings are changed on the computer too (the TUI): look again when the app comes back (#174).
+        if (value && _screens.value.lastOrNull() == Screen.CccSettings) more.loadSettings()
         if (value) restartEvents() else events?.cancel()
     }
 
