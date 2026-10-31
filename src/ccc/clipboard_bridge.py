@@ -44,6 +44,15 @@ def changed_buffer(line: str) -> str | None:
     return None
 
 
+def read_buffer(buffer_name: str) -> bytes | None:
+    """The session server's paste buffer (None if it's empty or gone)."""
+    saved = subprocess.run(
+        ["tmux", "-L", managed_sessions.TMUX_SOCKET, "save-buffer", "-b", buffer_name, "-"],
+        capture_output=True, timeout=5,
+    )
+    return saved.stdout if saved.returncode == 0 and saved.stdout else None
+
+
 def forward(buffer_name: str) -> bool:
     """Load the session server's buffer into ccc's server and onto the
     clipboard of its client."""
@@ -66,9 +75,11 @@ def control_command(queue_id: int) -> list[str]:
             "-t", managed_sessions.target(queue_id)]
 
 
-def listen(queue_id: int, stop: threading.Event) -> None:
+def listen(queue_id: int, stop: threading.Event, on_copy=None) -> None:
     """Forward buffers until `stop` is set; reconnects if the session (or
-    its server) goes away and comes back."""
+    its server) goes away and comes back. `on_copy(text)`: ccc shows Claude
+    Code itself (tui.claude_pane) and has no tmux server of its own to load
+    the buffer into — the text goes to the callback instead."""
     env = {k: v for k, v in os.environ.items() if k not in ("TMUX", "TMUX_PANE")}
     while not stop.is_set():
         try:
@@ -83,15 +94,18 @@ def listen(queue_id: int, stop: threading.Event) -> None:
                     break
                 name = changed_buffer(line)
                 if name is not None:
-                    forward(name)
+                    if on_copy is None:
+                        forward(name)
+                    elif (data := read_buffer(name)) is not None:
+                        on_copy(data.decode("utf-8", "replace"))
         finally:
             client.kill()
             client.wait()
         stop.wait(RETRY_SECONDS)
 
 
-def start(queue_id: int) -> threading.Event:
+def start(queue_id: int, on_copy=None) -> threading.Event:
     """Run the bridge in a daemon thread; set the returned event to stop."""
     stop = threading.Event()
-    threading.Thread(target=listen, args=(queue_id, stop), daemon=True, name="clipboard-bridge").start()
+    threading.Thread(target=listen, args=(queue_id, stop, on_copy), daemon=True, name="clipboard-bridge").start()
     return stop

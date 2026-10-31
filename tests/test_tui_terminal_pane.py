@@ -5,7 +5,7 @@ import sys
 import pytest
 from textual.app import App
 
-from ccc.tui.terminal_pane import TerminalPane, color, encode_key
+from ccc.tui.terminal_pane import TerminalPane, color, encode_key, safe_paste
 
 
 class Host(App):
@@ -95,3 +95,101 @@ async def test_private_csi_sequences_do_not_change_the_text_style():
         await wait_for(pane, "abcd")
         await pilot.pause(0.1)
         assert all(seg.style.underline is None for seg in pane.render_line(0))
+
+
+def reader(extra=""):
+    """A command that echoes what it receives, readably, a line per chunk, after `extra`."""
+    code = (
+        "import os,sys,termios,tty;tty.setraw(0);"
+        + extra +
+        "sys.stdout.write('ready\\r\\n');sys.stdout.flush()\n"
+        "while True:\n"
+        " d=os.read(0,100)\n"
+        " sys.stdout.write('rx:'+repr(d.decode())+'\\r\\n');sys.stdout.flush()\n"
+    )
+    return [sys.executable, "-c", code]
+
+
+@pytest.mark.asyncio
+async def test_application_cursor_keys_and_focus_events_follow_the_commands_modes():
+    app = Host(reader("sys.stdout.write('\\x1b[?1h\\x1b[?1004h');"))
+    async with app.run_test(size=(60, 8)) as pilot:
+        pane = app.query_one(TerminalPane)
+        await wait_for(pane, "ready")
+        pane.focus()
+        await pilot.pause(0.2)
+        await pilot.press("up")
+        await wait_for(pane, "\\x1bOA")
+
+
+@pytest.mark.asyncio
+async def test_mouse_goes_to_the_command_when_it_asks_for_it():
+    app = Host(reader("sys.stdout.write('\\x1b[?1000h\\x1b[?1006h');"))
+    async with app.run_test(size=(60, 8)) as pilot:
+        pane = app.query_one(TerminalPane)
+        await wait_for(pane, "ready")
+        await pilot.pause(0.2)
+        await pilot.click(TerminalPane, offset=(4, 2))
+        await wait_for(pane, "\\x1b[<0;5;3M")
+        await wait_for(pane, "\\x1b[<0;5;3m")
+        await pilot.mouse_down(TerminalPane, offset=(1, 1), shift=False)
+        await pilot.hover(TerminalPane, offset=(1, 1))
+        pane.post_message(__import__("textual.events", fromlist=["x"]).MouseScrollUp(
+            pane, 3, 1, 0, 0, 0, False, False, False, screen_x=3, screen_y=1))
+        await wait_for(pane, "\\x1b[<64;4;2M")
+
+
+@pytest.mark.asyncio
+async def test_dragging_selects_text_and_copies_it():
+    app = Host(["sh", "-c", "printf 'hello world\\nsecond line'; sleep 5"])
+    copied = []
+    async with app.run_test(size=(40, 6)) as pilot:
+        pane = app.query_one(TerminalPane)
+        app.copy_to_clipboard = copied.append
+        await wait_for(pane, "second line")
+        await pilot.pause(0.2)
+        await pilot.mouse_down(TerminalPane, offset=(6, 0))
+        await pilot.hover(TerminalPane, offset=(5, 1))
+        await pilot.mouse_up(TerminalPane, offset=(5, 1))
+        await pilot.pause(0.1)
+        assert copied == ["world\nsecond"]
+        assert pane.render_line(0).text.startswith("hello world")
+        assert any(seg.style.reverse for seg in pane.render_line(0))
+
+
+@pytest.mark.asyncio
+async def test_clipboard_sequence_from_the_command_reaches_the_clipboard():
+    app = Host(["sh", "-c", r"printf '\033]52;c;aGVsbG8=\007'; printf 'ok'; sleep 5"])
+    copied = []
+    async with app.run_test(size=(40, 6)) as pilot:
+        app.copy_to_clipboard = copied.append
+        await wait_for(app.query_one(TerminalPane), "ok")
+        assert copied == ["hello"]
+
+
+@pytest.mark.asyncio
+async def test_ccc_keys_are_not_taken_by_the_terminal():
+    class Keys(Host):
+        BINDINGS = [("alt+1", "preset", "preset")]
+
+        def compose(self):
+            yield TerminalPane(self.command, passthrough={"alt+1"}, id="term")
+
+        def action_preset(self):
+            self.events.append(("preset",))
+
+    app = Keys(reader())
+    async with app.run_test(size=(40, 6)) as pilot:
+        pane = app.query_one(TerminalPane)
+        await wait_for(pane, "ready")
+        pane.focus()
+        await pilot.pause(0.2)
+        await pilot.press("alt+1", "a")
+        await wait_for(pane, "rx:'a'")
+        assert ("preset",) in app.events and "alt" not in pane.text()
+
+
+def test_unknown_colours_fall_back_and_paste_loses_control_characters():
+    assert color("brightbrown") == "bright_yellow" and color("nonsense") is None
+    assert color("brightnonsense") is None and color("zzzzzz") is None
+    assert safe_paste("a\x1b[201~b\x1b]52;c;x\x07\tc\r\nd\x9bq") == "a[201~b]52;c;x\tc\r\ndq"
