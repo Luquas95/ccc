@@ -49,6 +49,7 @@ class CCContinueApp(App):
     def __init__(self, db_path: str):
         super().__init__()
         self.storage = Storage(db_path)
+        self.register_theme(theme.THEME)
         self.theme = theme.NAME
 
     def get_theme_variable_defaults(self) -> dict[str, str]:
