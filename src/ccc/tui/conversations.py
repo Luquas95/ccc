@@ -158,6 +158,9 @@ class ConversationsScreen(SidebarScreen):
         color: green;
         text-style: bold;
         content-align: center middle;
+        border: round $ccc-frame;
+        border-title-color: $ccc-title;
+        border-title-style: bold;
     }
     ConversationsScreen.-no-conversation #main {
         background: black;
@@ -320,6 +323,7 @@ class ConversationsScreen(SidebarScreen):
         yield PixelBanner(self.BANNER_TEXT, id="no-conversation")
 
     async def on_mount(self) -> None:
+        self.query_one("#no-conversation").border_title = _("Archive") if self.ARCHIVED else _("Conversations")
         table = self.query_one("#conversation-queue-list", DataTable)
         table.cursor_type = "row"
         table.show_header = False
