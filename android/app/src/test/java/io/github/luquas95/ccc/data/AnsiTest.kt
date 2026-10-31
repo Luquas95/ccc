@@ -38,4 +38,15 @@ class AnsiTest {
         val parsed = Ansi.parse("a\u001b[2Kb\nc\u001b(B")
         assertEquals(listOf(Segment("ab\nc", TextStyle())), parsed)
     }
+
+    @Test
+    fun `a hyperlink keeps its text and loses the escape`() {
+        val parsed = Ansi.parse("see \u001b]8;id=1;https://x.cz/a\u001b\\docs\u001b]8;;\u001b\\ and \u001b]8;;https://y.cz\u0007more\u001b]8;;\u0007.")
+        assertEquals(listOf(Segment("see docs and more.", TextStyle())), parsed)
+    }
+
+    @Test
+    fun `the play glyph without a font becomes a triangle`() {
+        assertEquals(listOf(Segment("▶▶ accept edits", TextStyle())), Ansi.parse("⏵⏵ accept edits"))
+    }
 }
