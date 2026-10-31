@@ -35,6 +35,18 @@ def _folder(value: str) -> str:
     return str(Path(value.strip()).expanduser()) if value.strip() else ""
 
 
+def _session_word(word: str | None) -> str | None:
+    """What `claude agents` calls a session's kind / status / state, in the request's language; a word
+    ccc doesn't know stays as Claude Code wrote it."""
+    if not word:
+        return word
+    known = {
+        "interactive": _("interactive"), "background": _("background"), "idle": _("idle"), "busy": _("busy"),
+        "working": _("working"), "waiting": _("waiting"), "blocked": _("blocked"),
+    }
+    return known.get(word, word)
+
+
 class ViewEndpoints:
     storage: object
 
@@ -158,7 +170,8 @@ class ViewEndpoints:
 
         return [
             {"session_id": s.session_id, "name": s.name, "cwd": s.cwd, "kind": s.kind, "status": s.status,
-             "state": s.state}
+             "state": s.state, "kind_label": _session_word(s.kind), "status_label": _session_word(s.status),
+             "state_label": _session_word(s.state)}
             for s in discover_sessions()
         ]
 

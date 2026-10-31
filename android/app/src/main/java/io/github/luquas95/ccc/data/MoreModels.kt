@@ -163,6 +163,10 @@ data class LiveSession(
     val kind: String,
     val status: String? = null,
     val state: String? = null,
+    /** kind / status / state in the phone's language (ccc translates them); absent from an older ccc. */
+    @SerialName("kind_label") val kindLabel: String? = null,
+    @SerialName("status_label") val statusLabel: String? = null,
+    @SerialName("state_label") val stateLabel: String? = null,
 )
 
 @Serializable

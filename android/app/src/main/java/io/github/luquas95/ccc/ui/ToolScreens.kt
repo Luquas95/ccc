@@ -216,7 +216,7 @@ fun LiveSessionsScreen(
             items(sessions, key = { it.sessionId }) { session ->
                 Column(Modifier.clickable { target = session }) {
                     Section(session.name) {
-                        Text(listOfNotNull(session.kind, session.status, session.state).joinToString(" · "),
+                        Text(listOfNotNull(session.kindLabel ?: session.kind, session.statusLabel ?: session.status, session.stateLabel ?: session.state).joinToString(" · "),
                             style = MaterialTheme.typography.labelMedium,
                             color = if (session.status == "idle") CccColors.Claude else CccColors.Waiting)
                         Text(session.cwd, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)

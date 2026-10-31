@@ -121,7 +121,7 @@ settings it shows are the ones that apply to both sides.
 | `GET /conversations/{id}/workflows` | its workflow runs, each with its steps and what every agent said; `POST` starts one `{"template", "task", "check", "rounds"}`; `POST …/workflows/answer` `{"approve", "note"}` at a gate; `POST …/workflows/stop` |
 | `GET /conversations/{id}/asks` | [questions](asking.md) to and from it; `POST` asks another `{"to", "question", "deliver"}`; `POST /asks/{id}/cancel` |
 | `GET /routines` | every [routine](routines.md) and the schedule kinds; `POST` adds one `{"conversation_id", "name", "prompt", "kind", "value", "fresh"}`; `POST /routines/{id}` changes it, `DELETE` removes it; `POST …/enabled` `{"enabled"}`, `POST …/run` |
-| `GET /live-sessions` | [Claude Code sessions](live-sessions.md) running on the computer; `POST /live-sessions/{id}/prompt` `{"prompt"}` |
+| `GET /live-sessions` | [Claude Code sessions](live-sessions.md) running on the computer (`kind`, `status`, `state` as Claude Code names them, plus `kind_label`, `status_label`, `state_label` in the request's language); `POST /live-sessions/{id}/prompt` `{"prompt"}` |
 | `GET /analytics?year=&month=` | a month's tokens per day, model and conversation, the months there are ([Analytics](analytics.md)); `POST /analytics/archive` archives finished months now |
 | `GET /settings` | ccc's [settings](settings.md) with the choices for each (secrets only as set / not set); `POST` changes some of them; `POST /settings/telegram-test`, `telegram-off`, `discord-test`, `discord-off` |
 | `POST /prompt-presets` | `{"presets": [{"name", "text", "send_now"}]}` — all of them, in order; `POST /launch-presets` saves a New conversation preset, `POST /launch-presets/delete` `{"name"}` |
