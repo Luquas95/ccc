@@ -256,7 +256,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Try the server and token; keep them when ccc answers. */
     fun connect(server: String, token: String, onDone: (Boolean) -> Unit) {
-        val candidate = runCatching { api(server, token) }.getOrElse {
+        val candidate = runCatching { CccApi(server, token) }.getOrElse {
             _message.value = text(R.string.error_server_address)
             onDone(false)
             return
@@ -265,7 +265,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 candidate.status()
                 settings.save(server, token)
-                api = candidate
+                api = api(server, token)
                 _home.value = HomeState()
                 _screens.value = listOf(Screen.Conversations)
                 restartEvents()
@@ -275,7 +275,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
-                _message.value = describe(e)
+                // A typed token that ccc doesn't know is not "signed out on the computer".
+                _message.value = if (e is ApiException && e.code == 401) text(R.string.error_token_wrong) else describe(e)
                 onDone(false)
             }
         }
@@ -768,5 +769,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun text(id: Int): String = getApplication<Application>().getString(id)
 
-    private fun api(server: String, token: String) = CccApi(server, token)
+    /** The client of the signed-in phone: a 401 from it means the token was revoked on the computer. */
+    private fun api(server: String, token: String) =
+        CccApi(server, token, onUnauthorized = { viewModelScope.launch { tokenRevoked() } })
+
+    /** ccc refused our token: forget it, show the sign-in screen with the reason, stop asking. */
+    private fun tokenRevoked() {
+        if (api == null) return
+        signOut()
+        _message.value = text(R.string.error_token)
+    }
 }

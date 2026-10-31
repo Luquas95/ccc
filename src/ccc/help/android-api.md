@@ -26,7 +26,9 @@ token.
    `ccc api token --new` makes a new one; every device signed in before
    is signed out at once, open connections too. Each device has a token
    of its own and can be signed out alone: `ccc api devices` lists
-   them, `ccc api revoke ID` signs one out.
+   them, `ccc api revoke ID` signs one out. An app whose token was
+   revoked notices on its next request (the open events stream ends too):
+   it forgets the token, stops asking and shows the sign-in screen.
 4. In the app enter the address (just `<computer>.<tailnet>.ts.net`
    will do) and the token — or skip steps 3 and 4 and **pair by QR code**:
 

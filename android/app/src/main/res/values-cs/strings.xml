@@ -91,7 +91,8 @@
 
     <!-- Chyby -->
     <string name="error_network">ccc není dostupné. Je počítač zapnutý a v tvém tailnetu?</string>
-    <string name="error_token">ccc token odmítlo — telefon mohl být odhlášen. Naskenuj nový QR kód (ccc api pair).</string>
+    <string name="error_token">Tento telefon byl odhlášen na počítači. Naskenuj nový QR kód (ccc api pair).</string>
+    <string name="error_token_wrong">ccc tento token odmítlo. Zkontroluj ho (ccc api token) nebo naskenuj QR kód.</string>
     <string name="error_qr">To není QR kód ccc. Použij ten z ccc api pair.</string>
     <string name="error_pairing">QR kód je špatný, už použitý nebo vypršel. Vytvoř nový (ccc api pair).</string>
     <string name="error_server_address">To není adresa.</string>

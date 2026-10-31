@@ -130,6 +130,28 @@ class CccApiTest {
     }
 
     @Test
+    fun `a refused token is reported as signed out, a wrong pairing code is not`() = runBlocking {
+        answers["status"] = 401 to """{"error": "Missing or wrong token."}"""
+        answers["pair"] = 401 to """{"error": "The pairing code is wrong, used or has run out."}"""
+        var refused = 0
+        val base = "http://127.0.0.1:${server.address.port}"
+        try {
+            CccApi(base, "revoked", onUnauthorized = { refused++ }).status()
+            fail("expected an error")
+        } catch (e: ApiException) {
+            assertEquals(401, e.code)
+        }
+        assertEquals(1, refused)
+        try {
+            CccApi(base, onUnauthorized = { refused++ }).pair("nope", "Pixel")
+            fail("expected an error")
+        } catch (e: ApiException) {
+            assertEquals(401, e.code)
+        }
+        assertEquals(1, refused)
+    }
+
+    @Test
     fun `lists the devices and signs one out`() = runBlocking {
         answers["devices"] = 200 to """{"devices": [{"id": 1, "name": "Pixel", "last_seen_at": "2026-10-30T12:00:00",
             "last_ip": "100.64.0.7", "current": true}, {"id": 2, "name": "Tablet", "created_at": "2026-10-29T08:00:00"}]}"""
