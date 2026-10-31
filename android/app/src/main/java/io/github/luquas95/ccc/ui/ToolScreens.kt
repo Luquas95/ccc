@@ -536,7 +536,7 @@ private fun PromptPresetsSection(presets: List<PromptPreset>, onSave: (List<Prom
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(name, { name = it }, singleLine = true, label = { Text(stringResource(R.string.name)) })
                     OutlinedTextField(text, { text = it }, minLines = 3, label = { Text(stringResource(R.string.text)) })
-                    CheckLine(stringResource(R.string.send_now), sendNow) { sendNow = it }
+                    CheckLine(stringResource(if (sendNow) R.string.send_now else R.string.send_now_off), sendNow) { sendNow = it }
                 }
             },
             confirmButton = {

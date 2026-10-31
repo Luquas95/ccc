@@ -288,7 +288,8 @@
     <string name="routine_when">How often</string>
     <string name="run_counts">✓ %1$d · ✖ %2$d · limit %3$d</string>
     <string name="secret_saved">saved — type a new one to replace it</string>
-    <string name="send_now">Send at once (⏎), else put into the message (✎)</string>
+    <string name="send_now">The text is sent to the conversation</string>
+    <string name="send_now_off">The text is put into the text field</string>
     <string name="preset_send_title">Send “%1$s” now?</string>
     <string name="send_test">Send test message</string>
     <string name="settings_context">Context</string>

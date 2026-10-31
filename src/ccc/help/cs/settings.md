@@ -52,8 +52,8 @@ selže“, „zkontroluj tenhle soubor: “ — uložené jednou, použitelné
 v každé konverzaci přes `Alt+1` … `Alt+9`.
 
 - **Nastavení:** *Přednastavené prompty* → *Přidat* / *Upravit*:
-  **název** (ukazuje se v liště), **prompt** a **Odeslat hned (s
-  Enterem)**. *Nahoru* / *Dolů* určují pořadí — první je `Alt+1`.
+  **název** (ukazuje se v liště), **prompt** a zaškrtávátko
+  **„Text se odešle do konverzace“**. *Nahoru* / *Dolů* určují pořadí — první je `Alt+1`.
   Nejvýš 9.
 - **Použití:** stiskni klávesu, nebo klikni na předvolbu v liště.
   - Prompty `⏎` se hned **odešlou**.

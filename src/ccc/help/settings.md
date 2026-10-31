@@ -51,7 +51,7 @@ fails", "review this file: " — saved once, used in any conversation with
 `Alt+1` … `Alt+9`.
 
 - **Set up:** *Preset prompts* → *Add* / *Edit*: a **name** (shown in the
-  bar), the **prompt** and **Send right away (with Enter)**. *Up* /
+  bar), the **prompt** and **the “sent to the conversation” checkbox**. *Up* /
   *Down* set the order — the first is `Alt+1`. Up to 9.
 - **Use:** press the key or click the preset in the bar.
   - `⏎` presets are **sent** at once.

@@ -293,8 +293,8 @@ CS: dict[str, str] = {
     "New preset prompt": "Nový přednastavený prompt",
     "Name (shown in the bar under the message box)": "Název (zobrazí se v liště pod polem pro zprávu)",
     "e.g. Tests": "např. Testy",
-    "Send right away (with Enter) — otherwise only put into the message box":
-        "Odeslat hned (s Enterem) — jinak jen vložit do pole pro zprávu",
+    "The text is sent to the conversation": "Text se odešle do konverzace",
+    "The text is put into the text field": "Text se vloží do textového pole",
     "No preset prompts — add them in Settings (Ctrl+P)": "Žádné přednastavené prompty — přidej je v Nastavení (Ctrl+P)",
 
     # --- Search / exports -------------------------------------------------------
