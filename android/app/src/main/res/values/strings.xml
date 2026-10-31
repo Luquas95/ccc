@@ -11,6 +11,10 @@
     <string name="setup_token_hint">From ccc api token on the computer</string>
     <string name="setup_connect">Connect</string>
     <string name="setup_sign_out">Sign out</string>
+    <string name="sign_out_title">Sign out?</string>
+    <string name="sign_out_other">%1$s will be signed out at once and its token stops working.</string>
+    <string name="sign_out_this">%1$s is this phone. It will be signed out and you will have to pair it again.</string>
+    <string name="sign_out_this_phone">This phone will be signed out of ccc. You will have to pair it again.</string>
     <string name="setup_connected_to">Connected to %1$s</string>
     <string name="pair_title">Sign in to this ccc?</string>
     <string name="pair_text">The QR code is for %1$s. Anyone can print a QR code — continue only if it is your own computer.</string>
