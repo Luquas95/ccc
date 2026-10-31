@@ -38,6 +38,7 @@ def add_parser(subparsers) -> None:
     skip.add_argument("state", choices=("on", "off"), nargs="?", help=_("leave out to show the state"))
     log = sub.add_parser("log", help=_("What the devices did: changes, refusals and pairings (newest last)"))
     log.add_argument("-n", type=int, default=50, help=_("how many entries (default 50)"))
+    sub.add_parser("doctor", help=_("Check the API's security: where it listens, file permissions, devices, limits, alarms"))
     devices = sub.add_parser("devices", help=_("List the devices signed in"))
     devices.add_argument("--all", action="store_true", help=_("also the devices signed out (history, read only)"))
     revoke = sub.add_parser("revoke", help=_("Sign a device out"))
@@ -67,6 +68,14 @@ def run(storage, db_path: str, args: argparse.Namespace) -> int:
         if not entries:
             print(_("Nothing logged yet."))
         return 0
+    if args.api_command == "doctor":
+        from ccc import api_doctor
+
+        checks = api_doctor.run_checks(storage, db_path)
+        marks = {api_doctor.OK: "✓", api_doctor.WARN: "!", api_doctor.FAIL: "✗"}
+        for check in checks:
+            print(f"{marks[check.level]} {check.text}")
+        return 1 if any(c.level == api_doctor.FAIL for c in checks) else 0
     if args.api_command == "role":
         if not storage.set_device_role(args.id, args.role):
             print(_("No such device."))

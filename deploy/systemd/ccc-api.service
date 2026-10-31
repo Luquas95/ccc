@@ -10,5 +10,21 @@ ExecStart=@CCC_DIR@/.venv/bin/ccc api serve
 Restart=on-failure
 RestartSec=5
 
+# Hardening (#160). The API builds the app (Gradle), runs git and sends keys to
+# tmux, so the sandbox cannot be tight (no ProtectSystem / PrivateTmp /
+# MemoryDenyWriteExecute: tmux's socket is in /tmp, the JVM needs JIT); these
+# stop the API, and anything it starts, from gaining more than it has.
+NoNewPrivileges=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+# TCP (it listens on 127.0.0.1; git, Telegram and Gradle call out) and unix sockets (tmux); nothing else.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# Files it makes (the database, the app build, QR pictures) are the owner's alone.
+UMask=0077
+
 [Install]
 WantedBy=default.target
