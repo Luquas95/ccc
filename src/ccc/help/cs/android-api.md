@@ -94,6 +94,20 @@ zařízení jakoukoli roli, smí se samo přejmenovat a odhlásit. `operate` st�
 dovolí telefonu schvalovat použití nástrojů v existující konverzaci — to je
 smysl jejího řízení.
 
+## Složky a kontroly oprávnění
+
+Konverzace je Claude Code běžící jako ty v nějaké složce, proto o tom, kde
+a jak volně ji smí appka založit, rozhoduje počítač — ne telefon:
+
+- **Složky:** `ccc api roots --add ~/DEV` povolí složku a vše v ní
+  (`--remove` zruší, bez volby vypíše). Dokud žádnou nenastavíš, smí appka
+  jen složky, ve kterých už ccc konverzace má — nedojde do `~` ani `/` (konverzace kdysi založená v `~` nic dalšího neotevře).
+  Kontrola sleduje symlinky. Týká se zakládání konverzace, prompt do živé relace, `GET /sessions`
+  a `GET /mcp-servers`; složka mimo dostane `403`.
+- **Přeskočit všechny kontroly oprávnění:** z appky se odmítne (`403`), dokud
+  nespustíš `ccc api skip-permissions on` (`off` to vrátí). Do té doby je
+  výchozí volba v appce *Ptát se na všechno*: schvaluješ v appce.
+
 ## Endpointy
 
 Každá cesta začíná `/api/v1`; každý požadavek má hlavičku

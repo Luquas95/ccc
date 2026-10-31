@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from ccc import api
+from ccc import api, api_scope
 from ccc.models import QueueStatus
 from ccc.storage import Storage
 from ccc.usage_api import ProUsage, WindowUsage
@@ -14,7 +14,11 @@ from ccc.usage_api import ProUsage, WindowUsage
 
 @pytest.fixture
 def storage(tmp_path):
-    return Storage(str(tmp_path / "ccc.db"))
+    # These tests are about the endpoints, so the scope (ccc.api_scope) is wide open; tests/test_api_scope.py closes it.
+    opened = Storage(str(tmp_path / "ccc.db"))
+    api_scope.add_root(opened, "/")
+    api_scope.set_skip_allowed(opened, True)
+    return opened
 
 
 @pytest.fixture

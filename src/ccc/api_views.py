@@ -22,7 +22,7 @@ from datetime import date, datetime
 from http import HTTPStatus
 from pathlib import Path
 
-from ccc import context_fill, groups, i18n, routines
+from ccc import api_scope, context_fill, groups, i18n, routines
 from ccc.api_common import ApiError, int_of, iso, route, text_of
 from ccc.i18n import _
 from ccc.models import RoutineTarget
@@ -186,6 +186,7 @@ class ViewEndpoints:
         session = next((s for s in discover_sessions() if s.session_id == session_id), None)
         if session is None:
             raise ApiError(HTTPStatus.NOT_FOUND, _("That session isn't running any more."))
+        api_scope.check_folder(self.storage, session.cwd)
         queue = attach_to_session(self.storage, session.session_id, session.cwd, session.name, prompt)
         return {"conversation_id": queue.id}
 

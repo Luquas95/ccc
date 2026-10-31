@@ -6,7 +6,7 @@ import argparse
 import logging
 from pathlib import Path
 
-from ccc import api, pairing
+from ccc import api, api_scope, pairing
 from ccc.i18n import _
 from ccc.models import REVOKED_BY_COMPUTER, ROLES
 
@@ -31,6 +31,11 @@ def add_parser(subparsers) -> None:
     role = sub.add_parser("role", help=_("Change what a device may do"))
     role.add_argument("id", type=int, help=_("its number from `ccc api devices`"))
     role.add_argument("role", choices=ROLES)
+    roots = sub.add_parser("roots", help=_("Folders the app may start conversations in (none set: only those ccc already knows)"))
+    roots.add_argument("--add", metavar="FOLDER", help=_("allow this folder and everything inside it"))
+    roots.add_argument("--remove", metavar="FOLDER", help=_("stop allowing this folder"))
+    skip = sub.add_parser("skip-permissions", help=_("Whether the app may start conversations that skip every permission check"))
+    skip.add_argument("state", choices=("on", "off"), nargs="?", help=_("leave out to show the state"))
     devices = sub.add_parser("devices", help=_("List the devices signed in"))
     devices.add_argument("--all", action="store_true", help=_("also the devices signed out (history, read only)"))
     revoke = sub.add_parser("revoke", help=_("Sign a device out"))
@@ -44,6 +49,14 @@ def run(storage, db_path: str, args: argparse.Namespace) -> int:
         return 0
     if args.api_command == "pair":
         return _pair(storage, args.server, getattr(args, "image", None), getattr(args, "role", pairing.DEFAULT_ROLE))
+    if args.api_command == "roots":
+        return _roots(storage, args.add, args.remove)
+    if args.api_command == "skip-permissions":
+        if args.state:
+            api_scope.set_skip_allowed(storage, args.state == "on")
+        print(_("The app may start conversations that skip permission checks: {state}.").format(
+            state=_("yes") if api_scope.skip_allowed(storage) else _("no")))
+        return 0
     if args.api_command == "role":
         if not storage.set_device_role(args.id, args.role):
             print(_("No such device."))
@@ -95,4 +108,22 @@ def _pair(storage, server: str | None, image: str | None = None, role: str = pai
     print(_("Scan it in the app (Connect → Scan QR). Good until {time}, once.").format(time=expires.strftime("%H:%M")))
     print(_("Address: {server}").format(server=server))
     print(_("The phone will be: {role}.").format(role=role))
+    return 0
+
+
+def _roots(storage, add: str | None, remove: str | None) -> int:
+    try:
+        if add:
+            print(_("Allowed: {path}").format(path=api_scope.add_root(storage, add)))
+        if remove and not api_scope.remove_root(storage, remove):
+            print(_("That folder wasn't allowed."))
+            return 1
+    except ValueError as exc:
+        print(exc)
+        return 1
+    chosen = api_scope.roots(storage)
+    print(_("The app may start conversations in:") if chosen
+          else _("No folder set: the app may use only the folders ccc already knows:"))
+    for folder in chosen or api_scope.allowed_folders(storage):
+        print(f"  {folder}")
     return 0
