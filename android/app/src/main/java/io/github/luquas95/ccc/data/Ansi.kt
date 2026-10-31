@@ -20,9 +20,12 @@ data class Segment(val text: String, val style: TextStyle)
  */
 object Ansi {
     // CSI (ESC [ … letter), a charset choice (ESC ( B and the like), any other two-character escape.
-    private val ESCAPE = Regex("\u001b\\[([0-9;:?]*)([A-Za-z])|\u001b[()*+][0-9A-Za-z]|\u001b[^\\[]")
+    // An OSC (ESC ] … BEL or ESC \\), e.g. the hyperlink "ESC ] 8 ; id=… ; url ST": dropped whole, the linked text stays.
+    private val ESCAPE = Regex("\u001b\\][^\u0007\u001b]*(?:\u0007|\u001b\\\\)?|\u001b\\[([0-9;:?]*)([A-Za-z])|\u001b[()*+][0-9A-Za-z]|\u001b[^\\[]")
 
-    fun parse(text: String): List<Segment> {
+    fun parse(raw: String): List<Segment> {
+        // ⏵ (U+23F5) has no glyph in Android's fonts: it showed as an empty box. ▶ is everywhere.
+        val text = raw.replace('⏵', '▶').replace('⏴', '◀')
         val segments = mutableListOf<Segment>()
         var style = TextStyle()
         var last = 0
