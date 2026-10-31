@@ -266,7 +266,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 candidate.status()
                 // A new token replaces the old one on this phone: sign the old device out on ccc, so it
                 // doesn't stay in the list as a phone nobody uses (not when it is the same token).
-                val previous = api.takeIf { settings.token != token }
+                // Only on the same ccc: a QR or token for another server must not reach out to the old one.
+                val sameServer = Pairing.origin(settings.server) == Pairing.origin(server)
+                val previous = api.takeIf { settings.token != token && sameServer }
                 settings.save(server, token)
                 api = api(server, token)
                 previous?.let { signOutOwnDevice(it) }
