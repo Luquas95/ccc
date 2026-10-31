@@ -9,6 +9,10 @@
     <string name="setup_token_hint">Z ccc api token na počítači</string>
     <string name="setup_connect">Připojit</string>
     <string name="setup_sign_out">Odhlásit</string>
+    <string name="sign_out_title">Odhlásit?</string>
+    <string name="sign_out_other">Zařízení %1$s bude hned odhlášeno a jeho token přestane platit.</string>
+    <string name="sign_out_this">%1$s je tento telefon. Bude odhlášen a bude nutné ho znovu spárovat.</string>
+    <string name="sign_out_this_phone">Tento telefon bude odhlášen z ccc. Bude nutné ho znovu spárovat.</string>
     <string name="setup_connected_to">Připojeno k %1$s</string>
     <string name="pair_title">Přihlásit se k tomuto ccc?</string>
     <string name="pair_text">QR kód patří k %1$s. QR kód si může vytisknout kdokoli — pokračuj jen tehdy, je-li to tvůj počítač.</string>

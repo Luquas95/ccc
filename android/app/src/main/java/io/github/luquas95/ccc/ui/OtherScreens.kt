@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -61,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import io.github.luquas95.ccc.PortraitCaptureActivity
 import com.journeyapps.barcodescanner.ScanContract
 import io.github.luquas95.ccc.data.Pairing
@@ -71,6 +73,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -475,9 +478,48 @@ fun SetupScreen(
     var address by rememberSaveable { mutableStateOf(server) }
     var token by rememberSaveable { mutableStateOf("") }
     var busy by rememberSaveable { mutableStateOf(false) }
+    val focus = LocalFocusManager.current
+    // Signing out is one tap away from a slip: ask first (this phone: a stronger question).
+    var signOutAsk by remember { mutableStateOf<Device?>(null) }
+    var signOutSelfAsk by remember { mutableStateOf(false) }
+    val connect = {
+        if (address.isNotBlank() && token.isNotBlank() && !busy) {
+            focus.clearFocus()
+            busy = true
+            onConnect(address, token) { busy = false }
+        }
+    }
     // The QR code of `ccc api pair`: the library's own screen asks for the camera and reads it.
     val scan = rememberLauncherForActivityResult(ScanContract()) { result ->
         result.contents?.let(onScan)
+    }
+    signOutAsk?.let { device ->
+        AlertDialog(
+            onDismissRequest = { signOutAsk = null },
+            title = { Text(stringResource(R.string.sign_out_title)) },
+            text = {
+                Text(stringResource(if (device.current) R.string.sign_out_this else R.string.sign_out_other, device.name))
+            },
+            confirmButton = {
+                TextButton(onClick = { signOutAsk = null; onSignOutDevice(device) }) {
+                    Text(stringResource(R.string.setup_sign_out), color = CccColors.Error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { signOutAsk = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+    if (signOutSelfAsk) {
+        AlertDialog(
+            onDismissRequest = { signOutSelfAsk = false },
+            title = { Text(stringResource(R.string.sign_out_title)) },
+            text = { Text(stringResource(R.string.sign_out_this_phone)) },
+            confirmButton = {
+                TextButton(onClick = { signOutSelfAsk = false; onSignOut() }) {
+                    Text(stringResource(R.string.setup_sign_out), color = CccColors.Error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { signOutSelfAsk = false }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
     if (invite != null) {
         val origin = remember(invite) { Pairing.origin(invite.server).orEmpty() }
@@ -553,14 +595,12 @@ fun SetupScreen(
                 placeholder = { Text(stringResource(R.string.setup_token_hint)) },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Go),
+                keyboardActions = KeyboardActions(onGo = { connect() }),
                 modifier = Modifier.fillMaxWidth(),
             )
             Button(
-                onClick = {
-                    busy = true
-                    onConnect(address, token) { busy = false }
-                },
+                onClick = { connect() },
                 enabled = address.isNotBlank() && token.isNotBlank() && !busy,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
             ) {
@@ -571,7 +611,7 @@ fun SetupScreen(
                 Text(stringResource(R.string.devices), style = MaterialTheme.typography.titleSmall,
                     color = CccColors.Title, fontWeight = FontWeight.Bold)
                 Text(stringResource(R.string.devices_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
-                devices?.forEach { device -> DeviceRow(device, onSignOutDevice) }
+                devices?.forEach { device -> DeviceRow(device) { signOutAsk = it } }
                 Spacer(Modifier.height(16.dp))
                 Text(stringResource(R.string.notifications), style = MaterialTheme.typography.titleSmall,
                     color = CccColors.Title, fontWeight = FontWeight.Bold)
@@ -605,7 +645,7 @@ fun SetupScreen(
                     }
                 }
                 Spacer(Modifier.height(24.dp))
-                OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { signOutSelfAsk = true }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.setup_sign_out), color = CccColors.Error)
                 }
             }
