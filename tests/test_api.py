@@ -901,7 +901,10 @@ def test_accept_language_picks_the_language_ccc_has():
 
 
 def test_http_texts_follow_the_phone_language_not_the_tui_one(server, storage, monkeypatch):
+    from ccc import i18n
+
     monkeypatch.delenv("CCC_LANG", raising=False)  # tests force English through it
+    monkeypatch.setattr(i18n, "_current", "en")  # the server loads the setting into it: put it back afterwards
     base, token = server
     storage.set_setting("language", "en")
 
