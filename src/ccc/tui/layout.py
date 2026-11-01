@@ -301,6 +301,13 @@ SidebarScreen.-tmux-frame.-cli-open #sidebar {
 SidebarScreen #daemon-state {
     padding: 0 1;
 }
+SidebarScreen #restart-state {
+    padding: 0 1;
+    color: yellow;
+}
+SidebarScreen #restart-state:hover {
+    text-style: underline;
+}
 SidebarScreen #update-state {
     padding: 0 1;
     color: yellow;
@@ -474,6 +481,7 @@ class SidebarScreen(Screen):
         yield Horizontal(
             Vertical(
                 Static("", id="daemon-state"),
+                Static("", id="restart-state"),
                 Static("", id="update-state"),
                 Vertical(*nav_items, id="sidebar-nav"),
                 Vertical(*self.compose_sidebar_section(), id="sidebar-section"),
@@ -518,8 +526,25 @@ class SidebarScreen(Screen):
         else:
             text = Text(_("✖ daemon not running — queues are stopped"), style="bold red")
         self.query_one("#daemon-state", Static).update(text)
+        self._refresh_restart_state()
         self._refresh_update_state()
         self.sync_retry_button()
+
+    def _refresh_restart_state(self) -> None:
+        """ccc was upgraded while it ran (ccc.updates.restart_needed): a line under the daemon's,
+        a click restarts the services — when no task runs."""
+        from ccc import updates
+
+        needed = updates.restart_needed(self.storage)
+        line = self.query_one("#restart-state", Static)
+        line.update(Text(_("↻ restart needed — click") if needed else ""))
+        line.display = needed
+
+    def _restart_ccc(self) -> None:
+        from ccc import updates
+
+        ok, message = updates.restart(self.storage)
+        self.app.notify(message, severity="information" if ok else "warning")
 
     def _refresh_update_state(self) -> None:
         """A new release on GitHub (ccc.updates, found by the daemon):
@@ -534,8 +559,11 @@ class SidebarScreen(Screen):
         line.display = shown
 
     def on_click(self, event) -> None:
-        if getattr(event.widget, "id", None) == "update-state":
+        widget_id = getattr(event.widget, "id", None)
+        if widget_id == "update-state":
             self.action_update()
+        elif widget_id == "restart-state":
+            self._restart_ccc()
 
     def action_update(self) -> None:
         from ccc.tui.update import UpdateModal

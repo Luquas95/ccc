@@ -19,7 +19,7 @@ from ccc.models import ROLE_ADMIN, ROLE_OPERATE, ROLE_READ, ROLES
 
 # (method or "*", path after /api/v1, role the request needs); the first match counts.
 RULES: tuple[tuple[str, str, str], ...] = (
-    ("*", r"/(app/build|update|update/check|backup)", ROLE_ADMIN),
+    ("*", r"/(app/build|update|update/check|restart|backup)", ROLE_ADMIN),
     ("*", r"/settings(/.*)?", ROLE_ADMIN),
     ("GET", r"/audit", ROLE_ADMIN),
     ("POST", r"/conversations", ROLE_ADMIN),

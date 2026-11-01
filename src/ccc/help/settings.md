@@ -213,7 +213,14 @@ ccc is installed:
 - **the system package** (`.deb`, `apt install ccc`): the package manager
   updates it — `sudo apt update && sudo apt upgrade`, then
   `systemctl --user restart ccc ccc-tui`. ccc only tells you there is a
-  newer release; *Update now* explains this and changes nothing;
+  newer release; *Update now* explains this and changes nothing. After
+  `apt upgrade` the services still run the old code until they restart: ccc
+  notices (the files on disk are a different version than the running TUI, API
+  or daemon) and shows **↻ restart needed — click** under *daemon running* —
+  a click restarts `ccc`, `ccc-tui` and `ccc-api`, but only while no task runs
+  (the phone has the same line and button). The conversations keep running.
+  The first upgrade *to* a version that has this line cannot show it yet;
+  restart by hand once: `systemctl --user restart ccc ccc-tui ccc-api`;
 - **a package** (pip / pipx): it downloads the release's `ccc.tar.gz` and
   `pip install`s it into the environment ccc runs from.
 

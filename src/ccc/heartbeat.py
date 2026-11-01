@@ -8,12 +8,16 @@ from datetime import datetime, timedelta
 from ccc.storage import Storage
 
 HEARTBEAT_KEY = "daemon_heartbeat"
+VERSION_KEY = "daemon_version"  # the version of the code the daemon runs (ccc.updates.restart_needed)
 HEARTBEAT_SECONDS = 10.0
 STALE_AFTER = timedelta(seconds=30)
 
 
 def beat(storage: Storage, now: datetime | None = None) -> None:
+    from ccc import __version__
+
     storage.set_setting(HEARTBEAT_KEY, (now or datetime.now()).isoformat())
+    storage.set_setting(VERSION_KEY, __version__)
 
 
 def daemon_alive(storage: Storage, now: datetime | None = None) -> bool:

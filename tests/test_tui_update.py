@@ -93,3 +93,20 @@ async def test_check_again_looks_now(tmp_path, monkeypatch):
         await pilot.pause()
         assert looked == [1]
         assert "up to date" in app.screen.query_one("#update-info", Static).render().plain
+
+
+@pytest.mark.asyncio
+async def test_a_restart_line_under_the_daemon_state_restarts_when_clicked(tmp_path, monkeypatch):
+    app = _app(tmp_path)
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        line = app.screen.query_one("#restart-state", Static)
+        assert not line.display
+        monkeypatch.setattr(updates, "restart_needed", lambda storage: True)
+        app.screen.refresh_daemon_state()
+        assert line.display and "restart needed" in line.render().plain
+        asked = []
+        monkeypatch.setattr(updates, "restart", lambda storage: asked.append(1) or (True, "ccc is restarting."))
+        await pilot.click("#restart-state")
+        await pilot.pause()
+        assert asked

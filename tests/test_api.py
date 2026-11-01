@@ -949,3 +949,16 @@ def test_http_texts_follow_the_phone_language_not_the_tui_one(server, storage, m
     storage.set_setting("language", "cs")
     assert error_for("en-US") == "No such device."  # the phone wins
     assert error_for(None) == "Takové zařízení neexistuje."
+
+
+def test_status_says_when_a_restart_is_needed_and_restart_does_it(storage, monkeypatch):
+    from ccc import updates
+
+    monkeypatch.setattr(updates, "restart_needed", lambda st: True)
+    assert api.Api(storage).status()["restart_needed"] is True
+    monkeypatch.setattr(updates, "restart", lambda st: (True, "ccc is restarting."))
+    assert api.Api(storage).restart() == {"ok": True, "message": "ccc is restarting."}
+    monkeypatch.setattr(updates, "restart", lambda st: (False, "A task is running (shop)"))
+    with pytest.raises(api.ApiError) as error:
+        api.Api(storage).restart()
+    assert error.value.status == 409

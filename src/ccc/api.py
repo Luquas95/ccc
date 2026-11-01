@@ -39,6 +39,7 @@ POST /api/v1/runs/{id}/revert             {"tell": bool}: undo the commit
 GET  /api/v1/groups                       grouping mode and own groups; POST groups/rename, groups/delete
 GET  /api/v1/search?q=                    search every conversation
 POST /api/v1/update/check                 look for a new ccc version now; POST /api/v1/update applies it
+POST /api/v1/restart                      restart ccc's services (GET /status says restart_needed after an upgrade)
 GET  /api/v1/waiting                      conversations that need you (Alt+N)
 GET  /api/v1/prompt-presets               the preset prompts (Alt+1 … 9)
 POST /api/v1/pair                         {"code", "name"}: the one request without a token — trades a pairing code (ccc.pairing) for a device and its token
@@ -194,6 +195,7 @@ class Api(AgentEndpoints, ViewEndpoints):
             ok(r"/status", lambda ids, q, b: self.status()),
             ok(r"/update/check", lambda ids, q, b: self.update_check(), "POST"),
             ok(r"/update", lambda ids, q, b: self.update_apply(), "POST"),
+            ok(r"/restart", lambda ids, q, b: self.restart(), "POST"),
             ok(r"/conversations", lambda ids, q, b: self.conversations(archived=q.get("archived") in ("1", "true"))),
             ok(r"/conversations", lambda ids, q, b: self.create(b), "POST", HTTPStatus.CREATED),
             ok(r"/conversations/(\d+)", lambda ids, q, b: self.conversation(*ids)),
@@ -260,6 +262,7 @@ class Api(AgentEndpoints, ViewEndpoints):
             "running": sum(q.status == QueueStatus.RUNNING for q in queues),
             "needs_approval": len(self.storage.queues_waiting_for_approval()),
             "update": self._update(),
+            "restart_needed": updates.restart_needed(self.storage),
         }
 
     def devices(self, caller: int | None, history: bool = False) -> dict:
@@ -320,6 +323,12 @@ class Api(AgentEndpoints, ViewEndpoints):
     def update_check(self) -> dict:
         updates.check(self.storage)
         return self._update() or {"available": False}
+
+    def restart(self) -> dict:
+        ok, message = updates.restart(self.storage)
+        if not ok:
+            raise ApiError(HTTPStatus.CONFLICT, message)
+        return {"ok": True, "message": message}
 
     def update_apply(self) -> dict:
         ok, message = updates.apply(self.storage)
