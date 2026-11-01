@@ -79,7 +79,7 @@ it.
 
 ## Updating the app
 
-The app is updated by version, not through ccc: pushing a tag `vX.Y.Z` makes GitHub Actions build the app, sign it with the release key and attach it to the release as `ccc.apk`. The app asks GitHub for the newest release (when it comes to the foreground, at most every six hours; no token is sent), and when its version is lower it shows "A new version of the app is available: X" with a *Download and install* button. The download goes to Android's installer, which asks first — and the first time asks to allow installing from the app. A build made by hand has the version `0.0.0-dev` and never asks. Release (here): `~/Documents/CC/bin/ccc-android-release.sh 0.2.0`.
+The app is updated by version, not through ccc: pushing a tag `X.Y.Z` (no `v`) makes GitHub Actions build the app, sign it with the release key and attach it to the release as `ccc.apk`. The app asks GitHub for the newest release (when it comes to the foreground, at most every six hours; no token is sent), and when its version is lower it shows "A new version of the app is available: X" with a *Download and install* button. The download goes to Android's installer, which asks first — and the first time asks to allow installing from the app. A build made by hand has the version `0.0.0-dev` and never asks. Release (here): `~/Documents/CC/bin/ccc-android-release.sh 0.2.0`.
 
 **What the list shows** (Connection → *Conversation list*): the context
 fill, the git state, the queued tasks and the folder, each on or off —
