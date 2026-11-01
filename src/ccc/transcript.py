@@ -173,6 +173,33 @@ def list_sessions_for_directory(path: str, limit: int = 50) -> list[SessionSumma
     return summaries
 
 
+def session_recorded_in(session_id: str, path: str) -> bool:
+    """Was this session really recorded in `path`? The transcript folder's name is a lossy encoding of the
+    path (every / and . becomes "-"), so two folders can share it: the `cwd` the transcript itself records
+    must be this folder too (#160)."""
+    wanted = os.path.realpath(path)
+    for candidate in {path.rstrip("/") or "/", wanted}:
+        transcript = PROJECTS_ROOT / encode_project_dir(candidate) / f"{session_id}.jsonl"
+        if not transcript.is_file():
+            continue
+        try:
+            with open(transcript, "rb") as fh:
+                for number, raw in enumerate(fh):
+                    if number >= 200:
+                        break
+                    if b'"cwd"' not in raw:
+                        continue
+                    try:
+                        cwd = json.loads(raw).get("cwd")
+                    except (json.JSONDecodeError, AttributeError):
+                        continue
+                    if isinstance(cwd, str):
+                        return os.path.realpath(cwd) == wanted
+        except OSError:
+            continue
+    return False
+
+
 _MESSAGE_LINE_RE = re.compile(rb'"type":\s*"(?:user|assistant)"')
 
 

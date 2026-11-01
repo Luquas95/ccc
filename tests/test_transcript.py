@@ -325,3 +325,35 @@ def test_session_summary_counts_only_messages(tmp_path, monkeypatch):
         "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t", "content": "x"}]}}) + "\n"
     (d / "s.jsonl").write_text(_session_line("user", "hi") + tool_result + _session_line("assistant", "ok"))
     assert list_sessions_for_directory("/p")[0].message_count == 2
+
+
+def test_a_session_counts_only_for_the_folder_its_transcript_says(tmp_path, monkeypatch):
+    import json
+    from ccc import transcript
+
+    monkeypatch.setattr(transcript, "PROJECTS_ROOT", tmp_path / "projects")
+    real, lookalike = tmp_path / "a" / "b-c", tmp_path / "a" / "b" / "c"
+    real.mkdir(parents=True)
+    lookalike.mkdir(parents=True)
+    folder = tmp_path / "projects" / transcript.encode_project_dir(str(real))
+    folder.mkdir(parents=True)
+    (folder / "s1.jsonl").write_text(json.dumps({"type": "user", "cwd": str(real)}) + "\n")
+    assert transcript.session_recorded_in("s1", str(real))
+    assert not transcript.session_recorded_in("s1", str(tmp_path / "other"))
+    assert not transcript.session_recorded_in("nope", str(real))
+
+
+def test_a_folder_with_the_same_encoded_name_does_not_pass(tmp_path, monkeypatch):
+    import json
+    from ccc import transcript
+
+    monkeypatch.setattr(transcript, "PROJECTS_ROOT", tmp_path / "projects")
+    one, two = tmp_path / "x.y", tmp_path / "x-y"
+    one.mkdir()
+    two.mkdir()
+    assert transcript.encode_project_dir(str(one)) == transcript.encode_project_dir(str(two))
+    folder = tmp_path / "projects" / transcript.encode_project_dir(str(one))
+    folder.mkdir(parents=True)
+    (folder / "s1.jsonl").write_text(json.dumps({"type": "user", "cwd": str(one)}) + "\n")
+    assert transcript.session_recorded_in("s1", str(one))
+    assert not transcript.session_recorded_in("s1", str(two))
