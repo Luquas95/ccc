@@ -649,6 +649,27 @@ def test_conversations_carry_context_and_git(storage, tmp_path, monkeypatch):
     assert len(calls) == 2
 
 
+def test_conversations_carry_the_latest_goal_while_it_runs_and_a_day_after(storage, tmp_path):
+    from datetime import datetime, timedelta
+
+    from ccc import goals
+    from ccc.models import GoalStatus
+
+    q = _queue(storage, tmp_path)
+    server = api.Api(storage)
+    assert server.conversations()[0]["goal"] is None
+    goal = goals.start(storage, q.id, "tokens expire", max_rounds=5)
+    storage.update_goal(goal.id, round=2)
+    listed = server.conversations()[0]["goal"]
+    assert listed["status"] == "running" and (listed["round"], listed["max_rounds"]) == (2, 5)
+    assert listed["status_label"] == "running" and listed["phase_label"] and listed["finished_at"] is None
+    assert server.conversation(q.id)["goal"]["id"] == goal.id
+    storage.update_goal(goal.id, status=GoalStatus.STUCK, finished_at=datetime.now())
+    assert server.conversations()[0]["goal"]["status"] == "stuck"
+    storage.update_goal(goal.id, finished_at=datetime.now() - timedelta(days=2))
+    assert server.conversations()[0]["goal"] is None
+
+
 def test_no_context_and_no_git_where_claude_may_not_run_commands(storage, tmp_path, monkeypatch):
     from ccc import gitops
 

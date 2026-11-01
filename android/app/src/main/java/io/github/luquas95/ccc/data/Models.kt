@@ -68,8 +68,23 @@ data class Conversation(
     val group: Group? = null,
     val context: ContextFill? = null,
     val git: GitState? = null,
+    val goal: GoalBrief? = null,
 ) {
     val state: ConversationStatus get() = ConversationStatus.of(status)
+}
+
+/** Its latest goal loop for the list: while it runs and for a day after it ended (`goal` is null otherwise). */
+@Serializable
+data class GoalBrief(
+    val id: Int,
+    val status: String,
+    @SerialName("status_label") val statusLabel: String = "",
+    @SerialName("phase_label") val phaseLabel: String = "",
+    val round: Int = 1,
+    @SerialName("max_rounds") val maxRounds: Int = 1,
+) {
+    val running: Boolean get() = status == "running"
+    val icon: String get() = when (status) { "running" -> "◎"; "passed" -> "✅"; "stopped" -> "■"; "error" -> "✖"; else -> "⛔" }
 }
 
 /** How full the context window is; `level` is "", "warn" or "danger" by ccc's Settings thresholds. */

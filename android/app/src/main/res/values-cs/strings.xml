@@ -68,6 +68,7 @@
     <string name="app_allow_install">Povol instalaci z této aplikace a klepni znovu na tlačítko.</string>
     <string name="app_new_version">K dispozici je nová verze aplikace: %1$s.</string>
     <string name="context_short">kontext %1$s</string>
+    <string name="goal_line">%1$s cíl %2$d/%3$d · %4$s</string>
     <string name="list_details">Seznam konverzací</string>
     <string name="list_details_hint">Co každá konverzace ukazuje kromě názvu a stavu. Pamatuje si to tento telefon.</string>
     <string name="detail_pending">Úkoly ve frontě</string>

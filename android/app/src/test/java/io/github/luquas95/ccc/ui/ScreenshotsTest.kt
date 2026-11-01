@@ -29,6 +29,7 @@ import io.github.luquas95.ccc.data.GitState
 import io.github.luquas95.ccc.data.ListDetail
 import io.github.luquas95.ccc.data.ConversationTokens
 import io.github.luquas95.ccc.data.DayTokens
+import io.github.luquas95.ccc.data.GoalBrief
 import io.github.luquas95.ccc.data.Goals
 import io.github.luquas95.ccc.data.LiveSession
 import io.github.luquas95.ccc.data.ModelTokens
@@ -93,7 +94,7 @@ open class ScreenshotsTest {
 
     @Test
     fun conversations() = shot("conversations", "shop-api") {
-        ConversationsScreen(home, ListDetail.DEFAULT, null, SnackbarHostState(), listActions)
+        ConversationsScreen(home.copy(tab = HomeTab.CONVERSATIONS), ListDetail.DEFAULT, null, SnackbarHostState(), listActions)
     }
 
     @Test
@@ -109,7 +110,7 @@ open class ScreenshotsTest {
                 "5c4b3a2 Dashboard: context fill and git state"),
         )
         val status = home.status!!.copy(update = update, androidBuild = 6)
-        ConversationsScreen(home.copy(status = status, waiting = emptyList(), usage = null), ListDetail.DEFAULT,
+        ConversationsScreen(home.copy(tab = HomeTab.CONVERSATIONS, status = status, waiting = emptyList(), usage = null), ListDetail.DEFAULT,
             AppRelease("1.2.0", "", ""), SnackbarHostState(), listActions)
     }
 
@@ -424,7 +425,8 @@ open class ScreenshotsTest {
             conversations = listOf(
                 Conversation(1, "shop-api", "/home/you/projects/shop-api", "running", "interactive", pending = 2,
                     needsApproval = true, group = Group("own:Release 2.1", "Release 2.1"),
-                    context = ContextFill(124_000, 62, ""), git = GitState("feature/rate-limit", 12, 3, 2, 0)),
+                    context = ContextFill(124_000, 62, ""), git = GitState("feature/rate-limit", 12, 3, 2, 0),
+                    goal = GoalBrief(7, "running", "running", "Claude works on round 3", 3, 5)),
                 Conversation(2, "docs-site", "/home/you/projects/docs-site", "waiting_retry", "interactive", pending = 1,
                     group = Group("own:Release 2.1", "Release 2.1"),
                     context = ContextFill(172_000, 86, "warn"), git = GitState("main", 0, 0, 0, 1)),
@@ -434,7 +436,8 @@ open class ScreenshotsTest {
                     group = Group("project:/home/you/projects/mobile-app", "mobile-app"),
                     context = ContextFill(186_000, 93, "danger"), git = GitState("fix/login-crash", 4, 1, 1, 0)),
                 Conversation(5, "infra", "/home/you/projects/infra", "running", "remote_control",
-                    group = Group("project:/home/you/projects/infra", "infra")),
+                    group = Group("project:/home/you/projects/infra", "infra"),
+                    goal = GoalBrief(8, "passed", "met", "", 2, 5)),
             ),
         )
 

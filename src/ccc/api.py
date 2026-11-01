@@ -73,7 +73,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from ccc import context_fill, groups, i18n, launch_options, mcp_servers, updates
+from ccc import context_fill, goals, groups, i18n, launch_options, mcp_servers, updates
 from ccc.api_agents import AgentEndpoints
 from ccc import api_audit, api_roles, api_scope
 from ccc.api_common import ApiError, int_of, iso, route, task_line, text_of
@@ -348,9 +348,10 @@ class Api(AgentEndpoints, ViewEndpoints):
         for group, members in groups.grouped(queues, self.storage.conversation_groups(), groups.mode(self.storage)):
             info = {"key": group.key, "title": group.title} if group is not None else None
             listed += [(q, info) for q in members]
-        return [self._summary(q, q.id in unseen, q.id in waiting, info) for q, info in listed]
+        latest_goals = self.storage.latest_goals()
+        return [self._summary(q, q.id in unseen, q.id in waiting, info, latest_goals.get(q.id)) for q, info in listed]
 
-    def _summary(self, q, unseen: bool, needs_approval: bool, group: dict | None) -> dict:
+    def _summary(self, q, unseen: bool, needs_approval: bool, group: dict | None, goal=None) -> dict:
         return {
             "id": q.id,
             "name": q.name,
@@ -370,7 +371,17 @@ class Api(AgentEndpoints, ViewEndpoints):
             "group": group,
             "context": self._context_of(q),
             "git": self._git_of(q),
+            "goal": self._goal_of(goal),
         }
+
+    @staticmethod
+    def _goal_of(goal) -> dict | None:
+        """Its latest goal loop for the list: while it runs, and for a day after it ended (goals.shown); else null."""
+        if not goals.shown(goal):
+            return None
+        return {"id": goal.id, "status": goal.status.value, "status_label": _(goals.STATUS_LABELS[goal.status]),
+                "phase_label": _(goals.PHASE_LABELS[goal.phase]).format(n=goal.round),
+                "round": goal.round, "max_rounds": goal.max_rounds, "finished_at": iso(goal.finished_at)}
 
     def _context_of(self, q) -> dict | None:
         """How full its context window is (context_fill): tokens, percent
@@ -408,6 +419,7 @@ class Api(AgentEndpoints, ViewEndpoints):
         summary = self._summary(
             q, q.id in self.storage.unseen_queue_ids(), q.id in self.storage.queues_waiting_for_approval(),
             {"key": f"own:{own}", "title": own} if own else None,  # its own group (the list adds projects)
+            self.storage.latest_goals().get(q.id),
         )
         summary.update({
             "session_id": q.session_id,

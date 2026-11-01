@@ -961,6 +961,12 @@ class Storage:
         with closing(self._connect()) as conn:
             return [self._row_to_goal(r) for r in conn.execute(sql + " ORDER BY id DESC", args).fetchall()]
 
+    def latest_goals(self) -> dict[int, Goal]:
+        """The newest goal of every conversation that has one, in one query (the Dashboard and the API list)."""
+        with closing(self._connect()) as conn:
+            rows = conn.execute("SELECT * FROM goals WHERE id IN (SELECT MAX(id) FROM goals GROUP BY queue_id)").fetchall()
+        return {r["queue_id"]: self._row_to_goal(r) for r in rows}
+
     def update_goal(self, goal_id: int, **fields) -> None:
         if not fields:
             return
