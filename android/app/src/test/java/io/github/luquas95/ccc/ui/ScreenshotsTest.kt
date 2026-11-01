@@ -14,6 +14,10 @@ import androidx.core.view.drawToBitmap
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.luquas95.ccc.data.Analytics
 import io.github.luquas95.ccc.data.CccSettings
@@ -232,16 +236,46 @@ open class ScreenshotsTest {
     }
 
     @Test
+    fun routine_delete() = shot("routine_delete", "Nightly", dialog = true) {
+        RoutinesScreen(routinesState, home.conversations, SnackbarHostState(), RoutinesActions({}, {}, {}, { _, _ -> }, {}))
+    }
+
+    @Test
+    fun update_failed() = shot("update_failed", "Nothing to update", dialog = true) {
+        UpdateOutcomeDialog(AppViewModel.UpdateOutcome(false, "Nothing to update: ccc is already at the latest commit."), {})
+    }
+
+    @Test
     fun terminal() = shot("terminal", "Welcome") {
         TerminalScreen(terminalState, "web", SnackbarHostState(), TerminalActions({}, { _, _ -> }, {}, {}))
     }
 
-    private fun shot(name: String, expect: String, scrollTo: Int? = null, content: @Composable () -> Unit) {
+    private fun shot(name: String, expect: String, scrollTo: Int? = null, dialog: Boolean = false, content: @Composable () -> Unit) {
         compose.setContent { CccTheme(content) }
         compose.onAllNodesWithText(expect, substring = true, useUnmergedTree = true).onFirst().assertExists()
         scrollTo?.let { compose.onAllNodesWithText(compose.activity.getString(it)).onFirst().performScrollTo() }
         compose.waitForIdle()
-        save(name)
+        if (dialog) {
+            if (name == "routine_delete") {
+                val delete = compose.activity.getString(io.github.luquas95.ccc.R.string.delete)
+                compose.onAllNodesWithContentDescription(delete).onFirst().performClick()
+                compose.waitForIdle()
+            }
+            saveWithDialog(name)
+        } else save(name)
+    }
+
+    /** The dialog is a window of its own: lay its picture over the dimmed screen below. */
+    private fun saveWithDialog(name: String) {
+        val screen = compose.activity.window.decorView.drawToBitmap()
+        val window = org.robolectric.shadows.ShadowDialog.getLatestDialog().window!!.decorView
+        val box = window.drawToBitmap()
+        val out = screen.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = android.graphics.Canvas(out)
+        canvas.drawColor(android.graphics.Color.argb(120, 0, 0, 0))
+        canvas.drawBitmap(box, (out.width - box.width) / 2f, (out.height - box.height) / 2f, null)
+        val folder = File("build/screenshots/$locale").apply { mkdirs() }
+        File(folder, "$name.png").outputStream().use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     private fun save(name: String) {

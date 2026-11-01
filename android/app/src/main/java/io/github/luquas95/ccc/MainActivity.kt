@@ -12,6 +12,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.material3.SnackbarHostState
+import io.github.luquas95.ccc.ui.UpdateOutcomeDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -106,6 +107,7 @@ private fun App(model: AppViewModel) {
     val notifications by model.notifications.collectAsStateWithLifecycle()
     val listDetails by model.listDetails.collectAsStateWithLifecycle()
     val appUpdate by model.appUpdate.collectAsStateWithLifecycle()
+    val updateOutcome by model.updateOutcome.collectAsStateWithLifecycle()
     val install by model.install.collectAsStateWithLifecycle()
     val newVersion by model.newVersion.collectAsStateWithLifecycle()
     val nameOf = { id: Int -> (home.conversations + home.archived).firstOrNull { it.id == id }?.name.orEmpty() }
@@ -142,6 +144,7 @@ private fun App(model: AppViewModel) {
             snackbar.showSnackbar(it)
         }
     }
+    updateOutcome?.let { UpdateOutcomeDialog(it, model::updateOutcomeShown) }
     BackHandler(enabled = screens.size > 1) { model.back() }
 
     when (val screen = screens.last()) {

@@ -275,6 +275,11 @@
     <string name="round">round</string>
     <string name="rounds">Rounds</string>
     <string name="routine_add">New routine</string>
+    <string name="routine_delete_title">Delete routine?</string>
+    <string name="routine_delete_text">Routine “%1$s” will be deleted. This cannot be undone.</string>
+    <string name="update_done_title">ccc updated</string>
+    <string name="update_failed_title">Update failed</string>
+    <string name="update_done">ccc was updated and restarts.</string>
     <string name="routine_conversation">Conversation</string>
     <string name="routine_edit">Edit routine</string>
     <string name="routine_fresh">A new conversation every run (archived when done)</string>
