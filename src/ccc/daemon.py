@@ -222,8 +222,8 @@ UPDATE_FIRST_CHECK_SECONDS = 120.0
 
 
 async def update_loop(storage: Storage, notifier: Notifier, interval: float = None) -> None:
-    """Look for a new version on origin/main (ccc.updates) now and then and
-    tell Telegram / Discord once per new head; the TUI and the phone read
+    """Look for a new release on GitHub (ccc.updates) now and then and
+    tell Telegram / Discord once per new version; the TUI and the phone read
     what was found from the settings."""
     from ccc import updates
 
@@ -236,17 +236,17 @@ async def update_loop(storage: Storage, notifier: Notifier, interval: float = No
         await asyncio.sleep(interval or updates.CHECK_SECONDS)
 
 
-def update_tick(storage: Storage, notifier: Notifier, repo=None) -> str | None:
+def update_tick(storage: Storage, notifier: Notifier, repo=None, latest=None) -> str | None:
     """One look; returns the notice it sent (for tests)."""
     from ccc import updates
 
     if not updates.check_enabled(storage):
         return None
-    state = updates.check(storage, *([repo] if repo else []))
-    if not state.available or state.remote_head == state.notified_head:
+    state = updates.check(storage, *([repo] if repo else [updates.PROJECT_DIR]), *([latest] if latest else []))
+    if not state.available or state.version == state.notified_version:
         return None
     text = updates.notice(state)
-    state.notified_head = state.remote_head
+    state.notified_version = state.version
     updates.save(storage, state)
     notifier.send_now(text, CAT_UPDATES)
     return text

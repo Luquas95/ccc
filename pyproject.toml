@@ -1,6 +1,6 @@
 [project]
 name = "ccc"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Prompt queue + auto-continue TUI for Claude Code"
 requires-python = ">=3.12"
 dependencies = [
@@ -22,6 +22,9 @@ ccc-daemon = "ccc.daemon:main"
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "ccc.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]

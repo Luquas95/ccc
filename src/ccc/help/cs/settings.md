@@ -188,30 +188,48 @@ Daemon každý den zálohuje databázi ccc a drží posledních 14
 
 ## Aktualizace ccc
 
-ccc je git checkout, takže nová verze jsou nové commity na `origin/main`.
-Daemon se jednou za pár hodin podívá (`git fetch`, nic se nemění) a když je
-něco nového, dá ti vědět:
+Nová verze je **vydání (release) na GitHubu** podle stejných pravidel jako u
+Android aplikace: tag je verze `X.Y.Z` (předpona `v` nevadí), vydání není
+koncept ani předběžné a má přiložený `ccc.tar.gz` (sestaví ho release build
+z tagu, [viz níže](#vydání-verze)). Verze se porovnávají jako čísla. ccc, jehož
+verze není číslo (ruční build, `0.0.0-dev`), bere za svou verzi nejnovější tag
+svého checkoutu; bez tagu se nikdy neptá.
+
+Daemon se jednou za pár hodin podívá (jeden dotaz na GitHub, bez tokenu, nic
+se nemění) a když je novější vydání, dá ti vědět:
 
 - v ccc: žlutý řádek *⬆ Aktualizace* pod titulkem na každé obrazovce —
-  `U` (nebo klik na něj) otevře okno **Aktualizace** s novými commity;
+  `U` (nebo klik na něj) otevře okno **Aktualizace** s poznámkami k vydání;
 - v telefonu: banner v seznamu Android aplikace se stejným tlačítkem
   ([Android aplikace a API](android-api.md));
 - v Telegramu a Discordu, jednou pro každou novou verzi.
 
-*Aktualizovat teď* udělá `git pull --ff-only` a spustí `bin/install.sh` se
-stejnými volbami, s jakými byl ccc nainstalován, a restartuje služby
-(Claude Code interaktivní konverzace běží dál; ccc a API jsou za chvíli
-zpátky). Vždy se zeptá a nikdy neběží samo, protože přijde to, co někdo
-pushnul na `origin/main`. Odmítne — a řekne proč —, když checkout není na
-`main`, má neuložené nebo nepushnuté změny, nebo běží úkol. Výstup instalace
-je v `~/.local/share/ccc/update.log`.
+*Aktualizovat teď* přepne ccc na to vydání a restartuje ho (Claude Code
+interaktivní konverzace běží dál; ccc a API jsou za chvíli zpátky). Vždy se
+zeptá a nikdy neběží samo. Jak se přepne, záleží na tom, jak je ccc
+nainstalován:
 
-Okno Aktualizace také řekne, když nové commity mění Android aplikaci.
-Aplikace se aktualizuje zvlášť, podle verze: nové vydání na GitHubu
-([Aplikace pro Android a API](android-api.md#aktualizace-aplikace)) způsobí,
-že aplikace ukáže „K dispozici je nová verze aplikace“ s tlačítkem, které ji
-stáhne a nainstaluje.
+- **git checkout** (`bin/install.sh`, obvyklý případ): stáhne tag vydání a
+  checkout na něj převine (fast-forward) — ne na nejnovější `main` — a pak
+  spustí `bin/install.sh` se stejnými volbami, s jakými byl ccc
+  nainstalován. Odmítne — a řekne proč —, když checkout není na `main`, má
+  neuložené nebo nepushnuté změny, vydání na něj nenavazuje převinutím, nebo
+  běží úkol;
+- **balíček** (pip / pipx): stáhne `ccc.tar.gz` z vydání a nainstaluje ho
+  pomocí `pip install` do prostředí, odkud ccc běží.
+
+Výstup instalace je v `~/.local/share/ccc/update.log`. Okno Aktualizace také
+řekne, když vydání obsahuje i Android aplikaci (`ccc.apk`); aplikace se
+aktualizuje zvlášť, ze stejného vydání
+([Aplikace pro Android a API](android-api.md#aktualizace-aplikace)).
 
 *Nastavení → Aktualizace → Hledat aktualizace* hledání (i tyto zprávy)
-vypne; repozitář musí být dostupný bez dotazu na heslo (credential helper
-nebo SSH klíč), jinak okno ukáže, co selhalo.
+vypne; když GitHub není dostupný, okno ukáže, co selhalo.
+
+### Vydání verze
+
+`~/Documents/CC/bin/ccc-android-release.sh 0.2.0` (nebo prostě push tagu
+`0.2.0`, bez `v`) spustí `.github/workflows/release.yml`: vytvoří vydání (nebo
+ponechá to, které jsi založil ručně), spustí testy, vepíše tag do
+`ccc.__version__` a přiloží `ccc.tar.gz`, a sestaví a přiloží podepsané
+`ccc.apk`. Artefakt, který už je u vydání, se nikdy nenahrazuje.

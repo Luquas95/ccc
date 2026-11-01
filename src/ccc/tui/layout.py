@@ -501,15 +501,15 @@ class SidebarScreen(Screen):
         self.sync_retry_button()
 
     def _refresh_update_state(self) -> None:
-        """A new version on origin/main (ccc.updates, found by the daemon):
+        """A new release on GitHub (ccc.updates, found by the daemon):
         a line under the title; the key (or a click) opens the Update window."""
         from ccc import updates
 
         found = updates.load(self.storage)
         shown = found.available and updates.check_enabled(self.storage)
         line = self.query_one("#update-state", Static)
-        line.update(Text(_("⬆ Update: {n} new — {key}").format(
-            n=found.behind, key=keymap.pretty(self._keys()["views.update"])) if shown else ""))
+        line.update(Text(_("⬆ Update: {version} — {key}").format(
+            version=found.version, key=keymap.pretty(self._keys()["views.update"])) if shown else ""))
         line.display = shown
 
     def on_click(self, event) -> None:

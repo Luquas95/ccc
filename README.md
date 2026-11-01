@@ -197,6 +197,10 @@ Language):
 cd ~/ccc && git pull && bin/install.sh
 ```
 
+Or from ccc itself: it looks for a newer release on GitHub (tag `X.Y.Z` with
+`ccc.tar.gz`), shows its notes (`U`) and updates on a yes — see
+[Settings & notifications](src/ccc/help/settings.md#updating-ccc).
+
 Your data (`~/.local/share/ccc/`: history, settings, backups) is kept.
 
 ## Uninstalling

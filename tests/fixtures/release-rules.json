@@ -1,0 +1,76 @@
+{
+  "_": "The rules for versions and releases, shared by the ccc TUI (src/ccc/releases.py, tests/test_releases.py) and the Android app (AppUpdate.kt, AppUpdateTest.kt): both tests read this file, so the two implementations cannot drift apart.",
+  "parse": [
+    ["1.2.3", [1, 2, 3]],
+    ["v1.2.3", [1, 2, 3]],
+    [" 1.2 ", [1, 2]],
+    ["1.2.3.4", [1, 2, 3, 4]],
+    ["1", null],
+    ["1.2.3.4.5", null],
+    ["0.0.0-dev", null],
+    ["1.x", null],
+    ["nightly", null],
+    ["", null]
+  ],
+  "newer": [
+    ["v0.10.0", "0.9.0", true],
+    ["1.0", "0.9.9", true],
+    ["1.2.1", "1.2", true],
+    ["1.2.0", "1.2", false],
+    ["1.2.0", "1.2.0", false],
+    ["0.9.0", "0.10.0", false],
+    ["9.9.9", "0.0.0-dev", false],
+    ["nightly", "1.0.0", false]
+  ],
+  "releases": [
+    {
+      "name": "a release with the artifact",
+      "asset": "ccc.apk",
+      "release": {"tag_name": "v1.2.0", "body": "  Dashboard\n", "draft": false, "prerelease": false,
+        "assets": [{"name": "notes.txt", "browser_download_url": "https://x/notes"},
+                   {"name": "ccc.apk", "browser_download_url": "https://x/ccc.apk"}]},
+      "expect": {"version": "1.2.0", "url": "https://x/ccc.apk", "notes": "Dashboard"}
+    },
+    {
+      "name": "the tag without a v",
+      "asset": "ccc.tar.gz",
+      "release": {"tag_name": "0.2.0", "body": null, "draft": false, "prerelease": false,
+        "assets": [{"name": "ccc.tar.gz", "browser_download_url": "https://x/ccc.tar.gz"}]},
+      "expect": {"version": "0.2.0", "url": "https://x/ccc.tar.gz", "notes": ""}
+    },
+    {
+      "name": "the other component's artifact is not this one's",
+      "asset": "ccc.tar.gz",
+      "release": {"tag_name": "1.2.0", "body": "", "draft": false, "prerelease": false,
+        "assets": [{"name": "ccc.apk", "browser_download_url": "https://x/ccc.apk"}]},
+      "expect": null
+    },
+    {
+      "name": "a draft",
+      "asset": "ccc.apk",
+      "release": {"tag_name": "1.2.0", "body": "", "draft": true, "prerelease": false,
+        "assets": [{"name": "ccc.apk", "browser_download_url": "https://x/ccc.apk"}]},
+      "expect": null
+    },
+    {
+      "name": "a prerelease",
+      "asset": "ccc.apk",
+      "release": {"tag_name": "1.2.0", "body": "", "draft": false, "prerelease": true,
+        "assets": [{"name": "ccc.apk", "browser_download_url": "https://x/ccc.apk"}]},
+      "expect": null
+    },
+    {
+      "name": "a tag that is not a version",
+      "asset": "ccc.apk",
+      "release": {"tag_name": "nightly", "body": "", "draft": false, "prerelease": false,
+        "assets": [{"name": "ccc.apk", "browser_download_url": "https://x/ccc.apk"}]},
+      "expect": null
+    },
+    {
+      "name": "GitHub's answer for no release",
+      "asset": "ccc.apk",
+      "release": {"message": "Not Found"},
+      "expect": null
+    }
+  ]
+}

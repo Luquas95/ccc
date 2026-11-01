@@ -34,8 +34,8 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
   lines / commits ahead and behind (only where Claude may run commands),
   the queued tasks and the folder. Connection → *Conversation list* turns
   each on or off, kept on the phone.
-- **Updates** — a banner when ccc finds new commits on `origin/main`,
-  with an *Update* button (after asking: it shows the commits and, if
+- **Updates** — a banner when ccc finds a newer release on GitHub,
+  with an *Update* button (after asking: it shows the release notes and, if
   ccc can't update now, why) and a notification when the app is closed;
   and — separately, by version — "A new version of the app is available"
   when GitHub has a newer release (`X.Y.Z` tag → CI builds the signed
