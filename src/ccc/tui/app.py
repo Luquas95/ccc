@@ -15,6 +15,7 @@ from ccc.tui.dashboard import DashboardScreen
 from ccc.tui.exports import send_export
 from ccc.tui import theme
 from ccc.tui.layout import BUTTON_CSS
+from ccc.tui import scrollbar
 
 # How often the Claude Code pane's title bar learns what needs you.
 WAITING_SECONDS = 2.0
@@ -48,6 +49,7 @@ class CCContinueApp(App):
 
     def __init__(self, db_path: str):
         super().__init__()
+        scrollbar.install()  # green 3D scrollbar everywhere
         self.storage = Storage(db_path)
         self.register_theme(theme.THEME)
         self.theme = theme.NAME
