@@ -94,7 +94,7 @@ open class ScreenshotsTest {
 
     @Test
     fun conversations() = shot("conversations", "shop-api") {
-        ConversationsScreen(home, ListDetail.DEFAULT, null, SnackbarHostState(), listActions)
+        ConversationsScreen(home.copy(tab = HomeTab.CONVERSATIONS), ListDetail.DEFAULT, null, SnackbarHostState(), listActions)
     }
 
     @Test
@@ -110,7 +110,7 @@ open class ScreenshotsTest {
                 "5c4b3a2 Dashboard: context fill and git state"),
         )
         val status = home.status!!.copy(update = update, androidBuild = 6)
-        ConversationsScreen(home.copy(status = status, waiting = emptyList(), usage = null), ListDetail.DEFAULT,
+        ConversationsScreen(home.copy(tab = HomeTab.CONVERSATIONS, status = status, waiting = emptyList(), usage = null), ListDetail.DEFAULT,
             AppRelease("1.2.0", "", ""), SnackbarHostState(), listActions)
     }
 

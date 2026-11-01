@@ -87,7 +87,7 @@ data class HomeState(
     val usage: Usage? = null,
     val archived: List<Conversation> = emptyList(),
     /** The tab of the main screen. */
-    val tab: HomeTab = HomeTab.CONVERSATIONS,
+    val tab: HomeTab = HomeTab.DASHBOARD,
     /** The search field as typed: words matched against name and folder (see ListFilter). */
     val filter: String = "",
     /** The states picked in the filter menu (ListFilter's markers); empty = all. */
