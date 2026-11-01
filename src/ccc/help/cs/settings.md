@@ -222,9 +222,8 @@ nainstalován:
 - **balíček** (pip / pipx): stáhne `ccc.tar.gz` z vydání a nainstaluje ho
   pomocí `pip install` do prostředí, odkud ccc běží.
 
-Výstup instalace je v `~/.local/share/ccc/update.log`. Okno Aktualizace také
-řekne, když vydání obsahuje i Android aplikaci (`ccc.apk`); aplikace se
-aktualizuje zvlášť, ze stejného vydání
+Výstup instalace je v `~/.local/share/ccc/update.log`. Android aplikace se
+aktualizuje zvlášť, z vydání jejího vlastního repozitáře
 ([Aplikace pro Android a API](android-api.md#aktualizace-aplikace)).
 
 *Nastavení → Aktualizace → Hledat aktualizace* hledání (i tyto zprávy)
@@ -235,12 +234,12 @@ vypne; když GitHub není dostupný, okno ukáže, co selhalo.
 `~/Documents/CC/bin/ccc-android-release.sh 0.2.0` (nebo prostě push tagu
 `0.2.0`, bez `v`) spustí `.github/workflows/release.yml`: vytvoří vydání (nebo
 ponechá to, které jsi založil ručně), spustí testy, vepíše tag do
-`ccc.__version__` a přiloží `ccc.tar.gz`, a sestaví a přiloží podepsané
-`ccc.apk`. Artefakt, který už je u vydání, se nikdy nenahrazuje.
+`ccc.__version__` a přiloží `ccc.tar.gz`. Artefakt, který už je u vydání, se
+nikdy nenahrazuje.
 
 Stejný běh sestaví a otestuje i systémový balíček (`ccc_all.deb`, pro APT
 repozitář Icenux), ale nepřiloží ho: podpisový klíč zůstává na počítači
-správce (`.release-signing/` v checkoutu, mimo git). Až je běh zelený,
+správce (`~/.config/ccc-release/`, mimo repozitář). Až je běh zelený,
 `~/Documents/CC/bin/ccc-deb-sign-upload.sh 0.2.0` balíček stáhne, podepíše
 `SHA256SUMS` a k vydání přiloží `ccc_all.deb`, `SHA256SUMS` a
 `SHA256SUMS.asc`; Icenux si balíček vezme odtud.

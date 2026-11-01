@@ -1,4 +1,4 @@
-"""ccc's HTTP API, for the Android app (android/): the conversations, their
+"""ccc's HTTP API, for the Android app (github.com/Luquas95/ccc_android): the conversations, their
 messages, sending one, approvals, a new conversation, usage limits, and a
 stream of changes. Like the TUI it's just another reader / writer of the
 ccc database — the daemon does the work.
@@ -182,7 +182,6 @@ class Api(AgentEndpoints, ViewEndpoints):
         self._transcripts: dict[str, _Transcript] = {}
         self._context = context_fill.ContextTracker()
         self._git: dict[str, tuple[float, object]] = {}  # folder -> (when, gitops.WorkStatus | None)
-        self._build: tuple[float, int] = (-1e9, 0)
         self._routes = self._route_table()
 
     # --- routing -------------------------------------------------------------
@@ -261,7 +260,6 @@ class Api(AgentEndpoints, ViewEndpoints):
             "running": sum(q.status == QueueStatus.RUNNING for q in queues),
             "needs_approval": len(self.storage.queues_waiting_for_approval()),
             "update": self._update(),
-            "android_build": self._android_build(),
         }
 
     def devices(self, caller: int | None, history: bool = False) -> dict:
@@ -316,20 +314,8 @@ class Api(AgentEndpoints, ViewEndpoints):
         reason = updates.refusal(self.storage) if state.available else None
         return {"available": state.available, "behind": state.behind, "remote_head": state.remote_head,
                 "commits": state.commits, "version": state.version, "installed": state.installed,
-                "notes": state.notes, "android": state.android, "error": state.error, "checked_at": state.checked_at,
+                "notes": state.notes, "error": state.error, "checked_at": state.checked_at,
                 "can_apply": state.available and reason is None, "reason": reason}
-
-    def _android_build(self) -> int:
-        """The Android app's build number in this checkout (updates.android_build),
-        read at most once a minute: a phone older than this should be updated."""
-        now = time.monotonic()
-        with self._lock:
-            when, value = self._build
-        if now - when >= 60:
-            value = updates.android_build()
-            with self._lock:
-                self._build = (now, value)
-        return value
 
     def update_check(self) -> dict:
         updates.check(self.storage)

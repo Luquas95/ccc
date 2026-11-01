@@ -44,9 +44,6 @@ BRANCH = "main"
 REMOTE = "origin"
 CHECK_SECONDS = 6 * 3600.0
 FETCH_TIMEOUT = 40
-# The Android app's sources: what makes a new app build necessary.
-ANDROID_SOURCES = "android/app/src/main"
-APK = "ccc.apk"
 UNITS = ("ccc.service", "ccc-tui.service", "ccc-api.service")
 PROJECT_DIR = Path(__file__).resolve().parents[2]
 NOTES_LINES = 12
@@ -60,7 +57,6 @@ class UpdateState:
     tag: str | None = None  # its git tag as published (`0.2.0` or `v0.2.0`)
     url: str | None = None  # its ccc.tar.gz
     notes: str = ""  # the release's text
-    android: bool = False  # the release has the Android app (ccc.apk) too
     error: str | None = None
     # The version already told to Telegram / Discord, so it's said once.
     notified_version: str | None = None
@@ -146,21 +142,9 @@ def running_version() -> str:
     return installed_version()
 
 
-def android_build(repo: Path = PROJECT_DIR) -> int:
-    """How many commits changed the Android app's sources: its build number
-    (android/app/build.gradle.kts counts the same way), so a pull that
-    changes the app makes the phone's build older than ccc's."""
-    try:
-        out = _git(repo, "rev-list", "--count", "HEAD", "--", ANDROID_SOURCES).stdout.strip()
-        return int(out)
-    except (OSError, subprocess.TimeoutExpired, ValueError):
-        return 0
-
-
-def _latest() -> tuple[releases.Release | None, bool]:
-    """The newest release with the ccc artifact, and whether it has the app too."""
-    raw = releases.fetch()
-    return releases.parse_release(raw), releases.parse_release(raw, APK) is not None
+def _latest() -> releases.Release | None:
+    """The newest release with the ccc artifact."""
+    return releases.parse_release(releases.fetch())
 
 
 def check(storage, repo: Path = PROJECT_DIR, latest=_latest) -> UpdateState:
@@ -171,10 +155,10 @@ def check(storage, repo: Path = PROJECT_DIR, latest=_latest) -> UpdateState:
     state = UpdateState(checked_at=datetime.now().isoformat(timespec="seconds"), installed=installed,
                         notified_version=previous.notified_version)
     try:
-        release, android = latest()
+        release = latest()
         if release and releases.is_newer(release.version, installed):
             state.version, state.tag, state.url = release.version, release.tag, release.url
-            state.notes, state.android = release.notes, android
+            state.notes = release.notes
     except OSError as exc:
         # Only the kind of failure: the message may name a URL.
         state.error = type(getattr(exc, "reason", None) or exc).__name__
@@ -314,7 +298,5 @@ def notice(state: UpdateState) -> str:
     lines = [_("⬆️ ccc update available: {version} (installed: {installed}).").format(
         version=state.version, installed=state.installed)]
     lines += [f"• {line}" for line in state.notes_lines()[:5]]
-    if state.android:
-        lines.append(_("The release has the Android app too — the phone offers it separately."))
     lines.append(_("Update it in ccc (Update window) or from the phone."))
     return "\n".join(lines)

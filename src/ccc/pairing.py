@@ -82,7 +82,7 @@ def tailscale_url() -> str | None:
 
 
 def payload(server: str, code: str) -> str:
-    """What the QR holds; the app (android/…/Pairing.kt) reads exactly this."""
+    """What the QR holds; the app (ccc_android: …/Pairing.kt) reads exactly this."""
     return f"ccc://pair?server={quote(server, safe='')}&code={quote(code, safe='')}"
 
 

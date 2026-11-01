@@ -1,7 +1,5 @@
-# A tag X.Y.Z (no "v") makes the release and attaches both artifacts to it — the app
-# and ccc itself look there for new versions (the same rules: src/ccc/releases.py):
-#   ccc.apk     the Android app, signed with the release key (secrets
-#               ANDROID_KEYSTORE_B64 / _PASSWORD / ANDROID_KEY_ALIAS);
+# A tag X.Y.Z (no "v") makes the release of ccc_TUI; ccc itself looks there for new versions
+# (src/ccc/releases.py). The Android app has its own repository and releases (ccc_android).
 #   ccc.tar.gz  ccc (the TUI, daemon and API) as a Python sdist, its version stamped
 #               from the tag;
 #   ccc_all.deb the system package (/usr/lib/ccc), built and tested here but NOT attached:
@@ -78,44 +76,6 @@ jobs:
             exit 1
           fi
           gh release upload "$GITHUB_REF_NAME" ccc.tar.gz
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-
-  android:
-    needs: release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # the build number counts commits
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-      # No third-party action here: this job holds the signing key. The runner image
-      # has the Android SDK; only its licences need accepting.
-      - name: Android SDK licences
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-      - name: Release key
-        run: echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/ccc-release.jks"
-        env:
-          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
-      - name: Build
-        working-directory: android
-        run: ./gradlew --no-daemon testDebugUnitTest assembleRelease -Pccc.version="${GITHUB_REF_NAME}"
-        env:
-          ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/ccc-release.jks
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-      - name: Publish
-        run: |
-          cp android/app/build/outputs/apk/release/app-release.apk ccc.apk
-          if gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name' | grep -qx ccc.apk; then
-            echo "Release $GITHUB_REF_NAME already has ccc.apk; not replacing it." >&2
-            exit 1
-          fi
-          gh release upload "$GITHUB_REF_NAME" ccc.apk
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
