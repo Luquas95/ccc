@@ -5,7 +5,7 @@ import os
 import json
 from dataclasses import dataclass, field
 
-from ccc import mcp_servers
+from ccc import mcp_servers, plugins
 from ccc.models import RunStatus
 
 RATE_LIMIT_PATTERNS = (
@@ -138,7 +138,7 @@ def build_command(
         session_flag = ["--resume", session_id] if resume else ["--session-id", session_id]
     flags = LEGACY_FLAGS if launch_flags is None else list(launch_flags)
     if project_path is not None:
-        flags = mcp_servers.resolve_flags(flags, project_path)
+        flags = plugins.resolve_flags(mcp_servers.resolve_flags(flags, project_path))
     return ["claude", *session_flag, *first, "-p", prompt, "--output-format", "json", *flags]
 
 

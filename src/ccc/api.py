@@ -49,6 +49,7 @@ DELETE /api/v1/devices/{id}               sign a device out (the caller too); th
 GET  /api/v1/launch-presets               New conversation presets and the last choice
 GET  /api/v1/sessions?path=               Claude Code sessions of a folder (to resume one)
 GET  /api/v1/mcp-servers?path=            names of the MCP servers configured for a folder (to choose from)
+GET  /api/v1/plugins                      installed Claude Code plugins and which ones are on by default
 GET  /api/v1/permissions                  every approval waiting
 POST /api/v1/permissions/{id}             {"decision": "allow" | "always" | "deny"}
 GET  /api/v1/usage                        Claude usage limits
@@ -73,7 +74,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from ccc import context_fill, goals, groups, i18n, launch_options, mcp_servers, updates
+from ccc import context_fill, goals, groups, i18n, launch_options, mcp_servers, plugins, updates
 from ccc.api_agents import AgentEndpoints
 from ccc import api_audit, api_roles, api_scope
 from ccc.api_common import ApiError, int_of, iso, route, task_line, text_of
@@ -228,6 +229,7 @@ class Api(AgentEndpoints, ViewEndpoints):
             ok(r"/projects", lambda ids, q, b: self.projects()),
             ok(r"/sessions", lambda ids, q, b: self.sessions(q.get("path", ""))),
             ok(r"/mcp-servers", lambda ids, q, b: self.mcp_servers(q.get("path", ""))),
+            ok(r"/plugins", lambda ids, q, b: self.plugins()),
             ok(r"/launch-options", lambda ids, q, b: self.launch_options()),
             ok(r"/launch-presets", lambda ids, q, b: self.launch_presets()),
             ok(r"/prompt-presets", lambda ids, q, b: self.prompt_presets()),
@@ -822,6 +824,11 @@ class Api(AgentEndpoints, ViewEndpoints):
         servers Claude Code would load in a folder."""
         return mcp_servers.names(api_scope.check_folder(self.storage, path)) if path.strip() else []
 
+    def plugins(self) -> dict:
+        """Ids of the installed Claude Code plugins and the ones the user has
+        switched on (what a conversation inherits unless it picks its own)."""
+        return {"installed": plugins.installed(), "enabled": plugins.enabled_by_default()}
+
     def launch_presets(self) -> dict:
         """The New conversation window's presets and the last choice."""
         from ccc import presets
@@ -897,7 +904,7 @@ class Api(AgentEndpoints, ViewEndpoints):
             if group.required and not chosen:
                 selection |= {o.key for o in group.options} & defaults
         known = {o.key for g in launch_options.GROUPS for o in g.options}
-        unknown = {k for k in selection - known if not launch_options.is_mcp_server(k)}
+        unknown = {k for k in selection - known if not (launch_options.is_mcp_server(k) or launch_options.is_plugin(k))}
         if unknown:
             raise ApiError(HTTPStatus.BAD_REQUEST,
                            _("Unknown options: {options}.").format(options=", ".join(sorted(unknown))))

@@ -214,6 +214,7 @@ settings it shows are the ones that apply to both sides.
 | `POST /backup` | back the database up now |
 | `GET /launch-options` | the options a conversation can be started with (keys and labels) |
 | `GET /projects` | recently used folders |
+| `GET /plugins` | `{installed, enabled}`: ids of installed Claude Code plugins and those on by default (tick them as `plugin:<id>` in `options`, together with `plugins_select`) |
 | `GET /mcp-servers?path=` | names of the MCP servers configured for a folder (tick them as `mcp:<name>` in `options`, together with `mcp_select`) |
 | `GET /sessions?path=` | Claude Code sessions recorded in a folder, newest first (to resume one: `session_id` in `POST /conversations` with `session_resume`) |
 | `GET /launch-presets` | the New conversation presets and the last choice |

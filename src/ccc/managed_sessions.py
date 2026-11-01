@@ -16,7 +16,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 
-from ccc import mcp_servers
+from ccc import mcp_servers, plugins
 from ccc.live_delivery import DeliveryResult
 from ccc.models import DeliveryMode, Queue
 
@@ -57,7 +57,7 @@ def build_interactive_command(queue: Queue, has_transcript: bool, extra: list[st
     else:
         session = ["--session-id", queue.session_id]
     remote = ["--remote-control", queue.name.lstrip("- \t") or "conversation"] if queue.delivery_mode == DeliveryMode.REMOTE_CONTROL else []
-    launch = mcp_servers.resolve_flags(queue.launch_flags, queue.project_path) or []
+    launch = plugins.resolve_flags(mcp_servers.resolve_flags(queue.launch_flags, queue.project_path)) or []
     return ["claude", *session, *remote, *launch, *(extra or [])]
 
 

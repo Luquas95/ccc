@@ -8,11 +8,11 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, DirectoryTree, Input, OptionList, Select, Static
 from textual.widgets.option_list import Option
 
-from ccc import keymap, mcp_servers
+from ccc import keymap, mcp_servers, plugins
 from ccc.i18n import _
 from ccc.launch_options import (
-    DEFAULT_SELECTION, FORK, GROUPS, MCP_PREFIX, MCP_SELECT, SESSION_FROM_PR, SESSION_NEW, SESSION_RESUME,
-    is_mcp_server, session_mode, toggle,
+    DEFAULT_SELECTION, FORK, GROUPS, MCP_PREFIX, MCP_SELECT, PLUGIN_PREFIX, PLUGINS_SELECT, SESSION_FROM_PR, SESSION_NEW, SESSION_RESUME,
+    is_mcp_server, is_plugin, session_mode, toggle,
 )
 from ccc.orchestrator import start_conversation
 from ccc.presets import LaunchChoice, list_presets, load_last, save_last, save_preset
@@ -92,6 +92,10 @@ class NewConversationModal(ModalScreen):
         height: auto;
         margin-left: 4;
     }
+    NewConversationModal #plugin-list {
+        height: auto;
+        margin-left: 4;
+    }
     NewConversationModal #preset-row {
         height: 3;
     }
@@ -155,6 +159,8 @@ class NewConversationModal(ModalScreen):
         self._session_ids: list[str] = []
         self._mcp_shown: list[str] | None = None  # server names currently listed
         self._mcp_generation = 0  # keeps widget ids unique across rebuilds
+        self._plugins_shown: list[str] | None = None  # plugin ids currently listed
+        self._plugin_generation = 0
 
     def _preset_options(self) -> list[tuple[str, str]]:
         return [(name, name) for name in sorted(list_presets(self.storage))]
@@ -175,6 +181,8 @@ class NewConversationModal(ModalScreen):
                 right.append(Checkbox(_(option.label), value=option.key in self.selection, id=f"opt-{option.key}"))
                 if option.key == MCP_SELECT:
                     right.append(Vertical(id="mcp-servers"))
+                elif option.key == PLUGINS_SELECT:
+                    right.append(Vertical(id="plugin-list"))
                 elif option.key == SESSION_RESUME:
                     right.append(OptionList(id="resume-sessions"))
                 elif option.key == SESSION_FROM_PR:
@@ -215,6 +223,7 @@ class NewConversationModal(ModalScreen):
     def on_mount(self) -> None:
         self._sync_session_widgets()
         self._refresh_mcp()
+        self._refresh_plugins()
 
     # --- directory ------------------------------------------------------
 
@@ -260,7 +269,38 @@ class NewConversationModal(ModalScreen):
             if checkbox.value != wanted:
                 checkbox.value = wanted
 
+    def _chosen_plugins(self) -> list[str]:
+        return sorted(k.removeprefix(PLUGIN_PREFIX) for k in self.selection if is_plugin(k))
+
+    def _refresh_plugins(self) -> None:
+        """List the installed plugins (plus ticked ones that are gone) under
+        "Only selected plugins"."""
+        box = self.query_one("#plugin-list", Vertical)
+        box.display = PLUGINS_SELECT in self.selection
+        found = plugins.installed()
+        ids = sorted(set(found) | set(self._chosen_plugins()))
+        if ids != self._plugins_shown:
+            self._plugins_shown = ids
+            self._plugin_generation += 1
+            box.remove_children()
+            for i, pid in enumerate(ids):
+                label = pid if pid in found else _("{name} (not installed)").format(name=pid)
+                checkbox = Checkbox(Content(label), id=f"plugin-{self._plugin_generation}-{i}")
+                checkbox.plugin_id = pid
+                box.mount(checkbox)
+        for checkbox in box.query(Checkbox):
+            wanted = f"{PLUGIN_PREFIX}{checkbox.plugin_id}" in self.selection
+            if checkbox.value != wanted:
+                checkbox.value = wanted
+
     def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
+        pid = getattr(event.checkbox, "plugin_id", None)
+        if pid is not None:
+            key = f"{PLUGIN_PREFIX}{pid}"
+            if event.value != (key in self.selection):
+                self.selection = toggle(self.selection, key, event.value)
+                self.query_one(f"#opt-{PLUGINS_SELECT}", Checkbox).value = PLUGINS_SELECT in self.selection
+            return
         name = getattr(event.checkbox, "mcp_name", None)
         if name is not None:
             key = f"{MCP_PREFIX}{name}"
@@ -274,6 +314,10 @@ class NewConversationModal(ModalScreen):
         if event.value == (key in self.selection):
             return  # echo of our own sync below
         self.selection = toggle(self.selection, key, event.value)
+        if key == PLUGINS_SELECT and event.value and not self._chosen_plugins():
+            # Start from what is on now, so the user only unticks.
+            for pid in plugins.enabled_by_default():
+                self.selection = toggle(self.selection, f"{PLUGIN_PREFIX}{pid}", True)
         for checkbox in self.query(Checkbox):
             if not checkbox.id.startswith("opt-"):
                 continue
@@ -282,6 +326,7 @@ class NewConversationModal(ModalScreen):
                 checkbox.value = wanted
         self._sync_session_widgets()
         self._refresh_mcp()
+        self._refresh_plugins()
 
     def _sync_session_widgets(self) -> None:
         mode = session_mode(self.selection)
@@ -320,6 +365,7 @@ class NewConversationModal(ModalScreen):
                 if checkbox.value != wanted:
                     checkbox.value = wanted
         self._refresh_mcp()
+        self._refresh_plugins()
         self.query_one("#auto-continue", Checkbox).value = choice.auto_continue
         self.query_one("#remote-control", Checkbox).value = choice.remote_control
         self._sync_session_widgets()
