@@ -224,3 +224,46 @@ def test_the_check_can_be_turned_off(repos, storage):
     storage.set_setting(updates.CHECK_KEY, "off")
     assert daemon.update_tick(storage, _Notifier(), ccc, github("0.2.0")) is None
     assert not updates.load(storage).available
+
+
+def test_restart_is_needed_after_an_upgrade_under_a_running_ccc(storage, monkeypatch):
+    from ccc import heartbeat
+
+    monkeypatch.setattr(updates, "__version__", "0.1.3")
+    monkeypatch.setattr(updates, "version_on_disk", lambda: "0.1.3")
+    storage.set_setting(heartbeat.VERSION_KEY, "0.1.3")
+    assert not updates.restart_needed(storage)
+    monkeypatch.setattr(updates, "version_on_disk", lambda: "0.1.4")  # apt replaced the files
+    assert updates.restart_needed(storage)
+    monkeypatch.setattr(updates, "__version__", "0.1.4")  # the TUI was restarted, the daemon was not
+    assert updates.restart_needed(storage)
+    storage.set_setting(heartbeat.VERSION_KEY, "0.1.4")
+    assert not updates.restart_needed(storage)
+
+
+def test_a_checkout_or_a_handmade_build_never_needs_a_restart(storage, monkeypatch):
+    monkeypatch.setattr(updates, "__version__", "0.0.0-dev")
+    monkeypatch.setattr(updates, "version_on_disk", lambda: "0.0.0-dev")
+    assert not updates.restart_needed(storage)
+    monkeypatch.setattr(updates, "version_on_disk", lambda: None)
+    assert not updates.restart_needed(storage)
+
+
+def test_version_on_disk_reads_the_installed_file():
+    from ccc import __version__
+
+    assert updates.version_on_disk() == __version__
+
+
+def test_restart_refuses_while_a_task_runs_and_otherwise_restarts_the_units(storage):
+    queue = storage.create_queue("shop", "/tmp", "s1")
+    storage.update_queue_status(queue.id, QueueStatus.RUNNING)
+    ok, message = updates.restart(storage, spawn=lambda *a: pytest.fail("not now"), units=lambda: ["ccc.service"])
+    assert not ok and "shop" in message
+    storage.update_queue_status(queue.id, QueueStatus.IDLE)
+    spawned = []
+    ok, _message = updates.restart(storage, spawn=lambda command, log: spawned.append(command),
+                                   units=lambda: ["ccc.service", "ccc-tui.service"])
+    assert ok and spawned == ["systemctl --user restart ccc.service ccc-tui.service"]
+    ok, message = updates.restart(storage, spawn=lambda *a: pytest.fail("nothing to restart"), units=lambda: [])
+    assert not ok and "by hand" in message

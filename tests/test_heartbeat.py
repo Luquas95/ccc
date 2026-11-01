@@ -48,3 +48,12 @@ async def test_sidebar_shows_daemon_state(tmp_path):
         storage.set_setting(HEARTBEAT_KEY, datetime.now().isoformat())
         app.screen.refresh_daemon_state()
         assert "daemon running" in str(app.screen.query_one("#daemon-state").render())
+
+
+def test_the_heartbeat_stamps_the_version_the_daemon_runs(tmp_path, monkeypatch):
+    from ccc import heartbeat
+
+    storage = Storage(tmp_path / "h.db")
+    monkeypatch.setattr("ccc.__version__", "0.3.0")
+    heartbeat.beat(storage)
+    assert storage.get_setting(heartbeat.VERSION_KEY) == "0.3.0"

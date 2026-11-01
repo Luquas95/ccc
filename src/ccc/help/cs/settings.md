@@ -218,7 +218,14 @@ nainstalován:
 - **systémový balíček** (`.deb`, `apt install ccc`): aktualizuje ho správce
   balíčků — `sudo apt update && sudo apt upgrade` a potom
   `systemctl --user restart ccc ccc-tui`. ccc jen oznámí, že je nové vydání;
-  *Aktualizovat teď* to vysvětlí a nic nezmění;
+  *Aktualizovat teď* to vysvětlí a nic nezmění. Po `apt upgrade` služby ještě
+  běží ze starého kódu, dokud se nerestartují: ccc si toho všimne (soubory na
+  disku mají jinou verzi než běžící TUI, API nebo daemon) a pod *daemon běží*
+  ukáže **↻ je třeba restart — klikni** — klik restartuje `ccc`, `ccc-tui`
+  a `ccc-api`, ale jen když neběží žádný úkol (stejný řádek a tlačítko má
+  telefon). Konverzace běží dál. První upgrade *na* verzi s tímto řádkem ho
+  ještě ukázat neumí; jednou restartuj ručně:
+  `systemctl --user restart ccc ccc-tui ccc-api`;
 - **balíček** (pip / pipx): stáhne `ccc.tar.gz` z vydání a nainstaluje ho
   pomocí `pip install` do prostředí, odkud ccc běží.
 

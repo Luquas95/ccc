@@ -26,6 +26,7 @@ from __future__ import annotations
 import functools
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -34,7 +35,7 @@ from dataclasses import asdict, dataclass, fields
 from datetime import datetime
 from pathlib import Path
 
-from ccc import __version__, releases
+from ccc import __version__, heartbeat, releases
 from ccc.i18n import _
 from ccc.models import QueueStatus
 
@@ -180,10 +181,64 @@ def refusal(storage, repo: Path = PROJECT_DIR) -> str | None:
                 return _("The checkout has commits that aren't on {remote}/{main}.").format(remote=REMOTE, main=BRANCH)
     except (OSError, subprocess.TimeoutExpired):
         return _("git can't be run in the ccc checkout.")
+    return running_task_reason(storage)
+
+
+def running_task_reason(storage) -> str | None:
+    """Why ccc must not restart now: a task is running and the restart would stop it; None when it may."""
     running = [q.name for q in storage.list_queues() if q.status == QueueStatus.RUNNING and not q.archived]
     if running:
         return _("A task is running ({names}) — the restart would stop it.").format(names=", ".join(running[:3]))
     return None
+
+
+def version_on_disk() -> str | None:
+    """The version of the ccc files installed now (an upgrade of the package replaces them under a
+    running ccc): read from the package's own __init__.py, not from the loaded module."""
+    try:
+        text = (Path(__file__).resolve().parent / "__init__.py").read_text()
+    except OSError:
+        return None
+    found = re.search(r'^__version__ = "([^"]+)"', text, re.M)
+    return found.group(1) if found else None
+
+
+def restart_needed(storage) -> bool:
+    """ccc was upgraded under its own running processes: the installed files are a different version
+    than the TUI / API running here or the daemon (it stamps its version with every heartbeat).
+    A checkout or a build by hand has no version (0.0.0-dev) and never asks."""
+    disk = version_on_disk()
+    if not disk or not releases.parse_version(disk):
+        return False
+    running = {__version__, storage.get_setting(heartbeat.VERSION_KEY) or disk}
+    return running != {disk}
+
+
+def running_units() -> list[str]:
+    """The ccc systemd user units that are active now (the package's units live in /usr/lib/systemd/user,
+    a checkout's in ~/.config/systemd/user — either way systemd knows them)."""
+    active = []
+    for unit in UNITS:
+        try:
+            if subprocess.run(["systemctl", "--user", "is-active", "--quiet", unit], capture_output=True,
+                              timeout=10).returncode == 0:
+                active.append(unit)
+        except (OSError, subprocess.TimeoutExpired):
+            return []
+    return active
+
+
+def restart(storage, spawn=None, units=None) -> tuple[bool, str]:
+    """Restart ccc's services (after an upgrade of the package). Only while no task runs: the restart
+    would stop it. The conversations (their own tmux server) keep running."""
+    reason = running_task_reason(storage)
+    if reason:
+        return False, reason
+    active = (units or running_units)()
+    if not active:
+        return False, _("No ccc service is running under systemd — restart ccc by hand.")
+    (spawn or spawn_install)("systemctl --user restart " + " ".join(active), _log_path(storage))
+    return True, _("ccc is restarting.")
 
 
 def installed_units() -> list[str]:

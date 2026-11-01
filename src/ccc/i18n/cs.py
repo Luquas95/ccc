@@ -86,6 +86,9 @@ CS: dict[str, str] = {
     "Esc close": "Esc zavřít",
     "✖ daemon not running — queues are stopped": "✖ daemon neběží — fronty stojí",
     "● daemon running": "● daemon běží",
+    "↻ restart needed — click": "↻ je třeba restart — klikni",
+    "No ccc service is running under systemd — restart ccc by hand.": "Žádná služba ccc neběží pod systemd — restartuj ccc ručně.",
+    "ccc is restarting.": "ccc se restartuje.",
 
     # --- Dashboard ------------------------------------------------------------
     "[b]No conversations yet.[/b] Three steps to your first one:\n\n"

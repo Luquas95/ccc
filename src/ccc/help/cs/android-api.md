@@ -70,7 +70,7 @@ o schválení — odpovíš přímo v oznámení —, chybě, limitu využití n
 hotové odpovědi. Žádný push server se nepoužívá; na Xiaomi / HyperOS
 aplikaci povol běh na pozadí, jinak ji systém zastaví.
 
-**Aktualizace:** `GET /status` má `update` (novější vydání na GitHubu: `version`, `installed`, `notes`, `can_apply`, proč ne; `behind`, `remote_head` a `commits` zůstávají pro starší aplikace: 1, verze a první řádky poznámek); `POST /update/check` zjistí hned, `POST /update` aktualizuje ccc (přepnutí na vydání, instalace, restart; 409 s důvodem, když to nejde) — viz [Nastavení](settings.md#aktualizace-ccc). Aplikace ukáže banner s tlačítkem *Aktualizovat*; proud událostí hlásí `update`, když se objeví nová verze.
+**Aktualizace:** `GET /status` má `update` (novější vydání na GitHubu: `version`, `installed`, `notes`, `can_apply`, proč ne; `behind`, `remote_head` a `commits` zůstávají pro starší aplikace: 1, verze a první řádky poznámek); `GET /status` má také `restart_needed` (ccc bylo aktualizováno pod běžícími procesy) a `POST /restart` restartuje služby ccc — jen když neběží žádný úkol (jinak 409 s důvodem); role admin. `POST /update/check` zjistí hned, `POST /update` aktualizuje ccc (přepnutí na vydání, instalace, restart; 409 s důvodem, když to nejde) — viz [Nastavení](settings.md#aktualizace-ccc). Aplikace ukáže banner s tlačítkem *Aktualizovat*; proud událostí hlásí `update`, když se objeví nová verze.
 
 ## Aktualizace aplikace
 

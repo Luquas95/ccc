@@ -26,6 +26,7 @@ from test_api import _call, server, storage  # noqa: F401  (fixtures)
     ("GET", "/settings", ROLE_ADMIN),
     ("POST", "/settings", ROLE_ADMIN),
     ("POST", "/update", ROLE_ADMIN),
+    ("POST", "/restart", ROLE_ADMIN),
     ("POST", "/prompt-presets", ROLE_ADMIN),
     ("POST", "/launch-presets", ROLE_ADMIN),
     ("POST", "/launch-presets/delete", ROLE_ADMIN),

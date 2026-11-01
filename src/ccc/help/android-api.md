@@ -76,7 +76,7 @@ usage limit or a finished reply. No push server is involved; on Xiaomi
 / HyperOS allow the app to run in the background, or the system stops
 it.
 
-**Updates:** `GET /status` has `update` (the newer GitHub release: `version`, `installed`, `notes`, `can_apply`, why not; `behind`, `remote_head` and `commits` are kept for older apps: 1, the version and the first lines of the notes); `POST /update/check` looks now, `POST /update` updates ccc (move to the release, install, restart; 409 with the reason when it can't) — see [Settings](settings.md#updating-ccc). The app shows a banner with an *Update* button; the events stream says `update` when a new version appears.
+**Updates:** `GET /status` has `update` (the newer GitHub release: `version`, `installed`, `notes`, `can_apply`, why not; `behind`, `remote_head` and `commits` are kept for older apps: 1, the version and the first lines of the notes); `GET /status` also has `restart_needed` (ccc was upgraded under its running processes) and `POST /restart` restarts ccc's services — only while no task runs (409 with the reason); admin role. `POST /update/check` looks now, `POST /update` updates ccc (move to the release, install, restart; 409 with the reason when it can't) — see [Settings](settings.md#updating-ccc). The app shows a banner with an *Update* button; the events stream says `update` when a new version appears.
 
 ## Updating the app
 
