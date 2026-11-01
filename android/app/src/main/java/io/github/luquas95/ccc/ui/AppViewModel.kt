@@ -246,15 +246,30 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Update ccc (it pulls, installs, restarts); what it answers goes to the snackbar. */
+    /** The result of the last "Update now": shown in a dialog (a snackbar is easy to miss), whatever it was. */
+    data class UpdateOutcome(val ok: Boolean, val text: String)
+
+    private val _updateOutcome = MutableStateFlow<UpdateOutcome?>(null)
+    val updateOutcome: StateFlow<UpdateOutcome?> = _updateOutcome.asStateFlow()
+
+    fun updateOutcomeShown() {
+        _updateOutcome.value = null
+    }
+
+    /** Update ccc (it pulls, installs, restarts); success and the reason of a failure both go to [updateOutcome]. */
     fun applyUpdate() {
         viewModelScope.launch {
-            guard {
-                val result = api?.applyUpdate() ?: return@guard
-                _message.value = result.message
-                delay(3_000)
-                refresh()
+            val client = api ?: return@launch
+            try {
+                val result = client.applyUpdate()
+                _updateOutcome.value = UpdateOutcome(true, result.message.ifBlank { text(R.string.update_done) })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                _updateOutcome.value = UpdateOutcome(false, describe(e))
             }
+            delay(3_000)
+            refresh()
         }
     }
 

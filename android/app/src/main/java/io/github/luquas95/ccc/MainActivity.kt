@@ -11,6 +11,10 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -106,6 +110,7 @@ private fun App(model: AppViewModel) {
     val notifications by model.notifications.collectAsStateWithLifecycle()
     val listDetails by model.listDetails.collectAsStateWithLifecycle()
     val appUpdate by model.appUpdate.collectAsStateWithLifecycle()
+    val updateOutcome by model.updateOutcome.collectAsStateWithLifecycle()
     val install by model.install.collectAsStateWithLifecycle()
     val newVersion by model.newVersion.collectAsStateWithLifecycle()
     val nameOf = { id: Int -> (home.conversations + home.archived).firstOrNull { it.id == id }?.name.orEmpty() }
@@ -141,6 +146,14 @@ private fun App(model: AppViewModel) {
             model.messageShown()
             snackbar.showSnackbar(it)
         }
+    }
+    updateOutcome?.let { outcome ->
+        AlertDialog(
+            onDismissRequest = model::updateOutcomeShown,
+            title = { Text(stringResource(if (outcome.ok) R.string.update_done_title else R.string.update_failed_title)) },
+            text = { Text(outcome.text) },
+            confirmButton = { TextButton(onClick = model::updateOutcomeShown) { Text(stringResource(R.string.ok)) } },
+        )
     }
     BackHandler(enabled = screens.size > 1) { model.back() }
 

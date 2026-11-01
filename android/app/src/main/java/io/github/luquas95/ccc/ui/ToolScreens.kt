@@ -95,6 +95,7 @@ class RoutinesActions(
 @Composable
 fun RoutinesScreen(state: Routines?, conversations: List<Conversation>, snackbar: SnackbarHostState, actions: RoutinesActions) {
     var editing by remember { mutableStateOf<Routine?>(null) }
+    var deleting by remember { mutableStateOf<Routine?>(null) }
     Scaffold(
         topBar = { Bar(stringResource(R.string.routines), null, actions.back) },
         floatingActionButton = {
@@ -130,13 +131,26 @@ fun RoutinesScreen(state: Routines?, conversations: List<Conversation>, snackbar
                         Spacer(Modifier.weight(1f))
                         IconButton(onClick = { actions.run(routine.id) }) { Icon(Icons.Filled.PlayArrow, stringResource(R.string.routine_run)) }
                         IconButton(onClick = { editing = routine }) { Icon(Icons.Filled.Edit, stringResource(R.string.edit)) }
-                        IconButton(onClick = { actions.delete(routine.id) }) {
+                        IconButton(onClick = { deleting = routine }) {
                             Icon(Icons.Filled.Delete, stringResource(R.string.delete), tint = CccColors.Error)
                         }
                     }
                 }
             }
         }
+    }
+    deleting?.let { routine ->
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text(stringResource(R.string.routine_delete_title)) },
+            text = { Text(stringResource(R.string.routine_delete_text, routine.name)) },
+            confirmButton = {
+                TextButton(onClick = { deleting = null; actions.delete(routine.id) }) {
+                    Text(stringResource(R.string.delete), color = CccColors.Error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
     editing?.let { routine ->
         RoutineDialog(routine, state, conversations, onClose = { editing = null }) {

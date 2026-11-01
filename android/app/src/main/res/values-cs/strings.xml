@@ -273,6 +273,11 @@
     <string name="round">kolo</string>
     <string name="rounds">Kol</string>
     <string name="routine_add">Nová rutina</string>
+    <string name="routine_delete_title">Smazat rutinu?</string>
+    <string name="routine_delete_text">Rutina „%1$s“ bude smazána. Nelze vrátit zpět.</string>
+    <string name="update_done_title">ccc aktualizováno</string>
+    <string name="update_failed_title">Aktualizace se nezdařila</string>
+    <string name="update_done">ccc bylo aktualizováno a restartuje se.</string>
     <string name="routine_conversation">Konverzace</string>
     <string name="routine_edit">Upravit rutinu</string>
     <string name="routine_fresh">Při každém běhu nová konverzace (po dokončení archivovaná)</string>
