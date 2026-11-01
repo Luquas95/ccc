@@ -4,9 +4,9 @@ service's section in Settings; saved at once with Ctrl+S."""
 from __future__ import annotations
 
 from rich.text import Text
-from textual.containers import Container, VerticalScroll
+from textual.containers import Container, Horizontal, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import Checkbox, Static
+from textual.widgets import Button, Checkbox, Static
 
 from ccc import keymap
 from ccc.i18n import _
@@ -44,6 +44,10 @@ class NotifyCategoriesModal(ModalScreen):
     NotifyCategoriesModal .modal-hint {
         color: $text-muted;
     }
+    NotifyCategoriesModal .modal-keys {
+        width: 1fr;
+        padding-top: 1;
+    }
     /* Unticked: no faint X that reads as ticked; ticked: bright X. */
     NotifyCategoriesModal Checkbox > .toggle--button {
         color: $panel;
@@ -73,13 +77,23 @@ class NotifyCategoriesModal(ModalScreen):
         box = Container(
             Static(_("Which messages {service} gets:").format(service=SERVICE_NAMES[self.channel]), classes="modal-label"),
             VerticalScroll(*rows),
-            Static(_("Each service has its own choice. Ctrl+S save  ·  Esc cancel"), classes="modal-hint"),
+            Static(_("Each service has its own choice."), classes="modal-hint"),
+            Horizontal(
+                Static(_("Ctrl+S save  ·  Esc cancel"), classes="modal-hint modal-keys"),
+                Button(_("Cancel"), id="notify-cancel", classes="modal-cancel"),
+                Button(_("Save"), id="notify-save", classes="modal-submit"),
+                classes="modal-buttons",
+            ),
         )
         box.border_title = _("{service} notifications").format(service=SERVICE_NAMES[self.channel])
         yield box
 
     def on_mount(self) -> None:
         self.query_one(Checkbox).focus()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        event.stop()
+        (self.action_save if event.button.id == "notify-save" else self.action_cancel)()
 
     def action_save(self) -> None:
         set_category_states(self.storage, self.channel,

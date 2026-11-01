@@ -558,4 +558,10 @@ async def test_the_messages_window_fits_a_small_terminal(tmp_path):
         app.screen.query_one("#notify-health", Checkbox).focus()  # the last ones scroll into view
         await pilot.pause()
         assert app.screen.query_one("#notify-health", Checkbox).region.height == 1
-        assert app.screen.query_one(".modal-hint").region.bottom <= 24
+        for button in ("#notify-cancel", "#notify-save"):  # the buttons are on screen, like in Settings
+            region = app.screen.query_one(button).region
+            assert 0 < region.bottom <= 24 and 0 < region.right <= 80
+        app.screen.query_one("#notify-queue", Checkbox).value = False
+        app.screen.query_one("#notify-save").press()
+        await pilot.pause()
+        assert isinstance(app.screen, SettingsModal)

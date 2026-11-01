@@ -1581,8 +1581,7 @@ CS: dict[str, str] = {
     "Daily summary": "Denní souhrn",
     "one message a day with what happened": "jedna zpráva denně o tom, co se stalo",
     "▶ {name}: starts working — {prompt}": "▶ {name}: začíná pracovat — {prompt}",
-    "Each service has its own choice. Ctrl+S save  ·  Esc cancel":
-        "Každá služba má svůj vlastní výběr. Ctrl+S uložit  ·  Esc zrušit",
+    "Each service has its own choice.": "Každá služba má svůj vlastní výběr.",
     "{service} notifications": "Oznámení na {service}",
     "Which messages {service} gets:": "Které zprávy dostane {service}:",
     "Choose messages…": "Vybrat zprávy…",
