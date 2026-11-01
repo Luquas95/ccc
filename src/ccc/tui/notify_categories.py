@@ -44,10 +44,6 @@ class NotifyCategoriesModal(ModalScreen):
     NotifyCategoriesModal .modal-hint {
         color: $text-muted;
     }
-    NotifyCategoriesModal .modal-keys {
-        width: 1fr;
-        padding-top: 1;
-    }
     /* Unticked: no faint X that reads as ticked; ticked: bright X. */
     NotifyCategoriesModal Checkbox > .toggle--button {
         color: $panel;
@@ -79,7 +75,6 @@ class NotifyCategoriesModal(ModalScreen):
             VerticalScroll(*rows),
             Static(_("Each service has its own choice."), classes="modal-hint"),
             Horizontal(
-                Static(_("Ctrl+S save  ·  Esc cancel"), classes="modal-hint modal-keys"),
                 Button(_("Cancel"), id="notify-cancel", classes="modal-cancel"),
                 Button(_("Save"), id="notify-save", classes="modal-submit"),
                 classes="modal-buttons",
