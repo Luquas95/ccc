@@ -680,17 +680,16 @@ def test_no_context_and_no_git_where_claude_may_not_run_commands(storage, tmp_pa
     assert listed["git"] is None and listed["context"] is None  # no transcript either
 
 
-def test_status_carries_the_update_and_the_android_build(storage, monkeypatch):
+def test_status_carries_the_update(storage, monkeypatch):
     from ccc import updates
 
-    monkeypatch.setattr(updates, "android_build", lambda *a: 7)
     status = api.Api(storage).status()
-    assert status["android_build"] == 7
+    assert "android_build" not in status
     assert status["update"]["available"] is False
-    updates.save(storage, updates.UpdateState(version="0.2.0", installed="0.1.0", notes="one\ntwo", android=True))
+    updates.save(storage, updates.UpdateState(version="0.2.0", installed="0.1.0", notes="one\ntwo"))
     monkeypatch.setattr(updates, "refusal", lambda st, *a: "A task is running (shop)")
     update = api.Api(storage).status()["update"]
-    assert update["version"] == "0.2.0" and update["commits"] == ["one", "two"] and update["notes"] == "one\ntwo" and update["android"] and not update["can_apply"] and "shop" in update["reason"]
+    assert update["version"] == "0.2.0" and update["commits"] == ["one", "two"] and update["notes"] == "one\ntwo" and "android" not in update and not update["can_apply"] and "shop" in update["reason"]
     storage.set_setting(updates.CHECK_KEY, "off")
     assert api.Api(storage).status()["update"] is None
 

@@ -5,7 +5,7 @@ from ccc import updates
 from ccc.tui.app import CCContinueApp
 from ccc.tui.update import UpdateModal
 
-STATE = updates.UpdateState(checked_at="2026-10-30T12:00:00", installed="0.1.0", version="0.2.0", android=True,
+STATE = updates.UpdateState(checked_at="2026-10-30T12:00:00", installed="0.1.0", version="0.2.0",
                             notes="Add rate limiting\n\nFix the login")
 
 
@@ -34,7 +34,7 @@ async def test_a_new_version_shows_a_line_and_the_key_opens_the_window(tmp_path)
         assert isinstance(app.screen, UpdateModal)
         info = app.screen.query_one("#update-info", Static).render().plain
         assert "ccc 0.2.0 is out (installed: 0.1.0)" in info
-        assert "Add rate limiting" in info and "Fix the login" in info and "Android app too" in info
+        assert "Add rate limiting" in info and "Fix the login" in info
         assert not app.screen.query_one("#update-apply", Button).disabled
 
 

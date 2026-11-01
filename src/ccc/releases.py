@@ -1,11 +1,11 @@
 """GitHub releases as the source of ccc's versions — the same rules as the
-Android app's (AppUpdate.kt; both are tested against
-tests/fixtures/release-rules.json, so they cannot drift apart):
+Android app's (AppUpdate.kt in ccc_android; both are tested against
+tests/fixtures/release-rules.json — the app keeps a copy — so they must not drift apart):
 
 - a new version is the repository's latest release (GitHub's `releases/latest`:
   public, no token is sent) that is not a draft or prerelease, whose tag is a
   version `1.2.3` (2–4 numbers, a leading `v` is fine) and which has the
-  artifact attached — `ccc.tar.gz` for ccc, `ccc.apk` for the app;
+  artifact attached — `ccc.tar.gz` for ccc, `ccc.apk` for the app (in its own repository, ccc_android);
 - versions are compared as numbers; a version that is not a number (a
   checkout or build made by hand, `0.0.0-dev`) never asks for an update."""
 from __future__ import annotations
@@ -17,7 +17,7 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO = "Luquas95/ccc"
+REPO = "Luquas95/ccc_TUI"
 API = "https://api.github.com"
 ASSET = "ccc.tar.gz"
 TIMEOUT = 20

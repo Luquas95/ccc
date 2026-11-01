@@ -217,9 +217,8 @@ ccc is installed:
 - **a package** (pip / pipx): it downloads the release's `ccc.tar.gz` and
   `pip install`s it into the environment ccc runs from.
 
-The install's output is in `~/.local/share/ccc/update.log`. The Update window
-also says when the release carries the Android app (`ccc.apk`) too; the
-app itself is updated separately, by the same release
+The install's output is in `~/.local/share/ccc/update.log`. The Android app is
+updated separately, from the releases of its own repository
 ([Android app & API](android-api.md#updating-the-app)).
 
 *Settings → Updates → Look for updates* turns the looking (and these
@@ -230,12 +229,12 @@ messages) off; the window shows what failed when GitHub can't be reached.
 `~/Documents/CC/bin/ccc-android-release.sh 0.2.0` (or just pushing the tag
 `0.2.0`, no `v`) runs `.github/workflows/release.yml`: it creates the release
 (or keeps one made by hand), runs the tests, stamps the tag into
-`ccc.__version__` and attaches `ccc.tar.gz`, and builds and attaches the signed
-`ccc.apk`. An artifact already on a release is never replaced.
+`ccc.__version__` and attaches `ccc.tar.gz`. An artifact already on a release is
+never replaced.
 
 The same run builds and tests the system package (`ccc_all.deb`, for the
 Icenux APT repository) but does not attach it: the signing key stays on the
-maintainer's machine (`.release-signing/` in the checkout, not in git). When the
+maintainer's machine (`~/.config/ccc-release/`, outside the repository). When the
 run is green, `~/Documents/CC/bin/ccc-deb-sign-upload.sh 0.2.0` downloads the
 package, signs `SHA256SUMS` and attaches `ccc_all.deb`, `SHA256SUMS` and
 `SHA256SUMS.asc` to the release; Icenux takes the package from there.

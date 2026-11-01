@@ -67,8 +67,6 @@ class UpdateModal(ModalScreen):
                 text.append(f"  {line}\n")
             if len(state.notes_lines()) > updates.NOTES_LINES:
                 text.append("  …\n", style="dim")
-            if state.android:
-                text.append(_("The release has the Android app too — the phone offers it separately.") + "\n", style="cyan")
         elif state.checked_at:
             text.append(_("ccc is up to date.") + "\n", style="green")
         else:

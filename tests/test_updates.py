@@ -39,10 +39,10 @@ def release_tag(other, tag, name="b.txt", folder=""):
     git(other, "tag", tag); git(other, "push", "-q", "origin", tag)
 
 
-def github(version="0.2.0", notes="Dashboard\n\nFaster start", android=True, tag=None):
+def github(version="0.2.0", notes="Dashboard\n\nFaster start", tag=None):
     """What releases/latest says, as updates.check() gets it."""
     release = releases.Release(version, f"https://x/{version}/ccc.tar.gz", notes, tag or version)
-    return lambda: (release, android)
+    return lambda: release
 
 
 @pytest.fixture
@@ -55,14 +55,14 @@ def test_up_to_date_then_a_newer_release(repos, storage):
     assert not updates.check(storage, ccc, github("0.1.0")).available
     state = updates.check(storage, ccc, github("0.2.0"))
     assert state.available and state.version == "0.2.0" and state.installed == "0.1.0" and state.error is None
-    assert state.notes_lines() == ["Dashboard", "Faster start"] and state.android
+    assert state.notes_lines() == ["Dashboard", "Faster start"]
     assert updates.load(storage) == state  # kept for the TUI, the API and the phone
     assert (state.behind, state.remote_head, state.commits) == (1, "0.2.0", ["Dashboard", "Faster start"])
 
 
 def test_a_release_without_the_artifact_or_an_older_one_is_not_an_update(repos, storage):
     ccc, _other = repos
-    assert not updates.check(storage, ccc, lambda: (None, True)).available
+    assert not updates.check(storage, ccc, lambda: None).available
     assert not updates.check(storage, ccc, github("0.0.9")).available
 
 
@@ -199,14 +199,6 @@ def test_apply_when_up_to_date(repos, storage):
     assert not ok and "up to date" in message
 
 
-def test_android_build_counts_the_commits_that_changed_the_app(repos):
-    ccc, other = repos
-    assert updates.android_build(ccc) == 0
-    release_tag(other, "0.2.0", "c.txt", "android/app/src/main")
-    git(ccc, "pull", "-q")
-    assert updates.android_build(ccc) == 1
-
-
 class _Notifier:
     def __init__(self):
         self.sent = []
@@ -221,7 +213,7 @@ def test_the_daemon_tells_once_per_new_version(repos, storage):
     notifier = _Notifier()
     assert daemon.update_tick(storage, notifier, ccc, github("0.1.0")) is None  # nothing new
     text = daemon.update_tick(storage, notifier, ccc, github("0.2.0"))
-    assert "0.2.0" in text and "installed: 0.1.0" in text and "Faster start" in text and "Android app" in text
+    assert "0.2.0" in text and "installed: 0.1.0" in text and "Faster start" in text
     assert daemon.update_tick(storage, notifier, ccc, github("0.2.0")) is None  # the same version: not again
     assert daemon.update_tick(storage, notifier, ccc, github("0.3.0")) is not None
     assert len(notifier.sent) == 2

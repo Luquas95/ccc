@@ -1,7 +1,8 @@
 # Aplikace pro Android a API
 
-ccc má aplikaci pro Android (`android/` v repozitáři — jak ji sestavit
-a nainstalovat: [android/README.md](../../../../android/README.md)).
+ccc má aplikaci pro Android (vlastní repozitář
+[ccc_android](https://github.com/Luquas95/ccc_android) — jak ji nainstalovat
+a ověřit stažení: její README).
 S ccc mluví přes malé HTTP API: konverzace a jejich zprávy, odeslání
 zprávy, schvalování nástrojů, nová konverzace, limity využití — a proud
 změn, takže telefon novou odpověď nebo žádost o schválení uvidí hned.
@@ -69,11 +70,11 @@ o schválení — odpovíš přímo v oznámení —, chybě, limitu využití n
 hotové odpovědi. Žádný push server se nepoužívá; na Xiaomi / HyperOS
 aplikaci povol běh na pozadí, jinak ji systém zastaví.
 
-**Aktualizace:** `GET /status` má `update` (novější vydání na GitHubu: `version`, `installed`, `notes`, `can_apply`, proč ne; `behind`, `remote_head` a `commits` zůstávají pro starší aplikace: 1, verze a první řádky poznámek) a `android_build`; `POST /update/check` zjistí hned, `POST /update` aktualizuje ccc (přepnutí na vydání, instalace, restart; 409 s důvodem, když to nejde) — viz [Nastavení](settings.md#aktualizace-ccc). Aplikace ukáže banner s tlačítkem *Aktualizovat*; proud událostí hlásí `update`, když se objeví nová verze.
+**Aktualizace:** `GET /status` má `update` (novější vydání na GitHubu: `version`, `installed`, `notes`, `can_apply`, proč ne; `behind`, `remote_head` a `commits` zůstávají pro starší aplikace: 1, verze a první řádky poznámek); `POST /update/check` zjistí hned, `POST /update` aktualizuje ccc (přepnutí na vydání, instalace, restart; 409 s důvodem, když to nejde) — viz [Nastavení](settings.md#aktualizace-ccc). Aplikace ukáže banner s tlačítkem *Aktualizovat*; proud událostí hlásí `update`, když se objeví nová verze.
 
 ## Aktualizace aplikace
 
-Aplikace se aktualizuje podle verze, ne přes ccc: push tagu `X.Y.Z` (bez `v`) spustí GitHub Actions, které aplikaci sestaví, podepíší vydávacím klíčem a přiloží k vydání jako `ccc.apk` (a samotné ccc jako `ccc.tar.gz` — [Nastavení](settings.md#vydání-verze)); ccc se pro vlastní aktualizace řídí stejnými pravidly. Aplikace se GitHubu ptá na nejnovější vydání (když přijde do popředí, nejvýš jednou za šest hodin; žádný token se neposílá) a když má nižší verzi, ukáže „K dispozici je nová verze aplikace: X“ s tlačítkem *Stáhnout a nainstalovat*. Stažení jde do instalátoru Androidu, který se nejdřív zeptá — a poprvé také na povolení instalace z aplikace. Sestavení vytvořené ručně má verzi `0.0.0-dev` a nikdy se neptá. Vydání (zde): `~/Documents/CC/bin/ccc-android-release.sh 0.2.0`.
+Aplikace se aktualizuje podle verze, ne přes ccc, a z vlastního repozitáře: tag `X.Y.Z` (bez `v`) v [ccc_android](https://github.com/Luquas95/ccc_android) spustí GitHub Actions, které aplikaci sestaví a otestují; správce ji pak podepíše na svém počítači a k vydání přiloží `ccc.apk` (podpisový klíč se na GitHub nedostane). Aplikace se GitHubu ptá na nejnovější vydání toho repozitáře (když přijde do popředí, nejvýš jednou za šest hodin; žádný token se neposílá) a když má nižší verzi, ukáže „K dispozici je nová verze aplikace: X“ s tlačítkem *Stáhnout a nainstalovat*. Stažení jde do instalátoru Androidu, který se nejdřív zeptá — a poprvé také na povolení instalace z aplikace. Sestavení vytvořené ručně má verzi `0.0.0-dev` a nikdy se neptá. Aplikace a ccc mají každé svou verzi; API zůstává kompatibilní, takže starší aplikace funguje i s novějším ccc.
 
 **Co seznam ukazuje** (Připojení → *Seznam konverzací*): zaplnění kontextu,
 stav gitu, úkoly ve frontě a složku, každé zapnuté nebo vypnuté — pamatuje
