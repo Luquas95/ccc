@@ -158,6 +158,19 @@ class CCContinueApp(App):
             subprocess.run(["tmux", "set-option", "-w", "-t", os.environ["TMUX_PANE"], FOOTER_OPTION, value],
                            capture_output=True)
 
+    def copy_to_clipboard(self, text: str) -> None:
+        """Textual's copy is an OSC 52 that ccc's tmux drops (set-clipboard
+        external); load-buffer -w hands the text to the clipboard of the
+        terminal and into tmux's buffer, which Ctrl+Shift+V pastes."""
+        super().copy_to_clipboard(text)
+        from ccc.tui import cli_pane
+
+        if cli_pane._on_ccc_server():
+            import subprocess
+
+            subprocess.run(["tmux", "load-buffer", "-w", "-"], input=text.encode(),
+                           capture_output=True, timeout=5)
+
     def copy_to_clipboard_threadsafe(self, text: str) -> None:
         """For the clipboard bridge's thread (tui.claude_pane)."""
         self.call_from_thread(self.copy_to_clipboard, text)

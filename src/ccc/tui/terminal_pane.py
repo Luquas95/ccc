@@ -296,6 +296,15 @@ class TerminalPane(Widget, can_focus=True):
             event.prevent_default()
             self.post_message(self.Released())
             return
+        if event.key == "ctrl+shift+c":
+            # Copies the selection; without one it does nothing (never
+            # Ctrl+C = interrupt to the command).
+            event.stop()
+            event.prevent_default()
+            text = self.selected_text()
+            if text.strip():
+                self.app.copy_to_clipboard(text)
+            return
         if event.key in self.passthrough:
             return  # ccc's own key: the screen's bindings take it
         data = encode_key(event.key, event.character, application_cursor=1 in self.modes)

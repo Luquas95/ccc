@@ -307,14 +307,20 @@ def _on_ccc_server() -> bool:
 # - selecting with the mouse copies to your device's clipboard (OSC 52,
 #   over SSH too — Termux and Linux terminals support it) when you let
 #   go; the pane leaves copy mode, so typing and pasting go to it again;
-# - Ctrl+Shift+C copies the selection; without one it does nothing (it
-#   must never reach Claude as Ctrl+C = interrupt);
+# - Ctrl+Shift+C copies the selection (tmux's in copy mode, the embedded
+#   frame's own otherwise); without one it does nothing (it must never
+#   reach Claude as Ctrl+C = interrupt);
 # - Ctrl+Shift+V pastes the last copy (where the terminal doesn't paste
 #   by itself — Linux terminals do, from the clipboard).
 # set-clipboard stays "external" (tmux's default): only tmux's own copies
 # reach the clipboard, never an escape sequence printed into a pane (a
 # traceback quoting a conversation name, say). Copies made in Claude Code
 # come in as a command instead (clipboard_bridge: load-buffer -w).
+# Ctrl+Shift+C in ccc's own pane (not in copy mode): tmux would swallow it, so
+# it's handed on as the unambiguous CSI-u sequence Textual reads as
+# "ctrl+shift+c" (the embedded Claude Code frame copies its selection).
+# In any other pane it does nothing — never Ctrl+C (interrupt) to Claude.
+COPY_KEY_TO_CCC = 'if-shell -F "#{==:#{@ccc-title},ccc}" "send-keys -l \'\\033[99;6u\'"'
 CLIPBOARD_COMMANDS: tuple[tuple[str, ...], ...] = (
     ("set-option", "-s", "set-clipboard", "external"),
     ("set-option", "-s", "extended-keys", "on"),
@@ -322,7 +328,8 @@ CLIPBOARD_COMMANDS: tuple[tuple[str, ...], ...] = (
       for table in ("copy-mode", "copy-mode-vi")],
     *[("bind-key", "-T", table, "C-S-c", "send-keys", "-X", "copy-pipe-and-cancel")
       for table in ("copy-mode", "copy-mode-vi")],
-    ("bind-key", "-n", "C-S-c", "if-shell", "-F", "#{pane_in_mode}", "send-keys -X copy-pipe-and-cancel", ""),
+    ("bind-key", "-n", "C-S-c", "if-shell", "-F", "#{pane_in_mode}", "send-keys -X copy-pipe-and-cancel",
+     COPY_KEY_TO_CCC),
     ("bind-key", "-n", "C-S-v", "paste-buffer", "-p"),
     # Ctrl+Q (keymap's app.quit) closes ccc for the terminal that pressed
     # it: detach that client (ccc keeps running; `ccc` opens it again).
