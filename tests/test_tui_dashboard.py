@@ -191,9 +191,9 @@ async def test_dashboard_shows_context_and_git_and_what_waits_for_you(tmp_path, 
         await pilot.pause(0.5)
         app.screen.refresh_table()
         headers, rows = _cells(app)
-        assert headers == ["Project", "Status", "Pending", "Today's tokens", "Context", "Git", "Path"]
+        assert headers == ["Project", "Status", "Goal", "Pending", "Today's tokens", "Context", "Git", "Path"]
         row = rows[0]
-        assert row[4] == "62%" and row[5] == "feature-x +12−3 ↑2" and row[6].endswith("shop-api")
+        assert row[5] == "62%" and row[6] == "feature-x +12−3 ↑2" and row[7].endswith("shop-api")
         assert "1 waiting for you" in app.screen.query_one("#dashboard-overview", Static).render().plain
 
 
@@ -205,7 +205,7 @@ async def test_columns_choice_does_not_depend_on_window_width(tmp_path, monkeypa
     app = CCContinueApp(db_path)
     async with app.run_test(size=(80, 30)) as pilot:
         await pilot.pause(0.5)
-        assert len(_cells(app)[0]) == 7  # the default is everything, even in a narrow window
+        assert len(_cells(app)[0]) == 8  # the default is everything, even in a narrow window
         dashboard_columns.save(storage, [dashboard_columns.GIT, dashboard_columns.PATH])
         app.screen.refresh_table()
         headers, rows = _cells(app)
@@ -227,3 +227,28 @@ def test_columns_choice_defaults_and_saves_in_table_order(tmp_path):
     assert dc.shown(storage) == [dc.STATUS, dc.PATH]
     dc.save(storage, [])  # chosen: none — only the name
     assert dc.shown(storage) == []
+
+
+@pytest.mark.asyncio
+async def test_dashboard_goal_column_shows_the_running_goal_then_its_result(tmp_path, monkeypatch):
+    from datetime import datetime, timedelta
+
+    from ccc import goals
+    from ccc.models import GoalStatus
+
+    db_path, storage, queue = _setup(tmp_path, monkeypatch)
+    app = CCContinueApp(db_path)
+    async with app.run_test(size=(160, 40)) as pilot:
+        await pilot.pause(0.5)
+        app.screen.refresh_table()
+        assert _cells(app)[1][0][2] == "–"  # no goal yet
+        goal = goals.start(storage, queue.id, "tokens expire", max_rounds=5)
+        storage.update_goal(goal.id, round=3)
+        app.screen.refresh_table()
+        assert _cells(app)[1][0][2] == "◎ 3/5"
+        storage.update_goal(goal.id, status=GoalStatus.PASSED, finished_at=datetime.now())
+        app.screen.refresh_table()
+        assert _cells(app)[1][0][2] == "✅ met 3/5"
+        storage.update_goal(goal.id, finished_at=datetime.now() - timedelta(days=2))
+        app.screen.refresh_table()
+        assert _cells(app)[1][0][2] == "–"  # a day later it leaves the Dashboard

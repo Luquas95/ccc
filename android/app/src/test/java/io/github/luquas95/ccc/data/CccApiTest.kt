@@ -73,6 +73,27 @@ class CccApiTest {
     }
 
     @Test
+    fun `reads the latest goal loop of a conversation for the Dashboard`() = runBlocking {
+        answers["conversations"] = 200 to """[{"id": 1, "name": "shop", "path": "/p", "status": "running",
+            "delivery_mode": "interactive", "goal": {"id": 7, "status": "running", "status_label": "running",
+            "phase_label": "Claude works on round 3", "round": 3, "max_rounds": 5, "finished_at": null}},
+            {"id": 2, "name": "docs", "path": "/d", "status": "idle", "delivery_mode": "headless", "goal": null},
+            {"id": 3, "name": "api", "path": "/a", "status": "idle", "delivery_mode": "headless",
+            "goal": {"id": 8, "status": "passed", "status_label": "met", "phase_label": "", "round": 2, "max_rounds": 5}}]"""
+
+        val (shop, docs, api) = api().conversations()
+
+        assertEquals(true, shop.goal?.running)
+        assertEquals("◎", shop.goal?.icon)
+        assertEquals("Claude works on round 3", shop.goal?.phaseLabel)
+        assertEquals(3, shop.goal?.round)
+        assertEquals(5, shop.goal?.maxRounds)
+        assertNull(docs.goal)
+        assertEquals("✅", api.goal?.icon)
+        assertEquals("met", api.goal?.statusLabel)
+    }
+
+    @Test
     fun `reads the update a new ccc version brings and applies it`() = runBlocking {
         answers["status"] = 200 to """{"version": "0.1.0", "language": "en", "daemon_running": true, "conversations": 1,
             "running": 0, "needs_approval": 0, "android_build": 7,

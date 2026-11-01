@@ -23,6 +23,7 @@ One row per conversation (archived ones are in the [Archive](archive.md)):
 |---|---|
 | Project | the conversation's name, with its marker (see below) |
 | Status | what it's doing — see the table below |
+| Goal | its latest [goal loop](goal.md): `◎ 3/5` (round / rounds) while it runs, `✅ met 3/5` / `⛔ stuck 4/5` / `⛔ out of rounds 5/5` / `✖ failed` / `■ stopped` for a day after it ended; `–` otherwise |
 | Pending | tasks waiting in its [queue](tasks.md) |
 | Today's tokens | tokens it used today |
 | Context | how full its context window is (yellow / red at the thresholds in Settings), as in the Conversations list; `–` until there is a reply to read it from |

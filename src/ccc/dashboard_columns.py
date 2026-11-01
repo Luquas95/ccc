@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from ccc.i18n import N_
 
-STATUS, PENDING, TOKENS, CONTEXT, GIT, PATH = "status", "pending", "tokens", "context", "git", "path"
+STATUS, GOAL, PENDING, TOKENS, CONTEXT, GIT, PATH = "status", "goal", "pending", "tokens", "context", "git", "path"
 # In table order, with the heading each has.
 COLUMNS: tuple[tuple[str, str], ...] = (
     (STATUS, N_("Status")),
+    (GOAL, N_("Goal")),
     (PENDING, N_("Pending")),
     (TOKENS, N_("Today's tokens")),
     (CONTEXT, N_("Context")),

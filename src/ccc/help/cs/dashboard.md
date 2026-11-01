@@ -22,6 +22,7 @@ Jeden řádek na konverzaci (archivované jsou v [Archivu](archive.md)):
 |---|---|
 | Projekt | název konverzace se značkou (viz níže) |
 | Stav | co dělá — viz tabulka níže |
+| Cíl | její poslední [smyčka k cíli](goal.md): `◎ 3/5` (kolo / kol) za běhu, den po skončení `✅ splněno 3/5` / `⛔ zaseknuto 4/5` / `⛔ došla kola 5/5` / `✖ selhalo` / `■ zastaveno`; jinak `–` |
 | Čeká | úkoly čekající v její [frontě](tasks.md) |
 | Tokeny dnes | tokeny, které dnes spotřebovala |
 | Kontext | jak je plné její kontextové okno (žlutě / červeně podle prahů v Nastavení), jako v seznamu Konverzací; `–`, dokud není odpověď, ze které se dá přečíst |

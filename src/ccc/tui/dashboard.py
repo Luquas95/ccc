@@ -162,6 +162,15 @@ class DashboardScreen(SidebarScreen):
             cell.append((" " if cell else "") + status.short(), style="yellow")
         return cell
 
+    def _goal_cell(self, goal) -> Text:
+        """Its latest goal loop: running (round / rounds) or how it ended in the last day; `–` otherwise."""
+        from ccc import goals
+        from ccc.tui.goal import STATUS_STYLES
+
+        if not goals.shown(goal):
+            return Text("–", style="dim")
+        return Text(goals.short_text(goal), style=STATUS_STYLES[goal.status])
+
     def _context_cell(self, queue, warn: int, danger: int) -> Text:
         fill = self._context_fills.get(queue.id)
         if fill is None:
@@ -181,6 +190,7 @@ class DashboardScreen(SidebarScreen):
         unseen = self.storage.unseen_queue_ids()
         waiting = self.storage.queues_waiting_for_approval()
         warn, danger = context_fill.thresholds(self.storage)
+        latest_goals = self.storage.latest_goals()
         rows = []
         for queue in queues:
             pending = self.storage.count_pending_items(queue.id)
@@ -193,6 +203,7 @@ class DashboardScreen(SidebarScreen):
                 queue_label(queue, queue.id in unseen, needs_approval=queue.id in waiting),
                 {
                     dashboard_columns.STATUS: Text.from_markup(styled_status(queue.status)),
+                    dashboard_columns.GOAL: self._goal_cell(latest_goals.get(queue.id)),
                     dashboard_columns.PENDING: Text(str(pending)),
                     dashboard_columns.TOKENS: Text(f"{today_tokens:,}"),
                     dashboard_columns.CONTEXT: self._context_cell(queue, warn, danger),

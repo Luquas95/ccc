@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from ccc import gitops, reviews
 from ccc.i18n import N_, _
@@ -44,6 +44,26 @@ def active(storage, queue_id: int) -> Goal | None:
         if goal.status == GoalStatus.RUNNING:
             return goal
     return None
+
+
+# A finished goal stays on the Dashboard and in the app's list this long; a running one always.
+SHOW_FINISHED_FOR = timedelta(hours=24)
+
+
+def shown(goal: Goal | None, now: datetime | None = None) -> bool:
+    """Whether the overviews (Dashboard, app list) show this conversation's latest goal."""
+    if goal is None:
+        return False
+    if goal.status == GoalStatus.RUNNING:
+        return True
+    return (now or datetime.now()) - (goal.finished_at or goal.created_at) < SHOW_FINISHED_FOR
+
+
+def short_text(goal: Goal) -> str:
+    """One short line: "◎ 3/5" while it runs, "✅ met 3/5" once it's over."""
+    if goal.status == GoalStatus.RUNNING:
+        return f"◎ {goal.round}/{goal.max_rounds}"
+    return f"{FINISHED_ICONS[goal.status]} {_(STATUS_LABELS[goal.status])} {goal.round}/{goal.max_rounds}"
 
 
 def first_prompt(goal: Goal) -> str:

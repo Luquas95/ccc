@@ -360,6 +360,20 @@ private fun DashboardRow(conversation: Conversation, onClick: () -> Unit) {
                     )
                 }
             }
+            conversation.goal?.let { goal ->
+                Text(
+                    stringResource(R.string.goal_line, goal.icon, goal.round, goal.maxRounds,
+                        if (goal.running) goal.phaseLabel else goal.statusLabel),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = when (goal.status) {
+                        "running" -> CccColors.Waiting
+                        "passed" -> CccColors.Running
+                        "stopped" -> CccColors.Muted
+                        else -> CccColors.Error
+                    },
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
             conversation.git?.text?.takeIf { it.isNotEmpty() }?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = CccColors.Title, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
