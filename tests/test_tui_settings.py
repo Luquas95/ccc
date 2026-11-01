@@ -398,16 +398,12 @@ async def test_dashboard_columns_are_chosen_in_settings(tmp_path):
     app = _app(tmp_path)
     async with app.run_test(size=(140, 45)) as pilot:
         modal = await _open_settings(pilot, app)
-        wide = modal.query_one("#settings-dashboard-wide", SelectionList)
-        narrow = modal.query_one("#settings-dashboard-narrow", SelectionList)
-        assert set(wide.selected) == set(dc.DEFAULT_WIDE) and set(narrow.selected) == set(dc.DEFAULT_NARROW)
-        narrow.deselect(dc.STATUS)
-        narrow.select(dc.GIT)
-        wide.deselect(dc.PATH)
+        columns = modal.query_one("#settings-dashboard-columns", SelectionList)
+        assert set(columns.selected) == set(dc.DEFAULT)
+        columns.deselect(dc.PATH)
         await pilot.press("ctrl+s")
         await pilot.pause()
-        assert dc.shown(app.storage, True) == [dc.CONTEXT, dc.GIT]
-        assert dc.PATH not in dc.shown(app.storage, False)
+        assert dc.PATH not in dc.shown(app.storage)
 
 
 async def _open_connection_tab(pilot, app):

@@ -89,14 +89,6 @@ class DashboardScreen(SidebarScreen):
         self._refresh_git_status()
         self.set_interval(GIT_STATUS_SECONDS, self._refresh_git_status)
 
-    def on_resize(self) -> None:
-        # Narrow ↔ wide changes which columns are shown (Settings).
-        if self._columns is not None:
-            self.refresh_table()
-
-    def _narrow(self) -> bool:
-        return dashboard_columns.is_narrow(self.app.size.width)
-
     def _refresh_context(self) -> None:
         if dashboard_columns.CONTEXT not in (self._columns or []):
             return
@@ -178,8 +170,7 @@ class DashboardScreen(SidebarScreen):
 
     def refresh_table(self) -> None:
         table = self.query_one("#dashboard-table", DataTable)
-        narrow = self._narrow()
-        columns = dashboard_columns.shown(self.storage, narrow)
+        columns = dashboard_columns.shown(self.storage)
         if columns != self._columns:
             self._set_columns(table, columns)
         # Keep the cursor where it was across the periodic rebuild.
