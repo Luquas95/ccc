@@ -92,7 +92,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
       # No third-party action here: this job holds the signing key. The runner image
       # has the Android SDK; only its licences need accepting.
       - name: Android SDK licences

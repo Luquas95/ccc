@@ -80,6 +80,10 @@ async def test_resume_lists_sessions_of_path(tmp_path, monkeypatch):
     from ccc.transcript import SessionSummary
     monkeypatch.setattr("ccc.tui.new_conversation.list_sessions_for_directory",
                         lambda p: [SessionSummary("sid-1", datetime(2026, 10, 1, 9, 0), "fix the bug", 4)])
+    # Resuming works only for a session recorded in that folder (#160).
+    monkeypatch.setattr("ccc.orchestrator.list_sessions_for_directory",
+                        lambda p: [SessionSummary("sid-1", datetime(2026, 10, 1, 9, 0), "fix the bug", 4)])
+    monkeypatch.setattr("ccc.orchestrator.session_recorded_in", lambda session_id, path: True)
     storage = Storage(tmp_path / "h.db")
     results = []
     app = _host(NewConversationModal(storage, browse_root=tmp_path), results)
