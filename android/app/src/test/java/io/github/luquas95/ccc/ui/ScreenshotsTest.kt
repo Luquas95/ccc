@@ -163,6 +163,11 @@ open class ScreenshotsTest {
     }
 
     @Test
+    fun cccSettingsGeneral() = shot("ccc_settings_general", "English") {
+        CccSettingsScreen(settingsState, home.promptPresets, SnackbarHostState(), SettingsActions({}, {}, {}, {}, {}, {}, {}), initialTab = 0)
+    }
+
+    @Test
     fun liveSessions() = shot("live_sessions", "refactor-auth") {
         ConversationsScreen(home.copy(tab = HomeTab.SESSIONS), ListDetail.DEFAULT, null, SnackbarHostState(), listActions,
             listOf(LiveSession("a1", "refactor-auth", "/home/you/projects/shop-api", "interactive", "busy"),

@@ -523,7 +523,7 @@ private fun ConnectionCard(server: String, device: Device?, onDisconnect: () -> 
 /** The app's own language, apart from the phone's, the computer's and ccc's. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun LanguageChoice(language: String, onLanguage: (String) -> Unit) {
+fun LanguageChoice(language: String, onLanguage: (String) -> Unit) {
     Text(stringResource(R.string.app_language), style = MaterialTheme.typography.titleSmall,
         color = CccColors.Title, fontWeight = FontWeight.Bold)
     Text(stringResource(R.string.app_language_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
