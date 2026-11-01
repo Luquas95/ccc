@@ -85,6 +85,7 @@ CS: dict[str, str] = {
     "y / Enter yes  ·  n / Esc no": "y / Enter ano  ·  n / Esc ne",
     "Esc close": "Esc zavřít",
     "✖ daemon not running — queues are stopped": "✖ daemon neběží — fronty stojí",
+    "● daemon running": "● daemon běží",
 
     # --- Dashboard ------------------------------------------------------------
     "[b]No conversations yet.[/b] Three steps to your first one:\n\n"

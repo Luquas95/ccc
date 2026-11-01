@@ -47,4 +47,4 @@ async def test_sidebar_shows_daemon_state(tmp_path):
         assert "daemon not running" in str(app.screen.query_one("#daemon-state").render())
         storage.set_setting(HEARTBEAT_KEY, datetime.now().isoformat())
         app.screen.refresh_daemon_state()
-        assert not app.screen.query_one("#daemon-state").display
+        assert "daemon running" in str(app.screen.query_one("#daemon-state").render())

@@ -232,11 +232,12 @@ Button.sidebar-button-red.-active {
     border-bottom: tall #ff5f5f;
 }
 /* The main menu (Dashboard … Analytics): 3D like the buttons below, each its own colour,
-   directly under each other; the open view is lighter. In a short window
-   (SidebarScreen.-short) one row each, so the list and the buttons still fit. */
+   directly under each other, half as high (the text row and the dark lower edge); the open
+   view is lighter. In a short window (SidebarScreen.-short) one row each, so the list and
+   the buttons still fit. */
 Button.nav-button {
     width: 100%;
-    height: 3;
+    height: 2;
     border: none;
     text-style: bold;
 }
@@ -244,11 +245,11 @@ Button.nav-button.-current {
     background-tint: white 25%;
     text-style: bold underline;
 }
-Button.nav-dashboard { background: #005fff; border-top: tall #5f87ff; border-bottom: tall #00005f; }
-Button.nav-conversations { background: #8700d7; border-top: tall #af5fff; border-bottom: tall #5f0087; }
-Button.nav-archive { background: #af5f00; border-top: tall #d7875f; border-bottom: tall #5f2f00; }
-Button.nav-sessions { background: #af005f; border-top: tall #ff5faf; border-bottom: tall #5f005f; }
-Button.nav-analytics { background: #af8700; border-top: tall #d7af00; border-bottom: tall #5f5f00; }
+Button.nav-dashboard { background: #005fff; border-top: none; border-bottom: tall #00005f; }
+Button.nav-conversations { background: #8700d7; border-top: none; border-bottom: tall #5f0087; }
+Button.nav-archive { background: #af5f00; border-top: none; border-bottom: tall #5f2f00; }
+Button.nav-sessions { background: #af005f; border-top: none; border-bottom: tall #5f005f; }
+Button.nav-analytics { background: #af8700; border-top: none; border-bottom: tall #5f5f00; }
 SidebarScreen.-short Button.nav-button {
     height: 1;
     border: none;
@@ -511,14 +512,12 @@ class SidebarScreen(Screen):
     def refresh_daemon_state(self) -> None:
         from ccc.heartbeat import daemon_alive
 
-        # Only a stopped daemon is news; a running one is the normal state.
+        # Always shown, above the menu: running (green) or the problem (red).
         if daemon_alive(self.storage):
-            text = Text("")
+            text = Text(_("● daemon running"), style="bold green")
         else:
             text = Text(_("✖ daemon not running — queues are stopped"), style="bold red")
-        state = self.query_one("#daemon-state", Static)
-        state.update(text)
-        state.display = bool(text.plain)
+        self.query_one("#daemon-state", Static).update(text)
         self._refresh_update_state()
         self.sync_retry_button()
 
