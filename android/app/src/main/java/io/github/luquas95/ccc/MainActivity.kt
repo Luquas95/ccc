@@ -11,11 +11,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.SnackbarHostState
+import io.github.luquas95.ccc.ui.UpdateOutcomeDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -147,14 +144,7 @@ private fun App(model: AppViewModel) {
             snackbar.showSnackbar(it)
         }
     }
-    updateOutcome?.let { outcome ->
-        AlertDialog(
-            onDismissRequest = model::updateOutcomeShown,
-            title = { Text(stringResource(if (outcome.ok) R.string.update_done_title else R.string.update_failed_title)) },
-            text = { Text(outcome.text) },
-            confirmButton = { TextButton(onClick = model::updateOutcomeShown) { Text(stringResource(R.string.ok)) } },
-        )
-    }
+    updateOutcome?.let { UpdateOutcomeDialog(it, model::updateOutcomeShown) }
     BackHandler(enabled = screens.size > 1) { model.back() }
 
     when (val screen = screens.last()) {

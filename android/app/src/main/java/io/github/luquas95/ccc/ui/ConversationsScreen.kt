@@ -666,3 +666,14 @@ private fun ConversationRow(conversation: Conversation, listDetails: Set<String>
         }
     }
 }
+
+/** What "Update now" ended with — success, or why not — until the user closes it. */
+@Composable
+fun UpdateOutcomeDialog(outcome: AppViewModel.UpdateOutcome, onClose: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(stringResource(if (outcome.ok) R.string.update_done_title else R.string.update_failed_title)) },
+        text = { Text(outcome.text) },
+        confirmButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.ok)) } },
+    )
+}
