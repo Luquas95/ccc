@@ -296,6 +296,9 @@ class ConversationsScreen(SidebarScreen):
         # and one whose pane you closed (Ctrl+]) — not reopened until Enter.
         self._cli_open_for: int | None = None
         self._cli_closed_for: int | None = None
+        # Embedded (CCC_EMBEDDED_TERMINAL): the ClaudePane this screen mounted last — remembered
+        # at once, because mounting and removing finish later (_sync_embedded_pane).
+        self._embedded_pane: ClaudePane | None = None
         # The list filter (f, list_filter), and the conversation opened from
         # its results: that one stays listed until the filter changes — a
         # "*" match stops being new the moment you look at it.
@@ -576,19 +579,33 @@ class ConversationsScreen(SidebarScreen):
     def _sync_embedded_pane(self) -> None:
         """Embedded (cli_pane.embedded): the conversation's Claude Code is a
         ClaudePane in the place of the transcript, instead of a tmux pane
-        beside ccc. Closed while a dialog / Settings / another view is on top."""
+        beside ccc. Closed while a dialog / Settings / another view is on top.
+
+        Called from many events, some of them before the previous call has
+        finished: mounting and removing a pane are asynchronous, so a query
+        still finds a pane being removed and doesn't find one just mounted.
+        The pane is therefore remembered at once (self._embedded_pane), and
+        there is never more than one for the selected conversation."""
         queue = self._cli_queue()
         want = queue is not None and self.app.screen is self and queue.id != self._cli_closed_for
-        pane = self.claude_pane()
-        if want and pane is not None and pane.queue_id == queue.id:
-            return
-        if pane is not None:
-            pane.remove()
-        if want:
+        keep = self._embedded_pane
+        if not (want and keep is not None and keep.queue_id == queue.id):
+            keep = None
+        for pane in self.query(ClaudePane):  # every other one goes, also a stray duplicate
+            if pane is not keep and not getattr(pane, "_ccc_removing", False):
+                pane._ccc_removing = True
+                pane.remove()
+        stale = self._embedded_pane
+        if stale is not None and stale is not keep and not getattr(stale, "_ccc_removing", False):
+            stale._ccc_removing = True  # may not be in the DOM yet: the query missed it
+            stale.remove()
+        if want and keep is None:
             self.add_class("-cli-open")
-            self.query_one("#main").parent.mount(ClaudePane(queue.id, queue.name, self.storage))
-        else:
+            self._embedded_pane = ClaudePane(queue.id, queue.name, self.storage)
+            self.query_one("#main").parent.mount(self._embedded_pane)
+        elif not want:
             self.remove_class("-cli-open")
+            self._embedded_pane = None
         self._cli_open_for = queue.id if want else None
 
     def on_claude_pane_closed(self, message: ClaudePane.Closed) -> None:
