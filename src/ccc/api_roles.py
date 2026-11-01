@@ -31,7 +31,7 @@ RULES: tuple[tuple[str, str, str], ...] = (
     ("*", r"/devices/\d+", ROLE_ADMIN),  # a device's own rename and sign-out are let through in required_role()
     ("GET", r"/.*", ROLE_READ),
     ("*", r"/(conversations/\d+/(messages|retry|seen|archive|group|tasks|reviews|reviews/stop|goals|goals/stop|"
-          r"workflows|workflows/answer|workflows/stop|asks)|tasks/\d+(/move)?|reviews/\d+/apply|asks/\d+/cancel|"
+          r"workflows|workflows/answer|workflows/stop)|tasks/\d+(/move)?|reviews/\d+/apply|"
           r"runs/\d+/comments|groups(/rename|/delete)?|permissions/\d+|analytics/archive)", ROLE_OPERATE),
 )
 _COMPILED = tuple((method, re.compile(pattern), role) for method, pattern, role in RULES)

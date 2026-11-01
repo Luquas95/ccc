@@ -148,12 +148,12 @@ open class ScreenshotsTest {
 
     @Test
     fun reviews() = shot("reviews", "hits()") {
-        AgentsScreen(agentsState, "shop-api", emptyList(), 0, SnackbarHostState(), agentsActions)
+        AgentsScreen(agentsState, "shop-api", 0, SnackbarHostState(), agentsActions)
     }
 
     @Test
     fun workflow() = shot("workflow", "Add caching") {
-        AgentsScreen(agentsState, "shop-api", emptyList(), 2, SnackbarHostState(), agentsActions)
+        AgentsScreen(agentsState, "shop-api", 2, SnackbarHostState(), agentsActions)
     }
 
     @Test
@@ -301,8 +301,7 @@ open class ScreenshotsTest {
                 100, 30, 3, 9,
             ),
         )
-        val agentsActions = AgentsActions({}, { _, _, _ -> }, {}, {}, { _, _, _ -> }, {}, { _, _, _, _ -> }, { _, _ -> }, {},
-            { _, _, _ -> }, {})
+        val agentsActions = AgentsActions({}, { _, _, _ -> }, {}, {}, { _, _, _ -> }, {}, { _, _, _, _ -> }, { _, _ -> }, {})
 
         val agentsState = AgentsState(
             1,
@@ -325,7 +324,6 @@ open class ScreenshotsTest {
             ), active = true, waiting = true),
             templates = listOf(WorkflowTemplate("plan-build-review", "Plan → approval → build → review",
                 "plan → your approval → build → review ×2  (back to build at most 3×)")),
-            asks = emptyList(),
         )
 
         val routinesState = Routines(

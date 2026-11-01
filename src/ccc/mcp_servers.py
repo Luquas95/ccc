@@ -25,7 +25,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Launch-flag marker: "--ccc-mcp=a,b" allows servers a and b, "--ccc-mcp="
-# none (ccc's own server is always attached by the orchestrator).
+# none (ccc's own server is attached by the orchestrator where approvals need it).
 MARKER = "--ccc-mcp="
 OWN_SERVER = "ccc"
 

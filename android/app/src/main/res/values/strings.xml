@@ -207,19 +207,12 @@
     <!-- Round 3: agents, routines, live sessions, analytics, settings -->
     <string name="add">Add</string>
     <string name="after_export">After export</string>
-    <string name="agents">Reviews, goal, workflow, questions</string>
+    <string name="agents">Reviews, goal, workflow</string>
     <string name="analytics">Analytics</string>
     <string name="approve">Approve</string>
     <string name="archived_months">Finished months archived.</string>
     <string name="archive_folder">Monthly analytics archive folder (empty = off)</string>
     <string name="archive_months">Archive finished months now</string>
-    <string name="ask_deliver">Pass the answer into this conversation</string>
-    <string name="ask_new">Ask another conversation</string>
-    <string name="ask_question">The question…</string>
-    <string name="asks">Questions</string>
-    <string name="asks_empty">No questions yet.</string>
-    <string name="ask_send">Ask</string>
-    <string name="ask_whom">Ask which conversation?</string>
     <string name="auto">Auto</string>
     <string name="backed_up">Backed up.</string>
     <string name="backup_hint">Backed up automatically every day; the newest 14 copies are kept.</string>

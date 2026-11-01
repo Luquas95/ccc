@@ -1,7 +1,7 @@
 import json
 
 import pytest
-from textual.widgets import DataTable, Input, Static
+from textual.widgets import Button, DataTable, Input, Static
 
 from ccc import keymap
 from ccc.storage import Storage
@@ -61,7 +61,7 @@ async def test_a_typed_key_is_saved_and_works_right_away(tmp_path):
         await pilot.press("escape")  # Settings
         await pilot.pause()
         assert isinstance(app.screen, DashboardScreen)
-        assert "F5" in str(app.screen.query_one("#nav-analytics", Static).render())
+        assert "F5" in str(app.screen.query_one("#nav-analytics", Button).label)
         await pilot.press("a")  # no longer Analytics
         await pilot.pause()
         assert isinstance(app.screen, DashboardScreen)

@@ -52,8 +52,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import io.github.luquas95.ccc.R
-import io.github.luquas95.ccc.data.AskItem
-import io.github.luquas95.ccc.data.Conversation
 import io.github.luquas95.ccc.data.Goal
 import io.github.luquas95.ccc.data.Review
 import io.github.luquas95.ccc.data.WorkflowRun
@@ -141,16 +139,13 @@ class AgentsActions(
     val workflow: (String, String, String, Int?) -> Unit,
     val answer: (Boolean, String) -> Unit,
     val stopWorkflow: () -> Unit,
-    val ask: (Int, String, Boolean) -> Unit,
-    val cancelAsk: (Int) -> Unit,
 )
 
-/** Reviews (v), goal loops (g), workflows (w) and questions (k) of one conversation. */
+/** Reviews (v), goal loops (g), and workflows (w) of one conversation. */
 @Composable
 fun AgentsScreen(
     state: AgentsState,
     name: String,
-    others: List<Conversation>,
     firstTab: Int,
     snackbar: SnackbarHostState,
     actions: AgentsActions,
@@ -162,7 +157,7 @@ fun AgentsScreen(
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             PrimaryTabRow(selectedTabIndex = tab, containerColor = CccColors.Background, contentColor = CccColors.Title) {
-                listOf(R.string.reviews, R.string.goal, R.string.workflow, R.string.asks).forEachIndexed { i, label ->
+                listOf(R.string.reviews, R.string.goal, R.string.workflow).forEachIndexed { i, label ->
                     Tab(selected = tab == i, onClick = { tab = i }, text = { Text(stringResource(label), maxLines = 1) })
                 }
             }
@@ -174,8 +169,7 @@ fun AgentsScreen(
                 when (tab) {
                     0 -> reviewsTab(state, actions)
                     1 -> goalsTab(state, actions)
-                    2 -> workflowsTab(state, actions)
-                    else -> asksTab(state, others, actions)
+                    else -> workflowsTab(state, actions)
                 }
             }
         }
@@ -373,38 +367,5 @@ private fun WorkflowCard(run: WorkflowRun) {
             )
             if (event.output.isNotEmpty()) Expandable(event.output, CccColors.Muted)
         }
-    }
-}
-
-private fun LazyListScope.asksTab(state: AgentsState, others: List<Conversation>, actions: AgentsActions) {
-    val asks = state.asks
-    if (loading(asks != null) || asks == null) return
-    item(key = "ask-form") {
-        var target by rememberSaveable { mutableStateOf("") }
-        var question by rememberSaveable { mutableStateOf("") }
-        var deliver by rememberSaveable { mutableStateOf(true) }
-        Section(stringResource(R.string.ask_new)) {
-            Picker(stringResource(R.string.ask_whom), target, others.map { it.id.toString() to it.name }) { target = it }
-            OutlinedTextField(question, { question = it }, Modifier.fillMaxWidth(), minLines = 3,
-                placeholder = { Text(stringResource(R.string.ask_question)) })
-            CheckLine(stringResource(R.string.ask_deliver), deliver) { deliver = it }
-            Go(stringResource(R.string.ask_send), target.isNotEmpty() && question.isNotBlank()) {
-                actions.ask(target.toInt(), question, deliver)
-                question = ""
-            }
-        }
-    }
-    if (asks.isEmpty()) item { Empty(R.string.asks_empty) }
-    items(asks, key = { "ask:${it.id}" }) { AskCard(it) { actions.cancelAsk(it.id) } }
-}
-
-@Composable
-private fun AskCard(ask: AskItem, onCancel: () -> Unit) {
-    val arrow = (if (ask.outgoing) "→ " else "← ") + (if (ask.byAgent) "🤖 " else "")
-    Section(listOfNotNull(arrow + ask.otherName, ask.statusLabel, shortTime(ask.createdAt)).joinToString(" · ")) {
-        Text(ask.question, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-        if (ask.answer.isNotEmpty()) Expandable(ask.answer)
-        if (ask.error.isNotEmpty()) Text(ask.error, color = CccColors.Error, style = MaterialTheme.typography.bodySmall)
-        if (ask.canCancel) TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel), color = CccColors.Error) }
     }
 }

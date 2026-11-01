@@ -89,11 +89,3 @@ def test_permission_modes_match_installed_claude():
     cli = set(re.findall(r'"(\w+)"', m.group(1))) - {"bypassPermissions"}
     ours = {o.flags[1] for g in GROUPS if g.key == "permissions" for o in g.options if o.flags[0] == "--permission-mode"}
     assert ours == cli
-
-
-def test_every_offered_permission_mode_has_a_rank():
-    from ccc.asks import _RANKS
-    from ccc.launch_options import GROUPS
-
-    modes = {o.flags[1] for g in GROUPS if g.key == "permissions" for o in g.options if o.flags[0] == "--permission-mode"}
-    assert modes <= set(_RANKS)

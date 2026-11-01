@@ -236,8 +236,8 @@ def usage_reserve(storage) -> int | None:
 
 
 def ccc_mcp_flags(queue_id: int, db_path: str) -> list[str]:
-    """Attach ccc's MCP server (permission_mcp): ask_conversation (ccc.asks)
-    for every conversation, approve where permission_tool_flags uses it."""
+    """Attach ccc's MCP server (permission_mcp), whose `approve` tool
+    permission_tool_flags uses."""
     config = {
         "mcpServers": {
             "ccc": {
@@ -482,8 +482,7 @@ class QueueRuntime:
             # the TUI instead of being denied automatically.
             flags = list(flags or []) + permission_tool_flags(queue.id, self.storage.db_path)
         else:
-            # Asking other conversations works everywhere (ccc.asks).
-            flags = list(flags if flags is not None else LEGACY_FLAGS) + ccc_mcp_flags(queue.id, self.storage.db_path)
+            flags = list(flags if flags is not None else LEGACY_FLAGS)
         started_at = datetime.now()
         result = await self.run_fn(
             queue.project_path, queue.session_id, text, resume, flags, queue.first_run_flags
@@ -624,8 +623,7 @@ class QueueRuntime:
 
         if not await asyncio.to_thread(managed_sessions.is_running, queue.id):
             has_transcript = find_transcript_path(queue.session_id) is not None
-            command = managed_sessions.build_interactive_command(
-                queue, has_transcript, ccc_mcp_flags(queue.id, self.storage.db_path))
+            command = managed_sessions.build_interactive_command(queue, has_transcript)
             logger.info("Starting interactive session for '%s'", queue.name)
             await asyncio.to_thread(managed_sessions.start, queue, command)
             self._managed_was_blocked = False

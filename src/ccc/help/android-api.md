@@ -64,7 +64,7 @@ Without the service, `ccc api serve` runs it in the terminal
 ## In the app
 
 Everything ccc's window does, made for the phone: the conversations,
-the task queue, runs and diffs, reviews, goals, workflows, questions,
+the task queue, runs and diffs, reviews, goals, workflows,
 routines, live sessions, analytics, settings — and an interactive
 conversation's Claude Code, live, with keys for its menus.
 
@@ -204,7 +204,6 @@ settings it shows are the ones that apply to both sides.
 | `GET /conversations/{id}/goals` | its [goal loops](goal.md); `POST` starts one `{"goal", "check", "rounds"}`; `POST …/goals/stop` |
 | `GET /workflow-templates` | the [workflow](workflows.md) templates with their steps |
 | `GET /conversations/{id}/workflows` | its workflow runs, each with its steps and what every agent said; `POST` starts one `{"template", "task", "check", "rounds"}`; `POST …/workflows/answer` `{"approve", "note"}` at a gate; `POST …/workflows/stop` |
-| `GET /conversations/{id}/asks` | [questions](asking.md) to and from it; `POST` asks another `{"to", "question", "deliver"}`; `POST /asks/{id}/cancel` |
 | `GET /routines` | every [routine](routines.md) and the schedule kinds; `POST` adds one `{"conversation_id", "name", "prompt", "kind", "value", "fresh"}`; `POST /routines/{id}` changes it, `DELETE` removes it; `POST …/enabled` `{"enabled"}`, `POST …/run` |
 | `GET /live-sessions` | [Claude Code sessions](live-sessions.md) running on the computer (`kind`, `status`, `state` as Claude Code names them, plus `kind_label`, `status_label`, `state_label` in the request's language); `POST /live-sessions/{id}/prompt` `{"prompt"}` |
 | `GET /analytics?year=&month=` | a month's tokens per day, model and conversation, the months there are ([Analytics](analytics.md)); `POST /analytics/archive` archives finished months now |

@@ -73,11 +73,10 @@ It talks to ccc's HTTP API (`src/ccc/api.py`); turning the API on:
   state, tokens and commit; open a commit's **diff**, tap lines to
   comment and send the comments to Claude as one task; **revert** a
   run's commit (a new commit), telling Claude if you like.
-- **Reviews, goal, workflow, questions** (a conversation's menu) — ask
+- **Reviews, goal, workflow** (a conversation's menu) — ask
   for a review (once, or until it passes) and send its findings back;
   start / stop a goal loop; start a workflow, approve or reject it at
-  its gate, see what every agent said; ask another conversation — `v`,
-  `g`, `w`, `k` in ccc.
+  its gate, see what every agent said — `v`, `g`, `w` in ccc.
 - **Routines, live sessions, analytics, ccc settings** (live sessions is a tab, the rest ⋮ on the list)
   — add, change, turn on / off, run and delete routines; send a prompt
   to a Claude Code session running on the computer; a month's tokens

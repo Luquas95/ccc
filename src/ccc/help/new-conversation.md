@@ -51,8 +51,8 @@ or not. (One test: 543 tools without a choice, 24 with none.)
 
 Tick **Only selected MCP servers** and the servers configured for the chosen
 folder appear below it; tick the ones this conversation may use. Nothing
-ticked means none. ccc's own server (approvals, asking other conversations)
-is always on. The choice holds for the whole conversation, is remembered
+ticked means none. ccc's own server (approvals) is on
+where it is needed. The choice holds for the whole conversation, is remembered
 for next time and saved in presets.
 
 - claude.ai connectors can't be picked: with this option they are all off.
