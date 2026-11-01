@@ -1,0 +1,77 @@
+# The .deb from the built tree (dist/ccc, packaging/build.sh) — called by packaging/package.sh.
+# Besides the application it adds ccc's APT repository and its signing key, so later versions
+# arrive with the ordinary system update (apt upgrade).
+name: ccc
+arch: all
+platform: linux
+version: ${VERSION}
+release: 1
+section: devel
+priority: optional
+maintainer: ccc contributors <https://github.com/Luquas95/ccc>
+description: |-
+  Prompt queue and auto-continue TUI for Claude Code.
+  Runs queued prompts, keeps conversations alive and watches usage limits;
+  a daemon and a TUI as systemd user services, optionally an API for the Android app.
+vendor: ccc
+homepage: https://github.com/Luquas95/ccc
+
+depends:
+  - python3 (>= 3.12)
+  - tmux
+  - systemd
+recommends:
+  - git
+
+contents:
+  - src: dist/ccc/
+    dst: /usr/lib/ccc
+    type: tree
+  - src: packaging/files/ccc
+    dst: /usr/bin/ccc
+    file_info: { mode: 0755 }
+  - src: packaging/files/ccc-daemon
+    dst: /usr/bin/ccc-daemon
+    file_info: { mode: 0755 }
+
+  # how it was installed (ccc then points to apt instead of updating itself)
+  - src: packaging/files/install-kind.deb
+    dst: /usr/lib/ccc/install-kind
+
+  # systemd user units: `systemctl --user enable --now ccc ccc-tui`
+  - src: packaging/files/ccc.service
+    dst: /usr/lib/systemd/user/ccc.service
+  - src: packaging/files/ccc-tui.service
+    dst: /usr/lib/systemd/user/ccc-tui.service
+  - src: packaging/files/ccc-api.service
+    dst: /usr/lib/systemd/user/ccc-api.service
+
+  # application-menu entry with the logo
+  - src: packaging/files/ccc.desktop
+    dst: /usr/share/applications/ccc.desktop
+  - src: assets/icons/ccc-16.png
+    dst: /usr/share/icons/hicolor/16x16/apps/ccc.png
+  - src: assets/icons/ccc-32.png
+    dst: /usr/share/icons/hicolor/32x32/apps/ccc.png
+  - src: assets/icons/ccc-48.png
+    dst: /usr/share/icons/hicolor/48x48/apps/ccc.png
+  - src: assets/icons/ccc-64.png
+    dst: /usr/share/icons/hicolor/64x64/apps/ccc.png
+  - src: assets/icons/ccc-128.png
+    dst: /usr/share/icons/hicolor/128x128/apps/ccc.png
+  - src: assets/icons/ccc-256.png
+    dst: /usr/share/icons/hicolor/256x256/apps/ccc.png
+  - src: assets/icons/ccc-512.png
+    dst: /usr/share/icons/hicolor/512x512/apps/ccc.png
+  - src: assets/icons/ccc.svg
+    dst: /usr/share/icons/hicolor/scalable/apps/ccc.svg
+
+  # APT repository + key
+  - src: packaging/signing-key.asc
+    dst: /usr/share/keyrings/ccc.asc
+  - src: packaging/files/ccc.list
+    dst: /etc/apt/sources.list.d/ccc.list
+    type: config|noreplace
+
+scripts:
+  postinstall: packaging/files/postinst.sh

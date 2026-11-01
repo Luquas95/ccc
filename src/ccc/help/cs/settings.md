@@ -215,6 +215,10 @@ nainstalován:
   nainstalován. Odmítne — a řekne proč —, když checkout není na `main`, má
   neuložené nebo nepushnuté změny, vydání na něj nenavazuje převinutím, nebo
   běží úkol;
+- **systémový balíček** (`.deb`, `apt install ccc`): aktualizuje ho správce
+  balíčků — `sudo apt update && sudo apt upgrade` a potom
+  `systemctl --user restart ccc ccc-tui`. ccc jen oznámí, že je nové vydání;
+  *Aktualizovat teď* to vysvětlí a nic nezmění;
 - **balíček** (pip / pipx): stáhne `ccc.tar.gz` z vydání a nainstaluje ho
   pomocí `pip install` do prostředí, odkud ccc běží.
 

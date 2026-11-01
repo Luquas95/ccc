@@ -210,6 +210,10 @@ ccc is installed:
   installed with. It refuses — and says why — when the checkout is not on
   `main`, has uncommitted or unpushed changes, the release isn't a
   fast-forward of it, or a task is running;
+- **the system package** (`.deb`, `apt install ccc`): the package manager
+  updates it — `sudo apt update && sudo apt upgrade`, then
+  `systemctl --user restart ccc ccc-tui`. ccc only tells you there is a
+  newer release; *Update now* explains this and changes nothing;
 - **a package** (pip / pipx): it downloads the release's `ccc.tar.gz` and
   `pip install`s it into the environment ccc runs from.
 

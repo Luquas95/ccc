@@ -1,0 +1,16 @@
+# Installed by the ccc package (/usr/lib/systemd/user); the template is deploy/systemd/ccc.service.
+[Unit]
+Description=ccc queue daemon (executes queued Claude Code prompts)
+After=network-online.target
+# Don't start before the filesystem holding ccc is mounted (matters when
+# it lives on a separate disk mounted with `nofail`).
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ccc-daemon
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=ccc
+Comment=Prompt queue and auto-continue TUI for Claude Code
+Exec=/usr/bin/ccc
+Icon=ccc
+Terminal=true
+Categories=Development;ConsoleOnly;

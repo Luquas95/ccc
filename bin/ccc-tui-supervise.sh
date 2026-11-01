@@ -14,10 +14,12 @@ set -euo pipefail
 TMUX_SOCKET="ccc"
 SESSION="ccc"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RUN_CMD="while true; do $PROJECT_DIR/.venv/bin/ccc tui; sleep 1; done"
+# A system package (the .deb) points CCC_BIN at /usr/bin/ccc; a checkout uses its own virtualenv.
+CCC_BIN="${CCC_BIN:-$PROJECT_DIR/.venv/bin/ccc}"
+RUN_CMD="while true; do $CCC_BIN tui; sleep 1; done"
 
 if ! tmux -L "$TMUX_SOCKET" has-session -t "$SESSION" 2>/dev/null; then
-    tmux -L "$TMUX_SOCKET" -f /dev/null new-session -d -s "$SESSION" -x 200 -y 50 -c "$PROJECT_DIR" "$RUN_CMD"
+    tmux -L "$TMUX_SOCKET" -f /dev/null new-session -d -s "$SESSION" -x 200 -y 50 -c "${CCC_START_DIR:-$PROJECT_DIR}" "$RUN_CMD"
 fi
 
 while tmux -L "$TMUX_SOCKET" has-session -t "$SESSION" 2>/dev/null; do
