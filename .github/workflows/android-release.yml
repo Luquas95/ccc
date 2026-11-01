@@ -1,11 +1,11 @@
-# A tag vX.Y.Z builds the Android app, signed with the release key (secrets
+# A tag X.Y.Z (no "v") builds the Android app, signed with the release key (secrets
 # ANDROID_KEYSTORE_B64 / _PASSWORD / ANDROID_KEY_ALIAS), and attaches it to the
 # GitHub release as ccc.apk — the app looks there for new versions.
 name: Android release
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["[0-9]*"]
 
 permissions:
   contents: write
@@ -39,6 +39,11 @@ jobs:
       - name: Publish
         run: |
           cp android/app/build/outputs/apk/release/app-release.apk ccc.apk
-          gh release create "$GITHUB_REF_NAME" ccc.apk --title "ccc $GITHUB_REF_NAME" --generate-notes
+          # The release may already exist (made by hand with the tag): then only attach the app.
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" ccc.apk --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" ccc.apk --title "ccc $GITHUB_REF_NAME" --generate-notes
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
