@@ -9,7 +9,7 @@ CS: dict[str, str] = {
     "Conversations": "Konverzace",
     "Archive": "Archiv",
     "Archive ({key})": "Archivovat ({key})",
-    "Filter ({key})": "Filtr ({key})",
+    "{key} Filter": "{key} Filtr",
     "Live sessions": "Živé relace",
     "Analytics": "Analytika",
     "Settings": "Nastavení",

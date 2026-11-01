@@ -29,12 +29,15 @@ class SidebarButton:
     # key — Button labels are parsed as Rich markup, so use "({key})"
     # rather than "[{key}]" (brackets get silently eaten).
     label: str
-    color: str  # "green" | "teal" | "red" — see BUTTON_CSS
+    color: str  # "green" | "teal" | "red" | "strip" — see BUTTON_CSS
     action: str  # action name on the screen, without the "action_" prefix
     key_id: str  # keymap action id whose key the label shows
 
     def text(self, keys: dict[str, str]) -> str:
-        return self.label.format(key=keymap.pretty(keys[self.key_id]))
+        key = keymap.pretty(keys[self.key_id])
+        if self.color == "strip":  # like the key list at the bottom: the key in its colour
+            key = f"[b $footer-key-foreground]{escape(key)}[/]"
+        return self.label.format(key=key)
 
 
 # (view key, label) in sidebar order; each one's hotkey is keymap's
@@ -57,8 +60,8 @@ NEW_CONVERSATION_BUTTON = SidebarButton(
     "views.new_conversation",
 )
 
-# Above the conversation list: opens the filter (f).
-FILTER_BUTTON = SidebarButton("sidebar-filter", _("Filter ({key})"), "teal", "filter", "conversations.filter")
+# Above the conversation list: opens the filter (f); a strip like the key list at the bottom.
+FILTER_BUTTON = SidebarButton("sidebar-filter", _("{key} Filter"), "strip", "filter", "conversations.filter")
 # Under New conversation: archives the selected conversation (x).
 ARCHIVE_BUTTON = SidebarButton("sidebar-archive", _("Archive ({key})"), "teal", "toggle_archive",
                                "conversations.archive")
@@ -228,25 +231,40 @@ Button.sidebar-button-red.-active {
     border-top: tall #5f0000;
     border-bottom: tall #ff5f5f;
 }
-/* The main menu (Dashboard … Analytics): blue ($ccc-nav…, tui.theme), style 061 of the
-   button demo (wide border, 2D, three rows high); the open view is lighter. In a short
-   window (SidebarScreen.-short) one row each, so the list and the buttons still fit. */
+/* The main menu (Dashboard … Analytics): 3D like the buttons below, each its own colour,
+   directly under each other; the open view is lighter. In a short window
+   (SidebarScreen.-short) one row each, so the list and the buttons still fit. */
 Button.nav-button {
     width: 100%;
     height: 3;
-    border: wide $ccc-nav-border;
-    background: $ccc-nav;
-}
-Button.nav-button:hover {
-    background: $ccc-nav-hover;
+    border: none;
+    text-style: bold;
 }
 Button.nav-button.-current {
-    background: $ccc-nav-hover;
-    border: wide $ccc-nav-border-current;
+    background-tint: white 25%;
+    text-style: bold underline;
 }
+Button.nav-dashboard { background: #005fff; border-top: tall #5f87ff; border-bottom: tall #00005f; }
+Button.nav-conversations { background: #8700d7; border-top: tall #af5fff; border-bottom: tall #5f0087; }
+Button.nav-archive { background: #af5f00; border-top: tall #d7875f; border-bottom: tall #5f2f00; }
+Button.nav-sessions { background: #af005f; border-top: tall #ff5faf; border-bottom: tall #5f005f; }
+Button.nav-analytics { background: #af8700; border-top: tall #d7af00; border-bottom: tall #5f5f00; }
 SidebarScreen.-short Button.nav-button {
     height: 1;
     border: none;
+}
+/* Filter: a strip like the key list at the bottom (one row, blue, orange key) */
+Button.sidebar-button-strip {
+    height: 1;
+    border: none;
+    border-top: none;
+    border-bottom: none;
+    background: $footer-background;
+    color: $footer-description-foreground;
+    text-style: none;
+    text-align: left;
+    content-align: left middle;
+    padding: 0 1;
 }
 Button.sidebar-button:disabled {
     border-top: tall $panel;
@@ -447,7 +465,7 @@ class SidebarScreen(Screen):
     def compose(self):
         nav_items = []
         for key, label in VIEWS:
-            item = Button(self._nav_text(key, label), id=f"nav-{key}", classes="nav-button")
+            item = Button(self._nav_text(key, label), id=f"nav-{key}", classes=f"nav-button nav-{key}")
             item.can_focus = False  # like the other sidebar buttons: their keys do it
             if key == self.VIEW:
                 item.add_class("-current")
