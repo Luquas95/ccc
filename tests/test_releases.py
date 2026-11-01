@@ -64,7 +64,7 @@ def test_asks_github_without_a_token_and_downloads_the_artifact(github, tmp_path
     assert release.version == "0.2.0" and release.notes == "News"
     assert seen["auth"] is None
     target = tmp_path / "x" / "ccc.tar.gz"
-    releases.download(release.url, target)
+    releases.download(release.url, target, check=lambda url: True)
     assert target.read_bytes() == b"SDIST" and not list(target.parent.glob("*.part"))
 
 
@@ -73,3 +73,17 @@ def test_no_release_yet_is_none_and_an_unreachable_github_is_an_error(github):
     assert releases.latest("o/missing", base) is None
     with pytest.raises(OSError):
         releases.latest("o/r", "http://127.0.0.1:1")
+
+
+@pytest.mark.parametrize("url, ok", [
+    ("https://github.com/o/r/releases/download/1.0.0/ccc.tar.gz", True),
+    ("https://objects.githubusercontent.com/x", True),
+    ("http://github.com/o/r/ccc.tar.gz", False),
+    ("https://github.com.evil.example/ccc.tar.gz", False),
+    ("file:///etc/passwd", False),
+])
+def test_only_github_over_https_is_trusted(url, ok, tmp_path):
+    assert releases.trusted(url) is ok
+    if not ok:
+        with pytest.raises(OSError):
+            releases.download(url, tmp_path / "x")
