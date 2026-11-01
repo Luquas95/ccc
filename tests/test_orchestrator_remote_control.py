@@ -186,7 +186,13 @@ async def test_archive_and_delete_stop_the_process(storage, project_dir, tmux):
     await _run_orch(storage, body)
 
 
-async def test_fork_adopts_real_session_id(storage, project_dir, tmux):
+async def test_fork_adopts_real_session_id(storage, project_dir, tmux, monkeypatch):
+    # A session is resumed only from the folder it was recorded in (#160): "orig" was recorded here.
+    from datetime import datetime
+    from ccc.transcript import SessionSummary
+    monkeypatch.setattr("ccc.orchestrator.list_sessions_for_directory",
+                        lambda path: [SessionSummary("orig", datetime(2026, 10, 1, 9, 0), "x", 1)])
+    monkeypatch.setattr("ccc.orchestrator.session_recorded_in", lambda session_id, path: True)
     sel = toggle(toggle(DEFAULT_SELECTION, SESSION_RESUME, True), FORK, True)
     q = start_conversation(storage, project_dir, sel, session_id="orig", remote_control=True)
     tmux.session_id_override = "forked-real-id"
