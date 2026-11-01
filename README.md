@@ -121,20 +121,26 @@ phone via Remote Control.
 
 ### As a system package (Debian / Ubuntu)
 
-Download `ccc_all.deb` from the [latest release](https://github.com/Luquas95/ccc/releases/latest)
-and install it:
+Add the [Icenux](https://github.com/Luquas95/icenux) repository — the shared APT repository of
+my applications — and install ccc from it:
 
 ```bash
-sudo apt install ./ccc_all.deb
+sudo curl -fsSL https://luquas95.github.io/icenux/icenux.asc -o /usr/share/keyrings/icenux.asc
+echo 'deb [signed-by=/usr/share/keyrings/icenux.asc] https://luquas95.github.io/icenux/apt ./' \
+  | sudo tee /etc/apt/sources.list.d/icenux.list
+sudo apt update && sudo apt install ccc
 systemctl --user enable --now ccc ccc-tui   # as your user, once
 loginctl enable-linger "$USER"              # keep them running after you log out
 ```
 
-The package puts ccc in `/usr/lib/ccc` (`ccc` and `ccc-daemon` in `/usr/bin`), ships the
-`systemd --user` units and the application-menu entry, and adds ccc's signed APT repository —
-later versions arrive with `sudo apt update && sudo apt upgrade` (then
-`systemctl --user restart ccc ccc-tui`). It needs Python 3.12+ and `tmux`; your data in
-`~/.local/share/ccc/` is not touched. To remove it: `sudo apt remove ccc`.
+(Or install `ccc_all.deb` from the [latest release](https://github.com/Luquas95/ccc/releases/latest)
+with `sudo apt install ./ccc_all.deb` — the package adds the Icenux repository itself.)
+
+The package puts ccc in `/usr/lib/ccc` (`ccc` and `ccc-daemon` in `/usr/bin`) and ships the
+`systemd --user` units and the application-menu entry. Later versions arrive with
+`sudo apt update && sudo apt upgrade` (then `systemctl --user restart ccc ccc-tui`). It needs
+Python 3.12+ and `tmux`; your data in `~/.local/share/ccc/` is not touched. To remove it:
+`sudo apt remove ccc`.
 
 ### From a git checkout (for development)
 

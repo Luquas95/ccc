@@ -13,7 +13,7 @@ on a yes — in the TUI's Update window or from the phone:
   with nothing of its own, while no task runs — then the install script
   runs again and the services restart;
 - ccc installed from the system package (.deb): the package manager updates
-  it (`apt upgrade`, ccc's APT repository); ccc only tells that there is a
+  it (`apt upgrade`, the Icenux APT repository); ccc only tells that there is a
   newer release and never touches /usr itself;
 - ccc installed as a package (pip / pipx): the release's `ccc.tar.gz` is
   downloaded and pip-installed into the environment ccc runs from.

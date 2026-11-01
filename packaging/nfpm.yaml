@@ -1,6 +1,6 @@
 # The .deb from the built tree (dist/ccc, packaging/build.sh) — called by packaging/package.sh.
-# Besides the application it adds ccc's APT repository and its signing key, so later versions
-# arrive with the ordinary system update (apt upgrade).
+# Besides the application it sets up the shared Icenux APT repository (github.com/Luquas95/icenux,
+# by packaging/files/postinst.sh), so later versions arrive with the ordinary system update.
 name: ccc
 arch: all
 platform: linux
@@ -66,12 +66,11 @@ contents:
   - src: assets/icons/ccc.svg
     dst: /usr/share/icons/hicolor/scalable/apps/ccc.svg
 
-  # APT repository + key
-  - src: packaging/signing-key.asc
-    dst: /usr/share/keyrings/ccc.asc
-  - src: packaging/files/ccc.list
-    dst: /etc/apt/sources.list.d/ccc.list
-    type: config|noreplace
+  # the Icenux package source: the files lie next to the application, postinst.sh puts them in place
+  - src: packaging/files/icenux.asc
+    dst: /usr/lib/ccc/icenux.asc
+  - src: packaging/files/icenux.list
+    dst: /usr/lib/ccc/icenux.list
 
 scripts:
   postinstall: packaging/files/postinst.sh

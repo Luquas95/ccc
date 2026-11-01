@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # From the built tree (dist/ccc, see packaging/build.sh) makes the release files in dist/release/:
-# ccc_all.deb and SHA256SUMS.
+# ccc_all.deb and SHA256SUMS (packaging/sign.sh signs it).
 #
 # Usage: packaging/package.sh VERSION     (needs nfpm in PATH)
 set -euo pipefail
