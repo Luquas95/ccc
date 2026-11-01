@@ -163,7 +163,7 @@ open class ScreenshotsTest {
     }
 
     @Test
-    fun cccSettingsGeneral() = shot("ccc_settings_general", "English") {
+    fun cccSettingsGeneral() = shot("ccc_settings_general", "By project") {
         CccSettingsScreen(settingsState, home.promptPresets, SnackbarHostState(), SettingsActions({}, {}, {}, {}, {}, {}, {}), initialTab = 0)
     }
 
