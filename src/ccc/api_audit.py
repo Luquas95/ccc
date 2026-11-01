@@ -50,6 +50,30 @@ def record(storage, device, ip: str, method: str, path: str, status: int, detail
         pass
 
 
+_seen_folders: dict[tuple, float] = {}
+
+
+def record_folder_denied(storage, device, ip: str, method: str, path: str, folder: str, now: float | None = None) -> bool:
+    """Log a request for a folder outside the allowed roots, with the reason; the same device only once
+    per ALARM_GAP_SECONDS (a phone asks again at every letter typed). True when logged."""
+    moment = time.monotonic() if now is None else now
+    key = (device.id if device else None,)  # not the folder: typing a path asks for every prefix of it
+    with _lock:
+        if moment - _seen_folders.get(key, -1e9) < ALARM_GAP_SECONDS:
+            return False
+        if len(_seen_folders) > 500:
+            _seen_folders.clear()
+        _seen_folders[key] = moment
+    record(storage, device, ip, method, path, HTTPStatus.FORBIDDEN, "folder not allowed: " + folder)
+    return True
+
+
+def alarm_folder_denied(storage, device, folder: str) -> None:
+    if device is not None:
+        alarm(storage, f"folder-{device.id}", _("ccc API: {name} ({role}) asked for the folder {folder}, which is not allowed. Allow it with: ccc api roots --add {folder}").format(
+            name=device.name, role=device.role, folder=clean(folder)))
+
+
 def alarm(storage, kind: str, text: str, now: float | None = None, category: str = CAT_SECURITY) -> bool:
     """Tell the notification channels, at most once per ALARM_GAP_SECONDS for the `kind`; True when sent.
     Sent in a thread of its own: a slow Telegram must not hold up a request."""

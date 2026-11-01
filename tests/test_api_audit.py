@@ -1,6 +1,6 @@
 import pytest
 
-from ccc import api, api_audit, pairing
+from ccc import api, api_audit, api_scope, pairing
 from ccc.models import ROLE_ADMIN, ROLE_READ
 
 from test_api import _call, server, storage  # noqa: F401  (fixtures)
@@ -9,6 +9,7 @@ from test_api import _call, server, storage  # noqa: F401  (fixtures)
 @pytest.fixture(autouse=True)
 def _fresh_alarms():
     api_audit._last_alarm.clear()
+    api_audit._seen_folders.clear()
 
 
 @pytest.fixture
@@ -120,3 +121,20 @@ def test_a_wrong_pairing_code_is_logged_once(server, storage):  # noqa: F811
     base, _ = server
     _call(f"{base}/api/v1/pair", None, "POST", {"code": "wrong", "name": "x"})
     assert len(storage.list_audit()) == 1
+
+
+def test_a_refused_folder_is_not_reported_as_a_role_problem_and_once(server, storage, sent):  # noqa: F811
+    base, token = server  # an admin device
+    api_scope.remove_root(storage, "/")  # the fixture opens everything
+    for typed in ("/nowhere/a", "/nowhere/ab", "/nowhere/abc"):
+        status, result = _call(f"{base}/api/v1/mcp-servers?path={typed}", token)
+        assert status == 403 and "ccc api roots --add" in result["error"]
+    entries = storage.list_audit()
+    assert len(entries) == 1 and entries[0]["detail"] == "folder not allowed: /nowhere/a"
+    assert len(sent) == 1 and "folder /nowhere/a" in sent[0] and "role does not allow" not in sent[0]
+
+
+def test_a_role_refusal_is_still_reported_as_one(server, storage, sent):  # noqa: F811
+    base, _ = server
+    _call(f"{base}/api/v1/update", api.add_device(storage, "R", ROLE_READ)[1], "POST")
+    assert any("role does not allow" in t for t in sent)

@@ -82,6 +82,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import kotlinx.coroutines.delay
 import androidx.compose.ui.unit.dp
 import io.github.luquas95.ccc.R
 import io.github.luquas95.ccc.data.LaunchGroup
@@ -172,11 +173,17 @@ fun NewConversationScreen(
     }
     val resume = RESUME in selection
     LaunchedEffect(path, resume) {
-        if (resume) onLoadSessions(path.trim())
+        if (resume) {
+            delay(FOLDER_DELAY_MS)  // the path is typed letter by letter: ask once it rests
+            onLoadSessions(path.trim())
+        }
     }
     val mcpOn = MCP_SELECT in selection
     LaunchedEffect(path, mcpOn) {
-        if (mcpOn) onLoadMcpServers(path.trim())
+        if (mcpOn) {
+            delay(FOLDER_DELAY_MS)
+            onLoadMcpServers(path.trim())
+        }
     }
     Scaffold(
         topBar = { TopBar(stringResource(R.string.new_conversation), onBack) },
@@ -243,6 +250,9 @@ fun NewConversationScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
+            if (state.folderDenied.isNotEmpty() && state.deniedFor == path.trim()) {
+                Text(state.folderDenied, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
             options?.groups?.forEach { group ->
                 OptionGroup(group, selection) { selection = toggle(group, selection, it, options.groups) }
                 if (group.key == "mcp" && mcpOn) {
@@ -306,6 +316,9 @@ private fun OptionGroup(group: LaunchGroup, selection: List<String>, onToggle: (
         }
     }
 }
+
+/** How long the typed folder must rest before the app asks the server about it. */
+private const val FOLDER_DELAY_MS = 700L
 
 /** The MCP servers configured for the folder (plus ticked ones that are gone): tick those the conversation may use. */
 @OptIn(ExperimentalLayoutApi::class)
