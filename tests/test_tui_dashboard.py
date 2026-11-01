@@ -198,15 +198,15 @@ async def test_dashboard_shows_context_and_git_and_what_waits_for_you(tmp_path, 
 
 
 @pytest.mark.asyncio
-async def test_narrow_window_shows_the_narrow_choice_and_settings_change_it(tmp_path, monkeypatch):
+async def test_columns_choice_does_not_depend_on_window_width(tmp_path, monkeypatch):
     from ccc import dashboard_columns
 
     db_path, storage, _queue = _setup(tmp_path, monkeypatch)
     app = CCContinueApp(db_path)
     async with app.run_test(size=(80, 30)) as pilot:
         await pilot.pause(0.5)
-        assert _cells(app)[0] == ["Project", "Status", "Context"]  # the phone default
-        dashboard_columns.save(storage, True, [dashboard_columns.GIT, dashboard_columns.PATH])
+        assert len(_cells(app)[0]) == 7  # the default is everything, even in a narrow window
+        dashboard_columns.save(storage, [dashboard_columns.GIT, dashboard_columns.PATH])
         app.screen.refresh_table()
         headers, rows = _cells(app)
         assert headers == ["Project", "Git", "Path"]
@@ -214,7 +214,7 @@ async def test_narrow_window_shows_the_narrow_choice_and_settings_change_it(tmp_
     app = CCContinueApp(db_path)
     async with app.run_test(size=(160, 30)) as pilot:
         await pilot.pause(0.5)
-        assert len(_cells(app)[0]) == 7  # wide: everything, the narrow choice doesn't touch it
+        assert _cells(app)[0] == ["Project", "Git", "Path"]
 
 
 def test_columns_choice_defaults_and_saves_in_table_order(tmp_path):
@@ -222,9 +222,8 @@ def test_columns_choice_defaults_and_saves_in_table_order(tmp_path):
     from ccc.storage import Storage
 
     storage = Storage(str(tmp_path / "h.db"))
-    assert dc.shown(storage, False) == list(dc.IDS)
-    assert dc.shown(storage, True) == [dc.STATUS, dc.CONTEXT]
-    dc.save(storage, True, [dc.PATH, dc.STATUS])
-    assert dc.shown(storage, True) == [dc.STATUS, dc.PATH]
-    dc.save(storage, False, [])  # chosen: none — only the name
-    assert dc.shown(storage, False) == []
+    assert dc.shown(storage) == list(dc.IDS)
+    dc.save(storage, [dc.PATH, dc.STATUS])
+    assert dc.shown(storage) == [dc.STATUS, dc.PATH]
+    dc.save(storage, [])  # chosen: none — only the name
+    assert dc.shown(storage) == []

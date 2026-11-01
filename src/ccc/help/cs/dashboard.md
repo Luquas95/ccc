@@ -28,9 +28,9 @@ Jeden řádek na konverzaci (archivované jsou v [Archivu](archive.md)):
 | Git | větev, neuložené řádky (`+12−3`) a commity před `↑` / za `↓` základní větví; `–` mimo git a u konverzace, kde Claude nesmí sám spouštět příkazy (ccc spouští git jen tam, viz [Git](git.md)) |
 | Cesta | složka projektu, ve které Claude pracuje, zkrácená zepředu — poslední složka je vidět vždy |
 
-**Které sloupce** — Nastavení → Přehled: jedna volba pro široké okno a
-jedna pro úzké (do 100 sloupců, např. telefon). Název je vidět vždy.
-Výchozí: široké okno ukáže všechno, úzké Stav a Kontext.
+**Které sloupce** — Nastavení → Přehled: jedna volba pro terminálovou
+verzi ccc (aplikace pro Android má vlastní). Název je vidět vždy;
+výchozí je ukázat i všechno ostatní.
 
 **Značky** před názvem — stejné jako v seznamu Konverzací:
 

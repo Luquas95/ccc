@@ -273,11 +273,9 @@ class SettingsModal(ModalScreen):
         )
         dashboard = _section(
             _("Dashboard"),
-            _row(_("Wide screen"), self._columns_list(False)),
-            _row(_("Narrow screen"), self._columns_list(True)),
-            Static(_("Columns of the Dashboard table; the conversation's name is always shown. Narrow: a window "
-                     "up to {width} columns wide, such as a phone."
-                     ).format(width=dashboard_columns.NARROW_COLUMNS), classes="settings-hint"),
+            _row(_("Columns"), self._columns_list()),
+            Static(_("Columns of the Dashboard table; the conversation's name is always shown."),
+                   classes="settings-hint"),
         )
         self._prompt_presets = load_prompt_presets(s)
         prompt_box = _section(
@@ -393,11 +391,11 @@ class SettingsModal(ModalScreen):
                 classes="modal-buttons",
             )
 
-    def _columns_list(self, narrow: bool) -> SelectionList:
-        shown = dashboard_columns.shown(self.storage, narrow)
+    def _columns_list(self) -> SelectionList:
+        shown = dashboard_columns.shown(self.storage)
         return SelectionList(
             *[(_(title), column, column in shown) for column, title in dashboard_columns.COLUMNS],
-            id="settings-dashboard-narrow" if narrow else "settings-dashboard-wide",
+            id="settings-dashboard-columns",
         )
 
     def on_mount(self) -> None:
@@ -728,8 +726,7 @@ class SettingsModal(ModalScreen):
         s.set_setting(context_fill.DANGER_KEY, str(self.query_one("#settings-context-danger", Select).value))
         notify = self.query_one("#settings-context-notify", Select).value
         s.set_setting(context_fill.NOTIFY_KEY, "" if notify == "on" else "off")
-        for narrow, list_id in ((False, "#settings-dashboard-wide"), (True, "#settings-dashboard-narrow")):
-            dashboard_columns.save(s, narrow, list(self.query_one(list_id, SelectionList).selected))
+        dashboard_columns.save(s, list(self.query_one("#settings-dashboard-columns", SelectionList).selected))
         save_prompt_presets(s, self._prompt_presets)
         s.set_setting(EXPORT_FOLDER_KEY, self._export_folder_value())
         send = self.query_one("#settings-export-send", Select).value

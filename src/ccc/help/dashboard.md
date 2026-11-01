@@ -29,10 +29,9 @@ One row per conversation (archived ones are in the [Archive](archive.md)):
 | Git | the branch, uncommitted lines (`+12−3`) and commits ahead `↑` / behind `↓` its base branch; `–` outside git, and for a conversation where Claude may not run commands itself (ccc runs git only there, see [Git](git.md)) |
 | Path | the project folder Claude works in, shortened from the front — the last folder is always shown |
 
-**Which columns** — Settings → Dashboard: one choice for a wide window and
-one for a narrow one (up to 100 columns, such as a phone). The name is
-always shown. By default a wide window shows everything and a narrow one
-Status and Context.
+**Which columns** — Settings → Dashboard: one choice for the terminal
+version of ccc (the Android app has its own). The name is always shown;
+by default everything else is too.
 
 **Markers** in front of the name — the same in the Conversations list:
 

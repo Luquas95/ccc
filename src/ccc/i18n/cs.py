@@ -111,12 +111,9 @@ CS: dict[str, str] = {
     "{needs}  ·  [b]{tokens}[/b] tokens today":
         "fronty: [b]{queues}[/b]  ·  {running}  ·  čeká: [b]{pending}[/b]  ·  {blocked}  ·  "
         "{needs}  ·  tokeny dnes: [b]{tokens}[/b]",
-    "Wide screen": "Široká obrazovka",
-    "Narrow screen": "Úzká obrazovka",
-    "Columns of the Dashboard table; the conversation's name is always shown. Narrow: a window "
-    "up to {width} columns wide, such as a phone.":
-        "Sloupce tabulky v Přehledu; název konverzace je vidět vždy. Úzká: okno široké nejvýše "
-        "{width} sloupců, např. telefon.",
+    "Columns": "Sloupce",
+    "Columns of the Dashboard table; the conversation's name is always shown.":
+        "Sloupce tabulky v Přehledu; název konverzace je vidět vždy.",
 
     # --- Queue detail -----------------------------------------------------------
     "Queue detail": "Detail fronty",
