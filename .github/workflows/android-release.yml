@@ -39,9 +39,14 @@ jobs:
       - name: Publish
         run: |
           cp android/app/build/outputs/apk/release/app-release.apk ccc.apk
-          # The release may already exist (made by hand with the tag): then only attach the app.
+          # The release may already exist (made by hand with the tag): then only attach the
+          # app — never replace one that is already published.
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" ccc.apk --clobber
+            if gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name' | grep -qx ccc.apk; then
+              echo "Release $GITHUB_REF_NAME already has ccc.apk; not replacing it." >&2
+              exit 1
+            fi
+            gh release upload "$GITHUB_REF_NAME" ccc.apk
           else
             gh release create "$GITHUB_REF_NAME" ccc.apk --title "ccc $GITHUB_REF_NAME" --generate-notes
           fi
