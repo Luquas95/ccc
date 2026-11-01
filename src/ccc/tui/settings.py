@@ -30,6 +30,7 @@ from ccc.export_paths import (
 from ccc.orchestrator import DEFAULT_CONTINUE_TEXT, RESERVE_CHOICES, RESERVE_KEY, usage_reserve
 from ccc.presets import delete_preset, list_presets
 from ccc.prompt_presets import MAX_PRESETS, load_prompt_presets, save_prompt_presets
+from ccc.tui.devices import DevicesPanel
 from ccc.tui.layout import MODAL_CSS
 from ccc.tui.prompt_presets import PromptPresetModal, mode_label, preset_key
 
@@ -358,14 +359,12 @@ class SettingsModal(ModalScreen):
                          key=keymap.pretty(keymap.current(s)["views.update"])),
                    classes="settings-hint"),
         )
-        devices_box = _section(
-            _("Devices"),
-            Static(_("Phones signed in to the Android app's API. Pair a new one by QR code, or sign one out."),
-                   classes="settings-hint"),
-            Horizontal(Button(_("Devices…"), id="settings-devices"),
-                       Static(id="settings-devices-state", classes="settings-status"),
-                       classes="settings-actions"),
+        pair_box = _section(
+            _("Pair a new device"),
+            Static(_("Phones signed in to the Android app's API. Pair a new one by QR code."), classes="settings-hint"),
+            Horizontal(Button(_("Pair a new device"), id="devices-pair", classes="modal-submit"), classes="settings-actions"),
         )
+        devices_box = _section(_("Devices"), DevicesPanel(self.storage))
         data = _section(
             _("Data"),
             Static(id="data-info", classes="settings-status"),
@@ -382,7 +381,7 @@ class SettingsModal(ModalScreen):
                     ("notifications", N_("Notifications"), (telegram, discord)),
                     ("presets", N_("Presets"), (prompt_box, preset_box)),
                     ("data", N_("Data"), (exports, archive_box, data)),
-                    ("connection", N_("Connection and updates"), (devices_box, update_box)),
+                    ("connection", N_("Connection and updates"), (pair_box, devices_box, update_box)),
                 ):
                     with TabPane(_(title), id=f"settings-tab-{key}"):
                         yield VerticalScroll(*sections, classes="settings-scroll")
@@ -405,7 +404,6 @@ class SettingsModal(ModalScreen):
         self._refresh_telegram_state()
         self._refresh_discord_state()
         self._refresh_data_info()
-        self._show_devices_state()
         self.query_one("#settings-language", Select).focus()
 
     def _refresh_telegram_state(self) -> None:
@@ -437,7 +435,7 @@ class SettingsModal(ModalScreen):
             "settings-preset-delete": self._delete_preset,
             "settings-backup": self._backup,
             "settings-keys": self._edit_keys,
-            "settings-devices": self._edit_devices,
+            "devices-pair": self._pair_device,
             "settings-archive-now": self._archive_now,
             "settings-prompt-add": self._add_prompt_preset,
             "settings-prompt-edit": self._edit_prompt_preset,
@@ -453,15 +451,10 @@ class SettingsModal(ModalScreen):
 
         self.app.push_screen(NotifyCategoriesModal(self.storage, channel))
 
-    def _show_devices_state(self) -> None:
-        n = len(self.storage.list_devices())
-        self.query_one("#settings-devices-state", Static).update(
-            _("{n} signed in").format(n=n) if n else _("none"))
+    def _pair_device(self) -> None:
+        from ccc.tui.devices import PairModal
 
-    def _edit_devices(self) -> None:
-        from ccc.tui.devices import DevicesModal
-
-        self.app.push_screen(DevicesModal(self.storage), lambda _result: self._show_devices_state())
+        self.app.push_screen(PairModal(self.storage), lambda name: self.query_one(DevicesPanel).paired(name))
 
     def _edit_keys(self) -> None:
         from ccc.tui.keys import KeysModal

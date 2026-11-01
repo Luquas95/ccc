@@ -410,39 +410,48 @@ async def test_dashboard_columns_are_chosen_in_settings(tmp_path):
         assert dc.PATH not in dc.shown(app.storage, False)
 
 
+async def _open_connection_tab(pilot, app):
+    from textual.widgets import TabbedContent
+
+    settings = await _open_settings(pilot, app)
+    settings.query_one(TabbedContent).active = "settings-tab-connection"
+    await pilot.pause()
+    return settings
+
+
 @pytest.mark.asyncio
-async def test_devices_window_pairs_by_qr_and_signs_a_device_out(tmp_path, monkeypatch):
+async def test_devices_are_listed_in_the_tab_with_pairing_above_them(tmp_path, monkeypatch):
     from textual.widgets import Button, DataTable
 
     from ccc import api, pairing
-    from ccc.tui.devices import DevicesModal, PairModal
+    from ccc.tui.devices import PairModal
 
     monkeypatch.setattr(pairing, "tailscale_url", lambda: "https://xia.ts.net:8737")
     app = _app(tmp_path)
     phone, _token = api.add_device(app.storage, "Pixel")
     api.add_device(app.storage, "Tablet")
+    app.storage.revoke_device(api.add_device(app.storage, "Old")[0].id, "app")
     async with app.run_test(size=(120, 50)) as pilot:
-        settings = await _open_settings(pilot, app)
-        settings.query_one("#settings-devices", Button).press()
-        await pilot.pause()
-        assert isinstance(app.screen, DevicesModal)
-        table = app.screen.query_one("#devices-table", DataTable)
-        assert table.row_count == 2
-        app.screen.query_one("#devices-pair", Button).press()
+        settings = await _open_connection_tab(pilot, app)
+        # No "Devices…" button any more: the list is right in the tab, below the pairing section.
+        assert not settings.query("#settings-devices")
+        pair = settings.query_one("#devices-pair", Button)
+        table = settings.query_one("#devices-table", DataTable)
+        assert pair.region.y < table.region.y
+        assert table.row_count == 2  # the signed-out one is only in the history
+        pair.press()
         await pilot.pause(0.5)
         assert isinstance(app.screen, PairModal)
         assert app.storage.get_setting(pairing.CODE_KEY)
         assert "Address: https://xia.ts.net:8737" in str(app.screen.query_one("#pair-info").render())
         await pilot.press("escape")
         await pilot.pause()
-        assert isinstance(app.screen, DevicesModal)
-        app.screen.query_one("#devices-revoke", Button).press()
+        assert app.screen is settings
+        settings.query_one("#devices-revoke", Button).press()
         await pilot.pause()
         assert [d.name for d in app.storage.list_devices()] == ["Tablet"]
         assert phone.id not in [d.id for d in app.storage.list_devices()]
-        await pilot.press("escape")
-        await pilot.pause()
-        assert str(app.screen.query_one("#settings-devices-state").render()) == "1 signed in"
+        assert table.row_count == 1
 
 
 @pytest.mark.asyncio
@@ -450,15 +459,13 @@ async def test_pair_window_closes_by_itself_once_the_phone_has_paired(tmp_path, 
     from textual.widgets import Button, DataTable, Static
 
     from ccc import api, pairing
-    from ccc.tui.devices import DevicesModal, PairModal
+    from ccc.tui.devices import PairModal
 
     monkeypatch.setattr(pairing, "tailscale_url", lambda: "https://xia.ts.net:8737")
     app = _app(tmp_path)
     async with app.run_test(size=(100, 30)) as pilot:
-        settings = await _open_settings(pilot, app)
-        settings.query_one("#settings-devices", Button).press()
-        await pilot.pause()
-        app.screen.query_one("#devices-pair", Button).press()
+        settings = await _open_connection_tab(pilot, app)
+        settings.query_one("#devices-pair", Button).press()
         await pilot.pause(0.5)
         assert isinstance(app.screen, PairModal)
         assert str(app.screen.query_one("#pair-qr", Static).render()).strip()
@@ -466,27 +473,23 @@ async def test_pair_window_closes_by_itself_once_the_phone_has_paired(tmp_path, 
         app.storage.delete_setting_if(pairing.CODE_KEY, app.storage.get_setting(pairing.CODE_KEY))
         api.add_device(app.storage, "Redmi")
         await pilot.pause(2)
-        assert isinstance(app.screen, DevicesModal)
-        assert app.screen.query_one("#devices-table", DataTable).row_count == 1
-        assert "Paired: Redmi" in str(app.screen.query_one("#devices-info").render())
+        assert app.screen is settings
+        assert settings.query_one("#devices-table", DataTable).row_count == 1
+        assert "Paired: Redmi" in str(settings.query_one("#devices-info").render())
 
 
 @pytest.mark.asyncio
-async def test_devices_window_follows_a_sign_out_made_elsewhere(tmp_path):
-    from textual.widgets import Button, DataTable
+async def test_devices_list_follows_a_sign_out_made_elsewhere(tmp_path):
+    from textual.widgets import DataTable
 
     from ccc import api
-    from ccc.tui.devices import DevicesModal
 
     app = _app(tmp_path)
     phone, _token = api.add_device(app.storage, "Pixel")
     api.add_device(app.storage, "Tablet")
     async with app.run_test(size=(100, 30)) as pilot:
-        settings = await _open_settings(pilot, app)
-        settings.query_one("#settings-devices", Button).press()
-        await pilot.pause()
-        assert isinstance(app.screen, DevicesModal)
-        table = app.screen.query_one("#devices-table", DataTable)
+        settings = await _open_connection_tab(pilot, app)
+        table = settings.query_one("#devices-table", DataTable)
         assert table.row_count == 2
         app.storage.revoke_device(phone.id, 'computer')  # `ccc api revoke`, or the app signing out
         await pilot.pause(3.5)
@@ -494,35 +497,29 @@ async def test_devices_window_follows_a_sign_out_made_elsewhere(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_devices_window_shows_the_history_of_signed_out_devices_read_only(tmp_path):
+async def test_devices_list_shows_the_history_of_signed_out_devices_read_only(tmp_path):
     from textual.widgets import Button, DataTable
 
     from ccc import api
-    from ccc.tui.devices import DevicesModal
 
     app = _app(tmp_path)
     phone, _token = api.add_device(app.storage, "Pixel")
     api.add_device(app.storage, "Tablet")
     async with app.run_test(size=(120, 30)) as pilot:
-        settings = await _open_settings(pilot, app)
-        settings.query_one("#settings-devices", Button).press()
-        await pilot.pause()
-        assert isinstance(app.screen, DevicesModal)
-        table = app.screen.query_one("#devices-table", DataTable)
-        app.screen.query_one("#devices-history", Button).press()
+        settings = await _open_connection_tab(pilot, app)
+        table = settings.query_one("#devices-table", DataTable)
+        settings.query_one("#devices-history", Button).press()
         await pilot.pause()
         assert table.row_count == 0
-        assert app.screen.query_one("#devices-revoke", Button).disabled
-        assert app.screen.query_one("#devices-pair", Button).disabled
+        assert settings.query_one("#devices-revoke", Button).disabled
         app.storage.revoke_device(phone.id, "app")  # signed out in the app: the open history picks it up
         await pilot.pause(3.5)
         assert table.row_count == 1
         assert [str(c) for c in table.get_row_at(0)][0] == "Pixel"
         assert "in the app" in str(table.get_row_at(0)[-1])
-        app.screen.query_one("#devices-history", Button).press()  # back to the active ones
+        settings.query_one("#devices-history", Button).press()  # back to the active ones
         await pilot.pause()
         assert table.row_count == 1 and str(table.get_row_at(0)[0]) == "Tablet"
-        assert not app.screen.query_one("#devices-pair", Button).disabled
 
 
 @pytest.mark.asyncio

@@ -1502,11 +1502,8 @@ CS: dict[str, str] = {
     "(tailscale serve --bg 8737) or run: ccc api pair --server https://…":
         "ccc nezjistí, kde aplikace API zasáhne. Dej ho na tailnet "
         "(tailscale serve --bg 8737) nebo spusť: ccc api pair --server https://…",
-    "Phones signed in to the Android app's API. Pair a new one by QR code, or sign one out.":
-        "Telefony přihlášené k API pro aplikaci pro Android. Nový spáruješ QR kódem, nebo jeden odhlásíš.",
-    "Devices…": "Zařízení…",
-    "{n} signed in": "přihlášeno: {n}",
-    "none": "žádné",
+    "Phones signed in to the Android app's API. Pair a new one by QR code.":
+        "Telefony přihlášené k API pro aplikaci pro Android. Nový spáruješ QR kódem.",
     "Run the API (what the ccc-api service runs)": "Spustit API (to, co spouští služba ccc-api)",
     "Make the token the app signs in with (shown once)": "Vytvořit token, kterým se aplikace přihlásí (ukáže se jen jednou)",
     "A token is set. ccc keeps only its fingerprint, so it can't show it again — "
