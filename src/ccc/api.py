@@ -73,7 +73,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from ccc import __version__, context_fill, groups, i18n, launch_options, mcp_servers, updates
+from ccc import context_fill, groups, i18n, launch_options, mcp_servers, updates
 from ccc.api_agents import AgentEndpoints
 from ccc import api_audit, api_roles, api_scope
 from ccc.api_common import ApiError, int_of, iso, route, task_line, text_of
@@ -252,7 +252,7 @@ class Api(AgentEndpoints, ViewEndpoints):
     def status(self) -> dict:
         queues = [q for q in self.storage.list_queues() if not q.archived]
         return {
-            "version": __version__,
+            "version": updates.running_version(),
             "language": i18n.language(),
             "daemon_running": daemon_alive(self.storage),
             "conversations": len(queues),
@@ -290,7 +290,7 @@ class Api(AgentEndpoints, ViewEndpoints):
             raise ApiError(HTTPStatus.UNAUTHORIZED, _("The pairing code is wrong, used or has run out."))
         device, token = paired
         self.storage.touch_device(device.id, ip)
-        return {"token": token, "device_id": device.id, "name": device.name, "version": __version__}
+        return {"token": token, "device_id": device.id, "name": device.name, "version": updates.running_version()}
 
     def rename_device(self, device_id: int, body: dict) -> dict:
         name = text_of(body, "name").strip()
@@ -306,15 +306,15 @@ class Api(AgentEndpoints, ViewEndpoints):
         return {"ok": True}
 
     def _update(self) -> dict | None:
-        """A new version of ccc on origin/main (ccc.updates), as the daemon
+        """A new ccc release on GitHub (ccc.updates), as the daemon
         last found it; None when looking is turned off."""
         if not updates.check_enabled(self.storage):
             return None
         state = updates.load(self.storage)
         reason = updates.refusal(self.storage) if state.available else None
         return {"available": state.available, "behind": state.behind, "remote_head": state.remote_head,
-                "commits": state.commits,
-                "android": state.android, "error": state.error, "checked_at": state.checked_at,
+                "commits": state.commits, "version": state.version, "installed": state.installed,
+                "notes": state.notes, "android": state.android, "error": state.error, "checked_at": state.checked_at,
                 "can_apply": state.available and reason is None, "reason": reason}
 
     def _android_build(self) -> int:
@@ -912,7 +912,7 @@ class Api(AgentEndpoints, ViewEndpoints):
             )
         # Not a conversation: a new ccc version (updates) — told to the app as "update".
         state = updates.load(self.storage)
-        result[UPDATE_KEY] = (state.remote_head, state.behind) if state.available else ()
+        result[UPDATE_KEY] = (state.version,) if state.available else ()
         return result
 
     @staticmethod

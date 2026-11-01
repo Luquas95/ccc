@@ -1,26 +1,37 @@
-"""ccc updating itself: is there something new on origin/main, and apply it.
+"""ccc updating itself: is there a newer release on GitHub, and apply it.
 
-ccc is a git checkout (bin/install.sh: editable install, systemd user
-units), so an update is `git pull --ff-only` and the install script again,
-then the services restart. Looking is harmless (`git fetch`); applying
-runs only on a yes — in the TUI's Update window or from the phone — and
-only as a fast-forward of main in a clean checkout, while no task runs: the
-code that arrives is whatever was pushed to origin/main.
+The same rule as the Android app's (ccc.releases): a new version is the
+repository's latest release — tag `X.Y.Z` — with the ccc artifact
+(`ccc.tar.gz`) attached, and it is newer by number than what runs here.
+A ccc that has no version (a checkout or build made by hand, "0.0.0-dev")
+takes the newest tag its checkout contains as its version.
+
+Looking is harmless (one request to GitHub, no token); applying runs only
+on a yes — in the TUI's Update window or from the phone:
+- ccc as a git checkout (bin/install.sh, the usual way): the release's tag
+  is fetched and the checkout fast-forwarded to it — only on main, clean,
+  with nothing of its own, while no task runs — then the install script
+  runs again and the services restart;
+- ccc installed as a package (pip / pipx): the release's `ccc.tar.gz` is
+  downloaded and pip-installed into the environment ccc runs from.
 
 The result of the last look is kept in the `update_state` setting (JSON),
 so every reader — the TUI, the API, the daemon's notice — sees the same.
 The daemon looks every CHECK_SECONDS (check_enabled(): Settings)."""
 from __future__ import annotations
 
+import functools
 import json
 import os
 import shlex
 import shutil
 import subprocess
-from dataclasses import asdict, dataclass, field
+import sys
+from dataclasses import asdict, dataclass, fields
 from datetime import datetime
 from pathlib import Path
 
+from ccc import __version__, releases
 from ccc.i18n import _
 from ccc.models import QueueStatus
 
@@ -29,34 +40,56 @@ CHECK_KEY = "update_check"  # "" = on, "off"
 BRANCH = "main"
 REMOTE = "origin"
 CHECK_SECONDS = 6 * 3600.0
-SHOWN_COMMITS = 10
 FETCH_TIMEOUT = 40
 # The Android app's sources: what makes a new app build necessary.
 ANDROID_SOURCES = "android/app/src/main"
+APK = "ccc.apk"
 UNITS = ("ccc.service", "ccc-tui.service", "ccc-api.service")
 PROJECT_DIR = Path(__file__).resolve().parents[2]
+NOTES_LINES = 12
 
 
 @dataclass
 class UpdateState:
     checked_at: str | None = None
-    behind: int = 0
-    commits: list[str] = field(default_factory=list)  # "abc1234 subject", newest first
-    remote_head: str | None = None
-    android: bool = False  # the new commits change the Android app
+    installed: str | None = None  # the version running here
+    version: str | None = None  # the newer release, if there is one
+    tag: str | None = None  # its git tag as published (`0.2.0` or `v0.2.0`)
+    url: str | None = None  # its ccc.tar.gz
+    notes: str = ""  # the release's text
+    android: bool = False  # the release has the Android app (ccc.apk) too
     error: str | None = None
-    # The remote head already told to Telegram / Discord, so it's said once.
-    notified_head: str | None = None
+    # The version already told to Telegram / Discord, so it's said once.
+    notified_version: str | None = None
 
     @property
     def available(self) -> bool:
-        return self.behind > 0
+        return self.version is not None
+
+    # What the API (and the Android app, which shows them) has always called these.
+    @property
+    def behind(self) -> int:
+        return 1 if self.available else 0
+
+    @property
+    def remote_head(self) -> str | None:
+        return self.version
+
+    @property
+    def commits(self) -> list[str]:
+        """The first lines of the release notes, for the app's list."""
+        return self.notes_lines()[:NOTES_LINES]
+
+    def notes_lines(self) -> list[str]:
+        return [line.rstrip() for line in self.notes.splitlines() if line.strip()]
 
 
 def load(storage) -> UpdateState:
     try:
-        return UpdateState(**json.loads(storage.get_setting(STATE_KEY) or "{}"))
-    except (ValueError, TypeError):
+        stored = json.loads(storage.get_setting(STATE_KEY) or "{}")
+        known = {f.name for f in fields(UpdateState)}
+        return UpdateState(**{k: v for k, v in stored.items() if k in known})
+    except (ValueError, TypeError, AttributeError):
         return UpdateState()
 
 
@@ -74,6 +107,33 @@ def _git(repo: Path, *args: str, timeout: float = 15) -> subprocess.CompletedPro
     return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, timeout=timeout, env=env)
 
 
+def is_checkout(repo: Path = PROJECT_DIR) -> bool:
+    """ccc runs from a git checkout made by bin/install.sh (not from site-packages)."""
+    return (repo / ".git").exists() and (repo / "bin" / "install.sh").is_file()
+
+
+def installed_version(repo: Path = PROJECT_DIR) -> str:
+    """The version of the ccc running here: the one stamped into the
+    package by the release build, else — a checkout — its newest tag; a
+    version that is not a number ("0.0.0-dev") never asks for an update."""
+    if releases.parse_version(__version__):
+        return __version__
+    if is_checkout(repo):
+        try:
+            tag = _git(repo, "describe", "--tags", "--abbrev=0", "--match", "[0-9]*", "HEAD").stdout.strip()
+        except (OSError, subprocess.TimeoutExpired):
+            tag = ""
+        if releases.parse_version(tag):
+            return tag
+    return __version__
+
+
+@functools.cache
+def running_version() -> str:
+    """installed_version() for display, looked up once (the services restart on an update)."""
+    return installed_version()
+
+
 def android_build(repo: Path = PROJECT_DIR) -> int:
     """How many commits changed the Android app's sources: its build number
     (android/app/build.gradle.kts counts the same way), so a pull that
@@ -85,27 +145,27 @@ def android_build(repo: Path = PROJECT_DIR) -> int:
         return 0
 
 
-def check(storage, repo: Path = PROJECT_DIR) -> UpdateState:
-    """Fetch origin/main and compare with this checkout; the outcome is
-    saved (an error as well — "can't look" is something to show)."""
+def _latest() -> tuple[releases.Release | None, bool]:
+    """The newest release with the ccc artifact, and whether it has the app too."""
+    raw = releases.fetch()
+    return releases.parse_release(raw), releases.parse_release(raw, APK) is not None
+
+
+def check(storage, repo: Path = PROJECT_DIR, latest=_latest) -> UpdateState:
+    """Ask GitHub for the latest release and compare with this ccc; the
+    outcome is saved (an error as well — "can't look" is something to show)."""
     previous = load(storage)
-    state = UpdateState(checked_at=datetime.now().isoformat(timespec="seconds"), notified_head=previous.notified_head)
+    installed = installed_version(repo)
+    state = UpdateState(checked_at=datetime.now().isoformat(timespec="seconds"), installed=installed,
+                        notified_version=previous.notified_version)
     try:
-        fetched = _git(repo, "fetch", "--quiet", REMOTE, BRANCH, timeout=FETCH_TIMEOUT)
-        if fetched.returncode != 0:
-            # Only the first line: git's message may name the remote's URL.
-            state.error = (fetched.stderr.strip().splitlines() or ["git fetch failed"])[0][:200]
-        else:
-            ref = f"{REMOTE}/{BRANCH}"
-            state.behind = int(_git(repo, "rev-list", "--count", f"HEAD..{ref}").stdout.strip() or 0)
-            state.remote_head = _git(repo, "rev-parse", "--short", ref).stdout.strip() or None
-            if state.behind:
-                log = _git(repo, "log", f"-n{SHOWN_COMMITS}", "--format=%h %s", f"HEAD..{ref}").stdout
-                state.commits = [line for line in log.splitlines() if line]
-                changed = _git(repo, "diff", "--name-only", f"HEAD...{ref}", "--", ANDROID_SOURCES).stdout
-                state.android = bool(changed.strip())
-    except (OSError, subprocess.TimeoutExpired, ValueError) as exc:
-        state.error = type(exc).__name__
+        release, android = latest()
+        if release and releases.is_newer(release.version, installed):
+            state.version, state.tag, state.url = release.version, release.tag, release.url
+            state.notes, state.android = release.notes, android
+    except OSError as exc:
+        # Only the kind of failure: the message may name a URL.
+        state.error = type(getattr(exc, "reason", None) or exc).__name__
     save(storage, state)
     return state
 
@@ -113,14 +173,15 @@ def check(storage, repo: Path = PROJECT_DIR) -> UpdateState:
 def refusal(storage, repo: Path = PROJECT_DIR) -> str | None:
     """Why an update can't be applied now, in words for the user; None when it can."""
     try:
-        branch = _git(repo, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+        branch = _git(repo, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip() if is_checkout(repo) else BRANCH
         if branch != BRANCH:
             return _("The checkout is on branch “{branch}”, not {main}.").format(branch=branch, main=BRANCH)
-        if _git(repo, "status", "--porcelain", "--untracked-files=no").stdout.strip():
-            return _("The checkout has uncommitted changes.")
-        ahead = _git(repo, "rev-list", "--count", f"{REMOTE}/{BRANCH}..HEAD").stdout.strip()
-        if ahead not in ("", "0"):
-            return _("The checkout has commits that aren't on {remote}/{main}.").format(remote=REMOTE, main=BRANCH)
+        if is_checkout(repo):
+            if _git(repo, "status", "--porcelain", "--untracked-files=no").stdout.strip():
+                return _("The checkout has uncommitted changes.")
+            ahead = _git(repo, "rev-list", "--count", f"{REMOTE}/{BRANCH}..HEAD").stdout.strip()
+            if ahead not in ("", "0"):
+                return _("The checkout has commits that aren't on {remote}/{main}.").format(remote=REMOTE, main=BRANCH)
     except (OSError, subprocess.TimeoutExpired):
         return _("git can't be run in the ccc checkout.")
     running = [q.name for q in storage.list_queues() if q.status == QueueStatus.RUNNING and not q.archived]
@@ -152,6 +213,15 @@ def install_command(units: list[str], repo: Path = PROJECT_DIR) -> str:
     return line
 
 
+def package_command(artifact: Path, units: list[str]) -> str:
+    """The shell line for ccc installed as a package: pip-install the
+    release's artifact into the environment ccc runs from, then restart."""
+    line = f"{shlex.quote(sys.executable)} -m pip install --quiet --upgrade {shlex.quote(str(artifact))}"
+    if units:
+        line += " && systemctl --user restart " + " ".join(units)
+    return line
+
+
 def spawn_install(command: str, log: Path) -> None:
     """Run `command` outside this process: the restart stops the TUI /
     daemon / API that asked for it. In its own transient unit when systemd
@@ -166,24 +236,59 @@ def spawn_install(command: str, log: Path) -> None:
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def apply(storage, repo: Path = PROJECT_DIR, spawn=spawn_install, units=installed_units) -> tuple[bool, str]:
-    """Pull and restart. (True, message) once it's on its way; (False, why)
-    when not — nothing is changed then."""
-    state = check(storage, repo)
+def _move_checkout(repo: Path, tag: str) -> str | None:
+    """Fetch the release's tag and fast-forward the checkout to it; None when
+    done, else why not (nothing is changed then)."""
+    fetched = _git(repo, "fetch", "--quiet", REMOTE, BRANCH, f"refs/tags/{tag}:refs/tags/{tag}", timeout=FETCH_TIMEOUT * 3)
+    if fetched.returncode != 0:
+        return (fetched.stderr.strip().splitlines() or ["git fetch failed"])[0][:200]
+    # Only a release that is part of main, and only forward from here.
+    if (_git(repo, "merge-base", "--is-ancestor", tag, f"{REMOTE}/{BRANCH}").returncode != 0
+            or _git(repo, "merge-base", "--is-ancestor", "HEAD", tag).returncode != 0):
+        return _("The release {tag} can't be reached from this checkout by a fast-forward of {main}.").format(
+            tag=tag, main=BRANCH)
+    merged = _git(repo, "merge", "--ff-only", "--quiet", tag, timeout=FETCH_TIMEOUT * 3)
+    if merged.returncode != 0:
+        return (merged.stderr.strip().splitlines() or ["git merge failed"])[0][:200]
+    return None
+
+
+def apply(storage, repo: Path = PROJECT_DIR, spawn=spawn_install, units=installed_units,
+          latest=_latest, download=releases.download) -> tuple[bool, str]:
+    """Move to the new release and restart. (True, message) once it's on its
+    way; (False, why) when not — nothing is changed then."""
+    state = check(storage, repo, latest)
     if state.error:
         return False, _("Can't look for the update: {error}").format(error=state.error)
     if not state.available:
         return False, _("ccc is up to date.")
+    checkout = is_checkout(repo)
+    if checkout:
+        # The "commits that aren't on origin/main" test compares with a fresh main.
+        try:
+            _git(repo, "fetch", "--quiet", REMOTE, BRANCH, timeout=FETCH_TIMEOUT)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
     reason = refusal(storage, repo)
     if reason:
         return False, reason
-    pulled = _git(repo, "pull", "--ff-only", "--quiet", REMOTE, BRANCH, timeout=FETCH_TIMEOUT * 3)
-    if pulled.returncode != 0:
-        return False, (pulled.stderr.strip().splitlines() or ["git pull failed"])[0][:200]
     log = _log_path(storage)
-    spawn(install_command(units(), repo), log)
-    save(storage, UpdateState(checked_at=state.checked_at, notified_head=state.remote_head))
-    return True, _("Updated to {head} — ccc is restarting.").format(head=state.remote_head)
+    try:
+        if checkout:
+            failed = _move_checkout(repo, state.tag or state.version)
+            if failed:
+                return False, failed
+            command = install_command(units(), repo)
+        else:
+            artifact = log.parent / "update" / releases.ASSET
+            download(state.url, artifact)
+            command = package_command(artifact, units())
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return False, _("The update failed: {error}").format(error=type(exc).__name__)
+    spawn(command, log)
+    save(storage, UpdateState(checked_at=state.checked_at, installed=state.version,
+                              notified_version=state.version))
+    return True, _("Updated to {head} — ccc is restarting.").format(head=state.version)
 
 
 def _log_path(storage) -> Path:
@@ -192,9 +297,10 @@ def _log_path(storage) -> Path:
 
 def notice(state: UpdateState) -> str:
     """The message for Telegram / Discord."""
-    lines = [_("⬆️ ccc update available: {n} new commit(s) on {branch}.").format(n=state.behind, branch=BRANCH)]
-    lines += [f"• {commit}" for commit in state.commits[:5]]
+    lines = [_("⬆️ ccc update available: {version} (installed: {installed}).").format(
+        version=state.version, installed=state.installed)]
+    lines += [f"• {line}" for line in state.notes_lines()[:5]]
     if state.android:
-        lines.append(_("The Android app changed too — the phone gets it with the next release."))
+        lines.append(_("The release has the Android app too — the phone offers it separately."))
     lines.append(_("Update it in ccc (Update window) or from the phone."))
     return "\n".join(lines)

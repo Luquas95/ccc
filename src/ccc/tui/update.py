@@ -1,5 +1,5 @@
-"""The Update window: what's new on origin/main, and the button that
-applies it (ccc.updates) — pull, install, restart."""
+"""The Update window: the new release on GitHub with its notes, and the
+button that applies it (ccc.updates) — fetch, install, restart."""
 from __future__ import annotations
 
 from rich.text import Text
@@ -61,14 +61,14 @@ class UpdateModal(ModalScreen):
         if state.error:
             text.append(_("Can't look for the update: {error}").format(error=state.error) + "\n", style="red")
         elif state.available:
-            text.append(_("{n} new commit(s) on {branch}:").format(n=state.behind, branch=updates.BRANCH) + "\n",
-                        style="bold")
-            for commit in state.commits:
-                text.append(f"  {commit}\n")
-            if state.behind > len(state.commits):
+            text.append(_("ccc {version} is out (installed: {installed}):").format(
+                version=state.version, installed=state.installed) + "\n", style="bold")
+            for line in state.notes_lines()[:updates.NOTES_LINES]:
+                text.append(f"  {line}\n")
+            if len(state.notes_lines()) > updates.NOTES_LINES:
                 text.append("  …\n", style="dim")
             if state.android:
-                text.append(_("The Android app changed too — the phone gets it with the next release.") + "\n", style="cyan")
+                text.append(_("The release has the Android app too — the phone offers it separately.") + "\n", style="cyan")
         elif state.checked_at:
             text.append(_("ccc is up to date.") + "\n", style="green")
         else:

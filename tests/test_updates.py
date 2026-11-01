@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from ccc import daemon, updates
+from ccc import daemon, releases, updates
 from ccc.models import QueueStatus
 from ccc.storage import Storage
 
@@ -15,23 +15,34 @@ def git(cwd, *args):
 
 @pytest.fixture
 def repos(tmp_path):
-    """origin (bare), the ccc checkout (a clone on main) and a second clone that pushes."""
+    """origin (bare), the ccc checkout (a clone on main, tagged 0.1.0) and a second clone that pushes."""
     origin = tmp_path / "origin.git"
     subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(origin)], check=True)
     ccc = tmp_path / "ccc"
     other = tmp_path / "other"
     subprocess.run(["git", "clone", "-q", str(origin), str(ccc)], check=True, capture_output=True)
     (ccc / "a.txt").write_text("one\n")
-    git(ccc, "add", "."); git(ccc, "commit", "-qm", "first"); git(ccc, "push", "-q", "origin", "main")
+    (ccc / "bin").mkdir()
+    (ccc / "bin" / "install.sh").write_text("#!/bin/sh\n")
+    git(ccc, "add", "."); git(ccc, "commit", "-qm", "first"); git(ccc, "tag", "0.1.0")
+    git(ccc, "push", "-q", "origin", "main", "--tags")
     subprocess.run(["git", "clone", "-q", str(origin), str(other)], check=True, capture_output=True)
     return ccc, other
 
 
-def push(other, name="b.txt", subject="second", folder=""):
+def release_tag(other, tag, name="b.txt", folder=""):
+    """The developer pushes a commit and a tag; the release itself is GitHub's."""
     path = other / folder / name
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(subject)
-    git(other, "add", "."); git(other, "commit", "-qm", subject); git(other, "push", "-q", "origin", "main")
+    path.write_text(tag)
+    git(other, "add", "."); git(other, "commit", "-qm", f"for {tag}"); git(other, "push", "-q", "origin", "main")
+    git(other, "tag", tag); git(other, "push", "-q", "origin", tag)
+
+
+def github(version="0.2.0", notes="Dashboard\n\nFaster start", android=True, tag=None):
+    """What releases/latest says, as updates.check() gets it."""
+    release = releases.Release(version, f"https://x/{version}/ccc.tar.gz", notes, tag or version)
+    return lambda: (release, android)
 
 
 @pytest.fixture
@@ -39,45 +50,105 @@ def storage(tmp_path):
     return Storage(str(tmp_path / "h.db"))
 
 
-def test_up_to_date_then_new_commits(repos, storage):
-    ccc, other = repos
-    assert not updates.check(storage, ccc).available
-    push(other, subject="Add rate limiting")
-    push(other, "c.txt", "Fix the login", folder="android/app/src/main")
-    state = updates.check(storage, ccc)
-    assert state.available and state.behind == 2 and state.error is None
-    assert [c.split(" ", 1)[1] for c in state.commits] == ["Fix the login", "Add rate limiting"]
-    assert state.android  # one of them changes the Android app
-    assert updates.load(storage) == state  # kept for the TUI, the API and the phone
-
-
-def test_commits_outside_the_app_dont_make_it_stale(repos, storage):
-    ccc, other = repos
-    push(other, folder="src")
-    assert not updates.check(storage, ccc).android
-
-
-def test_a_fetch_that_fails_is_an_error_not_a_crash(repos, storage):
+def test_up_to_date_then_a_newer_release(repos, storage):
     ccc, _other = repos
-    git(ccc, "remote", "set-url", "origin", str(ccc.parent / "nowhere.git"))
-    state = updates.check(storage, ccc)
-    assert state.error and not state.available
-    assert updates.load(storage).error == state.error
+    assert not updates.check(storage, ccc, github("0.1.0")).available
+    state = updates.check(storage, ccc, github("0.2.0"))
+    assert state.available and state.version == "0.2.0" and state.installed == "0.1.0" and state.error is None
+    assert state.notes_lines() == ["Dashboard", "Faster start"] and state.android
+    assert updates.load(storage) == state  # kept for the TUI, the API and the phone
+    assert (state.behind, state.remote_head, state.commits) == (1, "0.2.0", ["Dashboard", "Faster start"])
 
 
-def test_apply_pulls_and_starts_the_install(repos, storage):
+def test_a_release_without_the_artifact_or_an_older_one_is_not_an_update(repos, storage):
+    ccc, _other = repos
+    assert not updates.check(storage, ccc, lambda: (None, True)).available
+    assert not updates.check(storage, ccc, github("0.0.9")).available
+
+
+def test_a_ccc_without_a_version_never_asks(tmp_path, storage):
+    nowhere = tmp_path / "not-a-checkout"
+    nowhere.mkdir()
+    assert updates.installed_version(nowhere) == "0.0.0-dev"
+    assert not updates.check(storage, nowhere, github("9.9.9")).available
+
+
+def test_a_stamped_version_wins_over_the_checkouts_tag(repos, monkeypatch):
+    ccc, _other = repos
+    assert updates.installed_version(ccc) == "0.1.0"
+    monkeypatch.setattr(updates, "__version__", "0.1.5")
+    assert updates.installed_version(ccc) == "0.1.5"
+
+
+def test_github_not_reachable_is_an_error_not_a_crash(repos, storage):
+    ccc, _other = repos
+
+    def down():
+        raise OSError("no route")
+
+    state = updates.check(storage, ccc, down)
+    assert state.error == "OSError" and not state.available
+    assert updates.load(storage).error == "OSError"
+
+
+def test_apply_moves_the_checkout_to_the_tag_and_starts_the_install(repos, storage):
     ccc, other = repos
-    push(other, subject="Add rate limiting")
+    release_tag(other, "0.2.0")
+    release_tag(other, "0.3.0", "c.txt")  # main has moved on past the release
     spawned = []
     ok, message = updates.apply(storage, ccc, spawn=lambda command, log: spawned.append((command, log)),
-                                units=lambda: ["ccc.service", "ccc-tui.service"])
-    assert ok and "restarting" in message
-    assert (ccc / "b.txt").exists()
+                                units=lambda: ["ccc.service", "ccc-tui.service"], latest=github("0.2.0"))
+    assert ok and "0.2.0" in message and "restarting" in message
+    assert (ccc / "b.txt").exists() and not (ccc / "c.txt").exists()  # the release, not main's head
     command, log = spawned[0]
     assert command.endswith("--no-start && systemctl --user restart ccc.service ccc-tui.service")
     assert "--no-tui" not in command and "--api" not in command
     assert log.name == "update.log"
-    assert not updates.load(storage).available  # nothing new now
+    assert not updates.load(storage).available and updates.load(storage).installed == "0.2.0"
+
+
+def test_a_tag_with_a_v_is_fetched_by_its_real_name(repos, storage):
+    ccc, other = repos
+    release_tag(other, "v0.2.0")
+    ok, _ = updates.apply(storage, ccc, spawn=lambda *a: None, units=lambda: [], latest=github("0.2.0", tag="v0.2.0"))
+    assert ok and (ccc / "b.txt").exists()
+
+
+def test_a_release_that_isnt_part_of_main_is_not_applied(repos, storage):
+    ccc, other = repos
+    git(other, "checkout", "-qb", "side")
+    (other / "s.txt").write_text("s")
+    git(other, "add", "."); git(other, "commit", "-qm", "side"); git(other, "tag", "0.2.0")
+    git(other, "push", "-q", "origin", "0.2.0")
+    ok, message = updates.apply(storage, ccc, spawn=lambda *a: pytest.fail("not this"), units=lambda: [],
+                                latest=github("0.2.0"))
+    assert not ok and "fast-forward" in message and not (ccc / "s.txt").exists()
+
+
+def test_ccc_as_a_package_downloads_the_artifact_and_pip_installs_it(tmp_path, storage, monkeypatch):
+    package = tmp_path / "site-packages"
+    package.mkdir()
+    monkeypatch.setattr(updates, "__version__", "0.1.0")
+    spawned, downloaded = [], []
+    ok, message = updates.apply(storage, package, spawn=lambda command, log: spawned.append(command),
+                                units=lambda: ["ccc.service"], latest=github("0.2.0"),
+                                download=lambda url, target: downloaded.append((url, target)))
+    assert ok, message
+    assert downloaded[0][0] == "https://x/0.2.0/ccc.tar.gz" and downloaded[0][1].name == "ccc.tar.gz"
+    assert "-m pip install --quiet --upgrade" in spawned[0] and spawned[0].endswith("restart ccc.service")
+
+
+def test_a_download_that_fails_changes_nothing(tmp_path, storage, monkeypatch):
+    package = tmp_path / "site-packages"
+    package.mkdir()
+    monkeypatch.setattr(updates, "__version__", "0.1.0")
+
+    def broken(url, target):
+        raise OSError("reset")
+
+    ok, message = updates.apply(storage, package, spawn=lambda *a: pytest.fail("nothing to install"),
+                                units=lambda: [], latest=github("0.2.0"), download=broken)
+    assert not ok and "OSError" in message
 
 
 @pytest.mark.parametrize("units, expected", [
@@ -101,24 +172,25 @@ def test_install_flags_follow_how_it_was_installed(units, expected):
 ])
 def test_apply_refuses_when_it_isnt_safe_and_changes_nothing(repos, storage, prepare, word):
     ccc, other = repos
-    push(other)
+    release_tag(other, "0.2.0")
     prepare(ccc, other, storage)
     spawned = []
-    ok, message = updates.apply(storage, ccc, spawn=lambda *a: spawned.append(a), units=lambda: [])
+    ok, message = updates.apply(storage, ccc, spawn=lambda *a: spawned.append(a), units=lambda: [], latest=github("0.2.0"))
     assert not ok and word in message
-    assert spawned == [] and not (ccc / "b.txt").exists()  # nothing was pulled
+    assert spawned == [] and not (ccc / "b.txt").exists()  # nothing was moved
 
 
 def test_apply_when_up_to_date(repos, storage):
     ccc, _other = repos
-    ok, message = updates.apply(storage, ccc, spawn=lambda *a: pytest.fail("nothing to install"), units=lambda: [])
+    ok, message = updates.apply(storage, ccc, spawn=lambda *a: pytest.fail("nothing to install"), units=lambda: [],
+                                latest=github("0.1.0"))
     assert not ok and "up to date" in message
 
 
 def test_android_build_counts_the_commits_that_changed_the_app(repos):
     ccc, other = repos
     assert updates.android_build(ccc) == 0
-    push(other, folder="android/app/src/main")
+    release_tag(other, "0.2.0", "c.txt", "android/app/src/main")
     git(ccc, "pull", "-q")
     assert updates.android_build(ccc) == 1
 
@@ -132,22 +204,19 @@ class _Notifier:
         return True
 
 
-def test_the_daemon_tells_once_per_new_head(repos, storage):
-    ccc, other = repos
+def test_the_daemon_tells_once_per_new_version(repos, storage):
+    ccc, _other = repos
     notifier = _Notifier()
-    assert daemon.update_tick(storage, notifier, ccc) is None  # nothing new
-    push(other, subject="Add rate limiting")
-    text = daemon.update_tick(storage, notifier, ccc)
-    assert "1 new commit" in text and "Add rate limiting" in text
-    assert daemon.update_tick(storage, notifier, ccc) is None  # the same head: not again
-    push(other, "c.txt", "Another")
-    assert daemon.update_tick(storage, notifier, ccc) is not None
+    assert daemon.update_tick(storage, notifier, ccc, github("0.1.0")) is None  # nothing new
+    text = daemon.update_tick(storage, notifier, ccc, github("0.2.0"))
+    assert "0.2.0" in text and "installed: 0.1.0" in text and "Faster start" in text and "Android app" in text
+    assert daemon.update_tick(storage, notifier, ccc, github("0.2.0")) is None  # the same version: not again
+    assert daemon.update_tick(storage, notifier, ccc, github("0.3.0")) is not None
     assert len(notifier.sent) == 2
 
 
 def test_the_check_can_be_turned_off(repos, storage):
-    ccc, other = repos
-    push(other)
+    ccc, _other = repos
     storage.set_setting(updates.CHECK_KEY, "off")
-    assert daemon.update_tick(storage, _Notifier(), ccc) is None
+    assert daemon.update_tick(storage, _Notifier(), ccc, github("0.2.0")) is None
     assert not updates.load(storage).available

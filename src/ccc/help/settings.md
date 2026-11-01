@@ -183,30 +183,48 @@ The daemon backs up ccc's database every day and keeps the last 14
 
 ## Updating ccc
 
-ccc is a git checkout, so a new version is new commits on `origin/main`.
-Every few hours the daemon looks (`git fetch`, nothing is changed) and, when
-there is something new, tells you:
+A new version is a **release on GitHub**, by the same rules as the Android
+app: its tag is a version `X.Y.Z` (a leading `v` is fine), it is not a draft
+or prerelease, and it has `ccc.tar.gz` attached (the release build makes it
+from the tag, [see below](#releasing)). Versions are compared as numbers. A ccc
+whose version isn't a number (a build made by hand, `0.0.0-dev`) uses the
+newest tag its checkout contains; with none, it never asks.
+
+Every few hours the daemon looks (one request to GitHub, no token, nothing is
+changed) and, when there is a newer release, tells you:
 
 - in ccc: a yellow line *⬆ Update* under the title, on every screen — `U`
-  (or a click on it) opens the **Update** window with the new commits;
+  (or a click on it) opens the **Update** window with the release notes;
 - on the phone: a banner in the Android app's list, with the same button
   ([Android app & API](android-api.md));
 - in Telegram and Discord, once for each new version.
 
-*Update now* does a fast-forward `git pull` and runs `bin/install.sh` with the
-options ccc was installed with, then restarts the services (an interactive
+*Update now* moves ccc to that release and restarts it (an interactive
 conversation's Claude Code keeps running; ccc and the API are back in a
-moment). It asks first and never runs by itself, because what arrives is
-whatever was pushed to `origin/main`. It refuses — and says why — when the
-checkout is not on `main`, has uncommitted or unpushed changes, or a task is
-running. The install's output is in `~/.local/share/ccc/update.log`.
+moment). It asks first and never runs by itself. How it moves depends on how
+ccc is installed:
 
-The Update window also says when the new commits change the Android app.
-The app is updated separately, by version: a new release on GitHub
-([Android app & API](android-api.md#updating-the-app)) makes the app show
-"A new version of the app is available" with a button that downloads and
-installs it.
+- **a git checkout** (`bin/install.sh`, the usual way): it fetches the
+  release's tag and fast-forwards the checkout to it — not to whatever is
+  newest on `main` — then runs `bin/install.sh` with the options ccc was
+  installed with. It refuses — and says why — when the checkout is not on
+  `main`, has uncommitted or unpushed changes, the release isn't a
+  fast-forward of it, or a task is running;
+- **a package** (pip / pipx): it downloads the release's `ccc.tar.gz` and
+  `pip install`s it into the environment ccc runs from.
+
+The install's output is in `~/.local/share/ccc/update.log`. The Update window
+also says when the release carries the Android app (`ccc.apk`) too; the
+app itself is updated separately, by the same release
+([Android app & API](android-api.md#updating-the-app)).
 
 *Settings → Updates → Look for updates* turns the looking (and these
-messages) off; the repository must be reachable without a password prompt
-(a credential helper or SSH key), otherwise the window shows what failed.
+messages) off; the window shows what failed when GitHub can't be reached.
+
+### Releasing
+
+`~/Documents/CC/bin/ccc-android-release.sh 0.2.0` (or just pushing the tag
+`0.2.0`, no `v`) runs `.github/workflows/release.yml`: it creates the release
+(or keeps one made by hand), runs the tests, stamps the tag into
+`ccc.__version__` and attaches `ccc.tar.gz`, and builds and attaches the signed
+`ccc.apk`. An artifact already on a release is never replaced.

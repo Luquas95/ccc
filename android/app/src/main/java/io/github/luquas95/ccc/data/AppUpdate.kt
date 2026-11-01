@@ -48,11 +48,15 @@ private data class AssetJson(val name: String, @SerialName("browser_download_url
 
 private val json = Json { ignoreUnknownKeys = true }
 
-/** GitHub's answer for releases/latest as an [AppRelease]; null for a release without the app (ccc.apk) or a tag that isn't a version. */
-fun parseRelease(text: String): AppRelease? {
+/**
+ * GitHub's answer for releases/latest as an [AppRelease]; null for a release without the app ([asset], ccc.apk)
+ * or a tag that isn't a version. The same rules as ccc's own (src/ccc/releases.py): both are tested against
+ * tests/fixtures/release-rules.json.
+ */
+fun parseRelease(text: String, asset: String = APK_NAME): AppRelease? {
     val release = runCatching { json.decodeFromString(ReleaseJson.serializer(), text) }.getOrNull() ?: return null
     if (release.draft || release.prerelease || Versions.parse(release.tag) == null) return null
-    val apk = release.assets.firstOrNull { it.name == APK_NAME } ?: return null
+    val apk = release.assets.firstOrNull { it.name == asset } ?: return null
     return AppRelease(release.tag.removePrefix("v"), apk.url, release.body.orEmpty().trim())
 }
 

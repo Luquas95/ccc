@@ -5,8 +5,8 @@ from ccc import updates
 from ccc.tui.app import CCContinueApp
 from ccc.tui.update import UpdateModal
 
-STATE = updates.UpdateState(checked_at="2026-10-30T12:00:00", behind=2, remote_head="abc1234", android=True,
-                            commits=["abc1234 Add rate limiting", "def5678 Fix the login"])
+STATE = updates.UpdateState(checked_at="2026-10-30T12:00:00", installed="0.1.0", version="0.2.0", android=True,
+                            notes="Add rate limiting\n\nFix the login")
 
 
 @pytest.fixture(autouse=True)
@@ -28,12 +28,13 @@ async def test_a_new_version_shows_a_line_and_the_key_opens_the_window(tmp_path)
     async with app.run_test(size=(140, 40)) as pilot:
         await pilot.pause()
         line = app.screen.query_one("#update-state", Static)
-        assert line.display and "2 new" in line.render().plain
+        assert line.display and "0.2.0" in line.render().plain
         await pilot.press("U")
         await pilot.pause()
         assert isinstance(app.screen, UpdateModal)
         info = app.screen.query_one("#update-info", Static).render().plain
-        assert "Add rate limiting" in info and "Fix the login" in info and "Android app changed" in info
+        assert "ccc 0.2.0 is out (installed: 0.1.0)" in info
+        assert "Add rate limiting" in info and "Fix the login" in info and "Android app too" in info
         assert not app.screen.query_one("#update-apply", Button).disabled
 
 
@@ -64,7 +65,7 @@ async def test_the_window_says_why_it_cant_update_and_applies_when_it_can(tmp_pa
         await pilot.pause()
         monkeypatch.setattr(updates, "refusal", lambda storage, *a: None)
         applied = []
-        monkeypatch.setattr(updates, "apply", lambda storage: applied.append(1) or (True, "Updated to abc1234 — ccc is restarting."))
+        monkeypatch.setattr(updates, "apply", lambda storage: applied.append(1) or (True, "Updated to 0.2.0 — ccc is restarting."))
         await pilot.press("U")
         await pilot.pause()
         app.screen.query_one("#update-apply", Button).press()

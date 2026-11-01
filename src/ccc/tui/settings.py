@@ -354,7 +354,7 @@ class SettingsModal(ModalScreen):
                 [(_("Yes"), "on"), (_("No"), "off")],
                 value="on" if updates.check_enabled(s) else "off", allow_blank=False, id="settings-update-check",
             )),
-            Static(_("Every few hours ccc looks for new commits on origin/main and tells you here (the {key} key), "
+            Static(_("Every few hours ccc looks for a new release on GitHub and tells you here (the {key} key), "
                      "on the phone, and in Telegram / Discord. Updating asks first.").format(
                          key=keymap.pretty(keymap.current(s)["views.update"])),
                    classes="settings-hint"),

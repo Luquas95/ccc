@@ -1537,25 +1537,27 @@ CS: dict[str, str] = {
     "Check again": "Zkontrolovat znovu",
     "Updating…": "Aktualizuji…",
     "Looking…": "Zjišťuji…",
-    "⬆ Update: {n} new — {key}": "⬆ Aktualizace: {n} nových — {key}",
-    "{n} new commit(s) on {branch}:": "Nových commitů na {branch}: {n}",
+    "⬆ Update: {version} — {key}": "⬆ Aktualizace: {version} — {key}",
+    "ccc {version} is out (installed: {installed}):": "Vyšlo ccc {version} (nainstalováno: {installed}):",
     "ccc is up to date.": "ccc je aktuální.",
     "Not looked yet.": "Zatím se nezjišťovalo.",
     "Looked {when}": "Zjištěno {when}",
     "Can't look for the update: {error}": "Aktualizaci se nepodařilo zjistit: {error}",
-    "The Android app changed too — the phone gets it with the next release.": "Změnila se i Android aplikace — telefon ji dostane s příštím vydáním.",
+    "The release has the Android app too — the phone offers it separately.": "Vydání obsahuje i Android aplikaci — telefon ji nabídne zvlášť.",
+    "The release {tag} can't be reached from this checkout by a fast-forward of {main}.": "Vydání {tag} nejde z tohoto checkoutu získat převinutím (fast-forward) větve {main}.",
+    "The update failed: {error}": "Aktualizace selhala: {error}",
     "The checkout is on branch “{branch}”, not {main}.": "Checkout je na větvi „{branch}“, ne na {main}.",
     "The checkout has uncommitted changes.": "Checkout má neuložené změny.",
     "The checkout has commits that aren't on {remote}/{main}.": "Checkout má commity, které nejsou na {remote}/{main}.",
     "git can't be run in the ccc checkout.": "V checkoutu ccc nejde spustit git.",
     "A task is running ({names}) — the restart would stop it.": "Běží úkol ({names}) — restart by ho zastavil.",
     "Updated to {head} — ccc is restarting.": "Aktualizováno na {head} — ccc se restartuje.",
-    "⬆️ ccc update available: {n} new commit(s) on {branch}.": "⬆️ Je dostupná aktualizace ccc: nových commitů na {branch}: {n}.",
+    "⬆️ ccc update available: {version} (installed: {installed}).": "⬆️ Je dostupná aktualizace ccc: {version} (nainstalováno: {installed}).",
     "Update it in ccc (Update window) or from the phone.": "Aktualizuj v ccc (okno Aktualizace) nebo z telefonu.",
     "Look for updates": "Hledat aktualizace",
-    "Every few hours ccc looks for new commits on origin/main and tells you here (the {key} key), "
+    "Every few hours ccc looks for a new release on GitHub and tells you here (the {key} key), "
     "on the phone, and in Telegram / Discord. Updating asks first.":
-        "Každých pár hodin ccc hledá nové commity na origin/main a dá ti vědět tady (klávesa {key}), "
+        "Každých pár hodin ccc hledá na GitHubu nové vydání a dá ti vědět tady (klávesa {key}), "
         "v telefonu a v Telegramu / Discordu. Aktualizace se před spuštěním ptá.",
     # --- notification categories (#146) ---------------------------------------
     "{name} must map the notification categories to true or false.":

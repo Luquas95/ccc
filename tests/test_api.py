@@ -666,10 +666,10 @@ def test_status_carries_the_update_and_the_android_build(storage, monkeypatch):
     status = api.Api(storage).status()
     assert status["android_build"] == 7
     assert status["update"]["available"] is False
-    updates.save(storage, updates.UpdateState(behind=2, commits=["abc1 one", "abc2 two"], android=True, remote_head="abc1"))
+    updates.save(storage, updates.UpdateState(version="0.2.0", installed="0.1.0", notes="one\ntwo", android=True))
     monkeypatch.setattr(updates, "refusal", lambda st, *a: "A task is running (shop)")
     update = api.Api(storage).status()["update"]
-    assert update["behind"] == 2 and update["android"] and not update["can_apply"] and "shop" in update["reason"]
+    assert update["version"] == "0.2.0" and update["commits"] == ["one", "two"] and update["notes"] == "one\ntwo" and update["android"] and not update["can_apply"] and "shop" in update["reason"]
     storage.set_setting(updates.CHECK_KEY, "off")
     assert api.Api(storage).status()["update"] is None
 
@@ -678,7 +678,7 @@ def test_update_endpoints_check_and_apply(storage, monkeypatch):
     from ccc import updates
 
     server = api.Api(storage)
-    monkeypatch.setattr(updates, "check", lambda st: updates.save(st, updates.UpdateState(behind=1, commits=["a b"])) or updates.load(st))
+    monkeypatch.setattr(updates, "check", lambda st: updates.save(st, updates.UpdateState(version="0.2.0")) or updates.load(st))
     monkeypatch.setattr(updates, "refusal", lambda st, *a: None)
     assert server.route("POST", "/api/v1/update/check", {}, {})[1]["available"] is True
     monkeypatch.setattr(updates, "apply", lambda st: (True, "Updated to abc — ccc is restarting."))
@@ -695,7 +695,7 @@ def test_a_new_ccc_version_is_a_change_of_its_own(storage):
     server = api.Api(storage)
     before = server.snapshot()
     assert server.changes(before, server.snapshot()) is None
-    updates.save(storage, updates.UpdateState(behind=2, remote_head="abc1", commits=["abc1 one"]))
+    updates.save(storage, updates.UpdateState(version="0.2.0"))
     change = server.changes(before, server.snapshot())
     assert change == {"conversations": [], "removed": [], "update": True}
     again = server.snapshot()
