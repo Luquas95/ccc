@@ -38,20 +38,20 @@ požadavek potřebuje token.
 4. V aplikaci zadej adresu (stačí `<počítač>.<tailnet>.ts.net`) a token
    — nebo kroky 3 a 4 přeskoč a **spáruj telefon QR kódem**:
 
-   *Nastavení → Zařízení… → Spárovat nové zařízení* (nebo `ccc api pair`
+   *Nastavení → Připojení a aktualizace → Spárovat nové zařízení* (nebo `ccc api pair`
    v terminálu) ukáže QR kód; v aplikaci zvol *Připojení → Skenovat QR*.
    Kód obsahuje adresu API a jednorázový párovací kód, platný 5 minut a
    pro jeden telefon; aplikace ho vymění za vlastní token (`POST /pair`,
    jediný požadavek bez tokenu), takže se nic nepíše a token obrázkem
    neprochází. QR kód má vlastní okno; jakmile se telefon spáruje, samo se zavře
-   a okno Zařízení nové zařízení zvýrazní. Okno vypisuje všechny
+   a seznam Zařízení nové zařízení zvýrazní. Seznam (hned pod tím, na téže záložce) vypisuje všechny
    přihlášené telefony (název, kdy se spároval, naposledy vidět, adresa),
    samo se obnovuje a *Odhlásit* jeden odebere. *Historie* přepne na dřív odhlášená zařízení
    (kdy a jak: v aplikaci, na počítači, novým tokenem) — jen ke čtení,
    nic z ní nejde smazat. Adresu ccc najde v `tailscale serve status`; když ne,
    zadej ji: `ccc api pair --server https://<počítač>.<tailnet>.ts.net`.
-   *Nastavení → Zařízení…* také vypíše přihlášené telefony a jeden
-   odhlásí.
+   *Nastavení → Připojení a aktualizace → Zařízení* vypíše přihlášené
+   telefony a jeden odhlásí.
 
 Bez služby ho spustí v terminálu `ccc api serve` (`--port` pro jiný
 port).
@@ -91,7 +91,7 @@ celého počítače:
 | `admin` | i zakládat konverzace (v jakékoli složce), psát do terminálu, posílat prompty živým relacím, rutiny, vrátit běh, nastavení a presety, záloha, aktualizace ccc a sestavení appky, správa ostatních zařízení |
 
 Nově spárovaný telefon je `operate`; `ccc api pair --role admin` (nebo
-*Změnit roli* v okně Zařízení, nebo `ccc api role ID admin`) dá víc, `read`
+*Změnit roli* v seznamu Zařízení, nebo `ccc api role ID admin`) dá víc, `read`
 míň. Zařízení z doby před rolemi zůstávají `admin`. Požadavek nad rámec role
 dostane `403`; cesta, kterou pravidla neznají, vyžaduje `admin`. Ať má
 zařízení jakoukoli roli, smí se samo přejmenovat a odhlásit. `operate` stále

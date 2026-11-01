@@ -19,7 +19,7 @@ klikem); *Uložit* použije všechny záložky najednou:
 | Notifikace | Telegram, Discord |
 | Předvolby | Přednastavené prompty, Předvolby nové konverzace |
 | Data | Exporty, Měsíční archiv analytiky, Data |
-| Připojení a aktualizace | Zařízení, Aktualizace |
+| Připojení a aktualizace | Spárovat nové zařízení, Zařízení, Aktualizace |
 
 *Nastavení ccc* v aplikaci pro Android má stejné druhy záložek (a navíc
 *Připojení*, které otevře vlastní obrazovku aplikace s přihlášením a
@@ -39,7 +39,8 @@ zařízeními).
 | Exporty | složka pro exportované konverzace (`e`) a snímky obrazovky (`Alt+S`); volitelně posílat každý export na Telegram / Discord |
 | Měsíční archiv analytiky | viz [Analytika](analytics.md) |
 | Aktualizace | hledání nových verzí ccc, zapnuto / vypnuto — viz níže |
-| Zařízení | telefony přihlášené k API pro aplikaci pro Android; spárování nového QR kódem, odhlášení jednoho — viz [Aplikace pro Android a API](android-api.md) |
+| Spárovat nové zařízení | QR kód pro aplikaci pro Android — viz [Aplikace pro Android a API](android-api.md) |
+| Zařízení | seznam telefonů přihlášených k API pro aplikaci pro Android přímo na záložce: změna role, odhlášení jednoho, historie, aktivita — viz [Aplikace pro Android a API](android-api.md) |
 | Data | kde je databáze a její denní zálohy, *Zálohovat hned* |
 
 Stejné hodnoty se dají nastavit i z příkazové řádky, viz

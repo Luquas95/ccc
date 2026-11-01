@@ -19,7 +19,7 @@ between them); *Save* applies every tab at once:
 | Notifications | Telegram, Discord |
 | Presets | Preset prompts, New-conversation presets |
 | Data | Exports, Monthly analytics archive, Data |
-| Connection and updates | Devices, Updates |
+| Connection and updates | Pair a new device, Devices, Updates |
 
 The Android app's *ccc settings* has the same kinds of tabs (plus
 *Connection*, which opens the app's own sign-in and devices screen).
@@ -38,7 +38,8 @@ The Android app's *ccc settings* has the same kinds of tabs (plus
 | Exports | the folder for exported conversations (`e`) and screenshots (`Alt+S`); optionally send each export to Telegram / Discord |
 | Monthly analytics archive | see [Analytics](analytics.md) |
 | Updates | look for new versions of ccc, on or off — see below |
-| Devices | the phones signed in to the Android app's API; pair a new one by QR code, sign one out — see [Android app & API](android-api.md) |
+| Pair a new device | a QR code for the Android app — see [Android app & API](android-api.md) |
+| Devices | the list of phones signed in to the Android app's API, right in the tab: change role, sign one out, history, activity — see [Android app & API](android-api.md) |
 | Data | where the database and its daily backups are, *Back up now* |
 
 The same values can be set from the shell, see

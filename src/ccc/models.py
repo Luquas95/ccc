@@ -338,7 +338,7 @@ ROLES = (ROLE_READ, ROLE_OPERATE, ROLE_ADMIN)  # weakest first
 
 
 REVOKED_BY_APP = "app"  # signed out from an app (this phone's own, or another one's)
-REVOKED_BY_COMPUTER = "computer"  # `ccc api revoke` or the Devices window
+REVOKED_BY_COMPUTER = "computer"  # `ccc api revoke` or the Devices list
 REVOKED_BY_TOKEN = "token"  # `ccc api token --new`: every token before it stopped working
 
 

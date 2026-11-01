@@ -40,14 +40,14 @@ token.
 4. In the app enter the address (just `<computer>.<tailnet>.ts.net`
    will do) and the token — or skip steps 3 and 4 and **pair by QR code**:
 
-   *Settings → Devices… → Pair a new device* (or `ccc api pair` in a
+   *Settings → Connection and updates → Pair a new device* (or `ccc api pair` in a
    shell) shows a QR code; in the app choose *Connect → Scan QR*. The
    code holds the API's address and a one-time pairing code, good for 5
    minutes and for one phone; the app trades it for a token of its own
    (`POST /pair`, the one request that needs no token), so nothing is
    typed and the token never goes through the picture. The QR has a window of its own; once the
-   phone has paired it closes and the Devices window highlights the new
-   device. That window lists every signed-in phone (name, when it paired,
+   phone has paired it closes and the Devices list highlights the new
+   device. That list (right below, in the same tab) shows every signed-in phone (name, when it paired,
    last seen, address), refreshes by itself, and *Sign out* removes one.
    *History* switches to the devices signed out before (when, and how:
    in the app, on the computer, by a new token) — read only, nothing can
@@ -55,8 +55,8 @@ token.
    ccc finds the
    address in `tailscale serve status`; when it can't, give it with
    `ccc api pair --server https://<computer>.<tailnet>.ts.net`.
-   *Settings → Devices…* also lists the phones signed in and signs one
-   out.
+   *Settings → Connection and updates → Devices* lists the phones signed in
+   and signs one out.
 
 Without the service, `ccc api serve` runs it in the terminal
 (`--port` for another port).
@@ -97,7 +97,7 @@ whole computer:
 | `admin` | also start conversations (any folder), type into a terminal, prompt live sessions, routines, revert a run, settings and presets, backup, update ccc and build the app, manage other devices |
 
 A newly paired phone is `operate`; `ccc api pair --role admin` (or
-*Change role* in the Devices window, or `ccc api role ID admin`) gives it
+*Change role* in the Devices list, or `ccc api role ID admin`) gives it
 more, `read` less. Devices from before roles stay `admin`. A request beyond
 the role gets `403`; a path the rules don't know needs `admin`. Whatever its
 role, a device may rename and sign out itself. Note that `operate` still
