@@ -18,17 +18,28 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: The tag must be on main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
       - name: Release
         run: gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "ccc $GITHUB_REF_NAME" --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
 
-  tui:
+  # Tests and the build run with a read-only token; only the small publish job below can write.
+  tui-build:
     needs: release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -42,6 +53,18 @@ jobs:
           pip install build
           python -m build --sdist
           cp dist/ccc-*.tar.gz ccc.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ccc.tar.gz
+          path: ccc.tar.gz
+
+  tui:
+    needs: tui-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ccc.tar.gz
       - name: Publish
         run: |
           if gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name' | grep -qx ccc.tar.gz; then

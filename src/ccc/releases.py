@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -82,13 +83,34 @@ def latest(repo: str = REPO, base: str = API, asset: str = ASSET) -> Release | N
     return parse_release(fetch(repo, base), asset)
 
 
-def download(url: str, target: Path) -> None:
-    """Fetch `url` to `target` (written whole or not at all)."""
+# Where an artifact may come from: GitHub itself, over https — the first URL and every redirect.
+TRUSTED_HOSTS = ("github.com", "githubusercontent.com")
+
+
+def trusted(url: str) -> bool:
+    parts = urllib.parse.urlparse(url)
+    host = parts.hostname or ""
+    return parts.scheme == "https" and any(host == h or host.endswith("." + h) for h in TRUSTED_HOSTS)
+
+
+class _TrustedRedirects(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not trusted(newurl):
+            raise urllib.error.URLError("redirect to an untrusted address")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def download(url: str, target: Path, check=trusted) -> None:
+    """Fetch `url` to `target` (written whole or not at all). Only from
+    GitHub over https (`check`; tests pass their own server)."""
+    if not check(url):
+        raise urllib.error.URLError("untrusted download address")
     target.parent.mkdir(parents=True, exist_ok=True)
     part = target.with_name(target.name + ".part")
     request = urllib.request.Request(url, headers={"User-Agent": "ccc"})
+    opener = urllib.request.build_opener(_TrustedRedirects if check is trusted else urllib.request.HTTPRedirectHandler)
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT * 3) as response, part.open("wb") as out:
+        with opener.open(request, timeout=TIMEOUT * 3) as response, part.open("wb") as out:
             while chunk := response.read(64 * 1024):
                 out.write(chunk)
         part.replace(target)
