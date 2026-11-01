@@ -28,10 +28,6 @@ VARIABLES = {
     "ccc-selection": "#005f87",  # the selected row / view
     "ccc-human": "#5f87af",  # your messages
     "ccc-claude": "#5faf5f",  # Claude's replies
-    "ccc-nav": "#2563eb",  # the main menu's buttons (Dashboard … Analytics)
-    "ccc-nav-hover": "#3b82f6",  # …under the pointer, and the open view's
-    "ccc-nav-border": "#93c5fd",  # …their frame
-    "ccc-nav-border-current": "#dbeafe",  # …the open view's frame
     "ccc-frame": "#5faf5f",  # frame lines (the same green as the tmux frame, FRAME)
 }
 
