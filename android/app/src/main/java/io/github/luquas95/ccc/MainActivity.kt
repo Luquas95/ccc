@@ -300,6 +300,8 @@ private fun App(model: AppViewModel) {
             onArchive = { model.more.archiveAnalytics(context.getString(R.string.archived_months)) },
         )
         Screen.CccSettings -> CccSettingsScreen(
+            language = model.language,
+            onLanguage = { model.setLanguage(it); (context as? android.app.Activity)?.recreate() },
             state = cccSettings,
             presets = home.promptPresets,
             snackbar = snackbar,

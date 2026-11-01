@@ -351,6 +351,8 @@ fun CccSettingsScreen(
     snackbar: SnackbarHostState,
     actions: SettingsActions,
     initialTab: Int = 0,
+    language: String = "",
+    onLanguage: (String) -> Unit = {},
 ) {
     Scaffold(
         topBar = { Bar(stringResource(R.string.ccc_settings), null, actions.back) },
@@ -360,7 +362,7 @@ fun CccSettingsScreen(
             LinearProgressIndicator(Modifier.fillMaxWidth().padding(padding))
             return@Scaffold
         }
-        // The computer's language and look (the TUI's) are not set here: the app follows the phone.
+        // The computer's language and look (the TUI's) are not set here: the app has its own language choice.
         var groups by rememberSaveable(state) { mutableStateOf(state.groups) }
         var continueText by rememberSaveable(state) { mutableStateOf(state.continueText) }
         var reserve by rememberSaveable(state) { mutableStateOf(state.usageReserve?.toString() ?: "") }
@@ -408,6 +410,8 @@ fun CccSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (tab == 0) item {
                 Section(stringResource(R.string.settings_general)) {
+                    // The app's own language (not the computer's): applies at once, apart from Save.
+                    LanguageChoice(language, onLanguage)
                     Picker(stringResource(R.string.groups_in_list), groups, state.groupsChoices.map { it.value to it.label }) { groups = it }
                 }
             }

@@ -520,18 +520,14 @@ private fun ConnectionCard(server: String, device: Device?, onDisconnect: () -> 
     }
 }
 
-/** The app's own language, apart from the phone's, the computer's and ccc's. */
-@OptIn(ExperimentalLayoutApi::class)
+/** The app's own language, apart from the phone's, the computer's and ccc's: a drop-down menu. */
 @Composable
-private fun LanguageChoice(language: String, onLanguage: (String) -> Unit) {
-    Text(stringResource(R.string.app_language), style = MaterialTheme.typography.titleSmall,
-        color = CccColors.Title, fontWeight = FontWeight.Bold)
+fun LanguageChoice(language: String, onLanguage: (String) -> Unit) {
+    Picker(
+        stringResource(R.string.app_language), language,
+        listOf("" to stringResource(R.string.language_system)) + Language.CHOICES,
+    ) { if (it != language) onLanguage(it) }
     Text(stringResource(R.string.app_language_hint), style = MaterialTheme.typography.bodySmall, color = CccColors.Muted)
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        (listOf("" to stringResource(R.string.language_system)) + Language.CHOICES).forEach { (tag, label) ->
-            FilterChip(selected = language == tag, onClick = { if (language != tag) onLanguage(tag) }, label = { Text(label) })
-        }
-    }
 }
 
 @Composable
