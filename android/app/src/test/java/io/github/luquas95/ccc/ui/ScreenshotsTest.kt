@@ -3,6 +3,11 @@ package io.github.luquas95.ccc.ui
 import android.graphics.Bitmap
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import io.github.luquas95.ccc.data.Language
+import io.github.luquas95.ccc.data.Settings
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.core.view.drawToBitmap
@@ -162,9 +167,21 @@ open class ScreenshotsTest {
         CccSettingsScreen(settingsState, home.promptPresets, SnackbarHostState(), SettingsActions({}, {}, {}, {}, {}, {}, {}), initialTab = 1)
     }
 
+    /** The phone speaks [locale]; the app is set to the other language — the point of the app's own choice. */
     @Test
-    fun cccSettingsGeneral() = shot("ccc_settings_general", "By project") {
-        CccSettingsScreen(settingsState, home.promptPresets, SnackbarHostState(), SettingsActions({}, {}, {}, {}, {}, {}, {}), initialTab = 0)
+    fun cccSettingsGeneral() {
+        val appLanguage = if (locale == "en") "cs" else "en"
+        Settings(compose.activity).language = appLanguage
+        val wrapped = Language.wrap(compose.activity)
+        val groups = if (appLanguage == "cs") listOf(Choice("project", "Podle projektu a vlastní skupiny"), Choice("own", "Jen vlastní skupiny"))
+        else listOf(Choice("project", "By project, and your own groups"), Choice("own", "Only your own groups"))
+        val label = Language.CHOICES.first { it.first == appLanguage }.second
+        shot("ccc_settings_general", label) {
+            CompositionLocalProvider(LocalContext provides wrapped, LocalConfiguration provides wrapped.resources.configuration) {
+                CccSettingsScreen(settingsState.copy(groupsChoices = groups), home.promptPresets, SnackbarHostState(),
+                    SettingsActions({}, {}, {}, {}, {}, {}, {}), initialTab = 0, language = appLanguage)
+            }
+        }
     }
 
     @Test
@@ -224,6 +241,10 @@ open class ScreenshotsTest {
         compose.onAllNodesWithText(expect, substring = true, useUnmergedTree = true).onFirst().assertExists()
         scrollTo?.let { compose.onAllNodesWithText(compose.activity.getString(it)).onFirst().performScrollTo() }
         compose.waitForIdle()
+        save(name)
+    }
+
+    private fun save(name: String) {
         val bitmap = compose.activity.window.decorView.drawToBitmap()
         val folder = File("build/screenshots/$locale").apply { mkdirs() }
         File(folder, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
