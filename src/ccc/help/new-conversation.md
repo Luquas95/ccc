@@ -63,6 +63,25 @@ for next time and saved in presets.
 - ccc stores only the names, never the server settings (they can hold
   tokens); the settings are read when Claude Code starts.
 
+## Plugins
+
+Claude Code plugins are switched on globally, for every conversation. They
+change how a conversation behaves: hooks add context, skills steer the
+model (a plugin can make it start with a skill before it answers), plugins
+bring their own MCP servers and each one takes part of the context window.
+
+Tick **Only selected plugins** and the installed plugins appear below it,
+those you have on now already ticked; untick what this conversation should
+run without. Nothing ticked means no plugin at all. Without the option the
+conversation inherits your plugins as before. The choice holds for the whole
+conversation, is remembered for next time and saved in presets. The
+conversation's detail shows which plugins it runs with.
+
+- It switches plugins for this conversation only; your `settings.json`
+  stays untouched.
+- A plugin that has since been uninstalled is skipped.
+- Installing or removing plugins stays in Claude Code (`/plugin`).
+
 ## Presets
 
 The window remembers your last choice. If you use a few combinations

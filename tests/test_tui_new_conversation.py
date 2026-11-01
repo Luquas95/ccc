@@ -293,3 +293,29 @@ async def test_ticking_a_server_turns_the_mode_on_and_unticking_the_mode_clears_
         await pilot.pause()
         assert not any(k.startswith("mcp") for k in app.screen.selection)
         assert not app.screen.query_one("#mcp-servers").display
+
+
+@pytest.mark.asyncio
+async def test_plugins_start_ticked_as_enabled_and_can_be_unticked(tmp_path, monkeypatch):
+    import json
+    storage = Storage(tmp_path / "h.db")
+    project = tmp_path / "proj"; project.mkdir()
+    cfg = tmp_path / "claude"; (cfg / "plugins").mkdir(parents=True)
+    (cfg / "plugins" / "installed_plugins.json").write_text(json.dumps({"plugins": {"a@m": [{}], "b@m": [{}]}}))
+    (cfg / "settings.json").write_text(json.dumps({"enabledPlugins": {"a@m": True, "b@m": True}}))
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(cfg))
+    results = []
+    app = _host(NewConversationModal(storage, browse_root=tmp_path), results)
+    async with app.run_test(size=(160, 50)) as pilot:
+        await pilot.pause()
+        assert not app.screen.query_one("#plugin-list").display
+        app.screen.query_one("#launch-path", Input).value = str(project)
+        app.screen.query_one("#opt-plugins_select", Checkbox).value = True
+        await pilot.pause()
+        boxes = {c.plugin_id: c for c in app.screen.query("#plugin-list Checkbox")}
+        assert sorted(boxes) == ["a@m", "b@m"] and all(c.value for c in boxes.values())
+        boxes["b@m"].value = False
+        await pilot.pause()
+        await pilot.click("#launch-start")
+        await pilot.pause()
+    assert storage.get_queue(results[0]).launch_flags == ["--dangerously-skip-permissions", "--ccc-plugins=a@m"]

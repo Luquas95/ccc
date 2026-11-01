@@ -207,6 +207,7 @@ jen to, co platí pro obě strany.
 | `POST /backup` | zálohovat databázi hned |
 | `GET /launch-options` | volby, se kterými jde konverzace založit (klíče a popisky) |
 | `GET /projects` | naposledy použité složky |
+| `GET /plugins` | `{installed, enabled}`: id nainstalovaných pluginů Claude Code a těch zapnutých ve výchozím stavu (zaškrtnou se jako `plugin:<id>` v `options`, spolu s `plugins_select`) |
 | `GET /mcp-servers?path=` | názvy MCP serverů nastavených pro složku (zaškrtnou se jako `mcp:<název>` v `options`, spolu s `mcp_select`) |
 | `GET /sessions?path=` | relace Claude Code ve složce, nejnovější první (k pokračování: `session_id` v `POST /conversations` se `session_resume`) |
 | `GET /launch-presets` | předvolby okna Nová konverzace a poslední volba |

@@ -63,6 +63,25 @@ pamatuje se na příště a ukládá se do předvoleb.
 - ccc ukládá jen názvy, nikdy nastavení serverů (mohou obsahovat tokeny);
   nastavení se čte při startu Claude Code.
 
+## Pluginy
+
+Pluginy Claude Code jsou zapnuté globálně, pro všechny konverzace. Mění,
+jak se konverzace chová: hooky přidávají kontext, skills řídí model (plugin
+ho může nechat nejdřív vyvolat skill, než odpoví), pluginy s sebou nesou
+vlastní MCP servery a každý ukrojí část kontextového okna.
+
+Zaškrtni **Jen vybrané pluginy** a pod tím se objeví nainstalované pluginy,
+ty, které máš teď zapnuté, jsou už zaškrtnuté; odškrtni, bez čeho má
+konverzace běžet. Nic nezaškrtnuto znamená žádný plugin. Bez této volby
+konverzace zdědí tvé pluginy jako dosud. Výběr platí pro celou konverzaci,
+pamatuje se na příště a ukládá se do předvoleb. Detail konverzace ukazuje,
+s jakými pluginy běží.
+
+- Pluginy se přepínají jen pro tuto konverzaci; tvůj `settings.json` se
+  nemění.
+- Plugin, který jsi mezitím odinstaloval, se přeskočí.
+- Instalace a odebírání pluginů zůstává v Claude Code (`/plugin`).
+
 ## Předvolby
 
 Okno si pamatuje tvou poslední volbu. Pokud často používáš pár

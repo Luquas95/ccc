@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ccc import mcp_servers
+from ccc import mcp_servers, plugins
 from ccc.i18n import N_, _
 
 SESSION_NEW = "session_new"
@@ -16,6 +16,10 @@ MCP_SELECT = "mcp_select"
 # One ticked server of the "MCP servers" group: "mcp:<name>". The names
 # come from the user's Claude Code config (ccc.mcp_servers), not from GROUPS.
 MCP_PREFIX = "mcp:"
+PLUGINS_SELECT = "plugins_select"
+# One ticked plugin of the "Plugins" group: "plugin:<id>" (ids come from the
+# plugins installed in Claude Code, ccc.plugins).
+PLUGIN_PREFIX = "plugin:"
 
 
 @dataclass(frozen=True)
@@ -70,6 +74,9 @@ GROUPS: tuple[OptionGroup, ...] = (
     OptionGroup("mcp", N_("MCP servers"), (
         LaunchOption(MCP_SELECT, N_("Only selected MCP servers (fewer tokens)"), (), N_("MCP")),
     ), exclusive=False, required=False),
+    OptionGroup("plugins", N_("Plugins"), (
+        LaunchOption(PLUGINS_SELECT, N_("Only selected plugins (predictable behaviour)"), (), N_("plugins")),
+    ), exclusive=False, required=False),
     OptionGroup("other", N_("Other"), (
         LaunchOption("other_fallback_sonnet", N_("Fallback to Sonnet when overloaded"), ("--fallback-model", "sonnet"), N_("fallback Sonnet")),
         LaunchOption("other_chrome", N_("Claude in Chrome"), ("--chrome",), N_("Chrome")),
@@ -88,9 +95,15 @@ def is_mcp_server(key: str) -> bool:
     return key.startswith(MCP_PREFIX) and mcp_servers.valid_name(key[len(MCP_PREFIX):])
 
 
+def is_plugin(key: str) -> bool:
+    return key.startswith(PLUGIN_PREFIX) and plugins.valid_id(key[len(PLUGIN_PREFIX):])
+
+
 def group_of(key: str) -> OptionGroup:
     if is_mcp_server(key):
         return next(g for g in GROUPS if g.key == "mcp")
+    if is_plugin(key):
+        return next(g for g in GROUPS if g.key == "plugins")
     for group in GROUPS:
         if any(o.key == key for o in group.options):
             return group
@@ -106,8 +119,16 @@ def toggle(selection: frozenset[str], key: str, checked: bool) -> frozenset[str]
         if checked:
             sel.add(MCP_SELECT)
         return frozenset(sel)
+    if is_plugin(key):
+        # Same as servers: a plugin only counts while the mode is on.
+        sel.add(key) if checked else sel.discard(key)
+        if checked:
+            sel.add(PLUGINS_SELECT)
+        return frozenset(sel)
     if key == MCP_SELECT and not checked:
         sel = {k for k in sel if not is_mcp_server(k)}
+    if key == PLUGINS_SELECT and not checked:
+        sel = {k for k in sel if not is_plugin(k)}
     if checked:
         if group.exclusive:
             sel -= {o.key for o in group.options}
@@ -136,6 +157,8 @@ def persistent_flags(selection: frozenset[str]) -> list[str]:
                 flags.extend(option.flags)
     if MCP_SELECT in selection:
         flags.append(mcp_servers.marker(k[len(MCP_PREFIX):] for k in selection if is_mcp_server(k)))
+    if PLUGINS_SELECT in selection:
+        flags.append(plugins.marker(k[len(PLUGIN_PREFIX):] for k in selection if is_plugin(k)))
     return flags
 
 
@@ -143,10 +166,10 @@ def describe_flags(flags: list[str] | None) -> str:
     """Compact human summary of a queue's persistent flags."""
     if flags is None:
         return _("legacy (skip permissions)")
-    remaining = [f for f in flags if not f.startswith(mcp_servers.MARKER)]
+    remaining = [f for f in flags if not f.startswith((mcp_servers.MARKER, plugins.MARKER))]
     parts: list[str] = []
     for group in GROUPS:
-        if group.key in SESSION_GROUP_KEYS or group.key == "mcp":
+        if group.key in SESSION_GROUP_KEYS or group.key in ("mcp", "plugins"):
             continue
         for option in group.options:
             n = len(option.flags)
@@ -158,5 +181,9 @@ def describe_flags(flags: list[str] | None) -> str:
     chosen = mcp_servers.selected_names(flags)
     if chosen is not None:
         parts.append(_("MCP: {servers}").format(servers=", ".join(chosen)) if chosen else _("MCP: none"))
+    chosen_plugins = plugins.selected_ids(flags)
+    if chosen_plugins is not None:
+        parts.append(_("Plugins: {plugins}").format(plugins=", ".join(p.split("@")[0] for p in chosen_plugins))
+                     if chosen_plugins else _("Plugins: none"))
     parts.extend(remaining)
     return " · ".join(parts) if parts else _("default")
