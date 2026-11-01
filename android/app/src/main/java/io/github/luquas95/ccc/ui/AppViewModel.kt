@@ -128,6 +128,9 @@ data class NewConversationState(
     /** Names of the MCP servers configured in [mcpFor] (to pick from). */
     val mcpServers: List<String> = emptyList(),
     val mcpFor: String = "",
+    /** The server's refusal ("allow it on the computer: ccc api roots --add …") for [deniedFor], else empty. */
+    val folderDenied: String = "",
+    val deniedFor: String = "",
     val creating: Boolean = false,
 )
 
@@ -895,7 +898,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val client = api ?: return
         if (path.isBlank() || _newConversation.value.sessionsFor == path) return
         viewModelScope.launch {
-            val sessions = runCatching { client.sessions(path) }.getOrDefault(emptyList())
+            val sessions = folderCall(path) { client.sessions(path) }
             _newConversation.update { it.copy(sessions = sessions, sessionsFor = path) }
         }
     }
@@ -904,9 +907,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val client = api ?: return
         if (path.isBlank() || _newConversation.value.mcpFor == path) return
         viewModelScope.launch {
-            val servers = runCatching { client.mcpServers(path) }.getOrDefault(emptyList())
+            val servers = folderCall(path) { client.mcpServers(path) }
             _newConversation.update { it.copy(mcpServers = servers, mcpFor = path) }
         }
+    }
+
+    /** A folder-specific call; a 403 means the folder is not allowed (not the role): remember the server's words. */
+    private suspend fun <T> folderCall(path: String, block: suspend () -> List<T>): List<T> = try {
+        block().also { _newConversation.update { it.copy(folderDenied = "", deniedFor = "") } }
+    } catch (e: ApiException) {
+        if (e.code == 403) _newConversation.update { it.copy(folderDenied = e.message ?: "", deniedFor = path) }
+        emptyList()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        emptyList()
     }
 
     // --- helpers -------------------------------------------------------------------------------

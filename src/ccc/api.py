@@ -975,6 +975,7 @@ class _Handler(BaseHTTPRequestHandler):
         asked = i18n.from_accept_language(self.headers.get("Accept-Language", ""))
         language_token = i18n.use_for_request(asked)
         body: dict = {}
+        denied_folder = ""
         self._device = None
         try:
             i18n.load(self.api.storage)
@@ -993,6 +994,9 @@ class _Handler(BaseHTTPRequestHandler):
             body = self._body() if method == "POST" else {}
             status, result = self.api.route(method, url.path, query, body)
             result = api_roles.strip_for(self._device.role, result)
+        except api_scope.FolderNotAllowed as exc:
+            status, result = exc.status, {"error": exc.message}
+            denied_folder = exc.folder
         except ApiError as exc:
             status, result = exc.status, {"error": exc.message}
         except Exception:
@@ -1000,7 +1004,7 @@ class _Handler(BaseHTTPRequestHandler):
             status, result = HTTPStatus.INTERNAL_SERVER_ERROR, {"error": _("Something went wrong in ccc.")}
         finally:
             i18n.end_request(language_token)
-        self._audit(method, url.path, status, detail=self._detail(method, url.path, body))
+        self._audit(method, url.path, status, detail=self._detail(method, url.path, body), denied_folder=denied_folder)
         self._send(status, result)
 
     @staticmethod
@@ -1009,10 +1013,14 @@ class _Handler(BaseHTTPRequestHandler):
         folder = body.get("path") if method == "POST" and path == PREFIX + "/conversations" else None
         return folder if isinstance(folder, str) else ""
 
-    def _audit(self, method: str, path: str, status: int, detail: str = "", device=None) -> None:
+    def _audit(self, method: str, path: str, status: int, detail: str = "", device=None, denied_folder: str = "") -> None:
         """Log the request (api_audit) and raise the alarm for what is out of the ordinary."""
         device = device or self._device
         ip = self._client_ip()
+        if denied_folder:  # the role was fine, the folder is not allowed: say so, and once per folder
+            api_audit.record_folder_denied(self.api.storage, device, ip, method, path, denied_folder)
+            api_audit.alarm_folder_denied(self.api.storage, device, denied_folder)
+            return
         api_audit.record(self.api.storage, device, ip, method, path, status, detail)
         api_audit.alarm_for(self.api.storage, status, method, path, ip, device)
 
