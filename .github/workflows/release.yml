@@ -156,7 +156,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: ["ubuntu:24.04", "debian:13"]
+        image: ["ubuntu:24.04"]  # the package is built for Python 3.12 (packaging/nfpm.yaml)
     container: ${{ matrix.image }}
     steps:
       - uses: actions/download-artifact@v4

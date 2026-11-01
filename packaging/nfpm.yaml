@@ -17,7 +17,9 @@ vendor: ccc
 homepage: https://github.com/Luquas95/ccc
 
 depends:
+  # The bundled virtualenv is built for Python 3.12 (Ubuntu 24.04): its libraries live in lib/python3.12.
   - python3 (>= 3.12)
+  - python3 (<< 3.13)
   - tmux
   - systemd
 recommends:

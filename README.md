@@ -138,8 +138,8 @@ with `sudo apt install ./ccc_all.deb` — the package adds the Icenux repository
 
 The package puts ccc in `/usr/lib/ccc` (`ccc` and `ccc-daemon` in `/usr/bin`) and ships the
 `systemd --user` units and the application-menu entry. Later versions arrive with
-`sudo apt update && sudo apt upgrade` (then `systemctl --user restart ccc ccc-tui`). It needs
-Python 3.12+ and `tmux`; your data in `~/.local/share/ccc/` is not touched. To remove it:
+`sudo apt update && sudo apt upgrade` (then `systemctl --user restart ccc ccc-tui`). It is built for
+Python 3.12 (Ubuntu 24.04; other versions: the git checkout below) and needs `tmux`; your data in `~/.local/share/ccc/` is not touched. To remove it:
 `sudo apt remove ccc`.
 
 ### From a git checkout (for development)
