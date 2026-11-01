@@ -22,11 +22,13 @@ class NotifyCategoriesModal(ModalScreen):
     DEFAULT_CSS = MODAL_CSS.format(cls="NotifyCategoriesModal") + """
     NotifyCategoriesModal > Container {
         width: 100;
+        max-width: 100%;
+        max-height: 100%;
+        padding: 0 2;
     }
     NotifyCategoriesModal VerticalScroll {
         height: auto;
-        max-height: 18;
-        margin-bottom: 1;
+        max-height: 14;
     }
     /* One line per kind; focus is shown by the label, not a frame. */
     NotifyCategoriesModal Checkbox {

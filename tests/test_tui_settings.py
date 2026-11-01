@@ -540,3 +540,22 @@ async def test_each_service_has_a_window_for_the_messages_it_gets(tmp_path):
     assert category_states(storage, "discord")[CAT_QUEUE] is False
     assert category_states(storage, "discord")[CAT_DIGEST] is True
     assert category_states(storage, "telegram")[CAT_QUEUE] is True  # the other service keeps its own
+
+
+@pytest.mark.asyncio
+async def test_the_messages_window_fits_a_small_terminal(tmp_path):
+    from textual.widgets import Checkbox
+
+    from ccc.tui.notify_categories import NotifyCategoriesModal
+
+    app = _app(tmp_path)
+    async with app.run_test(size=(80, 24)) as pilot:
+        settings = await _open_settings(pilot, app)
+        settings.query_one("#settings-discord-categories").press()
+        await pilot.pause()
+        box = app.screen.query_one("NotifyCategoriesModal > Container")
+        assert box.region.height <= 24 and box.region.width <= 80
+        app.screen.query_one("#notify-health", Checkbox).focus()  # the last ones scroll into view
+        await pilot.pause()
+        assert app.screen.query_one("#notify-health", Checkbox).region.height == 1
+        assert app.screen.query_one(".modal-hint").region.bottom <= 24
