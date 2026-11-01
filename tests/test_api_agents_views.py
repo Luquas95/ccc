@@ -82,21 +82,6 @@ def test_workflow_templates_start_answer_stop(storage, tmp_path):
     assert not endpoint.stop_workflow(q.id)["active"]
 
 
-def test_ask_another_conversation_and_cancel(storage, tmp_path):
-    q = _queue(storage, tmp_path)
-    other = _queue(storage, tmp_path, "docs", "s2")
-    endpoint = api.Api(storage)
-
-    asked = endpoint.ask(q.id, {"to": other.id, "question": "Which API version?", "deliver": True})
-    assert asked[0]["outgoing"] and asked[0]["other_name"] == "docs" and asked[0]["can_cancel"]
-    assert endpoint.asks(other.id)[0]["outgoing"] is False
-    assert _error(lambda: endpoint.ask(q.id, {"question": "x"})).status == 400
-
-    endpoint.route("POST", f"/api/v1/asks/{asked[0]['id']}/cancel", {}, {})
-    assert endpoint.asks(q.id)[0]["status"] == "cancelled"
-    assert _error(lambda: endpoint.cancel_ask(asked[0]["id"])).status == 409
-
-
 # --- routines, live sessions, analytics, settings --------------------------------------
 
 

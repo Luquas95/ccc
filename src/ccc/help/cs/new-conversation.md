@@ -51,8 +51,8 @@ měření: 543 nástrojů bez výběru, 24 bez serverů.)
 
 Zaškrtni **Jen vybrané MCP servery** a pod tím se objeví servery nastavené
 pro zvolenou složku; zaškrtni ty, které smí konverzace používat. Nic
-nezaškrtnuto znamená žádné. Vlastní server ccc (schvalování, ptaní se
-jiných konverzací) je zapnutý vždy. Výběr platí pro celou konverzaci,
+nezaškrtnuto znamená žádné. Vlastní server ccc (schvalování) je zapnutý
+tam, kde je potřeba. Výběr platí pro celou konverzaci,
 pamatuje se na příště a ukládá se do předvoleb.
 
 - Konektory z claude.ai vybírat nejde: s touto volbou jsou všechny vypnuté.

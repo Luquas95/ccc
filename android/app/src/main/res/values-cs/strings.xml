@@ -205,19 +205,12 @@
     <!-- Kolo 3: agenti, rutiny, živé relace, analytika, nastavení -->
     <string name="add">Přidat</string>
     <string name="after_export">Po exportu</string>
-    <string name="agents">Recenze, cíl, workflow, otázky</string>
+    <string name="agents">Recenze, cíl, workflow</string>
     <string name="analytics">Analytika</string>
     <string name="approve">Schválit</string>
     <string name="archived_months">Skončené měsíce archivovány.</string>
     <string name="archive_folder">Složka měsíčního archivu analytiky (prázdná = vypnuto)</string>
     <string name="archive_months">Archivovat skončené měsíce hned</string>
-    <string name="ask_deliver">Předat odpověď do této konverzace</string>
-    <string name="ask_new">Zeptat se jiné konverzace</string>
-    <string name="ask_question">Otázka…</string>
-    <string name="asks">Otázky</string>
-    <string name="asks_empty">Zatím žádné otázky.</string>
-    <string name="ask_send">Zeptat se</string>
-    <string name="ask_whom">Které konverzace se zeptat?</string>
     <string name="auto">Automaticky</string>
     <string name="backed_up">Zálohováno.</string>
     <string name="backup_hint">Záloha se dělá automaticky každý den; drží se 14 nejnovějších kopií.</string>

@@ -48,8 +48,6 @@ ccc-tui`); changed in Settings they work right away.
 | `ccc workflow approve CONVERSATION` / `reject CONVERSATION` | answer the step a run waits at (`--note "…"` for the next step) |
 | `ccc workflow stop CONVERSATION` | stop its workflow |
 | `ccc workflow import FILE` / `export TEMPLATE FOLDER` / `delete TEMPLATE` | your own templates as JSON |
-| `ccc ask FROM TO "QUESTION"` | one conversation [asks another](asking.md) (ids or names); `--no-deliver` = don't pass the answer into FROM, `--wait` = wait and print the answer |
-| `ccc asks [CONVERSATION]` | questions between conversations, newest first (`🤖` = Claude asked) |
 | `ccc api serve [--port N]` | run the [API for the Android app](android-api.md) (normally run by `ccc-api.service`) |
 | `ccc api token [--new]` | make the token the app signs in with (shown only then); `--new` = a new one, every device is signed out |
 | `ccc api pair [--server URL] [--image [FILE]]` | show a QR code the app scans to sign in (good for 5 minutes, once); `--image` saves it as a picture instead, for when the terminal's drawing won't scan |

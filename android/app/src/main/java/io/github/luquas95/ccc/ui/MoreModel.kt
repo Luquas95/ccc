@@ -1,7 +1,6 @@
 package io.github.luquas95.ccc.ui
 
 import io.github.luquas95.ccc.data.Analytics
-import io.github.luquas95.ccc.data.AskItem
 import io.github.luquas95.ccc.data.CccApi
 import io.github.luquas95.ccc.data.CccSettings
 import io.github.luquas95.ccc.data.Goals
@@ -29,14 +28,13 @@ private const val TERMINAL_REFRESH_MS = 1_000L
 /** Conversation [id]'s Claude Code as last seen; [error] when it can't be shown. */
 data class TerminalState(val id: Int, val terminal: io.github.luquas95.ccc.data.Terminal? = null, val error: String? = null)
 
-/** A conversation's reviews, goals, workflows and questions. */
+/** A conversation's reviews, goals and workflows. */
 data class AgentsState(
     val id: Int,
     val reviews: Reviews? = null,
     val goals: Goals? = null,
     val workflows: Workflows? = null,
     val templates: List<WorkflowTemplate> = emptyList(),
-    val asks: List<AskItem>? = null,
 )
 
 /**
@@ -90,8 +88,7 @@ class MoreModel(
             val reviews = api.reviews(id)
             val goals = api.goals(id)
             val workflows = api.workflows(id)
-            val asks = api.asks(id)
-            _agents.update { if (it?.id == id) it.copy(reviews = reviews, goals = goals, workflows = workflows, asks = asks) else it }
+            _agents.update { if (it?.id == id) it.copy(reviews = reviews, goals = goals, workflows = workflows) else it }
         }
     }
 
@@ -120,10 +117,6 @@ class MoreModel(
     fun answerWorkflow(approve: Boolean, note: String) = agentAction { api, id -> api.answerWorkflow(id, approve, note) }
 
     fun stopWorkflow() = agentAction { api, id -> api.stopWorkflow(id) }
-
-    fun ask(to: Int, question: String, deliver: Boolean) = agentAction { api, id -> api.ask(id, to, question, deliver) }
-
-    fun cancelAsk(askId: Int) = agentAction { api, _ -> api.cancelAsk(askId) }
 
     // --- routines ----------------------------------------------------------------------------
 

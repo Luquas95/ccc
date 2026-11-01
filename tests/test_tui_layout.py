@@ -62,7 +62,7 @@ async def test_every_view_highlights_its_own_nav_item(tmp_path):
         for key, view in [("d", "dashboard"), ("c", "conversations"), ("s", "sessions"), ("a", "analytics")]:
             await pilot.press(key)
             await pilot.pause()
-            active = [w.id for w in app.screen.query(".nav-item.-active")]
+            active = [w.id for w in app.screen.query(".nav-button.-current")]
             assert active == [f"nav-{view}"]
 
 
@@ -113,7 +113,7 @@ async def test_sidebar_buttons_stay_out_of_focus_chain(tmp_path):
         await pilot.pause()
         await pilot.press("s")  # the dashboard has no buttons
         await pilot.pause()
-        buttons = list(app.screen.query("#sidebar Button"))
+        buttons = list(app.screen.query("#sidebar Button.sidebar-button"))
         assert buttons
         assert not any(b.can_focus for b in buttons)
         assert not isinstance(app.focused, Button)
@@ -128,15 +128,15 @@ async def test_sidebar_buttons_are_only_the_views_own_actions(tmp_path):
         "d": [],  # only an overview
         "s": ["Add prompt (+)", "Reload session list (r)"],
         "a": [],
-        "h": [],  # Archive: nothing to start from there
-        "c": ["New conversation (n)", "Retry blocked queue (r)"],
+        "h": ["Filter (f)"],  # Archive: nothing to start from there, only the filter
+        "c": ["Filter (f)", "New conversation (n)", "Archive (x)", "Retry blocked queue (r)"],
     }
     async with app.run_test() as pilot:
         await pilot.pause()
         for key, labels in expected.items():
             await pilot.press(key)
             await pilot.pause()
-            assert [str(b.label) for b in app.screen.query("#sidebar Button")] == labels, key
+            assert [str(b.label) for b in app.screen.query("#sidebar Button.sidebar-button")] == labels, key
 
 
 @pytest.mark.asyncio

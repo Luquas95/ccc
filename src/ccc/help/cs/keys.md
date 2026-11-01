@@ -64,7 +64,6 @@ uvádějí výchozí klávesy.
 | `v` | Nechat její změny zkontrolovat nezávislým recenzentem (jednou, nebo dokud neprojde) |
 | `g` | Smyčka k cíli: kola práce, kontroly a recenze, dokud není cíl splněný |
 | `w` | Workflow: plán, schválení, stavba, kontrola, paralelní recenze, rozhodčí |
-| `k` | Zeptat se jiné konverzace; odpověď se vrátí jako zpráva |
 | `Ctrl+J` | Nový řádek v poli pro zprávu (Shift+Enter, kde funguje) |
 | `Alt+1` | Přednastavený prompt 1–9 (⏎ odešle, ✎ vloží do pole pro zprávu; nastavíš v Nastavení) |
 | `Alt+2` | Přednastavený prompt 2 |
@@ -135,13 +134,6 @@ uvádějí výchozí klávesy.
 | `Ctrl+S` | Spustit workflow |
 | `Esc` | Zavřít |
 
-## Otázky (k)
-
-| Klávesa | |
-|---|---|
-| `Ctrl+S` | Odeslat otázku |
-| `Esc` | Zavřít |
-
 ## Okno schválení (p)
 
 | Klávesa | |
@@ -177,7 +169,6 @@ uvádějí výchozí klávesy.
 | `v` | Nechat její změny zkontrolovat nezávislým recenzentem (jednou, nebo dokud neprojde) |
 | `g` | Smyčka k cíli: kola práce, kontroly a recenze, dokud není cíl splněný |
 | `w` | Workflow: plán, schválení, stavba, kontrola, paralelní recenze, rozhodčí |
-| `k` | Zeptat se jiné konverzace; odpověď se vrátí jako zpráva |
 | `r` | Zablokovaná: znovu spustit selhaný úkol / pokračovat po pauze na limitu |
 
 ## Editor přednastaveného promptu (Nastavení → Přidat / Upravit)

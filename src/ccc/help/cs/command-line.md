@@ -48,8 +48,6 @@ ccc-tui`); změněné v Nastavení platí hned.
 | `ccc workflow approve KONVERZACE` / `reject KONVERZACE` | odpoví na krok, na kterém běh čeká (`--note "…"` pro další krok) |
 | `ccc workflow stop KONVERZACE` | zastaví její workflow |
 | `ccc workflow import SOUBOR` / `export ŠABLONA SLOŽKA` / `delete ŠABLONA` | vlastní šablony jako JSON |
-| `ccc ask OD KOMU "OTÁZKA"` | jedna konverzace [se zeptá druhé](asking.md) (id nebo názvy); `--no-deliver` = nepředávat odpověď do OD, `--wait` = počkat a vypsat odpověď |
-| `ccc asks [KONVERZACE]` | otázky mezi konverzacemi od nejnovější (`🤖` = ptal se Claude) |
 | `ccc api serve [--port N]` | spustí [API pro aplikaci pro Android](android-api.md) (normálně ho spouští `ccc-api.service`) |
 | `ccc api token [--new]` | vytvoří token, kterým se aplikace přihlásí (ukáže se jen tehdy); `--new` = nový, všechna zařízení se odhlásí |
 | `ccc api pair [--server URL] [--image [SOUBOR]]` | ukáže QR kód, kterým se aplikace přihlásí (platí 5 minut, jednou); `--image` ho uloží jako obrázek, když se kód z terminálu nečte |

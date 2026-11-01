@@ -205,16 +205,6 @@ class CccApi(
 
     suspend fun stopWorkflow(id: Int): Workflows = post("conversations/$id/workflows/stop", "{}")
 
-    suspend fun asks(id: Int): List<AskItem> = get("conversations/$id/asks")
-
-    suspend fun ask(id: Int, to: Int, question: String, deliver: Boolean): List<AskItem> =
-        post("conversations/$id/asks", body("to" to JsonPrimitive(to), "question" to JsonPrimitive(question),
-            "deliver" to JsonPrimitive(deliver)))
-
-    suspend fun cancelAsk(askId: Int) {
-        post<Unit>("asks/$askId/cancel", "{}")
-    }
-
     // --- routines, live sessions, analytics, settings ---------------------------------------
 
     suspend fun routines(): Routines = get("routines")

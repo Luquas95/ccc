@@ -99,7 +99,7 @@ async def test_archive_moves_it_to_the_archive_view_and_x_restores(storage):
         await pilot.press("h")  # the Archive tab
         await pilot.pause()
         assert isinstance(app.screen, ArchiveScreen)
-        assert app.screen.query_one("#nav-archive").has_class("-active")
+        assert app.screen.query_one("#nav-archive").has_class("-current")
         table = app.screen.query_one("#conversation-queue-list", DataTable)
         assert [n.strip() for n in _names(table)] == ["b"]
         await pilot.press("x")

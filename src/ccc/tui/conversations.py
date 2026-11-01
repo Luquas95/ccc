@@ -22,6 +22,8 @@ from ccc.transcript import TranscriptEvent, find_transcript_path, parse_transcri
 from ccc.tui import cli_pane
 from ccc.tui.claude_pane import ClaudePane
 from ccc.tui.layout import (
+    ARCHIVE_BUTTON,
+    FILTER_BUTTON,
     NEW_CONVERSATION_BUTTON,
     RETRY_BUTTON,
     ConfirmModal,
@@ -97,10 +99,12 @@ class ConversationsScreen(SidebarScreen):
         keymap.binding("screen.back", "back", _("Back"), show=False),
         keymap.binding("screen.retry", "retry_queue", _("Retry / resume"), show=False),
         keymap.binding("conversations.tasks", "tasks", _("Tasks")),
-        keymap.binding("conversations.archive", "toggle_archive", _("Archive")),
+        # Its button is in the sidebar (ARCHIVE_BUTTON), not in the footer.
+        keymap.binding("conversations.archive", "toggle_archive", _("Archive"), show=False),
         # No Ctrl+D (delete): it exits Claude Code (#31).
         keymap.binding("conversations.search", "search", _("Search")),
-        keymap.binding("conversations.filter", "filter", _("Filter")),
+        # Its button is above the list (FILTER_BUTTON), not in the footer.
+        keymap.binding("conversations.filter", "filter", _("Filter"), show=False),
         keymap.binding("conversations.group", "group", _("Group")),
         keymap.binding("conversations.next_group", "next_group", _("Next group"), show=False),
         keymap.binding("conversations.prev_group", "prev_group", _("Previous group"), show=False),
@@ -108,7 +112,6 @@ class ConversationsScreen(SidebarScreen):
         keymap.binding("screen.review", "review", _("Review")),
         keymap.binding("screen.goal", "goal", _("Goal")),
         keymap.binding("screen.workflow", "workflow", _("Workflow")),
-        keymap.binding("screen.ask", "ask", _("Ask")),
         keymap.binding("conversations.approve", "approve", _("Approve")),
         # While Claude Code is open beside ccc — listed in the key strip;
         # pressed in the Claude pane they're tmux's (cli_pane.key_bindings,
@@ -300,13 +303,16 @@ class ConversationsScreen(SidebarScreen):
         self._filter_kept: int | None = None
 
     def sidebar_buttons(self):
-        return [NEW_CONVERSATION_BUTTON, RETRY_BUTTON]
+        return [NEW_CONVERSATION_BUTTON, ARCHIVE_BUTTON, RETRY_BUTTON]
 
     def retry_target(self):
         return self.storage.find_queue(self._current_queue_id) if self._current_queue_id is not None else None
 
+    def top_sidebar_buttons(self):
+        return [FILTER_BUTTON]
+
     def compose_sidebar_section(self):
-        yield Static(_("Queues"), id="conversation-list-label", classes="sidebar-label")
+        yield self._make_button(FILTER_BUTTON)
         # Disabled while hidden: the screen's first focus would land in it.
         yield Input(placeholder=_("name, folder · ! ? x *"), id="conversation-filter", disabled=True)
         yield ConversationList(id="conversation-queue-list", classes="sidebar-list")
@@ -368,9 +374,6 @@ class ConversationsScreen(SidebarScreen):
         for _id, label in rows:
             table.add_row(label)
         self.query_one("#conversation-filter-empty", Static).display = self._filter.active and not rows
-        text = self.query_one("#conversation-filter", Input).value.strip()
-        self.query_one("#conversation-list-label", Static).update(
-            _("Queues · filter: {text}").format(text=text) if self._filter.active else _("Queues"))
 
     def _list_rows(self) -> list[tuple[int | str, Text]]:
         """The list's rows: group headings (ccc.groups) and the

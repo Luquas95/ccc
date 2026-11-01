@@ -100,9 +100,6 @@ phone via Remote Control.
 - **Workflows** (`w`) — a chain of agents on one task: planner, your
   approval, the build, a check, reviewers in parallel and an arbiter, with
   bounded rounds back to the build; your own templates as JSON.
-- **Conversations ask each other** (`k`, or Claude by itself through the
-  ccc tool `ask_conversation`) — the answer comes back as the next
-  message; never blocking, no circles.
 - **Your own keyboard shortcuts** — every key can be changed (Settings or
   `ccc keys`), each new one is checked for collisions with ccc, Claude
   Code and the terminal first; export / import them as `ccc-keys.json`.
@@ -177,7 +174,6 @@ Language):
 - [Reviews](src/ccc/help/review.md)
 - [Goal loop](src/ccc/help/goal.md)
 - [Workflows](src/ccc/help/workflows.md)
-- [Conversations asking each other](src/ccc/help/asking.md)
 - [Archive](src/ccc/help/archive.md)
 - [Usage limits & blocked queues](src/ccc/help/limits.md)
 - [Approving tool calls](src/ccc/help/approvals.md)

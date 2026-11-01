@@ -264,7 +264,6 @@ private fun App(model: AppViewModel) {
             AgentsScreen(
                 state = it,
                 name = nameOf(screen.id),
-                others = home.conversations.filter { c -> c.id != screen.id },
                 firstTab = screen.tab,
                 snackbar = snackbar,
                 actions = AgentsActions(
@@ -277,8 +276,6 @@ private fun App(model: AppViewModel) {
                     workflow = more::startWorkflow,
                     answer = more::answerWorkflow,
                     stopWorkflow = more::stopWorkflow,
-                    ask = more::ask,
-                    cancelAsk = more::cancelAsk,
                 ),
             )
         }

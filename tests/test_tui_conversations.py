@@ -603,8 +603,6 @@ async def test_f_filters_the_list_by_name_and_state_esc_cancels(tmp_path, monkey
         await pilot.pause()
         assert _list_names(app) == ["Dokumentace"]
         assert app.screen._current_queue_id == docs.id  # follows the first result
-        label = str(app.screen.query_one("#conversation-list-label", Static).render())
-        assert "filter: dokumentace" in label
 
         box.value = "x"
         await pilot.pause()
@@ -624,7 +622,6 @@ async def test_f_filters_the_list_by_name_and_state_esc_cancels(tmp_path, monkey
         assert len(_list_names(app)) == 3
         assert not app.screen.query_one("#conversation-filter-empty").display
         assert not app.screen.has_class("-filter-open")
-        assert str(app.screen.query_one("#conversation-list-label", Static).render()) == "Queues"
 
 
 @pytest.mark.asyncio

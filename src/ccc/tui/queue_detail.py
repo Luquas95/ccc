@@ -343,7 +343,6 @@ class QueueDetailScreen(SidebarScreen):
         keymap.binding("screen.review", "review", _("Review")),
         keymap.binding("screen.goal", "goal", _("Goal")),
         keymap.binding("screen.workflow", "workflow", _("Workflow")),
-        keymap.binding("screen.ask", "ask", _("Ask")),
         keymap.binding("queue_detail.revert", "revert_run", _("Revert run")),
     ]
 

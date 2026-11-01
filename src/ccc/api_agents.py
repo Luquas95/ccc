@@ -1,6 +1,5 @@
 """The agents part of ccc's HTTP API (see ccc.api): reviews (v in the
-TUI), goal loops (g), workflows (w) and conversations asking each other
-(k). The same functions as the TUI's windows; the daemon runs them.
+TUI), goal loops (g) and workflows (w). The same functions as the TUI's windows; the daemon runs them.
 
 GET  /api/v1/conversations/{id}/reviews      its reviews, newest first; POST {"instructions", "until_pass", "rounds"}
 POST /api/v1/conversations/{id}/reviews/stop
@@ -9,14 +8,12 @@ GET  /api/v1/conversations/{id}/goals        its goals; POST {"goal", "check", "
 GET  /api/v1/workflow-templates              the templates with their steps
 GET  /api/v1/conversations/{id}/workflows    its runs with their steps; POST {"template", "task", "check", "rounds"}
 POST /api/v1/conversations/{id}/workflows/answer  {"approve": bool, "note"} at a gate; POST …/workflows/stop
-GET  /api/v1/conversations/{id}/asks         questions to / from it; POST {"to", "question", "deliver"}
-POST /api/v1/asks/{id}/cancel
 """
 from __future__ import annotations
 
 from http import HTTPStatus
 
-from ccc import asks, goals, reviews, workflows
+from ccc import goals, reviews, workflows
 from ccc.api_common import ApiError, iso, route, text_of
 from ccc.i18n import _
 from ccc.models import Verdict, WorkflowStatus
@@ -68,9 +65,6 @@ class AgentEndpoints:
                HTTPStatus.CREATED),
             ok(r"/conversations/(\d+)/workflows/answer", lambda ids, q, b: self.answer_workflow(*ids, b), "POST"),
             ok(r"/conversations/(\d+)/workflows/stop", lambda ids, q, b: self.stop_workflow(*ids), "POST"),
-            ok(r"/conversations/(\d+)/asks", lambda ids, q, b: self.asks(*ids)),
-            ok(r"/conversations/(\d+)/asks", lambda ids, q, b: self.ask(*ids, b), "POST", HTTPStatus.CREATED),
-            ok(r"/asks/(\d+)/cancel", lambda ids, q, b: self.cancel_ask(*ids), "POST"),
         ]
 
     # --- reviews -------------------------------------------------------------------
@@ -240,47 +234,3 @@ class AgentEndpoints:
         self._queue(queue_id)
         workflows.stop(self.storage, queue_id)
         return self.workflows(queue_id)
-
-    # --- conversations asking each other ------------------------------------------------------
-
-    def asks(self, queue_id: int) -> list[dict]:
-        """Questions this conversation asked (outgoing) or was asked, newest first."""
-        self._queue(queue_id)
-        names = {q.id: q.name for q in self.storage.list_queues()}
-        found = []
-        for a in self.storage.list_asks(queue_id):
-            outgoing = a.from_queue_id == queue_id
-            other = a.to_queue_id if outgoing else a.from_queue_id
-            found.append({
-                "id": a.id,
-                "outgoing": outgoing,
-                "other_id": other,
-                "other_name": names.get(other, "?"),
-                "by_agent": a.by_agent,
-                "status": a.status.value,
-                "status_label": _(asks.STATUS_LABELS[a.status]),
-                "question": a.question,
-                "answer": a.answer,
-                "error": a.error,
-                "can_cancel": outgoing and a.status.value == "asked",
-                "created_at": iso(a.created_at),
-            })
-        return found
-
-    def ask(self, queue_id: int, body: dict) -> list[dict]:
-        """{"to": id, "question", "deliver": bool}: the answer comes back as a message."""
-        self._queue(queue_id)
-        target = body.get("to")
-        if not isinstance(target, int) or isinstance(target, bool):
-            raise ApiError(HTTPStatus.BAD_REQUEST, _("Choose the conversation to ask."))
-        _started(asks.ask, self.storage, queue_id, target, text_of(body, "question"),
-                 deliver=_flag(body, "deliver", True))
-        return self.asks(queue_id)
-
-    def cancel_ask(self, ask_id: int) -> dict:
-        found = self.storage.find_ask(ask_id)
-        if found is None:
-            raise ApiError(HTTPStatus.NOT_FOUND, _("No such question."))
-        if not asks.cancel(self.storage, ask_id):
-            raise ApiError(HTTPStatus.CONFLICT, _("This question can't be cancelled any more."))
-        return {"cancelled": ask_id}

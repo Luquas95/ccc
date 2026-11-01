@@ -59,7 +59,7 @@ port).
 ## V aplikaci
 
 Všechno, co umí okno ccc, upravené pro telefon: konverzace, fronta
-úkolů, běhy a diffy, recenze, cíle, workflow, otázky, rutiny, živé
+úkolů, běhy a diffy, recenze, cíle, workflow, rutiny, živé
 relace, analytika, nastavení — a Claude Code interaktivní konverzace
 živě, s klávesami pro jeho nabídky.
 
@@ -197,7 +197,6 @@ jen to, co platí pro obě strany.
 | `GET /conversations/{id}/goals` | její [smyčky k cíli](goal.md); `POST` jednu spustí `{"goal", "check", "rounds"}`; `POST …/goals/stop` |
 | `GET /workflow-templates` | šablony [workflow](workflows.md) s jejich kroky |
 | `GET /conversations/{id}/workflows` | její běhy workflow, každý s kroky a tím, co řekl každý agent; `POST` jeden spustí `{"template", "task", "check", "rounds"}`; `POST …/workflows/answer` `{"approve", "note"}` u schvalovacího kroku; `POST …/workflows/stop` |
-| `GET /conversations/{id}/asks` | [otázky](asking.md) od ní a pro ni; `POST` se zeptá jiné `{"to", "question", "deliver"}`; `POST /asks/{id}/cancel` |
 | `GET /routines` | všechny [rutiny](routines.md) a druhy plánu; `POST` přidá `{"conversation_id", "name", "prompt", "kind", "value", "fresh"}`; `POST /routines/{id}` ji změní, `DELETE` smaže; `POST …/enabled` `{"enabled"}`, `POST …/run` |
 | `GET /live-sessions` | [relace Claude Code](live-sessions.md) běžící na počítači (`kind`, `status`, `state` tak, jak je pojmenoval Claude Code, a `kind_label`, `status_label`, `state_label` v jazyce požadavku); `POST /live-sessions/{id}/prompt` `{"prompt"}` |
 | `GET /analytics?year=&month=` | tokeny měsíce po dnech, modelech a konverzacích, měsíce s daty ([Analytika](analytics.md)); `POST /analytics/archive` archivuje skončené měsíce hned |

@@ -3,7 +3,7 @@ package io.github.luquas95.ccc.data
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** Reviews, goals, workflows, questions, routines, live sessions, analytics and settings (src/ccc/api_agents.py, api_views.py). */
+/** Reviews, goals, workflows, routines, live sessions, analytics and settings (src/ccc/api_agents.py, api_views.py). */
 
 /** The answer of POST /pair: the token of this phone's own device. */
 @Serializable
@@ -111,22 +111,6 @@ data class WorkflowRun(
 
 @Serializable
 data class Workflows(val active: Boolean = false, val waiting: Boolean = false, val runs: List<WorkflowRun> = emptyList())
-
-@Serializable
-data class AskItem(
-    val id: Int,
-    val outgoing: Boolean,
-    @SerialName("other_id") val otherId: Int,
-    @SerialName("other_name") val otherName: String,
-    @SerialName("by_agent") val byAgent: Boolean = false,
-    val status: String,
-    @SerialName("status_label") val statusLabel: String = "",
-    val question: String,
-    val answer: String = "",
-    val error: String = "",
-    @SerialName("can_cancel") val canCancel: Boolean = false,
-    @SerialName("created_at") val createdAt: String? = null,
-)
 
 @Serializable
 data class RoutineKind(val kind: String, val label: String, val hint: String = "")

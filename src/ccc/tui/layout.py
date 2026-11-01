@@ -15,7 +15,7 @@ from rich.text import Text
 from textual.css.query import NoMatches
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen, Screen
-from textual.widgets import Button, Footer, Rule, Static
+from textual.widgets import Button, Footer, Static
 
 from ccc import keymap
 from ccc.i18n import _
@@ -56,6 +56,12 @@ NEW_CONVERSATION_BUTTON = SidebarButton(
     "sidebar-new-conversation", _("New conversation ({key})"), "green", "new_conversation",
     "views.new_conversation",
 )
+
+# Above the conversation list: opens the filter (f).
+FILTER_BUTTON = SidebarButton("sidebar-filter", _("Filter ({key})"), "teal", "filter", "conversations.filter")
+# Under New conversation: archives the selected conversation (x).
+ARCHIVE_BUTTON = SidebarButton("sidebar-archive", _("Archive ({key})"), "teal", "toggle_archive",
+                               "conversations.archive")
 
 STATUS_STYLES = {
     QueueStatus.IDLE: "dim",
@@ -193,7 +199,7 @@ Button.-active {
 Button.modal-submit, Button.workflow-ok, Button.sidebar-button-green {
     background: $ccc-button-ok;
 }
-Button.modal-cancel, Button.settings-danger, Button.review-danger, Button.goal-danger, Button.ask-danger,
+Button.modal-cancel, Button.settings-danger, Button.review-danger, Button.goal-danger,
 Button.routines-danger, Button.workflow-danger, Button.sidebar-button-red {
     background: $ccc-button-danger;
 }
@@ -221,6 +227,26 @@ Button.sidebar-button-green.-active {
 Button.sidebar-button-red.-active {
     border-top: tall #5f0000;
     border-bottom: tall #ff5f5f;
+}
+/* The main menu (Dashboard … Analytics): blue ($ccc-nav…, tui.theme), style 061 of the
+   button demo (wide border, 2D, three rows high); the open view is lighter. In a short
+   window (SidebarScreen.-short) one row each, so the list and the buttons still fit. */
+Button.nav-button {
+    width: 100%;
+    height: 3;
+    border: wide $ccc-nav-border;
+    background: $ccc-nav;
+}
+Button.nav-button:hover {
+    background: $ccc-nav-hover;
+}
+Button.nav-button.-current {
+    background: $ccc-nav-hover;
+    border: wide $ccc-nav-border-current;
+}
+SidebarScreen.-short Button.nav-button {
+    height: 1;
+    border: none;
 }
 Button.sidebar-button:disabled {
     border-top: tall $panel;
@@ -263,38 +289,13 @@ SidebarScreen #update-state {
 SidebarScreen #update-state:hover {
     text-style: underline;
 }
-SidebarScreen .sidebar-title {
-    padding: 1 1 0 1;
-    text-style: bold;
-    color: $accent;
-}
-SidebarScreen .sidebar-rule {
-    color: $ccc-frame;
-    margin: 0 0 1 0;
-}
 SidebarScreen .sidebar-label {
     padding: 0 1 1 1;
     text-style: bold;
     color: $text-muted;
 }
-/* A bar on the left marks the open view; the others keep the same room. */
-SidebarScreen .nav-item {
-    padding: 0 1;
-    height: 1;
-    border-left: outer $ccc-sidebar;
-}
-SidebarScreen .nav-item:hover {
-    background: $boost;
-}
-SidebarScreen .nav-item.-active {
-    background: $ccc-selection;
-    border-left: outer $accent;
-    color: white;
-    text-style: bold;
-}
 SidebarScreen #sidebar-nav {
     height: auto;
-    margin-bottom: 1;
 }
 SidebarScreen #sidebar-section {
     height: 1fr;
@@ -433,6 +434,10 @@ class SidebarScreen(Screen):
     def sidebar_buttons(self) -> list[SidebarButton]:
         return []
 
+    def top_sidebar_buttons(self) -> list[SidebarButton]:
+        """Buttons a screen puts itself, in compose_sidebar_section (above its list)."""
+        return []
+
     def retry_target(self) -> Queue | None:
         """The queue the retry button acts on (the selected one)."""
         return None
@@ -442,16 +447,15 @@ class SidebarScreen(Screen):
     def compose(self):
         nav_items = []
         for key, label in VIEWS:
-            item = Static(self._nav_text(key, label), id=f"nav-{key}", classes="nav-item")
+            item = Button(self._nav_text(key, label), id=f"nav-{key}", classes="nav-button")
+            item.can_focus = False  # like the other sidebar buttons: their keys do it
             if key == self.VIEW:
-                item.add_class("-active")
+                item.add_class("-current")
             nav_items.append(item)
         yield Horizontal(
             Vertical(
-                Static("ccc", classes="sidebar-title"),
                 Static("", id="daemon-state"),
                 Static("", id="update-state"),
-                Rule(classes="sidebar-rule"),
                 Vertical(*nav_items, id="sidebar-nav"),
                 Vertical(*self.compose_sidebar_section(), id="sidebar-section"),
                 *[self._make_button(b) for b in self.sidebar_buttons()],
@@ -532,8 +536,8 @@ class SidebarScreen(Screen):
         keys = self._keys()
         for view, label in VIEWS:
             for item in self.query(f"#nav-{view}"):
-                item.update(self._nav_text(view, label))
-        for spec in self.sidebar_buttons():
+                item.label = self._nav_text(view, label)
+        for spec in [*self.top_sidebar_buttons(), *self.sidebar_buttons()]:
             for button in self.query(f"#{spec.id}"):
                 button.label = spec.text(keys)
 
@@ -545,13 +549,17 @@ class SidebarScreen(Screen):
         button.can_focus = False
         return button
 
-    def on_click(self, event) -> None:
-        widget = event.widget
-        if widget is not None and widget.has_class("nav-item") and widget.id:
-            self.action_goto(widget.id.removeprefix("nav-"))
+    SHORT_WINDOW = 36  # rows: below it the main menu's buttons are one row each
+
+    def on_resize(self, event) -> None:
+        self.set_class(event.size.height < self.SHORT_WINDOW, "-short")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        for button in self.sidebar_buttons():
+        if event.button.has_class("nav-button") and event.button.id:
+            event.stop()
+            self.action_goto(event.button.id.removeprefix("nav-"))
+            return
+        for button in [*self.top_sidebar_buttons(), *self.sidebar_buttons()]:
             if event.button.id == button.id:
                 event.stop()
                 getattr(self, f"action_{button.action}")()
@@ -661,16 +669,6 @@ class SidebarScreen(Screen):
             self.notify(_("Select a conversation first."), severity="warning")
             return
         self.app.push_screen(WorkflowModal(self.storage, queue_id))
-
-    def action_ask(self) -> None:
-        """Ask another conversation a question (ccc.asks)."""
-        from ccc.tui.ask import AskModal
-
-        queue_id = self.selected_queue_id()
-        if queue_id is None:
-            self.notify(_("Select a conversation first."), severity="warning")
-            return
-        self.app.push_screen(AskModal(self.storage, queue_id))
 
     def action_routines(self) -> None:
         from ccc.tui.routines import RoutinesModal
