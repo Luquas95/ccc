@@ -4,9 +4,9 @@ service's section in Settings; saved at once with Ctrl+S."""
 from __future__ import annotations
 
 from rich.text import Text
-from textual.containers import Container, VerticalScroll
+from textual.containers import Container, Horizontal, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import Checkbox, Static
+from textual.widgets import Button, Checkbox, Static
 
 from ccc import keymap
 from ccc.i18n import _
@@ -22,11 +22,13 @@ class NotifyCategoriesModal(ModalScreen):
     DEFAULT_CSS = MODAL_CSS.format(cls="NotifyCategoriesModal") + """
     NotifyCategoriesModal > Container {
         width: 100;
+        max-width: 100%;
+        max-height: 100%;
+        padding: 0 2;
     }
     NotifyCategoriesModal VerticalScroll {
         height: auto;
-        max-height: 18;
-        margin-bottom: 1;
+        max-height: 14;
     }
     /* One line per kind; focus is shown by the label, not a frame. */
     NotifyCategoriesModal Checkbox {
@@ -71,13 +73,22 @@ class NotifyCategoriesModal(ModalScreen):
         box = Container(
             Static(_("Which messages {service} gets:").format(service=SERVICE_NAMES[self.channel]), classes="modal-label"),
             VerticalScroll(*rows),
-            Static(_("Each service has its own choice. Ctrl+S save  ·  Esc cancel"), classes="modal-hint"),
+            Static(_("Each service has its own choice."), classes="modal-hint"),
+            Horizontal(
+                Button(_("Cancel"), id="notify-cancel", classes="modal-cancel"),
+                Button(_("Save"), id="notify-save", classes="modal-submit"),
+                classes="modal-buttons",
+            ),
         )
         box.border_title = _("{service} notifications").format(service=SERVICE_NAMES[self.channel])
         yield box
 
     def on_mount(self) -> None:
         self.query_one(Checkbox).focus()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        event.stop()
+        (self.action_save if event.button.id == "notify-save" else self.action_cancel)()
 
     def action_save(self) -> None:
         set_category_states(self.storage, self.channel,
