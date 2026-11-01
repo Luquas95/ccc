@@ -437,7 +437,7 @@ class Api(AgentEndpoints, ViewEndpoints):
                 {
                     "index": i,
                     "kind": e.kind,
-                    "text": e.text,
+                    "text": i18n.retranslate(e.text) if e.kind == "tool_result" else e.text,
                     "time": iso(e.timestamp),
                     "tool_use_id": e.tool_use_id,
                     "detail": e.detail,
@@ -586,7 +586,7 @@ class Api(AgentEndpoints, ViewEndpoints):
                 "result": i18n.retranslate(run.result_text),
                 "error": i18n.retranslate(run.error_text),
                 "commit": run.git_commit,
-                "git_note": run.git_note,
+                "git_note": i18n.retranslate(run.git_note),
                 "reverted_by": run.reverted_by,
             }
             for run in self.storage.runs_for_queue(queue_id)
@@ -603,7 +603,7 @@ class Api(AgentEndpoints, ViewEndpoints):
         from ccc.diff_comments import parse
 
         if not run.git_commit:
-            raise ApiError(HTTPStatus.CONFLICT, run.git_note or _("This run made no commit."))
+            raise ApiError(HTTPStatus.CONFLICT, i18n.retranslate(run.git_note) or _("This run made no commit."))
         queue = self._queue(run.queue_id)
         # As everywhere in ccc: git only where Claude may run commands anyway (see gitops).
         if not gitops.claude_can_run_commands(queue) or not gitops._COMMIT.match(run.git_commit):

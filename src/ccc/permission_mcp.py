@@ -21,7 +21,7 @@ import sys
 import threading
 import time
 
-from ccc.i18n import _
+from ccc.i18n import N_, _
 from ccc.notify import CAT_ATTENTION, Notifier
 from ccc.storage import Storage
 
@@ -30,7 +30,7 @@ TOOL_NAME = "approve"
 ASK_TOOL = "ask_conversation"
 FALLBACK_PROTOCOL = "2024-11-05"
 POLL_SECONDS = 1.0
-DENY_MESSAGE = "Denied by the user in ccc."
+DENY_MESSAGE = N_("Denied by the user in ccc.")  # English for Claude; the API shows it translated
 
 _TOOL = {
     "name": TOOL_NAME,
