@@ -158,6 +158,22 @@ async def test_dragging_selects_text_and_copies_it():
 
 
 @pytest.mark.asyncio
+async def test_ctrl_shift_c_copies_the_selection_and_never_reaches_the_command():
+    app = Host(["sh", "-c", "printf 'hello world'; sleep 5"])
+    copied = []
+    async with app.run_test(size=(40, 6)) as pilot:
+        pane = app.query_one(TerminalPane)
+        app.copy_to_clipboard = copied.append
+        await wait_for(pane, "hello world")
+        await pilot.pause(0.2)
+        await pilot.press("ctrl+shift+c")  # no selection: nothing
+        assert copied == []
+        pane._selection = ((0, 0), (4, 0))
+        await pilot.press("ctrl+shift+c")
+        assert copied == ["hello"]
+
+
+@pytest.mark.asyncio
 async def test_clipboard_sequence_from_the_command_reaches_the_clipboard():
     app = Host(["sh", "-c", r"printf '\033]52;c;aGVsbG8=\007'; printf 'ok'; sleep 5"])
     copied = []

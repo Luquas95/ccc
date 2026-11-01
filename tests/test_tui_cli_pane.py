@@ -248,7 +248,11 @@ def test_copy_and_paste_keys_on_the_ccc_server(tmux):
     assert ("bind-key", "-n", "C-S-v", "paste-buffer", "-p") in tmux.calls
     # Ctrl+Shift+C outside a selection does nothing — never Ctrl+C (interrupt) to Claude.
     root_copy = next(c for c in tmux.calls if c[:3] == ("bind-key", "-n", "C-S-c"))
-    assert root_copy[3:] == ("if-shell", "-F", "#{pane_in_mode}", "send-keys -X copy-pipe-and-cancel", "")
+    assert root_copy[3:6] == ("if-shell", "-F", "#{pane_in_mode}")
+    assert root_copy[6] == "send-keys -X copy-pipe-and-cancel"
+    # In ccc's own pane it's handed on to the TUI as CSI u (ctrl+shift+c), nowhere else.
+    assert root_copy[7] == cli_pane.COPY_KEY_TO_CCC
+    assert "@ccc-title" in root_copy[7] and "99;6u" in root_copy[7]
 
 
 def test_clipboard_left_alone_on_a_foreign_tmux(tmux, monkeypatch):
