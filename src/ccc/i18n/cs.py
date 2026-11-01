@@ -1469,7 +1469,7 @@ CS: dict[str, str] = {
     "A pull request is a number or a URL.": "Pull request je číslo nebo URL.",
     "ccc API: a wrong pairing code from {ip}.": "ccc API: špatný párovací kód z adresy {ip}.",
     "ccc API: a request with a wrong token from {ip}.": "ccc API: požadavek se špatným tokenem z adresy {ip}.",
-    "ccc API: {name} ({role}) asked for the folder {folder}, which is not allowed. Allow it with: ccc api roots --add {folder}": "ccc API: {name} ({role}) chtělo složku {folder}, která není povolená. Povolíte ji příkazem: ccc api roots --add {folder}",
+    "ccc API: {name} ({role}) asked for the folder {folder}, which is not allowed. If it is yours, review it in `ccc api log` and allow it on the computer.": "ccc API: {name} ({role}) chtělo složku {folder}, která není povolená. Pokud je vaše, zkontrolujte ji v `ccc api log` a povolte na počítači.",
     "ccc API: {name} ({role}) tried {method} {path}, which its role does not allow.": "ccc API: {name} ({role}) zkusilo {method} {path}, což jeho role nedovoluje.",
     "ccc API: a new device was paired: {name} ({role}) from {ip}.": "ccc API: spárovalo se nové zařízení: {name} ({role}) z adresy {ip}.",
     "What the devices did: changes, refusals and pairings (newest last)": "Co zařízení dělala: změny, odmítnutí a párování (nejnovější naposled)",

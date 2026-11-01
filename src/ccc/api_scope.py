@@ -14,6 +14,7 @@ the sessions of a folder, the MCP servers of a folder."""
 from __future__ import annotations
 
 import os
+import shlex
 from http import HTTPStatus
 from pathlib import Path
 
@@ -71,7 +72,7 @@ class FolderNotAllowed(ApiError):
     """403 because the folder is outside the allowed roots (not because of the device's role)."""
 
     def __init__(self, folder: str):
-        super().__init__(HTTPStatus.FORBIDDEN, _("The API may not use this folder. Allow it on the computer: ccc api roots --add {path}").format(path=folder))
+        super().__init__(HTTPStatus.FORBIDDEN, _("The API may not use this folder. Allow it on the computer: ccc api roots --add {path}").format(path=shlex.quote(folder)))
         self.folder = folder
 
 

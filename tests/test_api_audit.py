@@ -128,9 +128,11 @@ def test_a_refused_folder_is_not_reported_as_a_role_problem_and_once(server, sto
     api_scope.remove_root(storage, "/")  # the fixture opens everything
     for typed in ("/nowhere/a", "/nowhere/ab", "/nowhere/abc"):
         status, result = _call(f"{base}/api/v1/mcp-servers?path={typed}", token)
-        assert status == 403 and "ccc api roots --add" in result["error"]
+        assert status == 403 and "ccc api roots --add" in result["error"]  # the app shows this
     entries = storage.list_audit()
     assert len(entries) == 1 and entries[0]["detail"] == "folder not allowed: /nowhere/a"
+    assert _call(f"{base}/api/v1/conversations", token, "POST", {"path": "/nowhere/z"})[0] == 403
+    assert len(storage.list_audit()) == 2  # a refused change is never collapsed
     assert len(sent) == 1 and "folder /nowhere/a" in sent[0] and "role does not allow" not in sent[0]
 
 

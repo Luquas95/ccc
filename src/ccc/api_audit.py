@@ -32,7 +32,7 @@ def worth_logging(method: str, status: int) -> bool:
     return method != "GET" or status in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN)
 
 
-_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]")  # control and invisible/bidi characters
 
 
 def clean(text: str, limit: int = 300) -> str:
@@ -57,21 +57,22 @@ def record_folder_denied(storage, device, ip: str, method: str, path: str, folde
     """Log a request for a folder outside the allowed roots, with the reason; the same device only once
     per ALARM_GAP_SECONDS (a phone asks again at every letter typed). True when logged."""
     moment = time.monotonic() if now is None else now
-    key = (device.id if device else None,)  # not the folder: typing a path asks for every prefix of it
-    with _lock:
-        if moment - _seen_folders.get(key, -1e9) < ALARM_GAP_SECONDS:
-            return False
-        if len(_seen_folders) > 500:
-            _seen_folders.clear()
-        _seen_folders[key] = moment
+    if method == "GET":  # only reads are collapsed: a refused change (POST) is always logged
+        key = (device.id if device else None,)  # not the folder: typing a path asks for every prefix of it
+        with _lock:
+            if moment - _seen_folders.get(key, -1e9) < ALARM_GAP_SECONDS:
+                return False
+            if len(_seen_folders) > 500:
+                _seen_folders.clear()
+            _seen_folders[key] = moment
     record(storage, device, ip, method, path, HTTPStatus.FORBIDDEN, "folder not allowed: " + folder)
     return True
 
 
 def alarm_folder_denied(storage, device, folder: str) -> None:
     if device is not None:
-        alarm(storage, f"folder-{device.id}", _("ccc API: {name} ({role}) asked for the folder {folder}, which is not allowed. Allow it with: ccc api roots --add {folder}").format(
-            name=device.name, role=device.role, folder=clean(folder)))
+        alarm(storage, f"folder-{device.id}", _("ccc API: {name} ({role}) asked for the folder {folder}, which is not allowed. If it is yours, review it in `ccc api log` and allow it on the computer.").format(
+            name=clean(device.name, 60), role=device.role, folder=clean(folder)))
 
 
 def alarm(storage, kind: str, text: str, now: float | None = None, category: str = CAT_SECURITY) -> bool:
