@@ -4,10 +4,12 @@
 #               ANDROID_KEYSTORE_B64 / _PASSWORD / ANDROID_KEY_ALIAS);
 #   ccc.tar.gz  ccc (the TUI, daemon and API) as a Python sdist, its version stamped
 #               from the tag;
-#   ccc_all.deb the system package (/usr/lib/ccc) with SHA256SUMS and SHA256SUMS.asc (signed with
-#               ccc's release key, secret RELEASE_SIGNING_KEY). The shared APT repository Icenux
-#               (github.com/Luquas95/icenux) takes the package from here, so installed copies
-#               update with `apt upgrade`.
+#   ccc_all.deb the system package (/usr/lib/ccc), built and tested here but NOT attached:
+#               the release key never leaves the maintainer's machine, so
+#               ccc-deb-sign-upload.sh X.Y.Z (~/Documents/CC/bin) downloads the "deb" artifact
+#               of this run, signs SHA256SUMS locally and attaches ccc_all.deb, SHA256SUMS and
+#               SHA256SUMS.asc together. The shared APT repository Icenux
+#               (github.com/Luquas95/icenux) takes the package from there.
 # A release made by hand with the tag is kept; an artifact already published is never replaced.
 name: Release
 
@@ -138,16 +140,10 @@ jobs:
           sudo tar -xzf /tmp/nfpm.tgz -C /usr/local/bin nfpm
         env:
           GH_TOKEN: ${{ github.token }}
-      - name: Build and sign the package
-        env:
-          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+      - name: Build the package
         run: |
           packaging/build.sh "$GITHUB_REF_NAME"
           packaging/package.sh "$GITHUB_REF_NAME"
-          export GNUPGHOME="$RUNNER_TEMP/gnupg"
-          install -d -m 700 "$GNUPGHOME"
-          printf '%s\n' "$RELEASE_SIGNING_KEY" | gpg --batch --quiet --import
-          packaging/sign.sh
       - uses: actions/upload-artifact@v4
         with:
           name: deb
@@ -179,22 +175,3 @@ jobs:
           ccc --help > /dev/null
           test "$(cat /usr/lib/ccc/install-kind)" = deb
           /usr/lib/ccc/venv/bin/python -c "import ccc, ccc.daemon, ccc.help; print(ccc.__version__)"
-
-  deb:
-    needs: [release, deb-test]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: deb
-          path: rel
-      - name: Publish
-        run: |
-          if gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name' | grep -qx ccc_all.deb; then
-            echo "Release $GITHUB_REF_NAME already has ccc_all.deb; not replacing it." >&2
-            exit 1
-          fi
-          gh release upload "$GITHUB_REF_NAME" rel/ccc_all.deb rel/SHA256SUMS rel/SHA256SUMS.asc
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}

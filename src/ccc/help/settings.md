@@ -232,3 +232,10 @@ messages) off; the window shows what failed when GitHub can't be reached.
 (or keeps one made by hand), runs the tests, stamps the tag into
 `ccc.__version__` and attaches `ccc.tar.gz`, and builds and attaches the signed
 `ccc.apk`. An artifact already on a release is never replaced.
+
+The same run builds and tests the system package (`ccc_all.deb`, for the
+Icenux APT repository) but does not attach it: the signing key stays on the
+maintainer's machine (`.release-signing/` in the checkout, not in git). When the
+run is green, `~/Documents/CC/bin/ccc-deb-sign-upload.sh 0.2.0` downloads the
+package, signs `SHA256SUMS` and attaches `ccc_all.deb`, `SHA256SUMS` and
+`SHA256SUMS.asc` to the release; Icenux takes the package from there.

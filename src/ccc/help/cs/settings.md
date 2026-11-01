@@ -237,3 +237,10 @@ vypne; když GitHub není dostupný, okno ukáže, co selhalo.
 ponechá to, které jsi založil ručně), spustí testy, vepíše tag do
 `ccc.__version__` a přiloží `ccc.tar.gz`, a sestaví a přiloží podepsané
 `ccc.apk`. Artefakt, který už je u vydání, se nikdy nenahrazuje.
+
+Stejný běh sestaví a otestuje i systémový balíček (`ccc_all.deb`, pro APT
+repozitář Icenux), ale nepřiloží ho: podpisový klíč zůstává na počítači
+správce (`.release-signing/` v checkoutu, mimo git). Až je běh zelený,
+`~/Documents/CC/bin/ccc-deb-sign-upload.sh 0.2.0` balíček stáhne, podepíše
+`SHA256SUMS` a k vydání přiloží `ccc_all.deb`, `SHA256SUMS` a
+`SHA256SUMS.asc`; Icenux si balíček vezme odtud.
