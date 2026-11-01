@@ -127,3 +127,10 @@ def test_retranslate_shows_a_stored_text_in_the_current_language(czech):
     assert i18n.retranslate(None) is None
     i18n.set_language("en")
     assert i18n.retranslate(CS[english]) == english
+
+
+def test_retranslate_covers_the_run_note_and_the_denied_approval(czech):
+    # Issue #187: both texts are stored/sent in English and shown in the phone's language.
+    for english in ("no changes", "Denied by the user in ccc.",
+                    "not committed: auto-commit only runs in 'Skip all permission checks' conversations"):
+        assert i18n.retranslate(english) == CS[english] != english

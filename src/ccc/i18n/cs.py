@@ -563,6 +563,8 @@ CS: dict[str, str] = {
         "Pro pokračování stiskni r nebo pošli zprávu v ccc.",
     "not committed: auto-commit only runs in 'Skip all permission checks' conversations":
         "necommitnuto: automatický commit běží jen v konverzacích s 'Přeskočit všechny kontroly oprávnění'",
+    # Sent to Claude as a tool result when an approval is denied (permission_mcp.DENY_MESSAGE); the API shows it translated.
+    "Denied by the user in ccc.": "Zamítnuto uživatelem v ccc.",
     "✅ {name}: queue finished.": "✅ {name}: fronta doběhla.",
     "session is no longer running (closed or crashed)": "relace už neběží (zavřená nebo spadla)",
     "delivery to live terminal failed": "doručení do živého terminálu selhalo",
