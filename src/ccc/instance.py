@@ -48,7 +48,8 @@ def attach_command() -> list[str]:
         return _tmux("attach-session", "-t", SESSION)
     # Not running (service not installed / stopped): start it the way the
     # service does, attached.
-    return _tmux("new-session", "-s", SESSION, "-c", str(PROJECT_DIR), tui_loop())
+    start_dir = PROJECT_DIR if (PROJECT_DIR / ".git").exists() else Path.home()  # the package has no checkout
+    return _tmux("new-session", "-s", SESSION, "-c", str(start_dir), tui_loop())
 
 
 def attach() -> None:

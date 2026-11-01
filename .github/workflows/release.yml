@@ -3,7 +3,13 @@
 #   ccc.apk     the Android app, signed with the release key (secrets
 #               ANDROID_KEYSTORE_B64 / _PASSWORD / ANDROID_KEY_ALIAS);
 #   ccc.tar.gz  ccc (the TUI, daemon and API) as a Python sdist, its version stamped
-#               from the tag.
+#               from the tag;
+#   ccc_all.deb the system package (/usr/lib/ccc), built and tested here but NOT attached:
+#               the release key never leaves the maintainer's machine, so
+#               ccc-deb-sign-upload.sh X.Y.Z (~/Documents/CC/bin) downloads the "deb" artifact
+#               of this run, signs SHA256SUMS locally and attaches ccc_all.deb, SHA256SUMS and
+#               SHA256SUMS.asc together. The shared APT repository Icenux
+#               (github.com/Luquas95/icenux) takes the package from there.
 # A release made by hand with the tag is kept; an artifact already published is never replaced.
 name: Release
 
@@ -113,3 +119,59 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+
+  deb-build:
+    needs: tui-build  # the tests passed
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    env:
+      NFPM_VERSION: "2.47.0"
+      NFPM_SHA256: "0660ca602b2d2d2ae4781a06c692b3eeb9d437ffea05b831d76e41f4a3188783"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: nfpm
+        run: |
+          gh release download "v${NFPM_VERSION}" --repo goreleaser/nfpm \
+            --pattern "nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz" --output /tmp/nfpm.tgz
+          echo "${NFPM_SHA256}  /tmp/nfpm.tgz" | sha256sum -c -
+          sudo tar -xzf /tmp/nfpm.tgz -C /usr/local/bin nfpm
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Build the package
+        run: |
+          packaging/build.sh "$GITHUB_REF_NAME"
+          packaging/package.sh "$GITHUB_REF_NAME"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb
+          path: dist/release/
+          if-no-files-found: error
+
+  deb-test:
+    needs: deb-build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["ubuntu:24.04", "debian:13"]
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: deb
+          path: rel
+      - name: Install the package
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$PWD/rel/ccc_all.deb"
+          test -f /etc/apt/sources.list.d/icenux.list
+          test -f /usr/share/keyrings/icenux.asc
+          test -f /usr/lib/systemd/user/ccc.service
+      - name: ccc runs
+        run: |
+          ccc --help > /dev/null
+          test "$(cat /usr/lib/ccc/install-kind)" = deb
+          /usr/lib/ccc/venv/bin/python -c "import ccc, ccc.daemon, ccc.help; print(ccc.__version__)"

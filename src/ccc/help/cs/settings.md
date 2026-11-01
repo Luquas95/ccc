@@ -215,6 +215,10 @@ nainstalován:
   nainstalován. Odmítne — a řekne proč —, když checkout není na `main`, má
   neuložené nebo nepushnuté změny, vydání na něj nenavazuje převinutím, nebo
   běží úkol;
+- **systémový balíček** (`.deb`, `apt install ccc`): aktualizuje ho správce
+  balíčků — `sudo apt update && sudo apt upgrade` a potom
+  `systemctl --user restart ccc ccc-tui`. ccc jen oznámí, že je nové vydání;
+  *Aktualizovat teď* to vysvětlí a nic nezmění;
 - **balíček** (pip / pipx): stáhne `ccc.tar.gz` z vydání a nainstaluje ho
   pomocí `pip install` do prostředí, odkud ccc běží.
 
@@ -233,3 +237,10 @@ vypne; když GitHub není dostupný, okno ukáže, co selhalo.
 ponechá to, které jsi založil ručně), spustí testy, vepíše tag do
 `ccc.__version__` a přiloží `ccc.tar.gz`, a sestaví a přiloží podepsané
 `ccc.apk`. Artefakt, který už je u vydání, se nikdy nenahrazuje.
+
+Stejný běh sestaví a otestuje i systémový balíček (`ccc_all.deb`, pro APT
+repozitář Icenux), ale nepřiloží ho: podpisový klíč zůstává na počítači
+správce (`.release-signing/` v checkoutu, mimo git). Až je běh zelený,
+`~/Documents/CC/bin/ccc-deb-sign-upload.sh 0.2.0` balíček stáhne, podepíše
+`SHA256SUMS` a k vydání přiloží `ccc_all.deb`, `SHA256SUMS` a
+`SHA256SUMS.asc`; Icenux si balíček vezme odtud.

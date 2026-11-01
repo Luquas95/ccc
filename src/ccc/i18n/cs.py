@@ -1496,6 +1496,7 @@ CS: dict[str, str] = {
     "Can't look for the update: {error}": "Aktualizaci se nepodařilo zjistit: {error}",
     "The release has the Android app too — the phone offers it separately.": "Vydání obsahuje i Android aplikaci — telefon ji nabídne zvlášť.",
     "The release {tag} can't be reached from this checkout by a fast-forward of {main}.": "Vydání {tag} nejde z tohoto checkoutu získat převinutím (fast-forward) větve {main}.",
+    "ccc was installed from a system package — update it with: sudo apt update && sudo apt upgrade": "ccc je nainstalované ze systémového balíčku – aktualizuj ho příkazem: sudo apt update && sudo apt upgrade",
     "The update failed: {error}": "Aktualizace selhala: {error}",
     "The checkout is on branch “{branch}”, not {main}.": "Checkout je na větvi „{branch}“, ne na {main}.",
     "The checkout has uncommitted changes.": "Checkout má neuložené změny.",

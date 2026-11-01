@@ -138,6 +138,18 @@ def test_ccc_as_a_package_downloads_the_artifact_and_pip_installs_it(tmp_path, s
     assert "-m pip install --quiet --upgrade" in spawned[0] and spawned[0].endswith("restart ccc.service")
 
 
+def test_ccc_from_a_system_package_leaves_the_update_to_apt(tmp_path, storage, monkeypatch):
+    package = tmp_path / "usr-lib-ccc"
+    (package / "venv").mkdir(parents=True)
+    (package / "install-kind").write_text("deb\n")
+    monkeypatch.setattr(updates.sys, "prefix", str(package / "venv"))
+    monkeypatch.setattr(updates, "__version__", "0.1.0")
+    assert updates.installed_by_system() == "deb"
+    ok, message = updates.apply(storage, package, spawn=lambda *a: pytest.fail("apt does this"), units=lambda: [],
+                                latest=github("0.2.0"), download=lambda *a: pytest.fail("apt does this"))
+    assert not ok and "apt upgrade" in message
+
+
 def test_a_download_that_fails_changes_nothing(tmp_path, storage, monkeypatch):
     package = tmp_path / "site-packages"
     package.mkdir()

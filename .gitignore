@@ -6,3 +6,6 @@ __pycache__/
 *.db
 # monthly analytics archive (personal data, see analytics_archive.py)
 /analytics/
+dist/
+build/
+.release-signing/
